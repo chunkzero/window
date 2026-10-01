@@ -6,8 +6,9 @@ Window's rpp plugin is published to [chunkzero/rpp-registry](https://github.com/
 ## Prerequisites
 
 - An rpp release matching `RPP_VERSION` in `.github/workflows/release.yml`. Bump it when a newer rpp is required.
-- The `RPP_REGISTRY_TOKEN` repository secret: a personal access token that can fork `chunkzero/rpp-registry` and open
-  pull requests there.
+- The `RPP_APP_ID` and `RPP_APP_PRIVATE_KEY` organization secrets for chunkzero's GitHub App, which is installed on
+  `chunkzero/rpp-registry`. The workflow exchanges them for a short-lived token, and the app's bot opens the registry
+  pull request.
 
 ## Cut a release
 
