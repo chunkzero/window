@@ -9,9 +9,9 @@ server. If you rename a button in the UI, the server code stops compiling instea
 Inventory UIs support real items, scrolling collections, paging, toggles, choices, tooltips, and native anvil text
 input. HUDs are positioned with core shaders and update live from the server.
 
-> [!WARNING]
-> Window is early alpha software (`0.1.0-alpha.0`). There are known bugs, and the TypeScript API, generated Kotlin, and
-> runtime will change in breaking ways between releases. Pin a version and expect to update your UIs when you upgrade.
+> [!WARNING] Window is early alpha software (`0.1.0-alpha.0`). There are known bugs, and the TypeScript API, generated
+> Kotlin, and runtime will change in breaking ways between releases. Pin a version and expect to update your UIs when
+> you upgrade.
 
 ## How it works
 
