@@ -23,9 +23,16 @@ jobs:
         run: rustup show
       - run: rustup target add wasm32-wasip2
       - run: just plugin
+      - id: registry-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RPP_APP_ID }}
+          private-key: ${{ secrets.RPP_APP_PRIVATE_KEY }}
+          owner: chunkzero
+          repositories: rpp-registry
       # Pin to an rpp release tag once rpp has releases.
       - uses: chunkzero/rpp/.github/actions/publish-plugin@main
         with:
           rpp-version: ${{ env.RPP_VERSION }}
           working-directory: plugin
-          registry-token: ${{ secrets.RPP_REGISTRY_TOKEN }}
+          registry-token: ${{ steps.registry-token.outputs.token }}
