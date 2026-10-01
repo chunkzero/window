@@ -1,0 +1,396 @@
+//! Layout intermediate representation — the pinned seam between the
+//! frontend (authoring + layout) and the backend (compose + font + bake +
+//! manifest).
+//!
+//! Everything here is fully resolved: absolute GUI-space rects, concrete
+//! texture paths, no remaining theme references.
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use crate::geometry::{Insets, Rect};
+use crate::inventory::{InventorySlotRef, SlotRectClaim};
+use crate::model::GeneratedStyle;
+use crate::surface::Surface;
+
+/// Horizontal text alignment within a slot's reserved width.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Align {
+    /// Anchor to the left edge.
+    #[default]
+    Left,
+    /// Center within the reserved width.
+    Center,
+    /// Anchor to the right edge.
+    Right,
+}
+
+/// Server/client channel a HUD is sent through before any optional shader
+/// relocation. These are deliberately the vanilla surfaces that work without
+/// core shaders.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HudChannel {
+    /// `Player#sendActionBar` / action-bar packets.
+    #[default]
+    ActionBar,
+    /// Adventure bossbar name text.
+    BossBar,
+    /// Scoreboard sidebar title/lines.
+    Sidebar,
+}
+
+impl HudChannel {
+    /// Stable id used in authoring and the manifest.
+    pub const fn id(self) -> &'static str {
+        match self {
+            HudChannel::ActionBar => "actionbar",
+            HudChannel::BossBar => "bossbar",
+            HudChannel::Sidebar => "sidebar",
+        }
+    }
+}
+
+/// Optional core-shader relocation settings for a HUD.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HudShader {
+    /// Source surface top y-offset from the bottom of the GUI, in GUI pixels.
+    /// The generated shader moves text vertices in this source surface band.
+    pub source_bottom: i32,
+    /// Normalized target origin in GUI space: 0.0 = left, 1.0 = right.
+    pub origin_x: f32,
+    /// Normalized target origin in GUI space: 0.0 = top, 1.0 = bottom.
+    pub origin_y: f32,
+    /// Normalized point inside the HUD surface placed on the target origin.
+    pub anchor_x: f32,
+    /// Normalized point inside the HUD surface placed on the target origin.
+    pub anchor_y: f32,
+    /// X nudge from the normalized target origin, in GUI pixels.
+    pub offset_x: i32,
+    /// Y nudge from the normalized target origin, in GUI pixels.
+    pub offset_y: i32,
+}
+
+/// An sRGB color.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Rgb {
+    /// Red channel.
+    pub r: u8,
+    /// Green channel.
+    pub g: u8,
+    /// Blue channel.
+    pub b: u8,
+}
+
+impl Rgb {
+    /// The vanilla inventory-title gray (`#404040`), the default text color.
+    pub const DEFAULT_TEXT: Rgb = Rgb { r: 0x40, g: 0x40, b: 0x40 };
+
+    /// Construct an RGB color.
+    pub const fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
+
+    /// Parse `#rrggbb` (case-insensitive).
+    pub fn parse_hex(s: &str) -> Option<Self> {
+        let hex = s.strip_prefix('#')?;
+        if hex.len() != 6 {
+            return None;
+        }
+        let v = u32::from_str_radix(hex, 16).ok()?;
+        Some(Rgb { r: (v >> 16) as u8, g: (v >> 8) as u8, b: v as u8 })
+    }
+
+    /// Format as lowercase `#rrggbb`.
+    pub fn to_hex(self) -> String {
+        format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
+    }
+}
+
+/// A button's built-in behavior when no handler logic is needed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ButtonDefault {
+    /// Closing the window is an acceptable default handler.
+    Close,
+}
+
+/// Tooltip content for a button or hotspot.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ButtonTooltip {
+    /// Tooltip title/name.
+    pub title: String,
+    /// Additional lore lines.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lines: Vec<String>,
+}
+
+/// A named inventory item state for a button.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ButtonState {
+    /// Optional item model id, e.g. `example:gui/shop_button_active`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item_model: Option<String>,
+    /// Optional Window sprite id rendered across the button rect for this state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sprite: Option<String>,
+    /// Optional tooltip override for this state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tooltip: Option<ButtonTooltip>,
+}
+
+/// A texture reference: the pack-source-relative path of a PNG.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct TextureKey(pub String);
+
+/// One static drawing operation, in paint order.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Draw {
+    /// Stretch a 9-slice frame over `dest`.
+    NineSlice {
+        /// Source texture.
+        texture: TextureKey,
+        /// Fixed border widths within the source texture.
+        insets: Insets,
+        /// Destination rect in GUI space.
+        dest: Rect,
+    },
+    /// Blit a whole texture at its intrinsic size.
+    Sprite {
+        /// Source texture.
+        texture: TextureKey,
+        /// Destination rect in GUI space (size == intrinsic size).
+        dest: Rect,
+    },
+    /// Render a generated theme style directly at `dest`.
+    Generated {
+        /// Procedural style to rasterize.
+        style: GeneratedStyle,
+        /// Destination rect in GUI space.
+        dest: Rect,
+    },
+}
+
+impl Draw {
+    /// The destination rect of this draw.
+    pub fn dest(&self) -> &Rect {
+        match self {
+            Draw::NineSlice { dest, .. } | Draw::Sprite { dest, .. } | Draw::Generated { dest, .. } => dest,
+        }
+    }
+
+    /// The source texture of this draw, when it is bitmap-backed.
+    pub fn texture(&self) -> Option<&TextureKey> {
+        match self {
+            Draw::NineSlice { texture, .. } | Draw::Sprite { texture, .. } => Some(texture),
+            Draw::Generated { .. } => None,
+        }
+    }
+}
+
+/// A positioned text region: a dynamic slot, or a static label
+/// (`text == Some(_)`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SlotIr {
+    /// Unique name within the window. Static labels get generated names
+    /// (`label_0`, `label_1`, … in document order).
+    pub name: String,
+    /// `Some` for static labels; `None` for dynamic slots.
+    pub text: Option<String>,
+    /// Reserved text rect; height is always 8 (one vanilla text line).
+    pub rect: Rect,
+    /// Horizontal alignment within `rect`.
+    pub align: Align,
+    /// Text color.
+    pub color: Rgb,
+    /// Whether the text renders with a shadow.
+    pub shadow: bool,
+    /// Whether the text renders bold.
+    pub bold: bool,
+    /// Whether the text renders italic.
+    pub italic: bool,
+    /// Whether the text renders underlined.
+    pub underlined: bool,
+    /// Whether the text renders with strikethrough.
+    pub strikethrough: bool,
+    /// Whether the text renders obfuscated.
+    pub obfuscated: bool,
+    /// Repeater metadata for grouped codegen, if this slot was emitted by a
+    /// repeated template.
+    pub repeat: Option<RepeatBindingIr>,
+}
+
+/// A runtime-positioned sprite region.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SpriteSlotIr {
+    /// Unique name within the window.
+    pub name: String,
+    /// Reserved sprite rect in GUI space.
+    pub rect: Rect,
+    /// Horizontal alignment within `rect`.
+    pub align: Align,
+    /// Fixed sprite id, or `None` when the runtime must bind this slot.
+    pub sprite: Option<String>,
+    /// Repeater metadata for grouped codegen, if this sprite slot was emitted
+    /// by a repeated template.
+    pub repeat: Option<RepeatBindingIr>,
+}
+
+/// A positioned clickable region.
+///
+/// A button distinguishes two slot sets. Its **click slots** are the slots whose
+/// clicks route to it; its **fill slots** are the slots it paints with its own
+/// hitbox/state item. Fill slots are the click slots minus [`Self::yielded_slots`],
+/// which a repeater cell uses to hand one of its slots to a child item control so
+/// the item's real stack (and its native tooltip) survives.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ButtonIr {
+    /// Unique name within the window (shared namespace with slots).
+    pub name: String,
+    /// Clickable rect in GUI space.
+    pub rect: Rect,
+    /// Explicit backing inventory slots whose clicks route here, if authored.
+    /// `None` means derive from the visual rect.
+    pub slots: Option<Vec<InventorySlotRef>>,
+    /// Click slots this button must not fill because another control owns their
+    /// stacks. Always a subset of the resolved click slots.
+    pub yielded_slots: Vec<InventorySlotRef>,
+    /// Optional built-in default behavior.
+    pub default: Option<ButtonDefault>,
+    /// Whether codegen/runtime should expect a click handler.
+    pub action: bool,
+    /// Default tooltip shown for this region.
+    pub tooltip: Option<ButtonTooltip>,
+    /// Named inventory item states.
+    pub states: BTreeMap<String, ButtonState>,
+    /// Repeater metadata for grouped codegen, if this button was emitted by a
+    /// repeated template.
+    pub repeat: Option<RepeatBindingIr>,
+}
+
+/// A dynamic inventory item region.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ItemIr {
+    /// Unique name within the window.
+    pub name: String,
+    /// Backing inventory slots populated by the runtime.
+    pub slots: Vec<InventorySlotRef>,
+    /// Repeater metadata for grouped codegen, if this item was emitted by a
+    /// repeated template.
+    pub repeat: Option<RepeatBindingIr>,
+}
+
+/// A dynamic repeated inventory item region.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CollectionIr {
+    /// Unique name within the window.
+    pub name: String,
+    /// Backing inventory slots, one cell per slot in authoring order.
+    pub slots: Vec<InventorySlotRef>,
+    /// Whether codegen/runtime should expect a click handler.
+    pub action: bool,
+    /// Repeater metadata for grouped codegen, if this collection was emitted by
+    /// a repeated template.
+    pub repeat: Option<RepeatBindingIr>,
+}
+
+/// A native anvil text-input binding.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AnvilInputIr {
+    /// Unique input name within the window.
+    pub name: String,
+    /// Initial text placed into the vanilla rename field.
+    pub initial: String,
+    /// Optional item model used by the input-slot seed item.
+    pub item_model: Option<String>,
+}
+
+/// A static slot-frame primitive that may also claim backing slots without a
+/// generated Kotlin binding.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SlotRectIr {
+    /// Unique name within the window.
+    pub name: String,
+    /// Backing inventory slots covered by the primitive.
+    pub slots: Vec<InventorySlotRef>,
+    /// Claim/clear semantics.
+    pub claim: SlotRectClaim,
+}
+
+/// Metadata attached to flattened controls emitted from a repeater template.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RepeatBindingIr {
+    /// Repeater group name.
+    pub group: String,
+    /// Repeated child field name, if this is a named child. `None` means the
+    /// cell/root control itself.
+    pub field: Option<String>,
+    /// Zero-based cell index in authoring order.
+    pub index: u32,
+}
+
+/// A fully laid-out window, ready for the backend.
+#[derive(Clone, Debug)]
+pub struct LaidOutWindow {
+    /// Window name (manifest key).
+    pub name: String,
+    /// Target surface.
+    pub surface: Surface,
+    /// Static draws in paint order (back to front).
+    pub draws: Vec<Draw>,
+    /// Text regions (dynamic slots and static labels), document order.
+    pub slots: Vec<SlotIr>,
+    /// Runtime sprite regions, document order.
+    pub sprite_slots: Vec<SpriteSlotIr>,
+    /// Clickable regions, document order.
+    pub buttons: Vec<ButtonIr>,
+    /// Dynamic inventory item regions, document order.
+    pub items: Vec<ItemIr>,
+    /// Dynamic repeated inventory item regions, document order.
+    pub collections: Vec<CollectionIr>,
+    /// Native text inputs, document order. Anvil surfaces support one.
+    pub inputs: Vec<AnvilInputIr>,
+    /// Drawn slot-rectangle primitives with optional non-binding slot claims.
+    pub slot_rects: Vec<SlotRectIr>,
+    /// Non-fatal findings to surface to the user (e.g. overlay overflow).
+    pub warnings: Vec<String>,
+}
+
+/// A fully laid-out HUD, ready for the backend.
+#[derive(Clone, Debug)]
+pub struct LaidOutHud {
+    /// HUD name (manifest key).
+    pub name: String,
+    /// Vanilla transport channel.
+    pub channel: HudChannel,
+    /// Fixed line/canvas width in GUI pixels. Runtime-composed HUD components
+    /// always claim this width so actionbar/bossbar/sidebar centering remains
+    /// stable across updates.
+    pub width: u32,
+    /// Informational canvas height in GUI pixels.
+    pub height: u32,
+    /// Optional shader relocation settings.
+    pub shader: Option<HudShader>,
+    /// Static draws in paint order (back to front).
+    pub draws: Vec<Draw>,
+    /// Text regions (dynamic slots and static labels), document order.
+    pub slots: Vec<SlotIr>,
+    /// Non-fatal findings to surface to the user.
+    pub warnings: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rgb_hex_round_trip() {
+        let c = Rgb::parse_hex("#FFd700").unwrap();
+        assert_eq!(c, Rgb { r: 0xff, g: 0xd7, b: 0x00 });
+        assert_eq!(c.to_hex(), "#ffd700");
+        assert!(Rgb::parse_hex("ffd700").is_none());
+        assert!(Rgb::parse_hex("#ffd70").is_none());
+    }
+}

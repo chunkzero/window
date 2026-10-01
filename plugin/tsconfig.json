@@ -1,0 +1,11 @@
+{
+  "extends": "./.rpp/tsconfig.json",
+  "compilerOptions": {
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "erasableSyntaxOnly": true,
+    "declaration": true,
+    "isolatedDeclarations": true
+  },
+  "include": ["src/**/*.ts", ".rpp/generated/*.d.ts", ".rpp/sdk/globals.d.ts"]
+}

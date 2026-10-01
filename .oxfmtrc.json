@@ -1,0 +1,6 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 120,
+  "proseWrap": "always",
+  "ignorePatterns": ["**/AGENTS.md", "**/CLAUDE.md", "**/generated/**", "pnpm-lock.yaml", "Cargo.lock"]
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "isolatedDeclarations": false,
+    "declaration": false,
+    "paths": {
+      "#rpp": ["../.rpp/sdk/index.ts"],
+      "#rpp/config": ["../.rpp/sdk/config.ts"],
+      "#plugins/window": ["../src/config.ts"]
+    }
+  },
+  "include": ["**/*.ts", "../src/**/*.ts"]
+}

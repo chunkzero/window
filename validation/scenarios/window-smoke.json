@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "name": "window-smoke",
+  "evidence": "Window opened its production container through Minestom with generated assets and the released inspector installed",
+  "target": {
+    "type": "server",
+    "command": [
+      "${JAVA}",
+      "-jar",
+      "${SERVER_JAR}",
+      "--port",
+      "${PORT}",
+      "--manifest",
+      "${MANIFEST}",
+      "--descriptor",
+      "${DESCRIPTOR}",
+      "--report",
+      "${OUTPUT}/window-runtime.json"
+    ],
+    "ready_pattern": "WINDOW_VALIDATION_SERVER_READY",
+    "startup_timeout_seconds": 45,
+    "shutdown_timeout_seconds": 10
+  },
+  "client": {
+    "framebuffer": {
+      "width": 1280,
+      "height": 720
+    },
+    "gui_scale": 2,
+    "timeout_ticks": 600,
+    "suppress_toasts": true
+  },
+  "steps": [
+    { "type": "start" },
+    { "type": "wait_for_screen", "screen": "container" },
+    { "type": "assert_screen", "screen_class": "ContainerScreen" },
+    {
+      "type": "window:assert_descriptor",
+      "namespace": "window",
+      "id": "window-descriptor"
+    },
+    {
+      "type": "window:wait_frame",
+      "surface_kind": "window",
+      "semantic_id": "probe",
+      "reason": "open",
+      "id": "window-frame-open"
+    },
+    {
+      "type": "window:assert_layer",
+      "layer": "window/probe/static",
+      "font": "window:ui",
+      "min_glyphs": 1,
+      "tolerance": 2,
+      "id": "window-static-observation"
+    },
+    {
+      "type": "window:capture_layer",
+      "layer": "window/probe/static",
+      "font": "window:ui",
+      "id": "window-static-layer"
+    },
+    {
+      "type": "window:assert_layer",
+      "layer": "window/probe/slot/probe_text",
+      "font": "window:y46",
+      "min_glyphs": 1,
+      "tolerance": 2,
+      "id": "window-text-initial-observation"
+    },
+    {
+      "type": "window:capture_layer",
+      "layer": "window/probe/slot/probe_text",
+      "font": "window:y46",
+      "id": "window-text-initial-layer"
+    },
+    {
+      "type": "window:assert_layer",
+      "layer": "window/probe/sprite/probe_sprite",
+      "font": "window:sprite_y14",
+      "min_glyphs": 1,
+      "tolerance": 2,
+      "id": "window-sprite-observation"
+    },
+    {
+      "type": "window:capture_layer",
+      "layer": "window/probe/sprite/probe_sprite",
+      "font": "window:sprite_y14",
+      "id": "window-sprite-layer"
+    },
+    { "type": "assert_inventory_slot", "inventory": "container", "slot": 0, "item": "minecraft:paper" },
+    { "type": "assert_inventory_slot", "inventory": "hotbar", "slot": 0, "item": "minecraft:paper" },
+    { "type": "click_slot", "slot": 0 },
+    {
+      "type": "wait_for_server_event",
+      "event": "click.received",
+      "details": {
+        "control": "container",
+        "area": "container",
+        "slot": "0",
+        "shift": "false",
+        "right": "false"
+      }
+    },
+    {
+      "type": "window:wait_frame",
+      "surface_kind": "window",
+      "semantic_id": "probe",
+      "reason": "reactive_update",
+      "id": "window-frame-reactive"
+    },
+    {
+      "type": "window:assert_layer",
+      "layer": "window/probe/slot/probe_text",
+      "font": "window:y46",
+      "min_glyphs": 1,
+      "tolerance": 2,
+      "id": "window-text-reactive-observation"
+    },
+    {
+      "type": "window:capture_layer",
+      "layer": "window/probe/slot/probe_text",
+      "font": "window:y46",
+      "id": "window-text-reactive-layer"
+    },
+    { "type": "click_slot", "slot": 0, "button": 1 },
+    {
+      "type": "wait_for_server_event",
+      "event": "click.received",
+      "details": {
+        "control": "container",
+        "right": "true"
+      }
+    },
+    { "type": "click_slot", "slot": 0, "click_type": "quick_move" },
+    {
+      "type": "wait_for_server_event",
+      "event": "click.received",
+      "details": {
+        "control": "container",
+        "shift": "true"
+      }
+    },
+    { "type": "assert_inventory_slot", "inventory": "container", "slot": 5, "item": "minecraft:diamond" },
+    { "type": "assert_inventory_slot", "inventory": "container", "slot": 7, "item": "minecraft:emerald" },
+    { "type": "checkpoint", "id": "window-card" },
+    { "type": "screenshot", "id": "window-card-item" },
+    { "type": "click_slot", "slot": 5 },
+    {
+      "type": "wait_for_server_event",
+      "event": "card.clicked",
+      "details": {
+        "cell": "0",
+        "area": "container",
+        "slot": "5"
+      }
+    },
+    { "type": "click_slot", "slot": 16 },
+    {
+      "type": "wait_for_server_event",
+      "event": "card.clicked",
+      "details": {
+        "cell": "1",
+        "area": "container",
+        "slot": "16"
+      }
+    },
+    { "type": "click_slot", "slot": 54 },
+    {
+      "type": "wait_for_server_event",
+      "event": "click.received",
+      "details": {
+        "control": "hotbar",
+        "area": "player",
+        "slot": "0"
+      }
+    },
+    {
+      "type": "wait_for_server_event",
+      "event": "search.opened",
+      "details": {
+        "window": "search_probe"
+      }
+    },
+    { "type": "wait_for_screen", "screen": "AnvilScreen" },
+    { "type": "assert_screen", "screen_class": "AnvilScreen" },
+    {
+      "type": "window:wait_frame",
+      "surface_kind": "window",
+      "semantic_id": "search_probe",
+      "reason": "open",
+      "id": "window-frame-search"
+    },
+    { "type": "type_text", "text": "maps" },
+    {
+      "type": "wait_for_server_event",
+      "event": "input.changed",
+      "details": {
+        "input": "query",
+        "value": "maps"
+      }
+    },
+    { "type": "close_screen" },
+    {
+      "type": "wait_for_server_event",
+      "event": "hud.shown",
+      "details": {
+        "hud": "probe_hud"
+      }
+    },
+    {
+      "type": "window:wait_frame",
+      "surface_kind": "hud",
+      "semantic_id": "probe_hud",
+      "reason": "open",
+      "id": "window-frame-hud"
+    },
+    {
+      "type": "window:assert_layer",
+      "layer": "hud/probe_hud/static",
+      "font": "window:ui",
+      "min_glyphs": 1,
+      "tolerance": 2,
+      "id": "window-hud-observation"
+    },
+    {
+      "type": "capture_layer",
+      "id": "window-hud-region",
+      "source": "region",
+      "region": {
+        "x": 600,
+        "y": 16,
+        "width": 80,
+        "height": 64,
+        "coordinate_space": "framebuffer"
+      }
+    },
+    { "type": "set_gui_scale", "scale": 2 },
+    { "type": "command", "command": "validation ping" },
+    {
+      "type": "wait_for_server_event",
+      "event": "window.ping",
+      "details": {
+        "result": "ready"
+      }
+    },
+    { "type": "checkpoint", "id": "window-open" },
+    { "type": "snapshot_state", "id": "window-state" },
+    { "type": "screenshot", "id": "window" },
+    { "type": "disconnect" }
+  ]
+}

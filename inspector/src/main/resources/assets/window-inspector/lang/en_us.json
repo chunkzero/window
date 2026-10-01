@@ -1,0 +1,6 @@
+{
+  "category.window-inspector.controls": "Window Inspector",
+  "key.window-inspector.toggle": "Toggle render inspector",
+  "key.window-inspector.next_layer": "Select next semantic layer",
+  "key.window-inspector.export": "Export local render report"
+}

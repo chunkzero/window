@@ -1,0 +1,10 @@
+{
+  "name": "window",
+  "version": "0.1.0",
+  "rpp": ">=0.1.0-alpha.0",
+  "entry": "src/plugin.ts",
+  "config": "src/config.ts",
+  "components": { "compiler": "window.wasm" },
+  "discover": { "definitions": "window/**/*.ts" },
+  "overrides": ["window/**"]
+}

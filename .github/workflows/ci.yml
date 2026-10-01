@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned chunkzero/rpp main revision; switch to the release installer once rpp publishes one.
+  RPP_REV: f8c86d2409adebbaf6393fc893d58953db0ceebe
+
+jobs:
+  formatting:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: rust java just ktlint node pnpm github:google/google-java-format
+      - run: pnpm install --frozen-lockfile
+      - run: just fmt-check
+
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: rust just
+      - name: Install pinned Rust components and target
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: just ci-rust
+
+  jvm:
+    name: JVM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: java just
+      - uses: gradle/actions/setup-gradle@v4
+      - run: just ci-jvm
+
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: rust just node pnpm
+      - name: Install pinned Rust components and target
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/rpp
+          key: rpp-${{ runner.os }}-${{ env.RPP_REV }}
+      - name: Install rpp
+        run: command -v rpp || cargo install --locked --git https://github.com/chunkzero/rpp --rev "$RPP_REV" rpp-cli
+      - run: just ci-ts
+
+  golden:
+    name: Golden
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: rust just node pnpm
+      - name: Install pinned Rust components and target
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/rpp
+          key: rpp-${{ runner.os }}-${{ env.RPP_REV }}
+      - name: Install rpp
+        run: command -v rpp || cargo install --locked --git https://github.com/chunkzero/rpp --rev "$RPP_REV" rpp-cli
+      - run: pnpm install --frozen-lockfile
+      - run: just golden
+
+  inspector:
+    name: Inspector
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: java just
+      - uses: gradle/actions/setup-gradle@v4
+      - run: just ci-inspector

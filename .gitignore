@@ -1,0 +1,33 @@
+# Build output and tool caches
+/target/
+**/build/
+**/.gradle/
+**/.kotlin/
+node_modules/
+/jvm/*/bin/
+/inspector/run/
+/example/pack/dist/
+/example/pack/.rpp/
+*.class
+*.jar
+*.zip
+!gradle-wrapper.jar
+
+# Editor and agent state
+.idea/*
+!.idea/codeStyles/
+!.idea/runConfigurations/
+*.iml
+*.iws
+/out/
+.claude/
+.worktrees/
+
+# Local machine output
+.DS_Store
+._*
+*.log
+*.hprof
+hs_err_pid*
+replay_pid*
+**/*.rs.bk

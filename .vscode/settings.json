@@ -1,0 +1,35 @@
+{
+  "editor.formatOnSave": false,
+  "editor.formatOnSaveMode": "file",
+  "editor.detectIndentation": false,
+  "editor.insertSpaces": true,
+  "editor.tabSize": 4,
+  "editor.rulers": [120],
+  "files.insertFinalNewline": true,
+  "files.eol": "\n",
+  "ktlint.version": "1.8.0",
+  "customLocalFormatters.formatters": [
+    {
+      "command": "mise exec -- google-java-format --aosp -",
+      "languages": ["java"]
+    }
+  ],
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+  "[kotlin][kotlin-script]": {
+    "editor.defaultFormatter": "rnoro.vscode-ktlint-formatter",
+    "editor.formatOnSave": true
+  },
+  "[java]": {
+    "editor.defaultFormatter": "jkillian.custom-local-formatters",
+    "editor.formatOnSave": true,
+    "editor.rulers": [100]
+  },
+  "[json][jsonc][yaml][toml][markdown]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  }
+}

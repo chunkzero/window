@@ -1,0 +1,212 @@
+package dev.oglass.window.internal
+
+import dev.oglass.window.SlotArea
+import dev.oglass.window.SlotRef
+import net.kyori.adventure.text.Component
+import net.minestom.server.MinecraftServer
+import net.minestom.server.entity.Player
+import net.minestom.server.event.EventFilter
+import net.minestom.server.event.EventListener
+import net.minestom.server.event.EventNode
+import net.minestom.server.event.inventory.InventoryCloseEvent
+import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.player.PlayerAnvilInputEvent
+import net.minestom.server.event.trait.InventoryEvent
+import net.minestom.server.inventory.Inventory
+import net.minestom.server.inventory.InventoryType
+import net.minestom.server.inventory.type.AnvilInventory
+import net.minestom.server.item.ItemStack
+import net.minestom.server.network.packet.server.play.SetSlotPacket
+import org.slf4j.LoggerFactory
+import java.util.concurrent.atomic.AtomicLong
+import net.minestom.server.inventory.click.Click as MinestomClick
+
+/**
+ * Live Minestom-backed [InventoryHandle].
+ *
+ * Builds a real [Inventory] of the given [type], wires a per-session [EventNode] filtered to that
+ * inventory onto the global handler, normalises [InventoryPreClickEvent] clicks (always cancelled),
+ * and updates the title via [Inventory.setTitle].
+ */
+internal class LiveInventoryHandle(
+    private val player: Player,
+    private val type: InventoryType,
+) : InventoryHandle {
+    /** The backing inventory, valid after [open]. */
+    lateinit var inventory: Inventory
+        private set
+
+    override val containerId: Int?
+        get() = if (::inventory.isInitialized) inventory.windowId.toInt() and 0xff else null
+
+    private var node: EventNode<InventoryEvent>? = null
+    private val playerSlotSnapshots = LinkedHashMap<Int, ItemStack>()
+    private var playerSlotsTaken = false
+
+    override fun open(title: Component) {
+        inventory =
+            if (type == InventoryType.ANVIL) {
+                AnvilInventory(title)
+            } else {
+                Inventory(type, title)
+            }
+        player.openInventory(inventory)
+    }
+
+    override fun setTitle(title: Component) {
+        inventory.setTitle(title)
+    }
+
+    override fun setItem(
+        slot: SlotRef,
+        item: ItemStack,
+    ) {
+        when (slot.area) {
+            SlotArea.CONTAINER -> {
+                inventory.setItemStack(slot.index, item)
+                // A seeded anvil input makes the vanilla client synthesize a repair result and a
+                // cost of one. Window uses the anvil only as a text-input transport, so reset the
+                // property after each container update. Otherwise Minecraft draws its hard-coded
+                // repair-cost backing rectangle through the custom UI.
+                (inventory as? AnvilInventory)?.setRepairCost(0)
+            }
+
+            SlotArea.PLAYER -> {
+                takeOverPlayerSlots()
+                player.inventory.setItemStack(slot.index, item)
+                refreshOpenPlayerSlot(slot.index, item)
+            }
+        }
+    }
+
+    override fun registerListeners(
+        onClick: (ClickInfo) -> Unit,
+        onClose: () -> Unit,
+        onInput: (String) -> Unit,
+    ) {
+        val sessionNode =
+            EventNode.event(
+                "window-session-${NODE_ID.getAndIncrement()}",
+                EventFilter.INVENTORY,
+                { event -> event.inventory === inventory || event.inventory === player.inventory },
+            )
+        sessionNode.addListener(
+            EventListener
+                .builder(InventoryPreClickEvent::class.java)
+                .ignoreCancelled(false)
+                .handler { event ->
+                    event.isCancelled = true
+                    val slot = normaliseSlot(event) ?: return@handler
+                    LOGGER.trace(
+                        "Window click rawInventory=open:{} player:{} rawSlot:{} normalised={}:{}",
+                        event.inventory === inventory,
+                        event.inventory === player.inventory,
+                        event.slot,
+                        slot.area,
+                        slot.index,
+                    )
+                    onClick(normaliseClick(event.click, slot))
+                }.build(),
+        )
+        sessionNode.addListener(InventoryCloseEvent::class.java) { event ->
+            if (event.inventory !== inventory) return@addListener
+            restorePlayerSlots()
+            onClose()
+        }
+        sessionNode.addListener(PlayerAnvilInputEvent::class.java) { event ->
+            if (event.inventory !== inventory) return@addListener
+            onInput(event.input)
+        }
+        MinecraftServer.getGlobalEventHandler().addChild(sessionNode)
+        node = sessionNode
+    }
+
+    override fun close() {
+        teardownListeners()
+        restorePlayerSlots()
+        player.closeInventory()
+    }
+
+    override fun teardownListeners() {
+        node?.let { MinecraftServer.getGlobalEventHandler().removeChild(it) }
+        node = null
+    }
+
+    private fun takeOverPlayerSlots() {
+        if (playerSlotsTaken) return
+        playerSlotsTaken = true
+        for (slot in 0 until player.inventory.innerSize) {
+            playerSlotSnapshots[slot] = player.inventory.getItemStack(slot)
+            player.inventory.setItemStack(slot, ItemStack.AIR)
+            refreshOpenPlayerSlot(slot, ItemStack.AIR)
+        }
+    }
+
+    private fun restorePlayerSlots() {
+        if (!playerSlotsTaken) return
+        for ((slot, item) in playerSlotSnapshots) {
+            player.inventory.setItemStack(slot, item)
+            refreshOpenPlayerSlot(slot, item)
+        }
+        playerSlotSnapshots.clear()
+        playerSlotsTaken = false
+    }
+
+    private fun refreshOpenPlayerSlot(
+        slot: Int,
+        item: ItemStack,
+    ) {
+        val windowSlot = openWindowPlayerSlot(slot) ?: return
+        player.sendPacket(SetSlotPacket(inventory.windowId.toInt(), 0, windowSlot, item))
+    }
+
+    private fun openWindowPlayerSlot(slot: Int): Short? =
+        when (slot) {
+            in 0..8 -> (inventory.size + 27 + slot).toShort()
+            in 9 until player.inventory.innerSize -> (inventory.size + slot - 9).toShort()
+            else -> null
+        }
+
+    private fun normaliseSlot(event: InventoryPreClickEvent): SlotRef? {
+        val slot = event.slot
+        if (slot < 0) return null
+
+        return when {
+            event.inventory === inventory && slot < inventory.size -> {
+                SlotRef(SlotArea.CONTAINER, slot)
+            }
+
+            event.inventory === inventory -> {
+                playerSlot(slot - inventory.size)
+            }
+
+            event.inventory === player.inventory -> {
+                playerSlot(slot)
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
+
+    private fun playerSlot(index: Int): SlotRef? =
+        if (index in 0 until player.inventory.innerSize) SlotRef(SlotArea.PLAYER, index) else null
+
+    private fun normaliseClick(
+        click: MinestomClick,
+        slot: SlotRef,
+    ): ClickInfo =
+        when (click) {
+            is MinestomClick.Left -> ClickInfo(slot, shift = false, right = false)
+            is MinestomClick.Right -> ClickInfo(slot, shift = false, right = true)
+            is MinestomClick.LeftShift -> ClickInfo(slot, shift = true, right = false)
+            is MinestomClick.RightShift -> ClickInfo(slot, shift = true, right = true)
+            else -> ClickInfo(slot, shift = false, right = false)
+        }
+
+    private companion object {
+        val LOGGER = LoggerFactory.getLogger(LiveInventoryHandle::class.java)
+        val NODE_ID = AtomicLong()
+    }
+}

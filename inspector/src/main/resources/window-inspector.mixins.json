@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "dev.oglass.window.inspector.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["GuiGraphicsExtractorMixin"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

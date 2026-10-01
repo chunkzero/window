@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  RPP_VERSION: 0.1.0-alpha.0
+
+jobs:
+  publish:
+    name: Publish plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: rust just
+      - name: Install pinned Rust components and target
+        run: rustup show
+      - run: rustup target add wasm32-wasip2
+      - run: just plugin
+      # Pin to an rpp release tag once rpp has releases.
+      - uses: chunkzero/rpp/.github/actions/publish-plugin@main
+        with:
+          rpp-version: ${{ env.RPP_VERSION }}
+          working-directory: plugin
+          registry-token: ${{ secrets.RPP_REGISTRY_TOKEN }}

@@ -1,0 +1,23 @@
+[package]
+name = "window-rpp-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "WASM component used by the Window rpp plugin."
+
+[lib]
+name = "window_rpp_plugin"
+path = "src/lib.rs"
+# cdylib: the WASIp2 component built for rpp (wasm32-wasip2 target).
+# rlib: lets the host workspace unit-test the pure glue.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+window-core = { path = "../window-core" }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+wit-bindgen.workspace = true
