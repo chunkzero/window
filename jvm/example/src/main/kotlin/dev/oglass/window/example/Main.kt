@@ -4,12 +4,14 @@ import dev.oglass.window.HudView
 import dev.oglass.window.Windows
 import dev.oglass.window.example.generated.WindowPack
 import net.kyori.adventure.resource.ResourcePackCallback
+import net.kyori.adventure.resource.ResourcePackRequest
 import net.kyori.adventure.text.Component
-import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.Player
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
+import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.instance.block.Block
 import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Path
@@ -26,41 +28,56 @@ import java.nio.file.Path
  */
 fun main() {
     val server = MinecraftServer.init()
-
-    val instance =
-        MinecraftServer.getInstanceManager().createInstanceContainer().apply {
-            setGenerator { unit -> unit.modifier().fillHeight(0, 1, Block.GRASS_BLOCK) }
-        }
-
+    val instance = createInstance()
     val windows = WindowPack.windows()
     val market = Market()
     val serverPort = System.getProperty("window.port")?.toInt() ?: 25565
     val packPort = System.getProperty("window.pack.port")?.toInt() ?: 25567
     val packUrl = System.getProperty("window.pack.url") ?: "http://127.0.0.1:$packPort/pack.zip"
     val packServer = PackServer(resolvePackZip(), packPort, packUrl).also(PackServer::start)
-    val packRequest =
-        packServer.request(
-            Component.text("Window example requires its custom UI pack."),
-            ResourcePackCallback.onTerminal(
-                { _, audience ->
-                    val player = audience as? net.minestom.server.entity.Player
-                    if (player != null) {
-                        MinecraftServer.getSchedulerManager().scheduleNextTick {
-                            if (player.isOnline) {
-                                openExampleUi(player, windows, market)
-                            }
-                        }
-                    }
-                },
-                { _, audience ->
-                    (audience as? net.minestom.server.entity.Player)?.sendMessage(
-                        Component.text("The Window example resource pack did not load."),
-                    )
-                },
-            ),
-        )
     Runtime.getRuntime().addShutdownHook(Thread { packServer.stop() })
 
+    registerPlayerEvents(instance, createPackRequest(packServer, windows, market))
+
+    server.start("0.0.0.0", serverPort)
+    println("Window example server listening on $serverPort — pack served at $packUrl.")
+}
+
+private fun createInstance(): InstanceContainer =
+    MinecraftServer.getInstanceManager().createInstanceContainer().apply {
+        setGenerator { unit -> unit.modifier().fillHeight(0, 1, Block.GRASS_BLOCK) }
+    }
+
+private fun createPackRequest(
+    packServer: PackServer,
+    windows: Windows,
+    market: Market,
+): ResourcePackRequest =
+    packServer.request(
+        Component.text("Window example requires its custom UI pack."),
+        ResourcePackCallback.onTerminal(
+            { _, audience ->
+                val player = audience as? Player
+                if (player != null) {
+                    MinecraftServer.getSchedulerManager().scheduleNextTick {
+                        if (player.isOnline) {
+                            openExampleUi(player, windows, market)
+                        }
+                    }
+                }
+            },
+            { _, audience ->
+                (audience as? Player)?.sendMessage(
+                    Component.text("The Window example resource pack did not load."),
+                )
+            },
+        ),
+    )
+
+private fun registerPlayerEvents(
+    instance: InstanceContainer,
+    packRequest: ResourcePackRequest,
+) {
     val events = MinecraftServer.getGlobalEventHandler()
     events.addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
         event.spawningInstance = instance
@@ -70,13 +87,10 @@ fun main() {
         if (!event.isFirstSpawn) return@addListener
         packRequest.let(event.player::sendResourcePacks)
     }
-
-    server.start("0.0.0.0", serverPort)
-    println("Window example server listening on $serverPort — pack served at $packUrl.")
 }
 
 private fun openExampleUi(
-    player: net.minestom.server.entity.Player,
+    player: Player,
     windows: Windows,
     market: Market,
 ) {
@@ -97,10 +111,16 @@ private fun openExampleUi(
     if (flowDebug) {
         sendHudFlowDebug(player, windows, huds)
     }
-    if (!hudEnabled) {
-        return
+    if (hudEnabled) {
+        showHuds(player, windows, huds)
     }
+}
 
+private fun showHuds(
+    player: Player,
+    windows: Windows,
+    huds: List<HudView>,
+) {
     val sessions = huds.map { hud -> windows.show(player, hud) }
     MinecraftServer.getSchedulerManager().submitTask {
         if (!player.isOnline) {
@@ -128,41 +148,6 @@ private fun createStatusHuds(
         MyStatusLeftSideHud(),
         MyStatusRightSideHud(market),
         MyStatusBottomCenterHud(),
-    )
-
-private fun sendHudSpriteDebug(
-    player: net.minestom.server.entity.Player,
-    windows: Windows,
-) {
-    player.sendMessage(Component.text("HUD sprite debug (chat, window:ui font):"))
-    for (hudName in HUD_DEBUG_NAMES) {
-        player.sendMessage(Component.text(hudName, NamedTextColor.GRAY))
-        player.sendMessage(windows.hud(hudName).staticHud.color(NamedTextColor.WHITE))
-        repeat(8) { player.sendMessage(Component.text(" ")) }
-    }
-}
-
-private fun sendHudFlowDebug(
-    player: net.minestom.server.entity.Player,
-    windows: Windows,
-    huds: List<HudView>,
-) {
-    player.sendMessage(Component.text("HUD flow debug (chat, composed via Windows.renderHud):"))
-    for (hud in huds) {
-        player.sendMessage(Component.text(hud.hudName, NamedTextColor.GRAY))
-        player.sendMessage(windows.renderHud(player, hud))
-        repeat(8) { player.sendMessage(Component.text(" ")) }
-    }
-}
-
-private val HUD_DEBUG_NAMES =
-    listOf(
-        "status_top_center",
-        "status_top_left",
-        "status_top_right",
-        "status_left_side",
-        "status_right_side",
-        "status_bottom_center",
     )
 
 /** Locate the built resource-pack zip, or use `-Dwindow.pack=/path/to/window-example.zip`. */
