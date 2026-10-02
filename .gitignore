@@ -31,3 +31,8 @@ node_modules/
 hs_err_pid*
 replay_pid*
 **/*.rs.bk
+
+__pycache__/
+
+/dist/
+/plugin/release.json

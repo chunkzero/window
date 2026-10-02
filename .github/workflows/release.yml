@@ -3,26 +3,142 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - scripts/*release*
+      - scripts/fixtures/**
+      - scripts/publish-maven.py
+      - plugin/**
+      - crates/**
+      - jvm/**
+      - Cargo.*
+  schedule:
+    - cron: "43 5 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Release channel
+        type: choice
+        options: [nightly, release]
+        default: nightly
+      publish:
+        description: Publish verified artifacts and open a registry PR
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: window-release-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   RPP_VERSION: 0.1.0-alpha.0
 
 jobs:
-  publish:
-    name: Publish plugin
+  plan:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      build: ${{ steps.plan.outputs.build }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - run: python3 -m unittest discover -s scripts -p test_release.py
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_MODE: ${{ inputs.mode || 'release' }}
+        run: python3 scripts/release.py plan
+
+  package:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
         with:
-          install_args: rust just
-      - name: Install pinned Rust components and target
-        run: rustup show
-      - run: rustup target add wasm32-wasip2
+          install_args: rust java just
+      - uses: Swatinem/rust-cache@v2
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install released rpp
+        run: |
+          curl --fail --location --proto '=https' "https://github.com/chunkzero/rpp/releases/download/v$RPP_VERSION/install.sh" -o "$RUNNER_TEMP/install-rpp.sh"
+          sh "$RUNNER_TEMP/install-rpp.sh" "$RPP_VERSION"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: just plugin
+      - run: scripts/package-release.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: window-release
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  verify:
+    needs: [plan, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: java just
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install released rpp
+        run: |
+          curl --fail --location --proto '=https' "https://github.com/chunkzero/rpp/releases/download/v$RPP_VERSION/install.sh" -o "$RUNNER_TEMP/install-rpp.sh"
+          sh "$RUNNER_TEMP/install-rpp.sh" "$RPP_VERSION"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@v4
+        with:
+          name: window-release
+          path: dist
+      - name: Check packaged plugin and generated JVM consumer
+        run: scripts/check-release.sh
+
+  publish:
+    if:
+      github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' &&
+      inputs.publish)
+    needs: [plan, package, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          name: window-release
+          path: dist
+      - uses: chunkzero/maven-r2@v1
+        with:
+          version: v0.1.0
+      - name: Prepare verified draft assets and publish matching Maven libraries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+          MAVEN_R2_SERVER: https://maven.chunkzero.com
+          MAVEN_R2_TOKEN: ${{ secrets.MAVEN_R2_TOKEN }}
+        run: |
+          python3 scripts/release.py publish --prepare
+          tar -xzf "dist/window-$RELEASE_VERSION-maven.tar.gz" -C "$RUNNER_TEMP"
+          maven-r2 publish --repository default/releases -- \
+            python3 scripts/publish-maven.py "$RUNNER_TEMP/window-$RELEASE_VERSION-maven" "$RELEASE_VERSION"
+          curl --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            "https://maven.chunkzero.com/dev/oglass/window/window-runtime/$RELEASE_VERSION/window-runtime-$RELEASE_VERSION.pom" \
+            -o "$RUNNER_TEMP/published.pom"
+          cmp "$RUNNER_TEMP/published.pom" "$RUNNER_TEMP/window-$RELEASE_VERSION-maven/dev/oglass/window/window-runtime/$RELEASE_VERSION/window-runtime-$RELEASE_VERSION.pom"
+          python3 scripts/release.py publish
       - id: registry-token
         uses: actions/create-github-app-token@v2
         with:
@@ -30,9 +146,10 @@ jobs:
           private-key: ${{ secrets.RPP_APP_PRIVATE_KEY }}
           owner: chunkzero
           repositories: rpp-registry
-      # Pin to an rpp release tag once rpp has releases.
-      - uses: chunkzero/rpp/.github/actions/publish-plugin@main
+      - name: Open registry publication PR
+        uses: chunkzero/rpp/.github/actions/publish-plugin@7cc238988bf204f2804ff5ac4c6d34276fb002eb
         with:
           rpp-version: ${{ env.RPP_VERSION }}
-          working-directory: plugin
+          packed-directory: dist
+          release-tag: v${{ needs.plan.outputs.version }}
           registry-token: ${{ steps.registry-token.outputs.token }}
