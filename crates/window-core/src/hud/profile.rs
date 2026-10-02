@@ -1,11 +1,11 @@
 use std::fmt;
 
-use super::HudShaderRule;
 use super::renderer::{
     render_dynamic_text_intensity_fragment, render_v150_dynamic_text_background_shader,
     render_v150_dynamic_text_shader, render_v150_text_background_shader, render_v150_text_intensity_fragment,
     render_v150_text_shader, render_v330_text_background_shader, render_v330_text_shader,
 };
+use super::rule::HudShaderRule;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ShaderProfile {
