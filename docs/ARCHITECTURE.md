@@ -57,7 +57,7 @@ items render above the title artwork.
 HUD components claim exactly their authored width so vanilla centering remains stable. Shader-relocated overlays are
 individually net-zero relative to that fixed-width component. HUD origin, anchor, offsets, and source-position semantics
 live in the compiled definition. Actionbar source calibration is independent of HUD height; the version-specific
-constant is documented beside its implementation in `crates/window-core/src/hud/renderer.rs`.
+constant is documented beside its implementation in `crates/window-core/src/hud/renderer/text.rs`.
 
 ## Fonts and allocation
 
