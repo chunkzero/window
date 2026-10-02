@@ -16,10 +16,8 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.inventory.type.AnvilInventory
 import net.minestom.server.item.ItemStack
-import net.minestom.server.network.packet.server.play.SetSlotPacket
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicLong
-import net.minestom.server.inventory.click.Click as MinestomClick
 
 /**
  * Live Minestom-backed [InventoryHandle].
@@ -40,8 +38,8 @@ internal class LiveInventoryHandle(
         get() = if (::inventory.isInitialized) inventory.windowId.toInt() and 0xff else null
 
     private var node: EventNode<InventoryEvent>? = null
-    private val playerSlotSnapshots = LinkedHashMap<Int, ItemStack>()
-    private var playerSlotsTaken = false
+    private val playerSlots = PlayerSlotLease(player) { inventory }
+    private val clicks = ClickNormalizer(player) { inventory }
 
     override fun open(title: Component) {
         inventory =
@@ -72,9 +70,7 @@ internal class LiveInventoryHandle(
             }
 
             SlotArea.PLAYER -> {
-                takeOverPlayerSlots()
-                player.inventory.setItemStack(slot.index, item)
-                refreshOpenPlayerSlot(slot.index, item)
+                playerSlots.setItem(slot.index, item)
             }
         }
     }
@@ -96,7 +92,7 @@ internal class LiveInventoryHandle(
                 .ignoreCancelled(false)
                 .handler { event ->
                     event.isCancelled = true
-                    val slot = normaliseSlot(event) ?: return@handler
+                    val slot = clicks.slot(event) ?: return@handler
                     LOGGER.trace(
                         "Window click rawInventory=open:{} player:{} rawSlot:{} normalised={}:{}",
                         event.inventory === inventory,
@@ -105,12 +101,12 @@ internal class LiveInventoryHandle(
                         slot.area,
                         slot.index,
                     )
-                    onClick(normaliseClick(event.click, slot))
+                    onClick(clicks.click(event.click, slot))
                 }.build(),
         )
         sessionNode.addListener(InventoryCloseEvent::class.java) { event ->
             if (event.inventory !== inventory) return@addListener
-            restorePlayerSlots()
+            playerSlots.restore()
             onClose()
         }
         sessionNode.addListener(PlayerAnvilInputEvent::class.java) { event ->
@@ -123,7 +119,7 @@ internal class LiveInventoryHandle(
 
     override fun close() {
         teardownListeners()
-        restorePlayerSlots()
+        playerSlots.restore()
         player.closeInventory()
     }
 
@@ -131,79 +127,6 @@ internal class LiveInventoryHandle(
         node?.let { MinecraftServer.getGlobalEventHandler().removeChild(it) }
         node = null
     }
-
-    private fun takeOverPlayerSlots() {
-        if (playerSlotsTaken) return
-        playerSlotsTaken = true
-        for (slot in 0 until player.inventory.innerSize) {
-            playerSlotSnapshots[slot] = player.inventory.getItemStack(slot)
-            player.inventory.setItemStack(slot, ItemStack.AIR)
-            refreshOpenPlayerSlot(slot, ItemStack.AIR)
-        }
-    }
-
-    private fun restorePlayerSlots() {
-        if (!playerSlotsTaken) return
-        for ((slot, item) in playerSlotSnapshots) {
-            player.inventory.setItemStack(slot, item)
-            refreshOpenPlayerSlot(slot, item)
-        }
-        playerSlotSnapshots.clear()
-        playerSlotsTaken = false
-    }
-
-    private fun refreshOpenPlayerSlot(
-        slot: Int,
-        item: ItemStack,
-    ) {
-        val windowSlot = openWindowPlayerSlot(slot) ?: return
-        player.sendPacket(SetSlotPacket(inventory.windowId.toInt(), 0, windowSlot, item))
-    }
-
-    private fun openWindowPlayerSlot(slot: Int): Short? =
-        when (slot) {
-            in 0..8 -> (inventory.size + 27 + slot).toShort()
-            in 9 until player.inventory.innerSize -> (inventory.size + slot - 9).toShort()
-            else -> null
-        }
-
-    private fun normaliseSlot(event: InventoryPreClickEvent): SlotRef? {
-        val slot = event.slot
-        if (slot < 0) return null
-
-        return when {
-            event.inventory === inventory && slot < inventory.size -> {
-                SlotRef(SlotArea.CONTAINER, slot)
-            }
-
-            event.inventory === inventory -> {
-                playerSlot(slot - inventory.size)
-            }
-
-            event.inventory === player.inventory -> {
-                playerSlot(slot)
-            }
-
-            else -> {
-                null
-            }
-        }
-    }
-
-    private fun playerSlot(index: Int): SlotRef? =
-        if (index in 0 until player.inventory.innerSize) SlotRef(SlotArea.PLAYER, index) else null
-
-    private fun normaliseClick(
-        click: MinestomClick,
-        slot: SlotRef,
-    ): ClickInfo =
-        when (click) {
-            is MinestomClick.Left -> ClickInfo(slot, shift = false, right = false)
-            is MinestomClick.Right -> ClickInfo(slot, shift = false, right = true)
-            is MinestomClick.LeftShift -> ClickInfo(slot, shift = true, right = false)
-            is MinestomClick.RightShift -> ClickInfo(slot, shift = true, right = true)
-            else -> ClickInfo(slot, shift = false, right = false)
-        }
 
     private companion object {
         val LOGGER = LoggerFactory.getLogger(LiveInventoryHandle::class.java)
