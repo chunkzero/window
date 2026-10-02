@@ -109,10 +109,9 @@ fn panel_children_overlay_without_pos() {
     assert!(matches!(w.draws[0], Draw::NineSlice { .. }));
 }
 
-#[test]
-fn nested_shop_window_exact_rects() {
-    // Realistic shop: panel → column → (slot, row of [button,slot,button]).
-    let project = project(json!({
+/// Panel → column → (slot, row of [button, slot, button]).
+fn nested_shop_project() -> ParsedProject {
+    project(json!({
         "theme": {
             "frames": {
                 "panel": { "texture": "panel.png", "insets": 8 },
@@ -142,7 +141,12 @@ fn nested_shop_window_exact_rects() {
                 }]
             }]
         }]
-    }));
+    }))
+}
+
+#[test]
+fn nested_shop_window_exact_rects() {
+    let project = nested_shop_project();
     let tx = sizes(&[("panel.png", 24, 24), ("button.png", 12, 12)]);
     let w = solve(&project, &tx).unwrap().pop().unwrap();
 
