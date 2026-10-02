@@ -1,5 +1,6 @@
 package dev.oglass.window
 
+import dev.oglass.window.internal.LazyState
 import dev.oglass.window.internal.Reactivity
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
@@ -36,7 +37,7 @@ public abstract class WindowView(
      * simply triggers no re-render). May be called at construction time (before attachment) or
      * later; the delegate captures the engine lazily on first use after attachment.
      */
-    protected fun <T> state(initial: T): ReadWriteProperty<Any?, T> = LazyState(initial)
+    protected fun <T> state(initial: T): ReadWriteProperty<Any?, T> = LazyState(initial) { reactivity }
 
     /** Declares the slot renders and button handlers for this view. */
     protected abstract fun WindowScope.bind()
@@ -122,45 +123,4 @@ public abstract class WindowView(
     }
 
     private fun requireSession(): WindowSession = session ?: error("WindowView is not attached to a session")
-
-    /**
-     * A state delegate that defers to the session's [Reactivity] once attached, holding the value
-     * locally until then so construction-time state works.
-     */
-    private inner class LazyState<T>(
-        initial: T,
-    ) : ReadWriteProperty<Any?, T> {
-        private var delegate: ReadWriteProperty<Any?, T>? = null
-        private var pending: T = initial
-
-        private fun resolve(): ReadWriteProperty<Any?, T>? {
-            if (delegate == null) {
-                val engine = reactivity ?: return null
-                val created = engine.state(pending)
-                delegate = created
-            }
-            return delegate
-        }
-
-        override fun getValue(
-            thisRef: Any?,
-            property: kotlin.reflect.KProperty<*>,
-        ): T {
-            val d = resolve() ?: return pending
-            return d.getValue(thisRef, property)
-        }
-
-        override fun setValue(
-            thisRef: Any?,
-            property: kotlin.reflect.KProperty<*>,
-            value: T,
-        ) {
-            val d = resolve()
-            if (d == null) {
-                pending = value
-            } else {
-                d.setValue(thisRef, property, value)
-            }
-        }
-    }
 }

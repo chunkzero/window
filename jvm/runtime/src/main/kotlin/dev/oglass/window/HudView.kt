@@ -1,5 +1,6 @@
 package dev.oglass.window
 
+import dev.oglass.window.internal.LazyState
 import dev.oglass.window.internal.Reactivity
 import net.minestom.server.entity.Player
 import kotlin.properties.ReadWriteProperty
@@ -28,7 +29,7 @@ public abstract class HudView(
      * Reads during a slot render register that slot as a dependent; writes mark dependents dirty
      * and schedule a single batched re-render.
      */
-    protected fun <T> state(initial: T): ReadWriteProperty<Any?, T> = LazyState(initial)
+    protected fun <T> state(initial: T): ReadWriteProperty<Any?, T> = LazyState(initial) { reactivity }
 
     /** Declares the slot renders for this HUD. */
     protected abstract fun HudScope.bind()
@@ -54,7 +55,7 @@ public abstract class HudView(
      * @throws IllegalStateException if the view is not attached to a session.
      */
     protected fun refresh() {
-        requireSession().refreshAll()
+        requireSession().refresh()
     }
 
     internal fun attach(
@@ -80,41 +81,4 @@ public abstract class HudView(
     }
 
     private fun requireSession(): HudSession = session ?: error("HudView is not attached to a session")
-
-    private inner class LazyState<T>(
-        initial: T,
-    ) : ReadWriteProperty<Any?, T> {
-        private var delegate: ReadWriteProperty<Any?, T>? = null
-        private var pending: T = initial
-
-        private fun resolve(): ReadWriteProperty<Any?, T>? {
-            if (delegate == null) {
-                val engine = reactivity ?: return null
-                val created = engine.state(pending)
-                delegate = created
-            }
-            return delegate
-        }
-
-        override fun getValue(
-            thisRef: Any?,
-            property: kotlin.reflect.KProperty<*>,
-        ): T {
-            val d = resolve() ?: return pending
-            return d.getValue(thisRef, property)
-        }
-
-        override fun setValue(
-            thisRef: Any?,
-            property: kotlin.reflect.KProperty<*>,
-            value: T,
-        ) {
-            val d = resolve()
-            if (d == null) {
-                pending = value
-            } else {
-                d.setValue(thisRef, property, value)
-            }
-        }
-    }
 }
