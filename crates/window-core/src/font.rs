@@ -12,6 +12,10 @@ use xxhash_rust::xxh3::xxh3_64;
 
 use crate::{Error, Result};
 
+mod vanilla_grids;
+
+use vanilla_grids::{VANILLA_ASCII_CHARS, vanilla_small_text_accented_rows, vanilla_window_text_nonlatin_rows};
+
 /// First spacer codepoint (`U+F0000`). The 22-entry table runs through
 /// `U+F0015`.
 pub const SPACER_BASE: u32 = 0xF0000;
@@ -161,30 +165,6 @@ fn vanilla_bitmap_provider(file: &str, height: u32, ascent: i32, chars: Vec<&str
     Value::Object(provider)
 }
 
-/// Sparse copy of Minecraft's `nonlatin_european.png` bitmap grid containing
-/// the mcutils-style small caps and Window's standard UI markers. Keeping the
-/// provider grid and [`crate::vanilla`] metrics in lockstep is required for
-/// net-zero title segments.
-fn vanilla_window_text_nonlatin_rows() -> Vec<&'static str> {
-    let mut rows = vec![EMPTY_BITMAP_ROW; 67];
-    rows[0] = "\u{0000}\u{0000}\u{0000}\u{00B7}\u{0000}\u{0000}\u{0000}\u{00D7}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}";
-    rows[8] = "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0455}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}";
-    rows[9] = "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{026A}\u{0000}\u{0000}\u{0000}";
-    rows[29] = "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{25B2}\u{0000}\u{25BC}\u{0000}\u{25CF}\u{0000}\u{0000}";
-    rows[37] = "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{1D00}\u{0299}\u{1D04}\u{1D05}\u{1D07}\u{A730}\u{0262}\u{029C}\u{1D0A}";
-    rows[38] = "\u{1D0B}\u{029F}\u{1D0D}\u{0274}\u{1D0F}\u{1D18}\u{0000}\u{0280}\u{A731}\u{1D1B}\u{1D1C}\u{1D20}\u{1D21}\u{028F}\u{1D22}\u{0000}";
-    rows[56] = "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{25C6}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}";
-    rows
-}
-
-/// Sparse copy of Minecraft's `accented.png` bitmap grid containing the
-/// mcutils-style small-cap Q (`U+01EB`).
-fn vanilla_small_text_accented_rows() -> Vec<&'static str> {
-    let mut rows = vec![EMPTY_BITMAP_ROW; 75];
-    rows[16] = "\u{0000}\u{0000}\u{01EB}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}";
-    rows
-}
-
 /// Build a `bitmap` font provider for a window's composite glyph.
 ///
 /// `namespace` is the resource namespace, `window` the window name (the texture
@@ -288,181 +268,5 @@ pub fn shifted_font(k: i32) -> Result<Value> {
     Ok(Value::Object(doc))
 }
 
-/// The canonical 16-row × 16-column character grid for vanilla `ascii.png`,
-/// reproduced from the vanilla `minecraft:font/default.json` `ascii` provider.
-///
-/// Rows map to the glyph rows of the texture; positions without a glyph use the
-/// null character (`U+0000`), as vanilla does for its unused cells.
-const VANILLA_ASCII_CHARS: [&str; 16] = [
-    "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}",
-    "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}",
-    " !\"#$%&'()*+,-./",
-    "0123456789:;<=>?",
-    "@ABCDEFGHIJKLMNO",
-    "PQRSTUVWXYZ[\\]^_",
-    "`abcdefghijklmno",
-    "pqrstuvwxyz{|}~\u{0000}",
-    "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}",
-    "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{00A3}\u{0000}\u{0000}\u{0192}",
-    "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{00AA}\u{00BA}\u{0000}\u{0000}\u{00AC}\u{0000}\u{0000}\u{0000}\u{00AB}\u{00BB}",
-    "\u{2591}\u{2592}\u{2593}\u{2502}\u{2524}\u{2561}\u{2562}\u{2556}\u{2555}\u{2563}\u{2551}\u{2557}\u{255D}\u{255C}\u{255B}\u{2510}",
-    "\u{2514}\u{2534}\u{252C}\u{251C}\u{2500}\u{253C}\u{255E}\u{255F}\u{255A}\u{2554}\u{2569}\u{2566}\u{2560}\u{2550}\u{256C}\u{2567}",
-    "\u{2568}\u{2564}\u{2565}\u{2559}\u{2558}\u{2552}\u{2553}\u{256B}\u{256A}\u{2518}\u{250C}\u{2588}\u{2584}\u{258C}\u{2590}\u{2580}",
-    "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{2205}\u{2208}\u{0000}",
-    "\u{2261}\u{00B1}\u{2265}\u{2264}\u{2320}\u{2321}\u{00F7}\u{2248}\u{00B0}\u{2219}\u{0000}\u{221A}\u{207F}\u{00B2}\u{25A0}\u{0000}",
-];
-
-const EMPTY_BITMAP_ROW: &str = "\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}\u{0000}";
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn spacer_table_has_22_entries_with_expected_advances() {
-        let t = spacer_table();
-        assert_eq!(t.len(), 22);
-        assert_eq!(t[&0xF0000], -1024);
-        assert_eq!(t[&0xF000A], -1);
-        assert_eq!(t[&0xF000B], 1);
-        assert_eq!(t[&0xF0015], 1024);
-    }
-
-    #[test]
-    fn spacers_for_zero_is_empty() {
-        assert_eq!(spacers_for(0), "");
-    }
-
-    #[test]
-    fn spacers_for_minus_nine_uses_8_then_1() {
-        let s = spacers_for(-9);
-        let table = spacer_table();
-        let cps: Vec<u32> = s.chars().map(|c| c as u32).collect();
-        assert_eq!(cps.len(), 2);
-        assert_eq!(table[&cps[0]], -8);
-        assert_eq!(table[&cps[1]], -1);
-    }
-
-    #[test]
-    fn spacers_for_round_trips_over_a_sweep() {
-        let table = spacer_table();
-        for dx in -2000..=2000 {
-            let s = spacers_for(dx);
-            let sum: i32 = s.chars().map(|c| table[&(c as u32)]).sum();
-            assert_eq!(sum, dx, "round-trip failed for dx={dx}");
-        }
-    }
-
-    #[test]
-    fn allocate_is_deterministic() {
-        let keys: BTreeSet<String> = ["a", "b", "c", "window/shop/static"].iter().map(|s| s.to_string()).collect();
-        let a = allocate(&keys);
-        let b = allocate(&keys);
-        assert_eq!(a, b);
-        // Every codepoint is within the glyph range and disjoint from spacers.
-        for &cp in a.values() {
-            assert!((GLYPH_BASE..GLYPH_END).contains(&cp));
-            assert!(!(SPACER_BASE..SPACER_BASE + SPACER_COUNT).contains(&cp));
-        }
-    }
-
-    #[test]
-    fn allocate_resolves_collisions_by_sorted_probe() {
-        // Force a collision: all keys hash to the same slot. Sorted order is
-        // a < b < c, so a keeps the slot, b takes +1, c takes +2.
-        let keys: BTreeSet<String> = ["b", "a", "c"].iter().map(|s| s.to_string()).collect();
-        let out = allocate_with(&keys, |_| 5);
-        let base = GLYPH_BASE + (5 % GLYPH_SPAN);
-        assert_eq!(out["a"], base);
-        assert_eq!(out["b"], base + 1);
-        assert_eq!(out["c"], base + 2);
-    }
-
-    #[test]
-    fn allocate_does_not_move_existing_non_colliding_keys() {
-        let mut keys: BTreeSet<String> = ["x", "y"].iter().map(|s| s.to_string()).collect();
-        let before = allocate(&keys);
-        keys.insert("z_unrelated_key".to_string());
-        let after = allocate(&keys);
-        // x and y keep their hashed (non-colliding) slots when z is added.
-        assert_eq!(before["x"], after["x"]);
-        assert_eq!(before["y"], after["y"]);
-    }
-
-    #[test]
-    fn space_provider_shape() {
-        let v = space_provider();
-        assert_eq!(v["type"], json!("space"));
-        let advances = v["advances"].as_object().unwrap();
-        assert_eq!(advances.len(), 22);
-    }
-
-    #[test]
-    fn bitmap_provider_calibration_ascent() {
-        // glyph top at gui y=0, title y=6 → ascent 13, height H.
-        let v = bitmap_provider("window", "shop", 16, 13, '\u{E000}').unwrap();
-        assert_eq!(v["type"], json!("bitmap"));
-        assert_eq!(v["file"], json!("window:font/shop.png"));
-        assert_eq!(v["height"], json!(16));
-        assert_eq!(v["ascent"], json!(13));
-        assert_eq!(v["chars"], json!(["\u{E000}"]));
-    }
-
-    #[test]
-    fn bitmap_provider_rejects_bad_limits() {
-        assert!(bitmap_provider("window", "w", 600, 10, 'a').is_err());
-        assert!(bitmap_provider("window", "w", 16, 17, 'a').is_err());
-    }
-
-    #[test]
-    fn shifted_suffix_formats_minus() {
-        assert_eq!(shifted_suffix(0), "y0");
-        assert_eq!(shifted_suffix(12), "y12");
-        assert_eq!(shifted_suffix(-4), "ym4");
-    }
-
-    #[test]
-    fn shifted_font_ascent_and_chars() {
-        let v = shifted_font(0).unwrap();
-        let space = &v["providers"][0];
-        assert_eq!(space["type"], json!("space"));
-        assert_eq!(space["advances"][" "], json!(4));
-        assert_eq!(space["advances"]["\u{200c}"], json!(0));
-
-        let p = &v["providers"][1];
-        assert_eq!(p["file"], json!("minecraft:font/ascii.png"));
-        assert_eq!(p["height"], json!(8));
-        assert_eq!(p["ascent"], json!(7));
-        let chars = p["chars"].as_array().unwrap();
-        assert_eq!(chars.len(), 16);
-        for row in chars {
-            assert_eq!(row.as_str().unwrap().chars().count(), 16);
-        }
-        let nonlatin = &v["providers"][2];
-        assert_eq!(nonlatin["file"], json!("minecraft:font/nonlatin_european.png"));
-        assert_eq!(nonlatin["height"], json!(8));
-        assert_eq!(nonlatin["ascent"], json!(7));
-        let rows = nonlatin["chars"].as_array().unwrap();
-        assert_eq!(rows.len(), 67);
-        assert!(rows[0].as_str().unwrap().contains('\u{00B7}'));
-        assert_eq!(rows[0].as_str().unwrap().chars().nth(7), Some('\u{00D7}'));
-        assert!(rows[37].as_str().unwrap().contains('\u{1D00}'));
-        assert!(rows[38].as_str().unwrap().contains('\u{1D0D}'));
-        assert!(rows[38].as_str().unwrap().contains('\u{A731}'));
-        assert!(rows[29].as_str().unwrap().contains('\u{25B2}'));
-        assert!(rows[29].as_str().unwrap().contains('\u{25BC}'));
-        assert!(rows[29].as_str().unwrap().contains('\u{25CF}'));
-        assert!(rows[56].as_str().unwrap().contains('\u{25C6}'));
-
-        let accented = &v["providers"][3];
-        assert_eq!(accented["file"], json!("minecraft:font/accented.png"));
-        assert_eq!(accented["height"], json!(12));
-        assert_eq!(accented["ascent"], json!(10));
-        let rows = accented["chars"].as_array().unwrap();
-        assert_eq!(rows.len(), 75);
-        assert!(rows[16].as_str().unwrap().contains('\u{01EB}'));
-
-        // k = -1 → ascent 8 (the upper bound).
-        assert_eq!(shifted_font(-1).unwrap()["providers"][1]["ascent"], json!(8));
-    }
-}
+mod tests;

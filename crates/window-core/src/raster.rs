@@ -4,13 +4,18 @@
 //! pixel storage. It returns Window's straight-alpha [`Texture`] type so the
 //! existing compositor can blend generated and PNG-backed assets identically.
 
-use tiny_skia::{FillRule, Paint, PathBuilder, Pixmap, PremultipliedColorU8, Rect as SkRect, Transform};
+use tiny_skia::{FillRule, PathBuilder, Pixmap, Transform};
 
 use crate::compose::Texture;
 use crate::geometry::Size;
-use crate::ir::Rgb;
 use crate::model::{GeneratedKind, GeneratedStyle};
 use crate::{Error, Result};
+
+mod shapes;
+
+use shapes::{
+    Edge, RoundedRect, draw_rounded_edge, fade, fill_rect, fill_round_rect, fill_slanted_quad, paint, stroke_rect,
+};
 
 /// Render a generated theme style at `size`.
 pub fn render(style: &GeneratedStyle, size: Size) -> Result<Texture> {
@@ -108,13 +113,17 @@ fn draw_hazard_bar(pixmap: &mut Pixmap, style: &GeneratedStyle) {
         x += period;
     }
 
+    draw_hazard_bevel(pixmap, style, border, inner_w, inner_h);
+}
+
+fn draw_hazard_bevel(pixmap: &mut Pixmap, style: &GeneratedStyle, border: f32, inner_w: f32, inner_h: f32) {
     if let Some(highlight) = style.highlight_color {
         fill_rect(pixmap, border, border, inner_w, 1.0, highlight);
     }
     if let Some(shadow) = style.shadow_color {
         fill_rect(pixmap, border, border + inner_h - 1.0, inner_w, 1.0, shadow);
     }
-    stroke_rect(pixmap, 0.0, 0.0, w, h, border, style.border_color);
+    stroke_rect(pixmap, 0.0, 0.0, pixmap.width() as f32, pixmap.height() as f32, border, style.border_color);
 }
 
 fn draw_vents(pixmap: &mut Pixmap, style: &GeneratedStyle) {
@@ -180,178 +189,6 @@ fn draw_inset(pixmap: &mut Pixmap, style: &GeneratedStyle, inset: u32) {
     }
 }
 
-#[derive(Clone, Copy)]
-struct RoundedRect {
-    x: u32,
-    y: u32,
-    w: u32,
-    h: u32,
-    r: f32,
-}
-
-impl RoundedRect {
-    fn new(x: u32, y: u32, w: u32, h: u32, r: f32) -> Self {
-        let r = r.max(0.0).min(w as f32 / 2.0).min(h as f32 / 2.0);
-        Self { x, y, w, h, r }
-    }
-}
-
-#[derive(Clone, Copy)]
-enum Edge {
-    Top,
-    Left,
-    Bottom,
-    Right,
-}
-
-fn draw_rounded_edge(pixmap: &mut Pixmap, rect: RoundedRect, edge: Edge, color: Rgb) {
-    if rect.w == 0 || rect.h == 0 {
-        return;
-    }
-
-    match edge {
-        Edge::Top => {
-            let y = rect.y;
-            for x in rect.x..rect.x + rect.w {
-                set_if_in_round_rect(pixmap, rect, x, y, color);
-            }
-        }
-        Edge::Left => {
-            let x = rect.x;
-            for y in rect.y..rect.y + rect.h {
-                set_if_in_round_rect(pixmap, rect, x, y, color);
-            }
-        }
-        Edge::Bottom => {
-            let y = rect.y + rect.h - 1;
-            for x in rect.x..rect.x + rect.w {
-                set_if_in_round_rect(pixmap, rect, x, y, color);
-            }
-        }
-        Edge::Right => {
-            let x = rect.x + rect.w - 1;
-            for y in rect.y..rect.y + rect.h {
-                set_if_in_round_rect(pixmap, rect, x, y, color);
-            }
-        }
-    }
-}
-
-fn set_if_in_round_rect(pixmap: &mut Pixmap, rect: RoundedRect, x: u32, y: u32, color: Rgb) {
-    if contains_round_rect_pixel(rect, x, y) {
-        set_pixel(pixmap, x, y, color);
-    }
-}
-
-fn contains_round_rect_pixel(rect: RoundedRect, px: u32, py: u32) -> bool {
-    if px < rect.x || py < rect.y || px >= rect.x + rect.w || py >= rect.y + rect.h {
-        return false;
-    }
-    if rect.r < 0.5 {
-        return true;
-    }
-
-    let x = px as f32 + 0.5;
-    let y = py as f32 + 0.5;
-    let left = rect.x as f32 + rect.r;
-    let top = rect.y as f32 + rect.r;
-    let right = (rect.x + rect.w) as f32 - rect.r;
-    let bottom = (rect.y + rect.h) as f32 - rect.r;
-    let nearest_x = x.clamp(left, right);
-    let nearest_y = y.clamp(top, bottom);
-    let dx = x - nearest_x;
-    let dy = y - nearest_y;
-    dx * dx + dy * dy <= rect.r * rect.r
-}
-
-fn fill_round_rect(pixmap: &mut Pixmap, x: f32, y: f32, w: f32, h: f32, radius: f32, color: Rgb) {
-    if w <= 0.0 || h <= 0.0 {
-        return;
-    }
-    let radius = radius.max(0.0).min(w / 2.0).min(h / 2.0);
-    let path = if radius < 0.5 {
-        let Some(rect) = SkRect::from_xywh(x, y, w, h) else {
-            return;
-        };
-        PathBuilder::from_rect(rect)
-    } else {
-        round_rect_path(x, y, w, h, radius)
-    };
-    pixmap.fill_path(&path, &paint(color), FillRule::Winding, Transform::identity(), None);
-}
-
-fn round_rect_path(x: f32, y: f32, w: f32, h: f32, r: f32) -> tiny_skia::Path {
-    let right = x + w;
-    let bottom = y + h;
-    let mut pb = PathBuilder::new();
-    pb.move_to(x + r, y);
-    pb.line_to(right - r, y);
-    pb.quad_to(right, y, right, y + r);
-    pb.line_to(right, bottom - r);
-    pb.quad_to(right, bottom, right - r, bottom);
-    pb.line_to(x + r, bottom);
-    pb.quad_to(x, bottom, x, bottom - r);
-    pb.line_to(x, y + r);
-    pb.quad_to(x, y, x + r, y);
-    pb.close();
-    pb.finish().expect("rounded rect path has content")
-}
-
-fn fill_slanted_quad(pixmap: &mut Pixmap, x: f32, top: f32, stripe_width: f32, bottom: f32, slant: f32, color: Rgb) {
-    let mut pb = PathBuilder::new();
-    pb.move_to(x + slant, top);
-    pb.line_to(x + slant + stripe_width, top);
-    pb.line_to(x + stripe_width, bottom);
-    pb.line_to(x, bottom);
-    pb.close();
-    if let Some(path) = pb.finish() {
-        pixmap.fill_path(&path, &paint(color), FillRule::Winding, Transform::identity(), None);
-    }
-}
-
-fn fill_rect(pixmap: &mut Pixmap, x: f32, y: f32, w: f32, h: f32, color: Rgb) {
-    let Some(rect) = SkRect::from_xywh(x, y, w, h) else {
-        return;
-    };
-    pixmap.fill_rect(rect, &paint(color), Transform::identity(), None);
-}
-
-fn set_pixel(pixmap: &mut Pixmap, x: u32, y: u32, color: Rgb) {
-    if x >= pixmap.width() || y >= pixmap.height() {
-        return;
-    }
-    let i = (y * pixmap.width() + x) as usize;
-    pixmap.pixels_mut()[i] = PremultipliedColorU8::from_rgba(color.r, color.g, color.b, 255)
-        .expect("opaque RGB is a valid premultiplied color");
-}
-
-fn stroke_rect(pixmap: &mut Pixmap, x: f32, y: f32, w: f32, h: f32, width: f32, color: Rgb) {
-    if width <= 0.0 || w <= 0.0 || h <= 0.0 {
-        return;
-    }
-    fill_rect(pixmap, x, y, w, width.min(h), color);
-    fill_rect(pixmap, x, y + h - width.min(h), w, width.min(h), color);
-    fill_rect(pixmap, x, y, width.min(w), h, color);
-    fill_rect(pixmap, x + w - width.min(w), y, width.min(w), h, color);
-}
-
-fn paint(color: Rgb) -> Paint<'static> {
-    let mut paint = Paint { anti_alias: false, ..Paint::default() };
-    paint.set_color_rgba8(color.r, color.g, color.b, 255);
-    paint
-}
-
-fn fade(color: Rgb, step: u32, total: u32) -> Rgb {
-    if total == 0 {
-        return color;
-    }
-    let mix = |channel: u8| -> u8 {
-        let value = channel as u32 * step / total;
-        value.min(255) as u8
-    };
-    Rgb::new(mix(color.r), mix(color.g), mix(color.b))
-}
-
 fn apply_lighting(texture: &mut Texture, style: &GeneratedStyle) {
     let w = texture.width;
     let h = texture.height;
@@ -412,63 +249,4 @@ fn generated_path(style: &GeneratedStyle) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn rgba_at(texture: &Texture, x: u32, y: u32) -> [u8; 4] {
-        let i = ((y * texture.width + x) * 4) as usize;
-        [texture.rgba[i], texture.rgba[i + 1], texture.rgba[i + 2], texture.rgba[i + 3]]
-    }
-
-    #[test]
-    fn panel_renders_border_and_fill() {
-        let style = GeneratedStyle::defaults(GeneratedKind::Panel);
-        let texture = render(&style, Size::new(20, 12)).unwrap();
-        assert_eq!(texture.width, 20);
-        assert_eq!(texture.height, 12);
-        let border = 10 * 4;
-        assert_eq!(texture.rgba[border + 3], 255);
-        assert!(texture.rgba[border] >= style.border_color.r);
-
-        let top = ((3 * texture.width + 10) * 4) as usize;
-        let bottom = ((10 * texture.width + 10) * 4) as usize;
-        assert!(texture.rgba[top] > texture.rgba[bottom]);
-    }
-
-    #[test]
-    fn inset_bevel_respects_rounded_corners() {
-        let mut style = GeneratedStyle::defaults(GeneratedKind::Panel);
-        style.fill = Rgb::new(10, 10, 10);
-        style.border_color = Rgb::new(20, 20, 20);
-        style.border_width = 1;
-        style.radius = 6;
-        style.inset_depth = 3;
-        style.highlight_color = Some(Rgb::new(240, 240, 240));
-        style.shadow_color = Some(Rgb::new(30, 30, 30));
-
-        let mut pixmap = Pixmap::new(20, 20).unwrap();
-        draw_panel(&mut pixmap, &style);
-        let texture = texture_from_pixmap(&pixmap);
-
-        assert_eq!(rgba_at(&texture, 2, 1), [20, 20, 20, 255]);
-        assert_eq!(rgba_at(&texture, 17, 18), [20, 20, 20, 255]);
-        assert_eq!(rgba_at(&texture, 8, 1), [240, 240, 240, 255]);
-        assert_eq!(rgba_at(&texture, 1, 8), [240, 240, 240, 255]);
-        assert_eq!(rgba_at(&texture, 18, 8), [30, 30, 30, 255]);
-        assert_eq!(rgba_at(&texture, 8, 18), [30, 30, 30, 255]);
-    }
-
-    #[test]
-    fn hazard_bar_contains_stripes() {
-        let style = GeneratedStyle::defaults(GeneratedKind::HazardBar);
-        let texture = render(&style, Size::new(64, 12)).unwrap();
-        let stripe_pixels = texture
-            .rgba
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .filter(|px| px[0] > 150 && (50..140).contains(&px[1]) && px[2] < 40 && px[3] == 255)
-            .count();
-        assert!(stripe_pixels > 0, "hazard stripes should be visible");
-    }
-}
+mod tests;
