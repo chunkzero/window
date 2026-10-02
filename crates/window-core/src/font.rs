@@ -96,13 +96,20 @@ pub fn spacers_for(dx: i32) -> String {
 /// are sorted, the lowest-sorted keeps the hashed slot, and the rest probe
 /// forward (wrapping within `[GLYPH_BASE, GLYPH_END)`) for the next free slot.
 /// The spacer range is disjoint from the glyph range, so allocation never
-/// touches it. Returns each key's assigned codepoint.
-pub fn allocate(keys: &BTreeSet<String>) -> BTreeMap<String, u32> {
+/// touches it. Returns each key's assigned codepoint, or [`Error::Font`] if
+/// there are more keys than the [`GLYPH_SPAN`] codepoints in the range.
+pub fn allocate(keys: &BTreeSet<String>) -> Result<BTreeMap<String, u32>> {
     allocate_with(keys, |k| xxh3_64(k.as_bytes()))
 }
 
 /// [`allocate`] with an injectable hash function (for testing collisions).
-pub fn allocate_with(keys: &BTreeSet<String>, hash: impl Fn(&str) -> u64) -> BTreeMap<String, u32> {
+pub fn allocate_with(keys: &BTreeSet<String>, hash: impl Fn(&str) -> u64) -> Result<BTreeMap<String, u32>> {
+    if keys.len() > GLYPH_SPAN as usize {
+        return Err(Error::Font(format!(
+            "{} glyphs requested, but only {GLYPH_SPAN} private-use codepoints are available",
+            keys.len()
+        )));
+    }
     // `keys` is a BTreeSet, so iteration is already sorted: the first key to
     // claim a slot is the lowest-sorted, satisfying the stability rule.
     let mut used: BTreeSet<u32> = BTreeSet::new();
@@ -120,7 +127,7 @@ pub fn allocate_with(keys: &BTreeSet<String>, hash: impl Fn(&str) -> u64) -> BTr
         used.insert(cp);
         out.insert(key.clone(), cp);
     }
-    out
+    Ok(out)
 }
 
 /// Build the `space` font provider value carrying the full spacer table.

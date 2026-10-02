@@ -6,8 +6,8 @@ fn table_is_sorted_and_covers_printable_ascii() {
     for pair in ADVANCES.windows(2) {
         assert!(pair[0].0 < pair[1].0, "table not sorted at {pair:?}");
     }
-    for pair in SMALL_TEXT_ADVANCES.windows(2) {
-        assert!(pair[0].0 < pair[1].0, "small-text table not sorted at {pair:?}");
+    for pair in EXTRA_ADVANCES.windows(2) {
+        assert!(pair[0].0 < pair[1].0, "extra table not sorted at {pair:?}");
     }
     // Every printable ASCII codepoint is present.
     for code in 0x20u8..=0x7E {
@@ -40,7 +40,7 @@ fn canonical_advances() {
     assert_eq!(advance('×'), Some(6));
     assert_eq!(advance('▲'), Some(6));
     assert_eq!(advance('▼'), Some(6));
-    assert_eq!(advance('◆'), Some(8));
+    assert_eq!(advance('◆'), Some(6));
     assert_eq!(advance('●'), Some(5));
     assert_eq!(advance('\u{A731}'), Some(6)); // ꜱ
 }
@@ -68,7 +68,7 @@ fn canonical_glyph_widths() {
     assert_eq!(glyph_width('·'), Some(1));
     assert_eq!(glyph_width('▲'), Some(5));
     assert_eq!(glyph_width('▼'), Some(5));
-    assert_eq!(glyph_width('◆'), Some(7));
+    assert_eq!(glyph_width('◆'), Some(5));
     assert_eq!(glyph_width('●'), Some(4));
     assert_eq!(glyph_width('\u{A731}'), Some(5)); // ꜱ
 }
@@ -110,12 +110,12 @@ fn small_cap_advances_match_minecraft_26_1_2_bitmaps() {
 
 #[test]
 fn unknown_chars_have_no_entry_but_fall_back() {
-    assert_eq!(advance('√'), None);
+    assert_eq!(advance('☃'), None);
     assert_eq!(advance('\u{1F600}'), None);
-    assert_eq!(glyph_width('√'), None);
-    assert_eq!(text_width("√"), FALLBACK_ADVANCE);
-    assert_eq!(text_visible_width("√"), FALLBACK_GLYPH_WIDTH);
-    assert_eq!(bold_text_visible_width("√"), FALLBACK_GLYPH_WIDTH + BOLD_ADVANCE);
+    assert_eq!(glyph_width('☃'), None);
+    assert_eq!(text_width("☃"), FALLBACK_ADVANCE);
+    assert_eq!(text_visible_width("☃"), FALLBACK_GLYPH_WIDTH);
+    assert_eq!(bold_text_visible_width("☃"), FALLBACK_GLYPH_WIDTH + BOLD_ADVANCE);
 }
 
 #[test]
@@ -145,7 +145,7 @@ fn visible_width_uses_ink_bounds() {
 #[test]
 fn advances_iterator_matches_table() {
     let collected: Vec<_> = advances().collect();
-    assert_eq!(collected.len(), ADVANCES.len() + SMALL_TEXT_ADVANCES.len());
+    assert_eq!(collected.len(), ADVANCES.len() + EXTRA_ADVANCES.len());
     assert_eq!(collected.first(), Some(&(' ', 4)));
     assert_eq!(collected.last(), Some(&('\u{A731}', 6)));
 }
@@ -153,7 +153,7 @@ fn advances_iterator_matches_table() {
 #[test]
 fn glyph_widths_iterator_matches_table() {
     let collected: Vec<_> = glyph_widths().collect();
-    assert_eq!(collected.len(), ADVANCES.len() + SMALL_TEXT_ADVANCES.len());
+    assert_eq!(collected.len(), ADVANCES.len() + EXTRA_ADVANCES.len());
     assert_eq!(collected.first(), Some(&(' ', 0)));
     assert_eq!(collected.last(), Some(&('\u{A731}', 5)));
 }

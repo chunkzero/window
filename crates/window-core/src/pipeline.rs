@@ -139,7 +139,7 @@ fn compile_layouts(
     }
     let composites = glyphs::compose_layers(&windows, &huds, textures)?;
     let used_sprites = uses_runtime_sprites.then_some(runtime_sprites);
-    let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites);
+    let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, codepoints);
 
     let sprites = if uses_runtime_sprites { sprites::sprite_entries(&mut ctx) } else { BTreeMap::new() };

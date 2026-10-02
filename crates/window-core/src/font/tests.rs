@@ -38,8 +38,8 @@ fn spacers_for_round_trips_over_a_sweep() {
 #[test]
 fn allocate_is_deterministic() {
     let keys: BTreeSet<String> = ["a", "b", "c", "window/shop/static"].iter().map(|s| s.to_string()).collect();
-    let a = allocate(&keys);
-    let b = allocate(&keys);
+    let a = allocate(&keys).unwrap();
+    let b = allocate(&keys).unwrap();
     assert_eq!(a, b);
     // Every codepoint is within the glyph range and disjoint from spacers.
     for &cp in a.values() {
@@ -53,7 +53,7 @@ fn allocate_resolves_collisions_by_sorted_probe() {
     // Force a collision: all keys hash to the same slot. Sorted order is
     // a < b < c, so a keeps the slot, b takes +1, c takes +2.
     let keys: BTreeSet<String> = ["b", "a", "c"].iter().map(|s| s.to_string()).collect();
-    let out = allocate_with(&keys, |_| 5);
+    let out = allocate_with(&keys, |_| 5).unwrap();
     let base = GLYPH_BASE + (5 % GLYPH_SPAN);
     assert_eq!(out["a"], base);
     assert_eq!(out["b"], base + 1);
@@ -63,12 +63,18 @@ fn allocate_resolves_collisions_by_sorted_probe() {
 #[test]
 fn allocate_does_not_move_existing_non_colliding_keys() {
     let mut keys: BTreeSet<String> = ["x", "y"].iter().map(|s| s.to_string()).collect();
-    let before = allocate(&keys);
+    let before = allocate(&keys).unwrap();
     keys.insert("z_unrelated_key".to_string());
-    let after = allocate(&keys);
+    let after = allocate(&keys).unwrap();
     // x and y keep their hashed (non-colliding) slots when z is added.
     assert_eq!(before["x"], after["x"]);
     assert_eq!(before["y"], after["y"]);
+}
+
+#[test]
+fn allocate_rejects_more_keys_than_codepoints() {
+    let keys: BTreeSet<String> = (0..=GLYPH_SPAN).map(|i| i.to_string()).collect();
+    assert!(matches!(allocate_with(&keys, |_| 0), Err(Error::Font(_))));
 }
 
 #[test]
@@ -146,4 +152,25 @@ fn shifted_font_ascent_and_chars() {
 
     // k = -1 → ascent 8 (the upper bound).
     assert_eq!(shifted_font(-1).unwrap()["providers"][1]["ascent"], json!(8));
+}
+
+#[test]
+fn shifted_font_characters_match_vanilla_metrics() {
+    let font = shifted_font(0).unwrap();
+    let mut provided = BTreeSet::new();
+    for provider in font["providers"].as_array().unwrap() {
+        if provider["type"] == json!("space") {
+            for (key, advance) in provider["advances"].as_object().unwrap() {
+                let c = key.chars().next().unwrap();
+                assert_eq!(crate::vanilla::advance(c).map(u64::from), advance.as_u64(), "U+{:04X}", c as u32);
+                provided.insert(c);
+            }
+        } else {
+            for row in provider["chars"].as_array().unwrap() {
+                provided.extend(row.as_str().unwrap().chars().filter(|&c| c != '\0'));
+            }
+        }
+    }
+    let measured: BTreeSet<char> = crate::vanilla::advances().map(|(c, _)| c).collect();
+    assert_eq!(provided, measured);
 }
