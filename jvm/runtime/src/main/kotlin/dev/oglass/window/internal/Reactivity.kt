@@ -6,48 +6,47 @@ import kotlin.reflect.KProperty
 /**
  * Per-session reactive engine.
  *
- * Tracks which slots read which [state] cells during their render lambda, marks dependent slots
- * dirty on writes, and coalesces the resulting re-renders into a single scheduled flush per burst.
+ * Tracks which render keys read which [state] cells during their render lambda, marks dependent
+ * keys dirty on writes, and coalesces the resulting re-renders into a single scheduled flush per
+ * burst.
  *
- * The owning session drives the engine: it pushes a slot name onto the rendering context before
- * invoking that slot's render lambda (so reads register a dependency), and supplies a [flush]
- * callback that recomputes dirty slots and re-sends the title.
+ * The owning session drives the engine: it renders each key inside [withRendering] (so reads
+ * register a dependency), and supplies a [flush] callback that re-renders dirty keys and re-sends
+ * the composed output.
  */
 internal class Reactivity(
     private val scheduler: RenderScheduler,
-    /**
-     * Recomputes the given dirty slots and re-sends the title. Receives a snapshot, then clears.
-     */
-    private val flush: (dirty: Set<String>) -> Unit,
+    /** Re-renders the given dirty keys. Receives a snapshot, then clears. */
+    private val flush: (dirty: Set<RenderKey>) -> Unit,
 ) {
-    /** state cell id -> set of slot names that read it during render. */
-    private val dependencies = HashMap<Long, MutableSet<String>>()
+    /** state cell id -> keys that read it during render. */
+    private val dependencies = HashMap<Long, MutableSet<RenderKey>>()
 
-    /** Slots awaiting re-render. */
-    private val dirty = LinkedHashSet<String>()
+    /** Keys awaiting re-render. */
+    private val dirty = LinkedHashSet<RenderKey>()
 
-    /** Slot currently being rendered, if any; reads during this register a dependency. */
-    private var renderingSlot: String? = null
+    /** Key currently being rendered, if any; reads during this register a dependency. */
+    private var rendering: RenderKey? = null
     private var flushScheduled = false
     private var nextStateId = 0L
 
-    /** Runs [block] with [slot] marked as the currently-rendering slot for dependency capture. */
+    /** Runs [block] with [key] marked as the currently-rendering key for dependency capture. */
     fun <T> withRendering(
-        slot: String,
+        key: RenderKey,
         block: () -> T,
     ): T {
-        val previous = renderingSlot
-        renderingSlot = slot
+        val previous = rendering
+        rendering = key
         try {
             return block()
         } finally {
-            renderingSlot = previous
+            rendering = previous
         }
     }
 
-    /** Marks every named slot dirty and schedules a flush. Used by `refresh()`. */
-    fun markAllDirty(slots: Collection<String>) {
-        dirty.addAll(slots)
+    /** Marks every given key dirty and schedules a flush. Used by `refresh()`. */
+    fun markAllDirty(keys: Collection<RenderKey>) {
+        dirty.addAll(keys)
         scheduleFlush()
     }
 
@@ -55,8 +54,8 @@ internal class Reactivity(
     fun <T> state(initial: T): ReadWriteProperty<Any?, T> = StateProperty(nextStateId++, initial)
 
     private fun registerRead(id: Long) {
-        val slot = renderingSlot ?: return
-        dependencies.getOrPut(id) { HashSet() }.add(slot)
+        val key = rendering ?: return
+        dependencies.getOrPut(id) { HashSet() }.add(key)
     }
 
     private fun onWrite(id: Long) {
