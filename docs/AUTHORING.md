@@ -548,6 +548,10 @@ relying on Minecraft's missing-glyph fallback.
 - Runtime slot values are Adventure components. Child colors, decorations, and fonts are preserved for window titles,
   and measured from the generated pack definition's per-font metrics. Shader HUDs force generated marker colors so the
   shader can relocate text; decorations and font keys are still measured.
+- Runtime slot values must contain only text components. Translatable, keybind, score, selector, NBT, and object
+  components fail with `IllegalArgumentException` because only the client knows their text; render them first, for
+  example with `GlobalTranslator.render(component, locale)`. Legacy `§` codes in text are measured like the client: they
+  draw nothing, `§l` adds bold width, color codes clear bold, and `§r` restores the component's own style.
 - `container` is one of `generic_9x1` through `generic_9x6`, or `anvil` for one native rename input.
 - `bleed` on a window/HUD allows static drawings to extend outside the normal surface without warnings. Text and
   interactive regions must still stay inside the real surface.

@@ -17,7 +17,8 @@ import net.kyori.adventure.text.format.TextColor
 class HudComposerTest :
     StringSpec({
         val table = TestManifests.spacerTable()
-        val measure = FontRegistry.fromManifest(TestManifests.hudManifest())
+        val fonts = FontRegistry.fromManifest(TestManifests.hudManifest())
+        val hiAdvance = fonts.measure(Component.text("Hi"), "minecraft:default").advance
 
         fun decode(s: String): Int {
             var total = 0
@@ -68,7 +69,7 @@ class HudComposerTest :
             text.style().shadowColor() shouldBe ShadowColor.none()
             decode(lead.content()) shouldBe -84
             decode(trail.content()) shouldBe 76
-            decode(lead.content()) + measure.measure("Hi") + decode(trail.content()) shouldBe 0
+            decode(lead.content()) + hiAdvance + decode(trail.content()) shouldBe 0
         }
 
         "shadowed HUD slot uses an explicit text shadow color" {

@@ -19,7 +19,8 @@ class TitleComposerTest :
     StringSpec({
         val table = TestManifests.spacerTable()
         val spacers = Spacers(table)
-        val measure = FontRegistry.fromManifest(TestManifests.manifest())
+        val fonts = FontRegistry.fromManifest(TestManifests.manifest())
+        val hiAdvance = fonts.measure(Component.text("Hi"), "minecraft:default").advance
 
         fun decode(s: String): Int {
             var total = 0
@@ -90,8 +91,7 @@ class TitleComposerTest :
             decode(trail.content()) shouldBe -8
 
             // Net advance of the whole segment = lead(0) + measured(8) + trail(-8) = 0.
-            val measured = measure.measure("Hi")
-            (0 + measured + decode(trail.content())) shouldBe 0
+            (0 + hiAdvance + decode(trail.content())) shouldBe 0
         }
 
         "shadowed slot uses an explicit text shadow color" {
@@ -145,7 +145,7 @@ class TitleComposerTest :
             val trail = children[2] as TextComponent
             decode(trail.content()) shouldBe -14
 
-            (decode(lead.content()) + measure.measure("Hi") + decode(trail.content())) shouldBe 0
+            (decode(lead.content()) + hiAdvance + decode(trail.content())) shouldBe 0
         }
 
         "right-aligned slot aligns by visible width but resets by advance width" {
@@ -168,7 +168,7 @@ class TitleComposerTest :
             val trail = children[2] as TextComponent
             decode(trail.content()) shouldBe -21
 
-            (decode(lead.content()) + measure.measure("Hi") + decode(trail.content())) shouldBe 0
+            (decode(lead.content()) + hiAdvance + decode(trail.content())) shouldBe 0
         }
 
         "empty rendered content yields no segment" {
