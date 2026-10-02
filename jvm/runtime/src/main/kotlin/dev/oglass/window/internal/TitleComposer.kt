@@ -8,13 +8,8 @@ import dev.oglass.window.manifest.SlotEntry
 import dev.oglass.window.manifest.SpriteSlotEntry
 import dev.oglass.window.manifest.WindowEntry
 import dev.oglass.window.manifest.WindowManifest
-import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
-import net.kyori.adventure.text.format.ShadowColor
-import net.kyori.adventure.text.format.Style
-import net.kyori.adventure.text.format.TextColor
-import net.kyori.adventure.text.format.TextDecoration
 
 /**
  * Composes a window title [Component] from the baked static chrome plus per-slot net-zero segments.
@@ -34,23 +29,18 @@ internal class TitleComposer(
     private val originX: Int = window.surface.titleOrigin[0]
     private val spacers = Spacers(manifest.spacers)
     private val fonts = FontRegistry.fromManifest(manifest)
+    private val spacerStyle = baseStyle(font, NamedTextColor.WHITE)
 
     /** The static-chrome component (font applied), with no slot segments. */
-    val staticComponent: Component =
-        Component.text(window.static).style(baseStyle(font, NamedTextColor.WHITE))
+    val staticComponent: Component = Component.text(window.static).style(spacerStyle)
 
     /**
-     * Renders a single slot's net-zero segment as a [Component], or `null` if [content] is empty.
+     * Renders a single slot's net-zero segment, or `null` if [content] is empty.
      *
      * The segment is `spacer(xStart − originX)` + styled text + `spacer(−(dx + advanceWidth))`,
      * where `xStart` depends on the slot's alignment and the visible plain-text width of [content].
      */
     fun renderSlot(
-        slot: SlotEntry,
-        content: Component,
-    ): Component? = renderSlot("slot", slot, content)?.component
-
-    internal fun renderSlot(
         semanticId: String,
         slot: SlotEntry,
         content: Component,
@@ -61,60 +51,24 @@ internal class TitleComposer(
 
         val xStart = fonts.originFor(slot.align, slot.x, slot.width, widths.visual)
         val dx = xStart - originX
-
-        val lead = spacers.compose(dx)
-        val trail = spacers.compose(-(dx + widths.advance))
-
-        var segment = Component.empty()
-        if (lead.isNotEmpty()) {
-            segment =
-                segment.append(Component.text(lead).style(baseStyle(font, NamedTextColor.WHITE)))
-        }
-        segment = segment.append(styled)
-        if (trail.isNotEmpty()) {
-            segment =
-                segment.append(Component.text(trail).style(baseStyle(font, NamedTextColor.WHITE)))
-        }
         return RenderedSegment(
-            component = segment,
+            component = netZeroSegment(dx, widths.advance, styled),
             trace =
-                RenderLayerTrace(
+                textSlotTrace(
                     semanticId = semanticId,
                     kind = RenderLayerKind.TEXT_SLOT,
-                    content = plainContent(styled),
-                    font = styled.style().font()?.asString() ?: slot.font,
-                    style =
-                        traceStyle(
-                            styled.style(),
-                            RenderStyleTrace(
-                                color = slot.color,
-                                shadow = slot.shadow,
-                                bold = slot.bold,
-                                italic = slot.italic,
-                                underlined = slot.underlined,
-                                strikethrough = slot.strikethrough,
-                                obfuscated = slot.obfuscated,
-                            ),
-                        ),
-                    expectedBounds = RenderBounds(xStart, slot.y, widths.visual, TEXT_HEIGHT),
-                    cursorStart = originX,
-                    contentCursorStart = xStart,
-                    contentCursorEnd = xStart + widths.advance,
-                    cursorEnd = originX,
-                    advance = widths.advance,
-                    visualWidth = widths.visual,
-                    netCursorDelta = 0,
+                    slot = slot,
+                    styled = styled,
+                    colorHex = slot.color,
+                    xStart = xStart,
+                    widths = widths,
+                    cursor = originX,
                 ),
         )
     }
 
     /** Renders a runtime sprite's net-zero segment, or `null` when [spriteName] is null. */
     fun renderSprite(
-        slot: SpriteSlotEntry,
-        spriteName: String?,
-    ): Component? = renderSprite("sprite", slot, spriteName)?.component
-
-    internal fun renderSprite(
         semanticId: String,
         slot: SpriteSlotEntry,
         spriteName: String?,
@@ -128,25 +82,9 @@ internal class TitleComposer(
 
         val xStart = fonts.originFor(slot.align, slot.x, slot.width, sprite.glyphWidth)
         val glyphStart = xStart - sprite.xOffset
-        val dx = glyphStart - originX
-        val lead = spacers.compose(dx)
-        val trail = spacers.compose(-(dx + sprite.advance))
-
-        var segment = Component.empty()
-        if (lead.isNotEmpty()) {
-            segment =
-                segment.append(Component.text(lead).style(baseStyle(font, NamedTextColor.WHITE)))
-        }
-        segment =
-            segment.append(
-                Component.text(sprite.glyph).style(baseStyle(slot.font, NamedTextColor.WHITE)),
-            )
-        if (trail.isNotEmpty()) {
-            segment =
-                segment.append(Component.text(trail).style(baseStyle(font, NamedTextColor.WHITE)))
-        }
+        val glyph = Component.text(sprite.glyph).style(baseStyle(slot.font, NamedTextColor.WHITE))
         return RenderedSegment(
-            component = segment,
+            component = netZeroSegment(glyphStart - originX, sprite.advance, glyph),
             trace =
                 RenderLayerTrace(
                     semanticId = semanticId,
@@ -172,15 +110,7 @@ internal class TitleComposer(
      * Composes the full title: the static component followed by each already-rendered net-zero slot
      * segment, in the iteration order of [slotSegments].
      */
-    fun compose(slotSegments: Map<String, Component>): Component {
-        var title = staticComponent
-        for (segment in slotSegments.values) {
-            title = title.append(segment)
-        }
-        return title
-    }
-
-    internal fun compose(
+    fun compose(
         windowName: String,
         slotSegments: Map<String, RenderedSegment>,
     ): ComposedRender {
@@ -206,62 +136,17 @@ internal class TitleComposer(
         return ComposedRender(title, listOf(staticTrace) + slotSegments.values.map { it.trace })
     }
 
-    private fun baseStyle(
-        font: String,
-        color: TextColor,
-    ): Style =
-        Style
-            .style()
-            .font(Key.key(font))
-            .color(color)
-            .shadowColor(ShadowColor.none())
-            .also(::clearDecorations)
-            .build()
-
-    private fun slotStyle(
-        slot: SlotEntry,
-        color: TextColor,
-    ): Style =
-        Style
-            .style()
-            .font(Key.key(slot.font))
-            .color(color)
-            .also { builder -> applyShadow(builder, slot.shadow) }
-            .also { builder ->
-                builder.decoration(TextDecoration.BOLD, slot.bold)
-                builder.decoration(TextDecoration.ITALIC, slot.italic)
-                builder.decoration(TextDecoration.UNDERLINED, slot.underlined)
-                builder.decoration(TextDecoration.STRIKETHROUGH, slot.strikethrough)
-                builder.decoration(TextDecoration.OBFUSCATED, slot.obfuscated)
-            }.build()
-
-    private fun requireColor(hex: String): TextColor =
-        requireNotNull(TextColor.fromHexString(hex)) { "Invalid manifest text color $hex" }
-
-    private fun applyShadow(
-        builder: Style.Builder,
-        shadow: Boolean,
-    ) {
-        builder.shadowColor(if (shadow) TEXT_SHADOW else ShadowColor.none())
-    }
-
-    private fun clearDecorations(builder: Style.Builder) {
-        for (decoration in TEXT_DECORATIONS) {
-            builder.decoration(decoration, false)
-        }
-    }
-
-    private companion object {
-        const val TEXT_HEIGHT = 8
-        val TEXT_SHADOW: ShadowColor = ShadowColor.shadowColor(0, 0, 0, 180)
-
-        val TEXT_DECORATIONS =
-            listOf(
-                TextDecoration.BOLD,
-                TextDecoration.ITALIC,
-                TextDecoration.UNDERLINED,
-                TextDecoration.STRIKETHROUGH,
-                TextDecoration.OBFUSCATED,
-            )
+    private fun netZeroSegment(
+        dx: Int,
+        advance: Int,
+        content: Component,
+    ): Component {
+        val lead = spacers.compose(dx)
+        val trail = spacers.compose(-(dx + advance))
+        var segment = Component.empty()
+        if (lead.isNotEmpty()) segment = segment.append(Component.text(lead).style(spacerStyle))
+        segment = segment.append(content)
+        if (trail.isNotEmpty()) segment = segment.append(Component.text(trail).style(spacerStyle))
+        return segment
     }
 }

@@ -4,6 +4,8 @@ import dev.oglass.window.internal.FontRegistry
 import dev.oglass.window.internal.Spacers
 import dev.oglass.window.internal.TitleComposer
 import dev.oglass.window.manifest.Align
+import dev.oglass.window.manifest.SlotEntry
+import dev.oglass.window.manifest.SpriteSlotEntry
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -14,6 +16,16 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
+
+private fun TitleComposer.renderSlot(
+    slot: SlotEntry,
+    content: Component,
+): Component? = renderSlot("slot", slot, content)?.component
+
+private fun TitleComposer.renderSprite(
+    slot: SpriteSlotEntry,
+    spriteName: String?,
+): Component? = renderSprite("sprite", slot, spriteName)?.component
 
 class TitleComposerTest :
     StringSpec({
@@ -315,10 +327,10 @@ class TitleComposerTest :
             val window = manifest.windows.getValue("w")
             val composer = TitleComposer(manifest, window)
             val segment =
-                composer.renderSlot(window.slots.getValue("title"), Component.text("Hi"))!!
+                composer.renderSlot("slot", window.slots.getValue("title"), Component.text("Hi"))!!
 
-            val title = composer.compose(linkedMapOf("title" to segment))
+            val title = composer.compose("w", linkedMapOf("title" to segment)).component
             title.children().size shouldBe 1
-            title.children()[0] shouldBe segment
+            title.children()[0] shouldBe segment.component
         }
     })
