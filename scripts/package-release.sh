@@ -18,7 +18,7 @@ repository=$(pwd)
 # Every published JVM library is staged with its POM and transitive Window dependencies.
 jvm/gradlew -p jvm --no-daemon \
   -PwindowVersion="$RELEASE_VERSION" \
-  :runtime:publish :diagnostics-protocol:publish :minestom-diagnostics:publish :codegen:distZip
+  :runtime:publish :diagnostics-protocol:publish :minestom-diagnostics:publish
 find jvm/build/staging-deploy -name 'maven-metadata.xml*' -delete
 name="window-$RELEASE_VERSION-maven"
 mkdir -p "build/release/$name"
@@ -39,9 +39,7 @@ with open(f'dist/{name}.tar.gz', 'wb') as output, gzip.GzipFile(filename='', mod
         with path.open('rb') as source:
             archive.addfile(entry, source)
 PYTHON
-cp "jvm/codegen/build/distributions/codegen-$RELEASE_VERSION.zip" "dist/window-$RELEASE_VERSION-codegen.zip"
 cp plugin/release.json dist/release.json
 (cd dist && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256" \
-  && sha256sum "window-$RELEASE_VERSION-codegen.zip" > "window-$RELEASE_VERSION-codegen.zip.sha256" \
   && sha256sum release.json > release.json.sha256 \
   && sha256sum packed.json > packed.json.sha256)

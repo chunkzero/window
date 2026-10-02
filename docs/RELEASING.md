@@ -1,7 +1,7 @@
 # Releasing
 
 Window publishes its TypeScript/WASIp2 rpp plugin, a versioned Maven repository archive (runtime, diagnostics protocol
-and Minestom diagnostics, including POMs, sources and Javadoc), and the JVM codegen distribution. Window has no native
+and Minestom diagnostics, including POMs, sources and Javadoc). Window has no native
 CLI and is not an aqua package. TypeScript package files replace the former Lua package; all artifacts use the same
 version and include SHA-256 sidecars. `release.json` records the full source commit.
 
@@ -40,7 +40,7 @@ the same version. Configure Gradle with `maven("https://maven.chunkzero.com")` a
 
 For an offline mirror, download `window-<version>-maven.tar.gz` and its `.sha256` from that tag, verify the checksum,
 and extract it. Point a Gradle Maven repository at `window-<version>-maven`; Maven Central supplies third-party
-dependencies. The optional codegen ZIP is `window-<version>-codegen.zip` with a SHA-256 sidecar.
+dependencies.
 
 Only the latest 30 published nightlies are retained. Stable and beta releases are never pruned. Deleted nightly versions
 cannot be freshly installed, even with an old lockfile; use a stable/beta release for long-lived deployments or retain
