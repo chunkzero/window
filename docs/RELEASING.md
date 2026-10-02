@@ -9,7 +9,8 @@ version and include SHA-256 sidecars. `release.json` records the full source com
 
 RPP must already have the release pinned by `RPP_VERSION` in the release workflow. The organization secrets `RPP_APP_ID`
 and `RPP_APP_PRIVATE_KEY` grant the publishing job access to `chunkzero/rpp-registry`; no PR job has release write
-credentials.
+credentials. The repository secret `MAVEN_R2_TOKEN` authorizes publication of the matching JVM libraries to
+`https://maven.chunkzero.com` through Maven R2.
 
 Push `v<version>` matching `Cargo.toml` for a stable/beta release, or manually run `Release` on `main` with
 `mode=nightly` and `publish=true`. Dispatch with `publish=false` builds and checks artifacts without publishing. Only
@@ -34,11 +35,12 @@ rpp build
 ```
 
 Commit `rpp.json` and `rpp.lock`. Use the exact published version, including the commit suffix. The JVM runtime must use
-the same version. Download `window-<version>-maven.tar.gz` and its `.sha256` from that tag, verify the checksum, and
-extract it. Point a Gradle Maven repository at `window-<version>-maven` and depend on
-`dev.oglass.window:window-runtime:<version>`. The archive includes the Window transitive dependencies and their POMs;
-Maven Central supplies third-party dependencies. The optional codegen ZIP is `window-<version>-codegen.zip` with a
-SHA-256 sidecar.
+the same version. Configure Gradle with `maven("https://maven.chunkzero.com")` and Maven Central, then depend on
+`dev.oglass.window:window-runtime:<version>`. Each release publishes the runtime and its Window dependencies together.
+
+For an offline mirror, download `window-<version>-maven.tar.gz` and its `.sha256` from that tag, verify the checksum,
+and extract it. Point a Gradle Maven repository at `window-<version>-maven`; Maven Central supplies third-party
+dependencies. The optional codegen ZIP is `window-<version>-codegen.zip` with a SHA-256 sidecar.
 
 Only the latest 30 published nightlies are retained. Stable and beta releases are never pruned. Deleted nightly versions
 cannot be freshly installed, even with an old lockfile; use a stable/beta release for long-lived deployments or retain
