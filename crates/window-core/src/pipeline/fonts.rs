@@ -1,0 +1,112 @@
+//! Font provider documents, font metrics, and the hitbox item.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use crate::compose::Texture;
+use crate::font::{bitmap_provider_file, main_font, provider_font, shifted_font, shifted_suffix, space_provider};
+use crate::manifest::FontMetricsEntry;
+use crate::{Error, Result, vanilla};
+
+use super::glyphs::sprite_glyph;
+use super::sprites::RuntimeSpriteAsset;
+use super::{CompileContext, OutputFile};
+
+/// Emit the main font (space provider, then static bitmap providers in push
+/// order), the hitbox item, one shifted label font per text offset, and one
+/// sprite font per sprite offset.
+pub(super) fn emit_fonts(ctx: &mut CompileContext<'_>) -> Result<()> {
+    let namespace = ctx.namespace;
+    let main = main_font(space_provider(), std::mem::take(&mut ctx.bitmap_providers));
+    ctx.files.push(OutputFile { path: format!("assets/{namespace}/font/ui.json"), contents: to_json_bytes(&main)? });
+    emit_hitbox_item(namespace, &mut ctx.files)?;
+
+    for k in &ctx.shift_offsets {
+        ctx.files.push(OutputFile {
+            path: format!("assets/{namespace}/font/{}.json", shifted_suffix(*k)),
+            contents: to_json_bytes(&shifted_font(*k)?)?,
+        });
+    }
+    for k in &ctx.sprite_offsets {
+        ctx.files.push(OutputFile {
+            path: format!("assets/{namespace}/font/sprite_{}.json", shifted_suffix(*k)),
+            contents: to_json_bytes(&sprite_font(*k, ctx.runtime_sprites, &ctx.codepoints)?)?,
+        });
+    }
+    Ok(())
+}
+
+fn sprite_font(
+    k: i32,
+    runtime_sprites: &BTreeMap<String, RuntimeSpriteAsset>,
+    codepoints: &BTreeMap<String, u32>,
+) -> Result<serde_json::Value> {
+    let ascent = 7 - k;
+    let mut providers = Vec::with_capacity(runtime_sprites.len());
+    for (name, asset) in runtime_sprites {
+        providers.push(bitmap_provider_file(
+            &asset.file,
+            &format!("sprite `{name}` at y offset {k}"),
+            asset.size.height,
+            ascent,
+            sprite_glyph(name, codepoints),
+        )?);
+    }
+    Ok(provider_font(providers))
+}
+
+pub(super) fn font_metrics(
+    namespace: &str,
+    shift_offsets: &BTreeSet<i32>,
+    text_advances: &BTreeMap<char, u32>,
+    text_glyph_widths: &BTreeMap<char, u32>,
+) -> BTreeMap<String, FontMetricsEntry> {
+    let mut metrics = BTreeMap::new();
+    let entry = FontMetricsEntry {
+        advances: text_advances.clone(),
+        glyph_widths: text_glyph_widths.clone(),
+        bold_advance: vanilla::BOLD_ADVANCE,
+    };
+    metrics.insert("minecraft:default".into(), entry.clone());
+    for k in shift_offsets {
+        metrics.insert(format!("{namespace}:{}", shifted_suffix(*k)), entry.clone());
+    }
+    metrics
+}
+
+fn emit_hitbox_item(namespace: &str, files: &mut Vec<OutputFile>) -> Result<()> {
+    files.push(OutputFile {
+        path: format!("assets/{namespace}/items/gui/hitbox.json"),
+        contents: to_json_bytes(&serde_json::json!({
+            "model": {
+                "type": "minecraft:model",
+                "model": format!("{namespace}:gui/hitbox"),
+            },
+        }))?,
+    });
+    files.push(OutputFile {
+        path: format!("assets/{namespace}/models/gui/hitbox.json"),
+        contents: to_json_bytes(&serde_json::json!({
+            "parent": "minecraft:item/generated",
+            "textures": {
+                "layer0": "minecraft:item/barrier",
+            },
+            "display": {
+                "gui": {
+                    "scale": [0, 0, 0],
+                },
+            },
+        }))?,
+    });
+    files.push(OutputFile {
+        path: format!("assets/{namespace}/textures/gui/hitbox.png"),
+        contents: Texture { width: 1, height: 1, rgba: vec![0, 0, 0, 0] }.encode_png()?,
+    });
+    Ok(())
+}
+
+/// Serialize a JSON value deterministically (pretty, trailing newline).
+fn to_json_bytes(value: &serde_json::Value) -> Result<Vec<u8>> {
+    let mut bytes = serde_json::to_vec_pretty(value).map_err(|e| Error::Font(e.to_string()))?;
+    bytes.push(b'\n');
+    Ok(bytes)
+}
