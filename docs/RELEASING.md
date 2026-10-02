@@ -1,9 +1,9 @@
 # Releasing
 
 Window publishes its TypeScript/WASIp2 rpp plugin, a versioned Maven repository archive (runtime, diagnostics protocol
-and Minestom diagnostics, including POMs, sources and Javadoc). Window has no native
-CLI and is not an aqua package. TypeScript package files replace the former Lua package; all artifacts use the same
-version and include SHA-256 sidecars. `release.json` records the full source commit.
+and Minestom diagnostics, including POMs, sources and Javadoc). Window has no native CLI and is not an aqua package.
+TypeScript package files replace the former Lua package; all artifacts use the same version and include SHA-256
+sidecars. `release.json` records the full source commit.
 
 ## Publish
 

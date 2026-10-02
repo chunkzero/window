@@ -26,8 +26,8 @@ and invokes the component. Pack assets use rpp's pack output; Kotlin sources use
 cannot write arbitrary server project files.
 
 The JVM runtime consumes generated definitions, composes Adventure components, and manages Minestom sessions. The legacy
-JSON parser remains for existing tooling; the example uses generated `WindowPack` classes. The
-example pack and server are described in [example/README.md](../example/README.md).
+JSON parser remains for existing tooling; the example uses generated `WindowPack` classes. The example pack and server
+are described in [example/README.md](../example/README.md).
 
 ## Rendering coordinates
 
