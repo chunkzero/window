@@ -520,11 +520,12 @@ text.smallCaps("Shop");
 text.smallCapsMinimessage("<gold>Shop</gold>");
 ```
 
-Window's shifted label fonts cover printable ASCII, the glyphs emitted by the small-caps helpers, and the standard UI
-markers/separator `×`, `▲`, `▼`, `◆`, `●`, and `·`. Their advances are measured from the rightmost opaque cell pixels in
-Minecraft 26.1.2's built-in bitmap sheets so every label segment returns the title cursor to the same origin. Runtime
-text outside that set logs an unsupported-glyph warning; use a Window sprite for additional iconography instead of
-relying on Minecraft's missing-glyph fallback.
+Window's shifted label fonts cover printable ASCII, the remaining glyphs on Minecraft's `ascii.png` sheet (Latin-1
+symbols, box drawing, and math symbols such as `±`, `°`, and `≤`), the glyphs emitted by the small-caps helpers, and the
+standard UI markers/separator `×`, `▲`, `▼`, `◆`, `●`, and `·`. Their advances are measured from the rightmost opaque
+cell pixels in Minecraft 26.1.2's built-in bitmap sheets so every label segment returns the title cursor to the same
+origin. Runtime text outside that set logs an unsupported-glyph warning; use a Window sprite for additional iconography
+instead of relying on Minecraft's missing-glyph fallback.
 
 ## Semantics
 

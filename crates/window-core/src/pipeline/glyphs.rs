@@ -35,7 +35,7 @@ pub(super) fn allocate_codepoints(
     huds: &[&LaidOutHud],
     composites: &Composites,
     runtime_sprites: Option<&BTreeMap<String, RuntimeSpriteAsset>>,
-) -> BTreeMap<String, u32> {
+) -> Result<BTreeMap<String, u32>> {
     let mut keys: BTreeSet<String> = BTreeSet::new();
     for (w, comp) in windows.iter().zip(&composites.windows) {
         if comp.has_content {

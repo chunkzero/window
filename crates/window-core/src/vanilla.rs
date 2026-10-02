@@ -1,29 +1,28 @@
-//! Vanilla font metrics for the default font's ASCII range, used for label
-//! measurement at build time and exported in the manifest for runtime
-//! alignment.
+//! Vanilla font metrics for every character the shifted label fonts provide,
+//! used for label measurement at build time and exported in the manifest for
+//! runtime alignment.
 //!
 //! An advance is the cursor movement after drawing a character. For vanilla's
 //! `ascii.png` bitmap glyphs, Minecraft computes that as detected glyph ink
 //! width plus the 1px inter-glyph gap. The space character is special: vanilla
 //! supplies it from a `space` provider with a 4px advance and no ink.
 //!
-//! The table covers all printable ASCII (`0x20`–`0x7E`) using the glyph pixel
-//! widths baked into vanilla's `ascii.png`, plus the vanilla space-provider
-//! override for `' '`. It also includes the mcutils-style Minecraft small-text
-//! Unicode letters and common UI symbols that vanilla renders from
-//! `nonlatin_european.png` and `accented.png`, so generated shifted fonts can
-//! align that style exactly. These advances are measured from the rightmost
-//! opaque cell pixels in Minecraft 26.1.2's bitmap sheets; getting even one
-//! glyph wrong causes each net-zero title segment to leak cursor movement into
-//! every segment after it.
+//! The tables cover all printable ASCII (`0x20`–`0x7E`), the remaining
+//! `ascii.png` cells, the mcutils-style Minecraft small-text Unicode letters and
+//! common UI symbols that vanilla renders from `nonlatin_european.png` and
+//! `accented.png`, and the vanilla space-provider entries (`' '`, `U+200C`).
+//! Every character the shifted fonts provide has exactly one entry here.
+//! Bitmap advances are measured from the rightmost opaque cell pixels in
+//! Minecraft 26.1.2's bitmap sheets; getting even one glyph wrong causes each
+//! net-zero title segment to leak cursor movement into every segment after it.
 
 /// The advance table: `(char, advance)` pairs covering printable ASCII,
 /// sorted ascending by codepoint. `advance == glyph_width + 1`.
 ///
 /// Glyph widths are the canonical vanilla `ascii.png` widths; advances add the
 /// 1px inter-glyph gap, except `' '` which is a no-ink glyph with a 4px advance.
-/// Narrow glyphs include `'!','.',',',':',';','i','|'`→2,
-/// `'l','\'','`'`→3, and wide glyphs `'@','~'`→7. Most letters and digits are
+/// Narrow glyphs include `'!','\'','.',',',':',';','i','|'`→2,
+/// `'l','`'`→3, and wide glyphs `'@','~'`→7. Most letters and digits are
 /// 6.
 const ADVANCES: &[(char, u32)] = &[
     (' ', 4),
@@ -33,7 +32,7 @@ const ADVANCES: &[(char, u32)] = &[
     ('$', 6),
     ('%', 6),
     ('&', 6),
-    ('\'', 3),
+    ('\'', 2),
     ('(', 4),
     (')', 4),
     ('*', 4),
@@ -123,17 +122,29 @@ const ADVANCES: &[(char, u32)] = &[
     ('~', 7),
 ];
 
-/// Extra vanilla bitmap glyph metrics used by Minecraft's common small-text
-/// converter and Window's standard UI status markers.
+/// Metrics for every non-ASCII character the shifted fonts provide, sorted
+/// ascending by codepoint: the extra `ascii.png` cells, the small-caps letters
+/// and UI markers from `nonlatin_european.png` and `accented.png`, and the
+/// zero-advance `U+200C` from the space provider.
 ///
-/// The small-cap glyphs use a 6px advance except for narrow `ɪ`, whose advance
-/// is 4px in Minecraft 26.1.2. Bitmap advance is the rightmost opaque cell's
-/// zero-based x-coordinate plus two (one to turn it into a width and one for
-/// the inter-glyph gap), so transparent left padding still contributes to the
-/// cursor. The symbol advances below come from the same built-in bitmap sheet.
-const SMALL_TEXT_ADVANCES: &[(char, u32)] = &[
+/// Bitmap advance is the rightmost opaque cell column's zero-based
+/// x-coordinate plus two (one to turn it into a width and one for the
+/// inter-glyph gap), so transparent left padding still contributes to the
+/// cursor.
+const EXTRA_ADVANCES: &[(char, u32)] = &[
+    ('\u{00A3}', 6), // £
+    ('\u{00AA}', 5), // ª
+    ('\u{00AB}', 7), // «
+    ('\u{00AC}', 6), // ¬
+    ('\u{00B0}', 5), // °
+    ('\u{00B1}', 6), // ±
+    ('\u{00B2}', 5), // ²
     ('\u{00B7}', 2), // ·
+    ('\u{00BA}', 5), // º
+    ('\u{00BB}', 7), // »
     ('\u{00D7}', 6), // ×
+    ('\u{00F7}', 6), // ÷
+    ('\u{0192}', 6), // ƒ
     ('\u{01EB}', 6), // ǫ
     ('\u{0262}', 6), // ɢ
     ('\u{026A}', 4), // ɪ
@@ -158,9 +169,70 @@ const SMALL_TEXT_ADVANCES: &[(char, u32)] = &[
     ('\u{1D20}', 6), // ᴠ
     ('\u{1D21}', 6), // ᴡ
     ('\u{1D22}', 6), // ᴢ
+    ('\u{200C}', 0), // zero-width non-joiner
+    ('\u{207F}', 5), // ⁿ
+    ('\u{2205}', 8), // ∅
+    ('\u{2208}', 6), // ∈
+    ('\u{2219}', 6), // ∙
+    ('\u{221A}', 7), // √
+    ('\u{2248}', 7), // ≈
+    ('\u{2261}', 7), // ≡
+    ('\u{2264}', 6), // ≤
+    ('\u{2265}', 6), // ≥
+    ('\u{2320}', 8), // ⌠
+    ('\u{2321}', 5), // ⌡
+    ('\u{2500}', 9), // ─
+    ('\u{2502}', 6), // │
+    ('\u{250C}', 9), // ┌
+    ('\u{2510}', 6), // ┐
+    ('\u{2514}', 9), // └
+    ('\u{2518}', 6), // ┘
+    ('\u{251C}', 9), // ├
+    ('\u{2524}', 6), // ┤
+    ('\u{252C}', 9), // ┬
+    ('\u{2534}', 9), // ┴
+    ('\u{253C}', 9), // ┼
+    ('\u{2550}', 9), // ═
+    ('\u{2551}', 8), // ║
+    ('\u{2552}', 9), // ╒
+    ('\u{2553}', 9), // ╓
+    ('\u{2554}', 9), // ╔
+    ('\u{2555}', 6), // ╕
+    ('\u{2556}', 8), // ╖
+    ('\u{2557}', 8), // ╗
+    ('\u{2558}', 9), // ╘
+    ('\u{2559}', 9), // ╙
+    ('\u{255A}', 9), // ╚
+    ('\u{255B}', 6), // ╛
+    ('\u{255C}', 8), // ╜
+    ('\u{255D}', 8), // ╝
+    ('\u{255E}', 9), // ╞
+    ('\u{255F}', 9), // ╟
+    ('\u{2560}', 9), // ╠
+    ('\u{2561}', 6), // ╡
+    ('\u{2562}', 8), // ╢
+    ('\u{2563}', 8), // ╣
+    ('\u{2564}', 9), // ╤
+    ('\u{2565}', 9), // ╥
+    ('\u{2566}', 9), // ╦
+    ('\u{2567}', 9), // ╧
+    ('\u{2568}', 9), // ╨
+    ('\u{2569}', 9), // ╩
+    ('\u{256A}', 9), // ╪
+    ('\u{256B}', 9), // ╫
+    ('\u{256C}', 9), // ╬
+    ('\u{2580}', 9), // ▀
+    ('\u{2584}', 9), // ▄
+    ('\u{2588}', 9), // █
+    ('\u{258C}', 5), // ▌
+    ('\u{2590}', 9), // ▐
+    ('\u{2591}', 8), // ░
+    ('\u{2592}', 9), // ▒
+    ('\u{2593}', 9), // ▓
+    ('\u{25A0}', 6), // ■
     ('\u{25B2}', 6), // ▲
     ('\u{25BC}', 6), // ▼
-    ('\u{25C6}', 8), // ◆
+    ('\u{25C6}', 6), // ◆
     ('\u{25CF}', 5), // ●
     ('\u{A730}', 6), // ꜰ
     ('\u{A731}', 6), // ꜱ
@@ -181,7 +253,7 @@ pub fn advance(c: char) -> Option<u32> {
     if ascii.is_some() {
         return ascii;
     }
-    SMALL_TEXT_ADVANCES.binary_search_by(|&(probe, _)| probe.cmp(&c)).ok().map(|idx| SMALL_TEXT_ADVANCES[idx].1)
+    EXTRA_ADVANCES.binary_search_by(|&(probe, _)| probe.cmp(&c)).ok().map(|idx| EXTRA_ADVANCES[idx].1)
 }
 
 /// Advance used for characters outside the table.
@@ -249,17 +321,15 @@ pub fn bold_text_visible_width(s: &str) -> u32 {
 
 /// The full table, for export into the manifest's `text_advances`.
 ///
-/// Yields every printable-ASCII `(char, advance)` pair, sorted ascending by
-/// character.
+/// Yields every `(char, advance)` pair, sorted ascending by character.
 pub fn advances() -> impl Iterator<Item = (char, u32)> {
-    ADVANCES.iter().copied().chain(SMALL_TEXT_ADVANCES.iter().copied())
+    ADVANCES.iter().copied().chain(EXTRA_ADVANCES.iter().copied())
 }
 
 /// The full visible-ink width table, for export into the manifest's
 /// `text_glyph_widths`.
 ///
-/// Yields every printable-ASCII `(char, glyph_width)` pair, sorted ascending by
-/// character.
+/// Yields every `(char, glyph_width)` pair, sorted ascending by character.
 pub fn glyph_widths() -> impl Iterator<Item = (char, u32)> {
     advances().map(|(c, _)| (c, glyph_width(c).expect("advance table entry has a glyph width")))
 }
