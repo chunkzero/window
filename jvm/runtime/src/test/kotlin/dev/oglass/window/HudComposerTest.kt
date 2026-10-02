@@ -55,9 +55,11 @@ class HudComposerTest :
             val hud = manifest.huds.getValue("h")
             val composer = HudComposer(manifest, hud)
 
-            val segment = composer.renderSlot(hud.slots.getValue("coins"), Component.text("Hi"))
-            segment.shouldNotBeNull()
-            val component = composer.compose(mapOf("coins" to segment))
+            val rendered =
+                composer.renderSlot("slot", hud.slots.getValue("coins"), Component.text("Hi"))
+            rendered.shouldNotBeNull()
+            val segment = rendered.component
+            val component = composer.compose("h", mapOf("coins" to rendered)).component
             val children = component.children()
 
             val lead = children[0] as TextComponent
@@ -82,11 +84,13 @@ class HudComposerTest :
             val hud = manifest.huds.getValue("h")
             val composer = HudComposer(manifest, hud)
 
-            val segment = composer.renderSlot(hud.slots.getValue("coins"), Component.text("Hi"))
-            segment.shouldNotBeNull()
+            val rendered =
+                composer.renderSlot("slot", hud.slots.getValue("coins"), Component.text("Hi"))
+            rendered.shouldNotBeNull()
+            val segment = rendered.component
 
             segment.style().shadowColor() shouldBe ShadowColor.shadowColor(0, 0, 0, 180)
-            val component = composer.compose(mapOf("coins" to segment))
+            val component = composer.compose("h", mapOf("coins" to rendered)).component
             val lead = component.children()[0] as TextComponent
             lead.style().shadowColor() shouldBe ShadowColor.none()
         }
@@ -113,12 +117,14 @@ class HudComposerTest :
             val sc = composer.staticComponent as TextComponent
             sc.style().color() shouldBe TextColor.fromHexString("#010002")
 
-            val segment = composer.renderSlot(hud.slots.getValue("coins"), Component.text("Hi"))
-            segment.shouldNotBeNull()
+            val rendered =
+                composer.renderSlot("slot", hud.slots.getValue("coins"), Component.text("Hi"))
+            rendered.shouldNotBeNull()
+            val segment = rendered.component
             val text = segment as TextComponent
             text.style().color() shouldBe TextColor.fromHexString("#120034")
 
-            val component = composer.compose(mapOf("coins" to segment))
+            val component = composer.compose("h", mapOf("coins" to rendered)).component
             val children = component.children()
             val lead = children[0] as TextComponent
             val trail = children[2] as TextComponent
@@ -138,10 +144,12 @@ class HudComposerTest :
                 )
             val hud = manifest.huds.getValue("h")
             val composer = HudComposer(manifest, hud)
-            val segment = composer.renderSlot(hud.slots.getValue("coins"), Component.text("Hi"))
-            segment.shouldNotBeNull()
+            val rendered =
+                composer.renderSlot("slot", hud.slots.getValue("coins"), Component.text("Hi"))
+            rendered.shouldNotBeNull()
+            val segment = rendered.component
 
-            val component = composer.compose(mapOf("coins" to segment))
+            val component = composer.compose("h", mapOf("coins" to rendered)).component
             val children = component.children()
             val lead = children[0] as TextComponent
             val trail = children[2] as TextComponent
@@ -162,7 +170,8 @@ class HudComposerTest :
             val hud = manifest.huds.getValue("h")
             val composer = HudComposer(manifest, hud)
             val content = Component.text("H").append(Component.text("i").color(NamedTextColor.RED))
-            val segment = composer.renderSlot(hud.slots.getValue("coins"), content) as TextComponent
+            val segment =
+                composer.renderSlot("slot", hud.slots.getValue("coins"), content)!!.component as TextComponent
 
             segment.style().color() shouldBe TextColor.fromHexString("#120034")
             segment.children()[0].style().color() shouldBe TextColor.fromHexString("#120034")
@@ -187,7 +196,8 @@ class HudComposerTest :
             val hud = manifest.huds.getValue("h")
             val composer = HudComposer(manifest, hud)
             val content = Component.text("H").append(Component.text("i").color(NamedTextColor.RED))
-            val segment = composer.renderSlot(hud.slots.getValue("coins"), content) as TextComponent
+            val segment =
+                composer.renderSlot("slot", hud.slots.getValue("coins"), content)!!.component as TextComponent
 
             segment.style().color() shouldBe TextColor.fromHexString("#120034")
             val markerShadow = ShadowColor.shadowColor(TextColor.fromHexString("#120034")!!, 180)

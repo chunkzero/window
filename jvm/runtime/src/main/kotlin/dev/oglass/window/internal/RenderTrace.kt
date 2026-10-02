@@ -1,7 +1,10 @@
 package dev.oglass.window.internal
 
+import dev.oglass.window.diagnostics.RenderBounds
+import dev.oglass.window.diagnostics.RenderLayerKind
 import dev.oglass.window.diagnostics.RenderLayerTrace
 import dev.oglass.window.diagnostics.RenderStyleTrace
+import dev.oglass.window.manifest.SlotEntry
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.TextComponent
 import net.kyori.adventure.text.format.ShadowColor
@@ -17,6 +20,45 @@ internal data class ComposedRender(
     val component: Component,
     val layers: List<RenderLayerTrace>,
 )
+
+/** Trace for a net-zero text slot rendered as [styled], with the cursor at [cursor] before and after. */
+internal fun textSlotTrace(
+    semanticId: String,
+    kind: RenderLayerKind,
+    slot: SlotEntry,
+    styled: Component,
+    colorHex: String,
+    xStart: Int,
+    widths: TextWidth,
+    cursor: Int,
+): RenderLayerTrace =
+    RenderLayerTrace(
+        semanticId = semanticId,
+        kind = kind,
+        content = plainContent(styled),
+        font = styled.style().font()?.asString() ?: slot.font,
+        style =
+            traceStyle(
+                styled.style(),
+                RenderStyleTrace(
+                    color = colorHex,
+                    shadow = slot.shadow,
+                    bold = slot.bold,
+                    italic = slot.italic,
+                    underlined = slot.underlined,
+                    strikethrough = slot.strikethrough,
+                    obfuscated = slot.obfuscated,
+                ),
+            ),
+        expectedBounds = RenderBounds(xStart, slot.y, widths.visual, TEXT_HEIGHT),
+        cursorStart = cursor,
+        contentCursorStart = xStart,
+        contentCursorEnd = xStart + widths.advance,
+        cursorEnd = cursor,
+        advance = widths.advance,
+        visualWidth = widths.visual,
+        netCursorDelta = 0,
+    )
 
 internal fun plainContent(component: Component): String = buildString { appendContent(component) }
 
