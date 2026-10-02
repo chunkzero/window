@@ -254,6 +254,53 @@ class LiveInventoryHandleTest :
             player.inventory.getItemStack(35).material() shouldBe Material.IRON_INGOT
         }
 
+        "opening another window from a click retires the previous session" {
+            val player = testPlayer()
+            player.inventory.setItemStack(0, ItemStack.of(Material.DIAMOND))
+            val manifest =
+                TestManifests.manifest(
+                    buttons =
+                        mapOf(
+                            "home" to
+                                TestManifests.buttonRefs(
+                                    listOf(TestManifests.playerSlot(0)),
+                                    tooltip = ButtonTooltip("Home"),
+                                ),
+                        ),
+                )
+            val windows = Windows.load(manifest)
+            val events = mutableListOf<String>()
+            lateinit var next: WindowSession
+
+            class Recording(
+                val label: String,
+                val onHome: () -> Unit,
+            ) : WindowView("w") {
+                override fun WindowScope.bind() {
+                    button("home") {
+                        events += "$label:click"
+                        onHome()
+                    }
+                }
+
+                override fun onClose() {
+                    events += "$label:close"
+                }
+            }
+
+            val first =
+                windows.open(
+                    player,
+                    Recording("first") { next = windows.open(player, Recording("second") {}) },
+                )
+            WindowListener.clickWindowListener(clickPacket(first, first.inventory.size + 27), player)
+            WindowListener.clickWindowListener(clickPacket(next, next.inventory.size + 27), player)
+            next.close()
+
+            events shouldBe listOf("first:click", "first:close", "second:click", "second:close")
+            player.inventory.getItemStack(0).material() shouldBe Material.DIAMOND
+        }
+
         "opened-inventory player-region pre-clicks are normalised by container size" {
             val player = testPlayer()
             val handle = LiveInventoryHandle(player, InventoryType.CHEST_3_ROW)

@@ -45,7 +45,10 @@ public abstract class WindowView(
     /** Invoked after the inventory is built and the view attached, before it is shown. */
     protected open fun onOpen() {}
 
-    /** Invoked when the window closes (by client or server), before cleanup. */
+    /**
+     * Invoked when the window closes (by client or server) or another inventory opens over it, before
+     * cleanup.
+     */
     protected open fun onClose() {}
 
     /**
