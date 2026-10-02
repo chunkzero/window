@@ -7,8 +7,4 @@ internal data class TextWidth(
 ) {
     /** Width of this text followed by [next], whose ink starts at this advance. */
     fun append(next: TextWidth): TextWidth = TextWidth(advance + next.advance, maxOf(visual, advance + next.visual))
-
-    internal companion object {
-        val ZERO = TextWidth(0, 0)
-    }
 }
