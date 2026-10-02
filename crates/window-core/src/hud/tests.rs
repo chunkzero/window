@@ -45,8 +45,31 @@ fn shader_hud(name: &str, slot_name: &str) -> LaidOutHud {
 fn maps_pack_formats_to_profiles() {
     assert_eq!(ShaderProfile::for_pack_format(9), Some(ShaderProfile::Pack9To13LegacyFog));
     assert_eq!(ShaderProfile::for_pack_format(42), Some(ShaderProfile::Pack42To62NamespacedFog));
-    assert_eq!(ShaderProfile::for_pack_format(84), Some(ShaderProfile::Pack84PlusSampleLightmap));
+    assert_eq!(ShaderProfile::for_pack_format(84), Some(ShaderProfile::Pack84SampleLightmap));
+    assert_eq!(ShaderProfile::for_pack_format(88), Some(ShaderProfile::Pack85To88DefineVariants));
     assert_eq!(ShaderProfile::for_pack_format(8), None);
+    assert_eq!(ShaderProfile::for_pack_format(89), None);
+}
+
+#[test]
+fn define_variant_profile_overrides_core_text_programs() {
+    let hud = shader_hud("status", "coins");
+    let output = emit(Some(88), &[&hud]);
+    let paths = output.files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>();
+
+    assert_eq!(
+        paths,
+        [
+            "assets/minecraft/shaders/core/text.vsh",
+            "assets/minecraft/shaders/core/text.fsh",
+            "assets/minecraft/shaders/core/text_background.vsh",
+        ]
+    );
+    let vertex = &output.files[0].contents;
+    assert!(vertex.contains("#if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)\nin ivec2 UV2;"));
+    assert!(vertex.contains("window_hud_apply(pos, Color);"));
+    assert!(vertex.contains("vertexColor = window_hud_vertex_color(Color, vec4(1.0), Position.y);"));
+    assert!(output.files[1].contents.contains("if (windowHudTextureMode != 1) {\n        texColor = texColor.rrrr;"));
 }
 
 #[test]

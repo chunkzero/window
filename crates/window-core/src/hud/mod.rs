@@ -1,7 +1,7 @@
 //! HUD core-shader generation.
 //!
 //! This module owns shader-backed HUD emission: marker allocation, relocation
-//! rules, version-profile selection, and version-specific `rendertype_text`
+//! rules, version-profile selection, and version-specific core text shader
 //! rendering.
 
 use crate::ir::LaidOutHud;
@@ -54,7 +54,7 @@ pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud]) -> ShaderOutput {
     ShaderOutput {
         files: shader_files(profile, &rules),
         warnings: vec![format!(
-            "emitted generated rendertype_text core shaders for {profile}; core shader overrides are \
+            "emitted generated core text shaders for {profile}; core shader overrides are \
              client-version-sensitive, so keep actionbar/bossbar/sidebar fallback enabled"
         )],
     }
@@ -65,16 +65,7 @@ fn skipped(warning: String) -> ShaderOutput {
 }
 
 fn shader_files(profile: ShaderProfile, rules: &[HudShaderRule]) -> Vec<ShaderFile> {
-    vec![
-        shader_file("rendertype_text.vsh", profile.render_text(rules, false, false)),
-        shader_file("rendertype_text_intensity.vsh", profile.render_text(rules, true, false)),
-        shader_file("rendertype_text_intensity.fsh", profile.render_text_intensity_fragment(false)),
-        shader_file("rendertype_text_see_through.vsh", profile.render_text(rules, false, true)),
-        shader_file("rendertype_text_intensity_see_through.vsh", profile.render_text(rules, true, true)),
-        shader_file("rendertype_text_intensity_see_through.fsh", profile.render_text_intensity_fragment(true)),
-        shader_file("rendertype_text_background.vsh", profile.render_text_background(rules, false)),
-        shader_file("rendertype_text_background_see_through.vsh", profile.render_text_background(rules, true)),
-    ]
+    profile.sources(rules).into_iter().map(|(name, contents)| shader_file(name, contents)).collect()
 }
 
 fn shader_file(name: &str, contents: String) -> ShaderFile {

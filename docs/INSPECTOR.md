@@ -5,8 +5,7 @@ font, GUI, and shader pipeline. It does not contain a preview renderer. The comp
 optional server adapter sends the dynamic composition trace, and the inspector records what the active Minecraft client
 actually rendered.
 
-The inspector targets the same version as Window's validation harness: Minecraft 26.1.2 with Fabric Loader and Fabric
-API.
+The inspector targets the same version as Window's validation harness: Minecraft 26.2 with Fabric Loader and Fabric API.
 
 ## Build and install
 

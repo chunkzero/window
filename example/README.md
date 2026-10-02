@@ -33,7 +33,7 @@ just example-pack      # rpp codegen + build -> dist/ and generated Kotlin views
 just example-run       # boot the Minestom server on :25565
 ```
 
-Then connect a 26.1.2 client. The catalog opens on spawn with 30 real item entries, category and sort choices,
+Then connect a 26.2 client. The catalog opens on spawn with 30 real item entries, category and sort choices,
 favorites/affordability toggles, paging, reactive selection and wallet text, plus buy/search/exit actions. Search opens
 a second Window screen backed by the native anvil rename field; typing filters the player-inventory result grid and
 selecting a result returns to the catalog.

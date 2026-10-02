@@ -4,13 +4,13 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.DeviceInfo;
+import com.mojang.blaze3d.systems.RenderSystem;
 
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.network.chat.Component;
-
-import org.lwjgl.opengl.GL11;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -77,7 +77,7 @@ final class ReportExporter {
                         + "It may contain server-provided rendered text and environment details."
                         + " Review before sharing.\n");
             Screenshot.takeScreenshot(
-                    client.getMainRenderTarget(),
+                    client.gameRenderer.mainRenderTarget(),
                     image -> {
                         try (image) {
                             image.writeToFile(directory.resolve("screenshot.png"));
@@ -115,9 +115,11 @@ final class ReportExporter {
         value.addProperty("unicode", client.options.forceUnicodeFont().get());
         value.addProperty("window_width", client.getWindow().getWidth());
         value.addProperty("window_height", client.getWindow().getHeight());
-        value.addProperty("framebuffer_width", client.getMainRenderTarget().width);
-        value.addProperty("framebuffer_height", client.getMainRenderTarget().height);
-        value.addProperty("gpu_renderer", String.valueOf(GL11.glGetString(GL11.GL_RENDERER)));
+        value.addProperty("framebuffer_width", client.gameRenderer.mainRenderTarget().width);
+        value.addProperty("framebuffer_height", client.gameRenderer.mainRenderTarget().height);
+        DeviceInfo device = RenderSystem.getDevice().getDeviceInfo();
+        value.addProperty("gpu_renderer", device.name());
+        value.addProperty("gpu_backend", device.backendName());
         JsonArray packs = new JsonArray();
         client.getResourceManager().listPacks().forEach(pack -> packs.add(pack.packId()));
         value.add("active_pack_order", packs);

@@ -5,7 +5,7 @@ export default defineConfig({
     pack: {
         name: "window-example",
         description: "Example resource pack driven by the Window rpp plugin.",
-        packFormat: 84,
+        packFormat: 88,
     },
     build: {
         source: "src",

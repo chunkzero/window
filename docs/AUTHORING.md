@@ -174,7 +174,8 @@ origin. Optional `x`/`y` values add a GUI-pixel nudge from the normalized origin
 distance from the bottom of the GUI to the nominal bottom of the vanilla text source. Window applies Minecraft's fixed
 actionbar source inset when deriving its top edge; the source position does not change with the authored HUD height.
 Window then emits generated text core shaders for the target pack format when that format is known, including the
-matching text-background pass so vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Core shaders are
+matching text-background pass so vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles
+cover pack formats 9 through 88 (Minecraft 26.2); for other formats Window warns and emits no shaders. Core shaders are
 intentionally opt-in; the fallback channel remains the runtime contract.
 
 ## Elements
@@ -523,9 +524,9 @@ text.smallCapsMinimessage("<gold>Shop</gold>");
 Window's shifted label fonts cover printable ASCII, the remaining glyphs on Minecraft's `ascii.png` sheet (Latin-1
 symbols, box drawing, and math symbols such as `±`, `°`, and `≤`), the glyphs emitted by the small-caps helpers, and the
 standard UI markers/separator `×`, `▲`, `▼`, `◆`, `●`, and `·`. Their advances are measured from the rightmost opaque
-cell pixels in Minecraft 26.1.2's built-in bitmap sheets so every label segment returns the title cursor to the same
-origin. Runtime text outside that set logs an unsupported-glyph warning; use a Window sprite for additional iconography
-instead of relying on Minecraft's missing-glyph fallback.
+cell pixels in the built-in bitmap sheets shipped by Minecraft 26.1.2 and 26.2 so every label segment returns the title
+cursor to the same origin. Runtime text outside that set logs an unsupported-glyph warning; use a Window sprite for
+additional iconography instead of relying on Minecraft's missing-glyph fallback.
 
 ## Semantics
 
