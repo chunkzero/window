@@ -217,6 +217,8 @@ pub struct SlotIr {
     pub strikethrough: bool,
     /// Whether the text renders obfuscated.
     pub obfuscated: bool,
+    /// The text font to draw with, or `None` for vanilla glyphs.
+    pub font: Option<String>,
     /// Repeater metadata for grouped codegen, if this slot was emitted by a
     /// repeated template.
     pub repeat: Option<RepeatBindingIr>,

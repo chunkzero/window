@@ -1,13 +1,13 @@
 use std::collections::BTreeSet;
 
+use super::Solver;
 use super::target::LayoutTarget;
-use super::{Solver, styled_text_width};
 use crate::Result;
 use crate::error::Error;
 use crate::geometry::Rect;
 use crate::inventory::{InventorySlotArea, InventorySlotRef};
-use crate::model::TextStyle;
 use crate::surface::ContainerKind;
+use crate::text_font::TextFont;
 use crate::vanilla;
 
 impl<T: LayoutTarget> Solver<'_, T> {
@@ -32,11 +32,10 @@ impl<T: LayoutTarget> Solver<'_, T> {
     pub(super) fn warn_if_static_text_overflow(
         &mut self,
         text: &str,
-        style: &TextStyle,
+        visible_width: u32,
         reserved_width: u32,
         name: &str,
     ) {
-        let visible_width = styled_text_width(text, style);
         if visible_width > reserved_width {
             self.warnings.push(format!(
                 "{} `{}`: label `{name}` text `{text}` is {visible_width}px wide but reserves {reserved_width}px",
@@ -46,10 +45,12 @@ impl<T: LayoutTarget> Solver<'_, T> {
         }
     }
 
-    pub(super) fn warn_if_unsupported_static_text(&mut self, text: &str, name: &str) {
+    pub(super) fn warn_if_unsupported_static_text(&mut self, text: &str, font: Option<&TextFont>, name: &str) {
         let unsupported: Vec<String> = text
             .chars()
-            .filter(|character| vanilla::advance(*character).is_none())
+            .filter(|&character| {
+                font.map_or_else(|| vanilla::advance(character), |font| font.advance(character)).is_none()
+            })
             .collect::<BTreeSet<_>>()
             .into_iter()
             .map(|character| format!("U+{:04X}", character as u32))

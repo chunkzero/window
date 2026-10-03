@@ -3,7 +3,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::compose::Texture;
-use crate::font::{bitmap_provider_file, main_font, provider_font, shifted_font, shifted_suffix, space_provider};
+use crate::font::{
+    bitmap_provider_file, main_font, provider_font, shifted_font, shifted_suffix, space_provider, text_font,
+    text_font_suffix,
+};
 use crate::manifest::FontMetricsEntry;
 use crate::{Error, Result, vanilla};
 
@@ -12,7 +15,8 @@ use super::sprites::RuntimeSpriteAsset;
 use super::{CompileContext, OutputFile};
 
 /// Emit the main font (space provider, then static bitmap providers in push
-/// order), the hitbox item, one shifted label font per text offset, and one
+/// order), the hitbox item, one shifted label font per text offset, one
+/// document per text font offset plus each used text font's sheet, and one
 /// sprite font per sprite offset.
 pub(super) fn emit_fonts(ctx: &mut CompileContext<'_>) -> Result<()> {
     let namespace = ctx.namespace;
@@ -25,6 +29,21 @@ pub(super) fn emit_fonts(ctx: &mut CompileContext<'_>) -> Result<()> {
             path: format!("assets/{namespace}/font/{}.json", shifted_suffix(*k)),
             contents: to_json_bytes(&shifted_font(*k)?)?,
         });
+    }
+    let mut sheets = BTreeSet::new();
+    for &(name, k) in &ctx.text_font_offsets {
+        let font = &ctx.text_fonts[name];
+        let file = format!("{namespace}:font/text/{name}.png");
+        ctx.files.push(OutputFile {
+            path: format!("assets/{namespace}/font/{}.json", text_font_suffix(name, k)),
+            contents: to_json_bytes(&text_font(&file, &font.chars, k)?)?,
+        });
+        if sheets.insert(name) {
+            ctx.files.push(OutputFile {
+                path: format!("assets/{namespace}/textures/font/text/{name}.png"),
+                contents: font.texture.encode_png()?,
+            });
+        }
     }
     for k in &ctx.sprite_offsets {
         ctx.files.push(OutputFile {
@@ -55,8 +74,7 @@ fn sprite_font(
 }
 
 pub(super) fn font_metrics(
-    namespace: &str,
-    shift_offsets: &BTreeSet<i32>,
+    ctx: &CompileContext<'_>,
     text_advances: &BTreeMap<char, u32>,
     text_glyph_widths: &BTreeMap<char, u32>,
 ) -> BTreeMap<String, FontMetricsEntry> {
@@ -67,8 +85,12 @@ pub(super) fn font_metrics(
         bold_advance: vanilla::BOLD_ADVANCE,
     };
     metrics.insert("minecraft:default".into(), entry.clone());
-    for k in shift_offsets {
+    let namespace = ctx.namespace;
+    for k in &ctx.shift_offsets {
         metrics.insert(format!("{namespace}:{}", shifted_suffix(*k)), entry.clone());
+    }
+    for &(name, k) in &ctx.text_font_offsets {
+        metrics.insert(format!("{namespace}:{}", text_font_suffix(name, k)), ctx.text_fonts[name].metrics());
     }
     metrics
 }

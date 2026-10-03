@@ -257,6 +257,23 @@ fn rejects_indicator_color_on_kinds_that_do_not_draw_it() {
 }
 
 #[test]
+fn small_caps_selects_the_bundled_font_unless_font_is_set() {
+    let label = |fields: &str| {
+        let json = format!(
+            r#"{{"windows":[{{"name":"s","container":"generic_9x3","children":[{{"type":"label","text":"Hi",{fields}}}]}}]}}"#
+        );
+        project_from_json(json.as_bytes())
+    };
+    let project = label(r#""small_caps":true"#).unwrap();
+    let Element::Label { style, .. } = &project.windows[0].children[0] else {
+        panic!("expected label");
+    };
+    assert_eq!(style.font.as_deref(), Some("small_caps"));
+    let err = label(r#""small_caps":true,"font":"runes""#).unwrap_err();
+    assert!(err.to_string().contains("sets both `font` and `small_caps`"), "{err}");
+}
+
+#[test]
 fn parses_generated_theme_assets() {
     let json = br##"{
       "theme": {

@@ -87,16 +87,8 @@ fn runtime_sprites_are_duplicated_by_y_font_not_texture() {
     ];
     let runtime_sprites = pickaxe_sprite();
 
-    let out = compile_layouts(
-        &[w],
-        &[],
-        &textures,
-        &runtime_sprites,
-        "window",
-        &PackTarget::default(),
-        &BuildOptions::default(),
-    )
-    .unwrap();
+    let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &TextFonts::new() };
+    let out = compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
     let paths: Vec<&str> = out.files.iter().map(|f| f.path.as_str()).collect();
     assert!(paths.contains(&"assets/window/font/sprite_y0.json"));
     assert!(paths.contains(&"assets/window/font/sprite_y18.json"));

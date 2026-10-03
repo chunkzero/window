@@ -22,9 +22,8 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, co
 
     let mut slots = BTreeMap::new();
     for slot in &w.slots {
-        let k = slot.rect.y - title_origin.y;
-        ctx.shift_offsets.insert(k);
-        slots.insert(slot.name.clone(), slot_entry(ctx.namespace, slot, k, None));
+        let font = ctx.text_font(slot, slot.rect.y - title_origin.y)?;
+        slots.insert(slot.name.clone(), slot_entry(slot, font, None));
     }
     let sprite_slots = sprite_slots(ctx, w, title_origin.y)?;
     let inventory = compile_inventory(ctx, w, title_origin.y)?;
@@ -76,14 +75,14 @@ fn sprite_slots(
     Ok(entries)
 }
 
-/// Build a [`SlotEntry`] for `slot` at vertical offset `k`.
-pub(super) fn slot_entry(namespace: &str, slot: &SlotIr, k: i32, shader_marker: Option<Rgb>) -> SlotEntry {
+/// Build a [`SlotEntry`] for `slot` drawn with `font`.
+pub(super) fn slot_entry(slot: &SlotIr, font: String, shader_marker: Option<Rgb>) -> SlotEntry {
     SlotEntry {
         x: slot.rect.x,
         y: slot.rect.y,
         width: slot.rect.width,
         align: slot.align,
-        font: format!("{namespace}:{}", shifted_suffix(k)),
+        font,
         color: slot.color.to_hex(),
         shader_marker: shader_marker.map(Rgb::to_hex),
         shader_color: None,

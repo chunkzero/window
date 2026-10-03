@@ -46,14 +46,24 @@ pub(super) fn generate_fonts(manifest: &Manifest, package_name: &str) -> OutputF
         glyph_widths: manifest.text_glyph_widths.clone(),
         bold_advance: crate::vanilla::BOLD_ADVANCE,
     };
-    let metrics = manifest.font_metrics.iter().map(|(font, metrics)| {
-        let expr = if metrics == &vanilla {
-            "vanillaMetrics".to_string()
-        } else {
-            font_metrics_expr(metrics, "advances", "glyphWidths", 4)
-        };
-        (kt_string(font), expr)
-    });
+    // Fonts with identical metrics share one table, keeping the object initializer within the JVM method size limit.
+    let mut shared: Vec<&FontMetricsEntry> = Vec::new();
+    let metrics: Vec<(String, String)> = manifest
+        .font_metrics
+        .iter()
+        .map(|(font, metrics)| {
+            let expr = if metrics == &vanilla {
+                "vanillaMetrics".to_string()
+            } else {
+                let index = shared.iter().position(|m| *m == metrics).unwrap_or_else(|| {
+                    shared.push(metrics);
+                    shared.len() - 1
+                });
+                format!("fontMetrics{index}")
+            };
+            (kt_string(font), expr)
+        })
+        .collect();
 
     let mut w = KotlinWriter::file(package_name, ["dev.oglass.window.manifest.FontMetricsEntry"]);
     w.doc("Generated font metrics used for runtime text measurement.");
@@ -64,6 +74,12 @@ pub(super) fn generate_fonts(manifest: &Manifest, package_name: &str) -> OutputF
         "private val vanillaMetrics: FontMetricsEntry",
         font_metrics_expr(&vanilla, "advances", "glyphWidths", 2),
     );
+    for (index, metrics) in shared.iter().enumerate() {
+        w.property(
+            format!("private val fontMetrics{index}: FontMetricsEntry"),
+            font_metrics_expr(metrics, "advances", "glyphWidths", 2),
+        );
+    }
     w.property("val metrics: Map<String, FontMetricsEntry>", map_of(metrics, 2));
     w.close("}");
     OutputFile { path: "WindowFonts.kt".into(), contents: w.finish().into_bytes() }

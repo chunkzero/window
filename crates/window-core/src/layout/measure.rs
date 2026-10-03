@@ -1,7 +1,7 @@
 use super::flow::Axis;
 use super::slots::cells_bounds;
 use super::target::LayoutTarget;
-use super::{Solver, pos_of, styled_text_width};
+use super::{Solver, pos_of};
 use crate::Result;
 use crate::geometry::{Insets, Size};
 use crate::inventory::SlotPattern;
@@ -22,7 +22,10 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
                 Ok(*size)
             }
             Element::Label { text, width, style, .. } => {
-                let w = width.unwrap_or_else(|| styled_text_width(text, style));
+                let w = match width {
+                    Some(width) => *width,
+                    None => self.text_width(text, style)?,
+                };
                 Ok(Size::new(w, 8))
             }
             Element::Slot { name, width, .. } => Ok(Size::new(self.required_slot_width(name, *width)?, 8)),

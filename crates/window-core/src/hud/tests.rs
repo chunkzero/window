@@ -35,6 +35,7 @@ fn shader_hud(name: &str, slot_name: &str) -> LaidOutHud {
             underlined: false,
             strikethrough: false,
             obfuscated: false,
+            font: None,
             repeat: None,
         }],
         warnings: Vec::new(),

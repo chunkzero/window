@@ -48,6 +48,8 @@ const TEXT_KEYS = [
     "underlined",
     "strikethrough",
     "obfuscated",
+    "font",
+    "small_caps",
 ] as const;
 const LAYOUT_KEYS = ["x", "y", "gap", "padding", "align", "children"] as const;
 const PLACEMENT_KEYS = ["slots", "pattern", "transform"] as const;

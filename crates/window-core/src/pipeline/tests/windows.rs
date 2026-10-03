@@ -71,6 +71,20 @@ fn negative_visual_top_pads_bitmap_provider_height() {
 }
 
 #[test]
+fn text_font_slots_draw_with_their_sheet_at_the_slot_offset() {
+    let (mut w, textures) = sample_window();
+    w.slots.iter_mut().find(|s| s.name == "buy_label").unwrap().font = Some("small_caps".into());
+    let out = compile_windows(&[w], &textures, "window").unwrap();
+    assert_eq!(out.manifest.windows["shop"].slots["buy_label"].font, "window:small_caps/y24");
+    assert_eq!(out.manifest.font_metrics["window:small_caps/y24"].advances[&'a'], 5);
+    let font: serde_json::Value =
+        serde_json::from_slice(&find(&out, "assets/window/font/small_caps/y24.json").contents).unwrap();
+    assert_eq!(font["providers"][0]["file"], "window:font/text/small_caps.png");
+    assert_eq!(font["providers"][0]["ascent"], 7 - 24);
+    find(&out, "assets/window/textures/font/text/small_caps.png");
+}
+
+#[test]
 fn manifest_parses_and_matches() {
     let (w, textures) = sample_window();
     let out = compile_windows(&[w], &textures, "window").unwrap();
