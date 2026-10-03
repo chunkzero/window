@@ -6,5 +6,102 @@ import dev.oglass.window.manifest.SpriteEntry
 /** Generated runtime sprite catalog for this Window pack. */
 public object WindowSprites {
     val all: Map<String, SpriteEntry> =
-        emptyMap()
+        mapOf(
+            "action" to SpriteEntry(
+                width = 52,
+                height = 16,
+                xOffset = 0,
+                glyphWidth = 52,
+                advance = 53,
+                glyph = "\uE84D",
+            ),
+            "action_disabled" to SpriteEntry(
+                width = 52,
+                height = 16,
+                xOffset = 0,
+                glyphWidth = 52,
+                advance = 53,
+                glyph = "\uF5AA",
+            ),
+            "buy" to SpriteEntry(
+                width = 106,
+                height = 16,
+                xOffset = 0,
+                glyphWidth = 106,
+                advance = 107,
+                glyph = "\uF09F",
+            ),
+            "buy_disabled" to SpriteEntry(
+                width = 106,
+                height = 16,
+                xOffset = 0,
+                glyphWidth = 106,
+                advance = 107,
+                glyph = "\uEEE6",
+            ),
+            "coin" to SpriteEntry(
+                width = 8,
+                height = 8,
+                xOffset = 0,
+                glyphWidth = 8,
+                advance = 9,
+                glyph = "\uE020",
+            ),
+            "lamp_off" to SpriteEntry(
+                width = 4,
+                height = 4,
+                xOffset = 0,
+                glyphWidth = 4,
+                advance = 5,
+                glyph = "\uF25C",
+            ),
+            "lamp_on" to SpriteEntry(
+                width = 4,
+                height = 4,
+                xOffset = 0,
+                glyphWidth = 4,
+                advance = 5,
+                glyph = "\uE2FF",
+            ),
+            "rivet" to SpriteEntry(
+                width = 5,
+                height = 5,
+                xOffset = 0,
+                glyphWidth = 5,
+                advance = 6,
+                glyph = "\uEF10",
+            ),
+            "slot_selected" to SpriteEntry(
+                width = 18,
+                height = 18,
+                xOffset = 0,
+                glyphWidth = 18,
+                advance = 19,
+                glyph = "\uEC07",
+            ),
+            "tab" to SpriteEntry(
+                width = 52,
+                height = 16,
+                xOffset = 0,
+                glyphWidth = 52,
+                advance = 53,
+                glyph = "\uF32C",
+            ),
+            "tab_selected" to SpriteEntry(
+                width = 52,
+                height = 16,
+                xOffset = 0,
+                glyphWidth = 52,
+                advance = 53,
+                glyph = "\uEAE2",
+            ),
+            "vent_slot" to SpriteEntry(
+                width = 6,
+                height = 2,
+                xOffset = 0,
+                glyphWidth = 6,
+                advance = 7,
+                glyph = "\uE48F",
+            ),
+        )
 }

@@ -1,128 +1,138 @@
-import { button, choice, collection, label, panel, pattern, slot, slotRects, toggle, ui } from "#plugins/window";
+import {
+    button,
+    choice,
+    collection,
+    label,
+    panel,
+    pattern,
+    slot,
+    slotRects,
+    sprite,
+    spriteSlot,
+    toggle,
+    ui,
+} from "#plugins/window";
 
 const hitbox = "window:gui/hitbox";
+const text = { color: "#ffffff", shadow: true, small_caps: true };
+
 function choiceStates(label: string) {
     return {
-        selected: { item_model: hitbox, tooltip: label + " selected" },
-        unselected: { item_model: hitbox, tooltip: "Select " + label },
+        selected: { item_model: hitbox, tooltip: label + " selected", sprite: "tab_selected" },
+        unselected: { item_model: hitbox, tooltip: "Select " + label, sprite: "tab" },
     };
 }
-function toggleStates(label: string) {
-    return { on: { item_model: hitbox, tooltip: label + " on" }, off: { item_model: hitbox, tooltip: label + " off" } };
-}
-function enabledStates(label: string) {
+function enabledStates(label: string, sprite: string) {
     return {
-        enabled: { item_model: hitbox, tooltip: label },
-        disabled: { item_model: hitbox, tooltip: label + " unavailable" },
+        enabled: { item_model: hitbox, tooltip: label, sprite },
+        disabled: { item_model: hitbox, tooltip: label + " unavailable", sprite: sprite + "_disabled" },
     };
+}
+/** A raised toggle with a lamp at its left and its label centered in the remaining width. */
+function lampToggle(name: string, x: number, tooltip: string) {
+    return toggle(name, {
+        frame: "button",
+        transform: { section: "player", x, y: 1, width: 3, height: 1 },
+        states: {
+            on: { item_model: hitbox, tooltip: tooltip + " on" },
+            off: { item_model: hitbox, tooltip: tooltip + " off" },
+        },
+        children: [
+            spriteSlot(name + "_lamp", { x: 5, y: 6, width: 4, height: 4 }),
+            slot(name + "_label", { ...text, x: 12, y: 4, width: 36, align: "center" }),
+        ],
+    });
 }
 export default ui({
     name: "shop",
     container: "generic_9x6",
-    bleed: { top: 10, right: 40, bottom: 12, left: 40 },
+    bleed: { top: 1, right: 4, bottom: 7, left: 4 },
     children: [
-        panel({ frame: "shell", x: -38, y: -8, width: 252, height: 31 }),
-        panel({ frame: "header", x: -34, y: -4, width: 244, height: 25 }),
-        panel({ frame: "hazard_bar", x: -34, y: -6, width: 14, height: 27 }),
-        panel({ frame: "hazard_bar", x: 196, y: -6, width: 14, height: 27 }),
-        panel({ frame: "vent", x: -15, y: -1, width: 31, height: 16 }),
-        panel({ frame: "vent", x: 160, y: -1, width: 31, height: 16 }),
-        panel({ frame: "shell", x: -28, y: 21, width: 232, height: 208 }),
-        panel({ frame: "rail", x: -24, y: 25, width: 10, height: 194 }),
-        panel({ frame: "rail", x: 190, y: 25, width: 10, height: 194 }),
-        panel({ frame: "surface", x: -14, y: 14, width: 204, height: 119 }),
-        panel({ frame: "panel", x: -14, y: 132, width: 204, height: 88 }),
-        panel({ frame: "recess", x: 58, y: 92, width: 60, height: 19 }),
-        panel({ frame: "recess", x: 3, y: 111, width: 170, height: 17 }),
-        panel({ frame: "recess", x: 3, y: 178, width: 170, height: 17 }),
-        panel({ frame: "hazard_bar", x: -24, y: 219, width: 224, height: 10 }),
-        label("FOUNDRY EXCHANGE", { x: 24, y: 5, width: 128, align: "center", color: "#ffffff", bold: true }),
-        slot("balance", { x: 120, y: 181, width: 48, align: "right", color: "#ffb20b", bold: true }),
+        panel({ frame: "shell", x: -4, y: -1, width: 184, height: 230 }),
+        panel({ frame: "panel", x: 4, y: 15, width: 168, height: 113 }),
+        panel({ frame: "panel", x: 4, y: 136, width: 168, height: 82 }),
+        panel({ frame: "recess", x: 30, y: 3, width: 116, height: 12 }),
+        panel({ frame: "recess", x: 62, y: 90, width: 52, height: 16 }),
+        panel({ frame: "recess", x: 8, y: 108, width: 160, height: 16 }),
+        panel({ frame: "recess", x: 8, y: 175, width: 160, height: 16 }),
+        panel({ frame: "hazard_bar", x: -4, y: 223, width: 184, height: 6 }),
+        ...[52, 62, 72, 82, 92, 102, 112, 122].map((x) => sprite("vent_slot", { x, y: 131 })),
+        sprite("rivet", { x: -2, y: 6 }),
+        sprite("rivet", { x: 173, y: 6 }),
+        sprite("rivet", { x: -2, y: 129 }),
+        sprite("rivet", { x: 173, y: 129 }),
+        sprite("coin", { x: 156, y: 179 }),
+        label("Foundry Exchange", { ...text, x: 0, y: 6, width: 176, align: "center" }),
         choice("category_all", {
-            frame: "tab",
             transform: { section: "container", x: 0, y: 0, width: 3, height: 1 },
             states: choiceStates("All items"),
-            children: [slot("category_all_label", { color: "#ffffff", bold: true })],
+            children: [slot("category_all_label", text)],
         }),
         choice("category_gear", {
-            frame: "tab",
             transform: { section: "container", x: 3, y: 0, width: 3, height: 1 },
             states: choiceStates("Gear"),
-            children: [slot("category_gear_label", { color: "#ffffff", bold: true })],
+            children: [slot("category_gear_label", text)],
         }),
         choice("category_magic", {
-            frame: "tab",
             transform: { section: "container", x: 6, y: 0, width: 3, height: 1 },
             states: choiceStates("Magic"),
-            children: [slot("category_magic_label", { color: "#ffffff", bold: true })],
+            children: [slot("category_magic_label", text)],
         }),
         collection("products", {
-            frame: "slot_cell",
-            pattern: pattern.rect({ section: "container", x: 1, y: 1, width: 7, height: 3 }),
+            frame: "slot",
+            selected_sprite: "slot_selected",
+            pattern: pattern.rect({ section: "container", x: 0, y: 1, width: 9, height: 3 }),
         }),
         button("previous", {
-            frame: "button",
-            transform: { section: "container", x: 1, y: 4, width: 2, height: 1 },
-            states: enabledStates("Previous page"),
-            children: [slot("previous_label", { color: "#ffffff", bold: true })],
+            transform: { section: "container", x: 0, y: 4, width: 3, height: 1 },
+            states: enabledStates("Previous page", "action"),
+            children: [slot("previous_label", text)],
         }),
-        slot("page", { x: 61, y: 95, width: 54, align: "center", color: "#ffffff", bold: true }),
+        slot("page", { ...text, x: 62, y: 94, width: 52, align: "center" }),
         button("next", {
-            frame: "button",
-            transform: { section: "container", x: 6, y: 4, width: 2, height: 1 },
-            states: enabledStates("Next page"),
-            children: [slot("next_label", { color: "#ffffff", bold: true })],
+            transform: { section: "container", x: 6, y: 4, width: 3, height: 1 },
+            states: enabledStates("Next page", "action"),
+            children: [slot("next_label", text)],
         }),
-        slot("selection", { x: 8, y: 113, width: 160, align: "center", color: "#ffb20b", bold: true }),
+        slot("selection", { ...text, x: 12, y: 112, width: 100, color: "#ffb20b" }),
+        slot("price", { ...text, x: 112, y: 112, width: 40, align: "right" }),
+        spriteSlot("price_coin", { x: 156, y: 112, width: 8, height: 8 }),
         choice("sort_featured", {
-            frame: "tab",
             transform: { section: "player", x: 0, y: 0, width: 3, height: 1 },
-            states: choiceStates("Featured sort"),
-            children: [slot("sort_featured_label", { color: "#ffffff" })],
+            states: choiceStates("Top picks first"),
+            children: [slot("sort_featured_label", text)],
         }),
         choice("sort_price", {
-            frame: "tab",
             transform: { section: "player", x: 3, y: 0, width: 3, height: 1 },
             states: choiceStates("Price sort"),
-            children: [slot("sort_price_label", { color: "#ffffff" })],
+            children: [slot("sort_price_label", text)],
         }),
         choice("sort_name", {
-            frame: "tab",
             transform: { section: "player", x: 6, y: 0, width: 3, height: 1 },
             states: choiceStates("Name sort"),
-            children: [slot("sort_name_label", { color: "#ffffff" })],
+            children: [slot("sort_name_label", text)],
         }),
-        toggle("favorites", {
-            frame: "button",
-            transform: { section: "player", x: 0, y: 1, width: 4, height: 1 },
-            states: toggleStates("Favorites only"),
-            children: [slot("favorites_label", { color: "#ffffff" })],
-        }),
-        toggle("affordable", {
-            frame: "button",
-            transform: { section: "player", x: 5, y: 1, width: 4, height: 1 },
-            states: toggleStates("Affordable only"),
-            children: [slot("affordable_label", { color: "#ffffff" })],
-        }),
-        slot("status", { x: 8, y: 181, width: 108, align: "left", color: "#bceeff" }),
+        lampToggle("favorites", 0, "Favorites only"),
+        lampToggle("affordable", 3, "Affordable only"),
         button("search", {
             frame: "button",
-            transform: { section: "hotbar", x: 0, y: 0, width: 3, height: 1 },
+            transform: { section: "player", x: 6, y: 1, width: 3, height: 1 },
             tooltip: "Search the catalog",
-            children: [label("SEARCH", { color: "#ffffff", bold: true })],
+            children: [label("Search", text)],
         }),
+        slot("status", { ...text, x: 12, y: 179, width: 92, color: "#bceeff" }),
+        slot("balance", { ...text, x: 104, y: 179, width: 48, align: "right", color: "#ffb20b" }),
         button("buy", {
-            frame: "button_accent",
-            transform: { section: "hotbar", x: 3, y: 0, width: 4, height: 1 },
-            states: enabledStates("Buy selected item"),
-            children: [slot("buy_label", { color: "#1b1607", bold: true })],
+            transform: { section: "hotbar", x: 0, y: 0, width: 6, height: 1 },
+            states: enabledStates("Buy selected item", "buy"),
+            children: [slot("buy_label", { ...text, color: "#2a1200", shadow: false })],
         }),
         button("exit", {
-            frame: "button_danger",
-            transform: { section: "hotbar", x: 7, y: 0, width: 2, height: 1 },
+            frame: "button",
+            transform: { section: "hotbar", x: 6, y: 0, width: 3, height: 1 },
             default: "close",
             tooltip: "Close market",
-            children: [label("EXIT", { color: "#ffffff", bold: true })],
+            children: [label("Exit", text)],
         }),
         slotRects("container_fill", {
             transform: { section: "container", x: 0, y: 0, width: 9, height: 6 },

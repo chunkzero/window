@@ -6,13 +6,21 @@ import dev.oglass.window.example.generated.WindowPack
 import net.kyori.adventure.resource.ResourcePackCallback
 import net.kyori.adventure.resource.ResourcePackRequest
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.MinecraftServer
+import net.minestom.server.command.builder.Command
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
+import net.minestom.server.event.player.PlayerUseItemEvent
 import net.minestom.server.instance.InstanceContainer
+import net.minestom.server.instance.LightingChunk
 import net.minestom.server.instance.block.Block
+import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Material
+import net.minestom.server.tag.Tag
 import net.minestom.server.timer.TaskSchedule
 import java.nio.file.Path
 
@@ -24,7 +32,7 @@ import java.nio.file.Path
  * jvm/gradlew -p jvm :example:run
  * ```
  *
- * Then connect a 1.21.x client and the shop opens on spawn.
+ * Then connect a 1.21.x client and the shop opens on spawn. Reopen it with `/shop` or the emerald in the hotbar.
  */
 fun main() {
     val server = MinecraftServer.init()
@@ -38,6 +46,7 @@ fun main() {
     Runtime.getRuntime().addShutdownHook(Thread { packServer.stop() })
 
     registerPlayerEvents(instance, createPackRequest(packServer, windows, market))
+    registerShopAccess(windows, market)
 
     server.start("0.0.0.0", serverPort)
     println("Window example server listening on $serverPort — pack served at $packUrl.")
@@ -45,6 +54,7 @@ fun main() {
 
 private fun createInstance(): InstanceContainer =
     MinecraftServer.getInstanceManager().createInstanceContainer().apply {
+        setChunkSupplier(::LightingChunk)
         setGenerator { unit -> unit.modifier().fillHeight(0, 1, Block.GRASS_BLOCK) }
     }
 
@@ -85,9 +95,43 @@ private fun registerPlayerEvents(
     }
     events.addListener(PlayerSpawnEvent::class.java) { event ->
         if (!event.isFirstSpawn) return@addListener
+        event.player.inventory.setItemStack(SHOP_ITEM_SLOT, SHOP_ITEM)
         packRequest.let(event.player::sendResourcePacks)
     }
 }
+
+private val SHOP_ITEM_TAG = Tag.Boolean("window_example_shop")
+private const val SHOP_ITEM_SLOT = 4
+
+// Lazy: item stacks need the registries that MinecraftServer.init() loads.
+private val SHOP_ITEM by lazy {
+    ItemStack
+        .builder(Material.EMERALD)
+        .customName(Component.text("Foundry Exchange", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false))
+        .lore(Component.text("Use to open the market", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false))
+        .set(SHOP_ITEM_TAG, true)
+        .build()
+}
+
+/** Reopens the shop from `/shop` or by using the hotbar emerald handed out on first spawn. */
+private fun registerShopAccess(
+    windows: Windows,
+    market: Market,
+) {
+    val command = Command("shop")
+    command.setDefaultExecutor { sender, _ -> (sender as? Player)?.let { openShop(it, windows, market) } }
+    MinecraftServer.getCommandManager().register(command)
+    MinecraftServer.getGlobalEventHandler().addListener(PlayerUseItemEvent::class.java) { event ->
+        if (event.itemStack.getTag(SHOP_ITEM_TAG) == true) openShop(event.player, windows, market)
+    }
+}
+
+// A fresh view per open: each carries its own reactive state.
+private fun openShop(
+    player: Player,
+    windows: Windows,
+    market: Market,
+) = windows.open(player, MyShop(windows, market))
 
 private fun openExampleUi(
     player: Player,
@@ -98,8 +142,7 @@ private fun openExampleUi(
         sendHudSpriteDebug(player, windows)
     }
 
-    // A fresh view per open: each carries its own reactive state.
-    windows.open(player, MyShop(windows, market))
+    openShop(player, windows, market)
     val startedAt = System.currentTimeMillis()
     val hudEnabled = flag("window.hud.enabled", default = false)
     val flowDebug = flag("window.hud.flowDebug")
@@ -147,7 +190,7 @@ private fun createStatusHuds(
         MyStatusTopRightHud(startedAt),
         MyStatusLeftSideHud(),
         MyStatusRightSideHud(market),
-        MyStatusBottomCenterHud(),
+        MyStatusBottomCenterHud(startedAt),
     )
 
 /** Locate the built resource-pack zip, or use `-Dwindow.pack=/path/to/window-example.zip`. */

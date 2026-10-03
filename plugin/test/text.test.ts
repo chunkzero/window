@@ -8,17 +8,20 @@ import { smallCaps, smallCapsMinimessage } from "../src/authoring/text.ts";
 test("industrial preset has the expected frame kinds", () => {
     const theme = presets.industrial();
     assert.equal(theme.frames?.["shell"]?.kind, "panel");
-    assert.equal(theme.frames?.["tab_active"]?.kind, "button");
+    assert.equal(theme.frames?.["slot"]?.kind, "slot");
     assert.equal(theme.frames?.["button_confirm"]?.kind, "button");
-    assert.equal(theme.frames?.["search_field"]?.kind, "panel");
-    assert.equal(theme.frames?.["hud_panel"]?.kind, "panel");
-    assert.equal(theme.sprites?.["pack_badge"]?.kind, "badge");
+    assert.equal(theme.frames?.["hud"]?.kind, "panel");
+    assert.equal(theme.frames?.["hazard_bar"]?.kind, "hazard_bar");
+    assert.equal(theme.sprites?.["rivet"]?.width, 5);
 });
 
-test("industrial preset options override colours", () => {
-    const theme = presets.industrial({ badge_accent: "#123456" });
-    assert.equal(theme.sprites?.["pack_badge"]?.accent_color, "#123456");
-    assert.equal(presets.industrial().sprites?.["pack_badge"]?.accent_color, "#071a43");
+test("industrial preset derives bevels from overridden fills", () => {
+    const theme = presets.industrial({ shell_fill: "#808080", highlight_color: "#123456" });
+    const shell = theme.frames?.["shell"];
+    assert.equal(shell?.fill, "#808080");
+    assert.equal(shell?.highlight_color, "#71b2b9");
+    assert.equal(shell?.shadow_color, "#4e5160");
+    assert.equal(theme.frames?.["panel"]?.highlight_color, "#123456");
 });
 
 test("small caps leaves non-letters alone", () => {

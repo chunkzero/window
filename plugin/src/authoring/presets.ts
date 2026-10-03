@@ -1,242 +1,146 @@
-import type { IndustrialPresetOptions, Theme } from "./types.ts";
+import type { GeneratedFrame, GeneratedSprite, IndustrialPresetOptions, Theme } from "./types.ts";
+
+function mix(hex: string, target: string, amount: number): string {
+    const channel = (value: string, at: number) => parseInt(value.slice(at, at + 2), 16);
+    let out = "#";
+    for (const at of [1, 3, 5]) {
+        const value = Math.round(channel(hex, at) + (channel(target, at) - channel(hex, at)) * amount);
+        out += value.toString(16).padStart(2, "0");
+    }
+    return out;
+}
+
+/** Bevel tones for a fill: light shifts toward `light`, dark toward `dark`, keeping the surface saturated. */
+interface Tones {
+    light: string;
+    dark: string;
+}
+
+const cool: Tones = { light: "#5ff0ff", dark: "#020a30" };
+const warm: Tones = { light: "#fff04a", dark: "#5c0a00" };
+const leaf: Tones = { light: "#d8ff60", dark: "#032a00" };
+
+/** A 1px-bordered surface lit from the top-left. */
+function raised(kind: "panel" | "button", fill: string, border: string, tones: Tones): GeneratedFrame {
+    return {
+        kind,
+        fill,
+        border_color: border,
+        border_width: 1,
+        radius: 0,
+        inset_depth: 1,
+        highlight_color: mix(fill, tones.light, 0.45),
+        shadow_color: mix(fill, tones.dark, 0.4),
+    };
+}
+
+/** A surface pressed into its parent: dark top-left edge, light bottom-right edge. */
+function sunken(kind: "panel" | "slot" | "button", fill: string, border: string | null, tones: Tones): GeneratedFrame {
+    return {
+        kind,
+        fill,
+        border_color: border ?? fill,
+        border_width: border ? 1 : 0,
+        radius: 0,
+        inset_depth: 1,
+        highlight_color: mix(fill, tones.dark, 0.5),
+        shadow_color: mix(fill, tones.light, 0.3),
+    };
+}
 
 function industrial(opts: IndustrialPresetOptions = {}): Theme {
-    const shell = opts.shell_fill ?? "#172f69";
-    const panel = opts.panel_fill ?? "#087cac";
-    const surface = opts.surface_fill ?? "#086d99";
-    const deep = opts.deep_fill ?? "#071a43";
     const border = opts.border_color ?? "#03091f";
-    const cyan = opts.highlight_color ?? "#25c9ec";
-    const cyanDark = opts.cyan_dark ?? "#07517f";
     const accent = opts.accent_color ?? "#ff8300";
-    const accentLight = opts.accent_light ?? "#ffb20b";
-    const accentDark = opts.accent_dark ?? "#a92e00";
     const danger = opts.danger_color ?? "#ed171b";
-    const dangerDark = opts.danger_dark ?? "#75000d";
     const confirm = opts.confirm_color ?? "#20c900";
-    const confirmDark = opts.confirm_dark ?? "#087500";
+    const highlight = opts.highlight_color ?? "#25c9ec";
+    const stripeFill = opts.stripe_fill ?? "#ffb20b";
+    const disabled = opts.disabled_fill ?? "#0a6d99";
+    const selectedFill = opts.selected_fill ?? "#05406b";
+    const rivet: GeneratedSprite = {
+        kind: "button",
+        width: 5,
+        height: 5,
+        fill: "#6f88ba",
+        border_color: "#6f88ba",
+        border_width: 0,
+        radius: 3,
+        inset_depth: 1,
+        highlight_color: "#eef5ff",
+        shadow_color: "#0a1433",
+    };
+    const lamp = (fill: string): GeneratedSprite => ({
+        kind: "button",
+        width: 4,
+        height: 4,
+        fill,
+        border_color: border,
+        border_width: 1,
+        radius: 0,
+        inset_depth: 0,
+    });
+    const coin: GeneratedSprite = {
+        kind: "button",
+        width: 8,
+        height: 8,
+        fill: stripeFill,
+        border_color: mix(stripeFill, warm.dark, 0.7),
+        border_width: 1,
+        radius: 4,
+        inset_depth: 1,
+        highlight_color: mix(stripeFill, warm.light, 0.6),
+        shadow_color: mix(stripeFill, warm.dark, 0.35),
+    };
 
     return {
         frames: {
-            shell: {
-                kind: "panel",
-                fill: shell,
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: "#34589a",
-                shadow_color: "#040a24",
+            shell: raised("panel", opts.shell_fill ?? "#172f69", border, cool),
+            panel: { ...raised("panel", opts.panel_fill ?? "#087cac", border, cool), highlight_color: highlight },
+            recess: sunken("panel", opts.recess_fill ?? "#071a43", border, cool),
+            slot: sunken("slot", opts.slot_fill ?? "#07577d", null, cool),
+            button: { ...raised("button", opts.button_fill ?? "#0994c6", border, cool), highlight_color: highlight },
+            button_selected: {
+                ...sunken("button", selectedFill, border, cool),
+                indicator_color: accent,
             },
-            panel: {
-                kind: "panel",
-                fill: panel,
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: cyan,
-                shadow_color: deep,
-            },
-            surface: {
-                kind: "panel",
-                fill: surface,
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: cyan,
-                shadow_color: deep,
-            },
-            header: {
-                kind: "panel",
-                fill: opts.header_fill ?? "#087baa",
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: cyan,
-                shadow_color: deep,
-            },
-            rail: {
-                kind: "panel",
-                fill: shell,
-                border_color: border,
+            button_disabled: {
+                kind: "button",
+                fill: disabled,
+                border_color: mix(disabled, border, 0.5),
                 border_width: 1,
                 radius: 0,
-                inset_depth: 1,
-                highlight_color: "#34589a",
-                shadow_color: deep,
+                inset_depth: 0,
             },
-            recess: {
+            button_accent: raised("button", accent, mix(accent, warm.dark, 0.6), warm),
+            button_danger: raised("button", danger, mix(danger, warm.dark, 0.7), warm),
+            button_confirm: raised("button", confirm, mix(confirm, leaf.dark, 0.6), leaf),
+            hud: {
                 kind: "panel",
-                fill: deep,
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 1,
-                highlight_color: cyanDark,
-                shadow_color: border,
-            },
-            button: {
-                kind: "button",
-                fill: opts.button_fill ?? "#0994c6",
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: cyan,
-                shadow_color: cyanDark,
-            },
-            button_accent: {
-                kind: "button",
-                fill: accent,
-                border_color: accentDark,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: accentLight,
-                shadow_color: accentDark,
-            },
-            button_danger: {
-                kind: "button",
-                fill: danger,
-                border_color: dangerDark,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: "#ff5b45",
-                shadow_color: dangerDark,
-            },
-            button_confirm: {
-                kind: "button",
-                fill: confirm,
-                border_color: confirmDark,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: "#78f02d",
-                shadow_color: confirmDark,
-            },
-            tab: {
-                kind: "button",
-                fill: opts.tab_fill ?? "#078cbc",
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: cyan,
-                shadow_color: cyanDark,
-            },
-            tab_active: {
-                kind: "button",
-                fill: accent,
-                border_color: accentDark,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: accentLight,
-                shadow_color: accentDark,
-            },
-            hud_panel: {
-                kind: "panel",
-                fill: shell,
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: "#34589a",
-                shadow_color: deep,
-            },
-            hud_chip: {
-                kind: "button",
-                fill: deep,
-                border_color: cyanDark,
+                fill: opts.hud_fill ?? "#0a1d4a",
+                border_color: mix(highlight, border, 0.6),
                 border_width: 1,
                 radius: 0,
-                inset_depth: 1,
-                highlight_color: cyan,
-                shadow_color: border,
-            },
-            hud_focus: {
-                kind: "panel",
-                fill: surface,
-                border_color: accentDark,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: accentLight,
-                shadow_color: deep,
-            },
-            title_bar: {
-                kind: "panel",
-                fill: opts.title_fill ?? "#087baa",
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: cyan,
-                shadow_color: deep,
-            },
-            slot_cell: {
-                kind: "slot",
-                fill: opts.slot_fill ?? "#07577d",
-                border_color: cyanDark,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 1,
-                highlight_color: cyan,
-                shadow_color: border,
-            },
-            search_field: {
-                kind: "panel",
-                fill: opts.search_fill ?? "#243f7b",
-                border_color: border,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: cyan,
-                shadow_color: deep,
-            },
-            vent: {
-                kind: "vent",
-                fill: opts.vent_fill ?? "#12396b",
-                border_color: border,
-                border_width: 1,
-                radius: 0,
-                inset_depth: 1,
-                highlight_color: cyanDark,
-                accent_color: opts.vent_color ?? "#061536",
-                shadow_color: border,
+                inset_depth: 0,
             },
             hazard_bar: {
                 kind: "hazard_bar",
-                fill: accentLight,
-                border_color: accentDark,
-                border_width: 2,
+                fill: stripeFill,
+                border_color: border,
+                border_width: 1,
                 radius: 0,
                 inset_depth: 0,
-                highlight_color: "#ffd53b",
-                shadow_color: accentDark,
-                stripe_color: opts.stripe_color ?? "#c43100",
-                stripe_shadow_color: opts.stripe_shadow_color ?? "#5c1200",
-                stripe_width: opts.stripe_width ?? 8,
+                highlight_color: mix(stripeFill, warm.light, 0.5),
+                shadow_color: mix(stripeFill, warm.dark, 0.5),
+                stripe_color: opts.stripe_color ?? "#141a2e",
+                stripe_width: 5,
             },
         },
         sprites: {
-            pack_badge: {
-                kind: "badge",
-                width: 28,
-                height: 14,
-                fill: accent,
-                border_color: accentDark,
-                border_width: 2,
-                radius: 0,
-                inset_depth: 2,
-                highlight_color: accentLight,
-                shadow_color: accentDark,
-                accent_color: opts.badge_accent ?? deep,
-            },
+            rivet,
+            coin,
+            lamp_on: lamp(opts.lamp_color ?? "#8dff5a"),
+            lamp_off: lamp(mix(disabled, border, 0.4)),
+            slot_selected: { ...sunken("slot", selectedFill, accent, cool), width: 18, height: 18 },
         },
     };
 }

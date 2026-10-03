@@ -222,33 +222,24 @@ export interface Theme {
     fonts?: Record<string, TextFont>;
 }
 
+/** Base colors for `presets.industrial()`; bevels and borders are derived from these fills. */
 export interface IndustrialPresetOptions {
-    shell_fill?: string;
-    panel_fill?: string;
-    surface_fill?: string;
-    deep_fill?: string;
     border_color?: string;
     highlight_color?: string;
-    cyan_dark?: string;
-    accent_color?: string;
-    accent_light?: string;
-    accent_dark?: string;
-    danger_color?: string;
-    danger_dark?: string;
-    confirm_color?: string;
-    confirm_dark?: string;
-    header_fill?: string;
-    title_fill?: string;
-    button_fill?: string;
-    tab_fill?: string;
+    shell_fill?: string;
+    panel_fill?: string;
+    recess_fill?: string;
     slot_fill?: string;
-    search_fill?: string;
-    vent_fill?: string;
-    vent_color?: string;
-    badge_accent?: string;
+    button_fill?: string;
+    selected_fill?: string;
+    disabled_fill?: string;
+    accent_color?: string;
+    danger_color?: string;
+    confirm_color?: string;
+    hud_fill?: string;
+    stripe_fill?: string;
     stripe_color?: string;
-    stripe_shadow_color?: string;
-    stripe_width?: number;
+    lamp_color?: string;
 }
 
 export interface HudShaderPoint {

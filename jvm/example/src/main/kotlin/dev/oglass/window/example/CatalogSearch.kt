@@ -5,6 +5,7 @@ import dev.oglass.window.IndexedClick
 import dev.oglass.window.Windows
 import dev.oglass.window.example.generated.CatalogSearchView
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.TextColor
 import net.minestom.server.item.ItemStack
 
 /** Native-anvil search over the same catalog used by [MyShop]. */
@@ -12,11 +13,26 @@ class CatalogSearch(
     private val windows: Windows,
     private val market: Market,
 ) : CatalogSearchView() {
-    private var query by state("")
+    private var input by state("")
+    private val query get() = input.trim()
 
-    override fun queryText(): Component = Component.text(if (query.isEmpty()) "ITEM NAME" else query.uppercase())
+    /** Window art covers the vanilla edit box, so this draws the typed text with a cursor at its end. */
+    override fun queryText(): Component =
+        if (input.isEmpty()) Component.text("Item name", PLACEHOLDER_TEXT) else Component.text(input + CURSOR)
 
-    override fun resultCount(): Component = Component.text("${results().size} FOUND")
+    override fun resultCount(): Component {
+        val count = results().size
+        return Component.text(
+            when {
+                count == 0 -> "No matches"
+                count > RESULT_CELLS -> "$RESULT_CELLS of $count shown"
+                else -> "$count found"
+            },
+        )
+    }
+
+    override fun resetLabel(): Component =
+        if (query.isEmpty()) Component.text("Clear", PLACEHOLDER_TEXT) else Component.text("Clear")
 
     override fun resultsItem(index: Int): ItemStack? = results().getOrNull(index)?.toItemStack()
 
@@ -26,8 +42,11 @@ class CatalogSearch(
     }
 
     override fun onQueryChanged(value: String) {
-        query = value.trim()
+        input = value
+        syncResetState()
     }
+
+    override fun onOpen() = syncResetState()
 
     override fun onBack(click: Click) {
         windows.open(player, MyShop(windows, market))
@@ -36,6 +55,8 @@ class CatalogSearch(
     override fun onReset(click: Click) {
         windows.open(player, CatalogSearch(windows, market))
     }
+
+    private fun syncResetState() = buttonState("reset", if (query.isEmpty()) "disabled" else "enabled")
 
     private fun results(): List<Product> {
         if (query.isBlank()) return market.products
@@ -46,3 +67,9 @@ class CatalogSearch(
         }
     }
 }
+
+private const val RESULT_CELLS = 27
+
+private const val CURSOR = "_"
+
+private val PLACEHOLDER_TEXT = TextColor.color(0x5fb0d4)

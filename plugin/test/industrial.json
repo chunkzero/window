@@ -4,220 +4,178 @@
       "kind": "panel",
       "fill": "#172f69",
       "border_color": "#03091f",
-      "border_width": 2,
+      "border_width": 1,
       "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#34589a",
-      "shadow_color": "#040a24"
+      "inset_depth": 1,
+      "highlight_color": "#3786ad",
+      "shadow_color": "#0f2052"
     },
     "panel": {
       "kind": "panel",
       "fill": "#087cac",
       "border_color": "#03091f",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#25c9ec",
-      "shadow_color": "#071a43"
-    },
-    "surface": {
-      "kind": "panel",
-      "fill": "#086d99",
-      "border_color": "#03091f",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#25c9ec",
-      "shadow_color": "#071a43"
-    },
-    "header": {
-      "kind": "panel",
-      "fill": "#087baa",
-      "border_color": "#03091f",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#25c9ec",
-      "shadow_color": "#071a43"
-    },
-    "rail": {
-      "kind": "panel",
-      "fill": "#172f69",
-      "border_color": "#03091f",
       "border_width": 1,
       "radius": 0,
       "inset_depth": 1,
-      "highlight_color": "#34589a",
-      "shadow_color": "#071a43"
+      "highlight_color": "#25c9ec",
+      "shadow_color": "#064e7a"
     },
     "recess": {
       "kind": "panel",
       "fill": "#071a43",
       "border_color": "#03091f",
-      "border_width": 2,
+      "border_width": 1,
       "radius": 0,
       "inset_depth": 1,
-      "highlight_color": "#07517f",
-      "shadow_color": "#03091f"
+      "highlight_color": "#05123a",
+      "shadow_color": "#215a7b"
+    },
+    "slot": {
+      "kind": "slot",
+      "fill": "#07577d",
+      "border_color": "#07577d",
+      "border_width": 0,
+      "radius": 0,
+      "inset_depth": 1,
+      "highlight_color": "#053157",
+      "shadow_color": "#2185a4"
     },
     "button": {
       "kind": "button",
       "fill": "#0994c6",
       "border_color": "#03091f",
-      "border_width": 2,
+      "border_width": 1,
       "radius": 0,
-      "inset_depth": 2,
+      "inset_depth": 1,
       "highlight_color": "#25c9ec",
-      "shadow_color": "#07517f"
+      "shadow_color": "#065d8a"
+    },
+    "button_selected": {
+      "kind": "button",
+      "fill": "#05406b",
+      "border_color": "#03091f",
+      "border_width": 1,
+      "radius": 0,
+      "inset_depth": 1,
+      "highlight_color": "#04254e",
+      "shadow_color": "#207597",
+      "indicator_color": "#ff8300"
+    },
+    "button_disabled": {
+      "kind": "button",
+      "fill": "#0a6d99",
+      "border_color": "#073b5c",
+      "border_width": 1,
+      "radius": 0,
+      "inset_depth": 0
     },
     "button_accent": {
       "kind": "button",
       "fill": "#ff8300",
-      "border_color": "#a92e00",
-      "border_width": 2,
+      "border_color": "#9d3a00",
+      "border_width": 1,
       "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#ffb20b",
-      "shadow_color": "#a92e00"
+      "inset_depth": 1,
+      "highlight_color": "#ffb421",
+      "shadow_color": "#be5300"
     },
     "button_danger": {
       "kind": "button",
       "fill": "#ed171b",
-      "border_color": "#75000d",
-      "border_width": 2,
+      "border_color": "#880e08",
+      "border_width": 1,
       "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#ff5b45",
-      "shadow_color": "#75000d"
+      "inset_depth": 1,
+      "highlight_color": "#f57930",
+      "shadow_color": "#b31210"
     },
     "button_confirm": {
       "kind": "button",
       "fill": "#20c900",
-      "border_color": "#087500",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#78f02d",
-      "shadow_color": "#087500"
-    },
-    "tab": {
-      "kind": "button",
-      "fill": "#078cbc",
-      "border_color": "#03091f",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#25c9ec",
-      "shadow_color": "#07517f"
-    },
-    "tab_active": {
-      "kind": "button",
-      "fill": "#ff8300",
-      "border_color": "#a92e00",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#ffb20b",
-      "shadow_color": "#a92e00"
-    },
-    "hud_panel": {
-      "kind": "panel",
-      "fill": "#172f69",
-      "border_color": "#03091f",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#34589a",
-      "shadow_color": "#071a43"
-    },
-    "hud_chip": {
-      "kind": "button",
-      "fill": "#071a43",
-      "border_color": "#07517f",
+      "border_color": "#0f6a00",
       "border_width": 1,
       "radius": 0,
       "inset_depth": 1,
-      "highlight_color": "#25c9ec",
-      "shadow_color": "#03091f"
+      "highlight_color": "#73e12b",
+      "shadow_color": "#148900"
     },
-    "hud_focus": {
+    "hud": {
       "kind": "panel",
-      "fill": "#086d99",
-      "border_color": "#a92e00",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#ffb20b",
-      "shadow_color": "#071a43"
-    },
-    "title_bar": {
-      "kind": "panel",
-      "fill": "#087baa",
-      "border_color": "#03091f",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#25c9ec",
-      "shadow_color": "#071a43"
-    },
-    "slot_cell": {
-      "kind": "slot",
-      "fill": "#07577d",
-      "border_color": "#07517f",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 1,
-      "highlight_color": "#25c9ec",
-      "shadow_color": "#03091f"
-    },
-    "search_field": {
-      "kind": "panel",
-      "fill": "#243f7b",
-      "border_color": "#03091f",
-      "border_width": 2,
-      "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#25c9ec",
-      "shadow_color": "#071a43"
-    },
-    "vent": {
-      "kind": "vent",
-      "fill": "#12396b",
-      "border_color": "#03091f",
+      "fill": "#0a1d4a",
+      "border_color": "#115671",
       "border_width": 1,
       "radius": 0,
-      "inset_depth": 1,
-      "highlight_color": "#07517f",
-      "accent_color": "#061536",
-      "shadow_color": "#03091f"
+      "inset_depth": 0
     },
     "hazard_bar": {
       "kind": "hazard_bar",
       "fill": "#ffb20b",
-      "border_color": "#a92e00",
-      "border_width": 2,
+      "border_color": "#03091f",
+      "border_width": 1,
       "radius": 0,
       "inset_depth": 0,
-      "highlight_color": "#ffd53b",
-      "shadow_color": "#a92e00",
-      "stripe_color": "#c43100",
-      "stripe_shadow_color": "#5c1200",
-      "stripe_width": 8
+      "highlight_color": "#ffd12b",
+      "shadow_color": "#ae5e06",
+      "stripe_color": "#141a2e",
+      "stripe_width": 5
     }
   },
   "sprites": {
-    "pack_badge": {
-      "kind": "badge",
-      "width": 28,
-      "height": 14,
-      "fill": "#ff8300",
-      "border_color": "#a92e00",
-      "border_width": 2,
+    "rivet": {
+      "kind": "button",
+      "width": 5,
+      "height": 5,
+      "fill": "#6f88ba",
+      "border_color": "#6f88ba",
+      "border_width": 0,
+      "radius": 3,
+      "inset_depth": 1,
+      "highlight_color": "#eef5ff",
+      "shadow_color": "#0a1433"
+    },
+    "coin": {
+      "kind": "button",
+      "width": 8,
+      "height": 8,
+      "fill": "#ffb20b",
+      "border_color": "#8d3c03",
+      "border_width": 1,
+      "radius": 4,
+      "inset_depth": 1,
+      "highlight_color": "#ffd731",
+      "shadow_color": "#c67707"
+    },
+    "lamp_on": {
+      "kind": "button",
+      "width": 4,
+      "height": 4,
+      "fill": "#8dff5a",
+      "border_color": "#03091f",
+      "border_width": 1,
       "radius": 0,
-      "inset_depth": 2,
-      "highlight_color": "#ffb20b",
-      "shadow_color": "#a92e00",
-      "accent_color": "#071a43"
+      "inset_depth": 0
+    },
+    "lamp_off": {
+      "kind": "button",
+      "width": 4,
+      "height": 4,
+      "fill": "#074568",
+      "border_color": "#03091f",
+      "border_width": 1,
+      "radius": 0,
+      "inset_depth": 0
+    },
+    "slot_selected": {
+      "kind": "slot",
+      "fill": "#05406b",
+      "border_color": "#ff8300",
+      "border_width": 1,
+      "radius": 0,
+      "inset_depth": 1,
+      "highlight_color": "#04254e",
+      "shadow_color": "#207597",
+      "width": 18,
+      "height": 18
     }
   }
 }

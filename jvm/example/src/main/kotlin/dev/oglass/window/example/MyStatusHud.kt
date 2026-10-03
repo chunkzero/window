@@ -21,13 +21,16 @@ class MyStatusTopLeftHud(
 class MyStatusTopCenterHud(
     private val startedAt: Long,
 ) : StatusTopCenterHud() {
-    override fun runtime(): Component = Component.text("${(System.currentTimeMillis() - startedAt) / 1000L}s")
+    override fun runtime(): Component {
+        val seconds = (System.currentTimeMillis() - startedAt) / 1000L
+        return Component.text("%d:%02d".format(seconds / 60, seconds % 60))
+    }
 }
 
 class MyStatusTopRightHud(
     private val startedAt: Long,
 ) : StatusTopRightHud() {
-    override fun wave(): Component = Component.text("#${1 + ((System.currentTimeMillis() - startedAt) / 10000L)}")
+    override fun wave(): Component = Component.text(1 + (System.currentTimeMillis() - startedAt) / WAVE_MILLIS)
 
     override fun biome(): Component = Component.text("Plains")
 
@@ -37,10 +40,10 @@ class MyStatusTopRightHud(
 class MyStatusLeftSideHud : StatusLeftSideHud() {
     override fun coords(): Component {
         val pos = player.position
-        return Component.text("${pos.blockX()},${pos.blockZ()}")
+        return Component.text("${pos.blockX()}, ${pos.blockZ()}")
     }
 
-    override fun altitude(): Component = Component.text("Y${player.position.blockY()}")
+    override fun altitude(): Component = Component.text("Y ${player.position.blockY()}")
 }
 
 class MyStatusRightSideHud(
@@ -48,11 +51,16 @@ class MyStatusRightSideHud(
 ) : StatusRightSideHud() {
     override fun objective(): Component = Component.text("Sell goods")
 
-    override fun stock(): Component = Component.text("${market.unitPrice} coins/item")
+    override fun stock(): Component = Component.text("${market.unitPrice} per item")
 }
 
-class MyStatusBottomCenterHud : StatusBottomCenterHud() {
-    override fun leftNote(): Component = Component.text("center")
-
-    override fun rightNote(): Component = Component.text("bottom")
+class MyStatusBottomCenterHud(
+    private val startedAt: Long,
+) : StatusBottomCenterHud() {
+    override fun hint(): Component {
+        val remaining = WAVE_MILLIS - (System.currentTimeMillis() - startedAt) % WAVE_MILLIS
+        return Component.text("Next wave in ${(remaining + 999) / 1000}s")
+    }
 }
+
+private const val WAVE_MILLIS = 10_000L

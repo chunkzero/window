@@ -7,6 +7,7 @@ import dev.oglass.window.Windows
 import dev.oglass.window.example.generated.ShopView
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextColor
 import net.minestom.server.item.ItemStack
 
 private enum class CatalogCategory {
@@ -27,7 +28,7 @@ class MyShop(
     private val market: Market,
     initialSelection: String? = null,
 ) : ShopView() {
-    private val pager = WindowPager(cellCount = 21)
+    private val pager = WindowPager(cellCount = 27)
 
     private var coins by state(0)
     private var category by state(CatalogCategory.ALL)
@@ -36,54 +37,65 @@ class MyShop(
     private var affordableOnly by state(false)
     private var offset by state(0)
     private var selectedId by state(initialSelection)
-    private var feedback by state("SELECT ITEM")
+    private var feedback by state<String?>(null)
 
-    override fun balance(): Component = Component.text("$coins C")
+    override fun balance(): Component = Component.text(coins)
 
-    override fun categoryAllLabel(): Component = tabLabel("ALL", category == CatalogCategory.ALL)
+    override fun categoryAllLabel(): Component = tabLabel("All", category == CatalogCategory.ALL)
 
-    override fun categoryGearLabel(): Component = tabLabel("GEAR", category == CatalogCategory.GEAR)
+    override fun categoryGearLabel(): Component = tabLabel("Gear", category == CatalogCategory.GEAR)
 
-    override fun categoryMagicLabel(): Component = tabLabel("MAGIC", category == CatalogCategory.MAGIC)
+    override fun categoryMagicLabel(): Component = tabLabel("Magic", category == CatalogCategory.MAGIC)
 
-    override fun sortFeaturedLabel(): Component = tabLabel("FEATURED", sort == CatalogSort.FEATURED)
+    override fun sortFeaturedLabel(): Component = tabLabel("Top", sort == CatalogSort.FEATURED)
 
-    override fun sortPriceLabel(): Component = tabLabel("PRICE", sort == CatalogSort.PRICE)
+    override fun sortPriceLabel(): Component = tabLabel("Price", sort == CatalogSort.PRICE)
 
-    override fun sortNameLabel(): Component = tabLabel("NAME", sort == CatalogSort.NAME)
+    override fun sortNameLabel(): Component = tabLabel("Name", sort == CatalogSort.NAME)
 
-    override fun favoritesLabel(): Component = Component.text(if (favoritesOnly) "FAVS: ON" else "FAVS: OFF")
+    override fun favoritesLabel(): Component = Component.text("Favs")
 
-    override fun affordableLabel(): Component = Component.text(if (affordableOnly) "BUDGET: ON" else "BUDGET: OFF")
+    override fun favoritesLampSprite(): String = lamp(favoritesOnly)
 
-    override fun previousLabel(): Component = Component.text(if (pager.canPrevious(offset)) "PREV" else "-")
+    override fun affordableLabel(): Component = Component.text("Afford")
 
-    override fun nextLabel(): Component {
-        val products = visibleProducts()
-        return Component.text(if (pager.canNext(offset, products.size)) "NEXT" else "-")
-    }
+    override fun affordableLampSprite(): String = lamp(affordableOnly)
+
+    override fun previousLabel(): Component = actionLabel("Prev", pager.canPrevious(offset))
+
+    override fun nextLabel(): Component = actionLabel("Next", pager.canNext(offset, visibleProducts().size))
 
     override fun page(): Component {
         val products = visibleProducts()
         return Component.text(
-            "${pager.page(offset, products.size)} / ${pager.pageCount(products.size)}",
+            "${pager.page(offset, products.size)} of ${pager.pageCount(products.size)}",
         )
     }
 
-    override fun selection(): Component {
-        val selected = selectedProduct()
-        return Component.text(selected?.name ?: "NO MATCHES")
+    override fun selection(): Component = Component.text(selectedProduct()?.name ?: "No matches")
+
+    override fun price(): Component = Component.text(selectedProduct()?.price?.toString().orEmpty())
+
+    override fun priceCoinSprite(): String? = selectedProduct()?.let { "coin" }
+
+    override fun status(): Component = Component.text(feedback ?: "${visibleProducts().size} items")
+
+    override fun buyLabel(): Component {
+        val product = selectedProduct() ?: return actionLabel("Buy", false)
+        if (product.price > coins) return actionLabel("Need ${product.price - coins}", false)
+        return Component.text("Buy ${product.price}")
     }
-
-    override fun status(): Component = Component.text(feedback)
-
-    override fun buyLabel(): Component = Component.text(selectedProduct()?.let { "BUY ${it.price} C" } ?: "BUY")
 
     override fun productsItem(index: Int): ItemStack? {
         val products = visibleProducts()
         val absolute = pager.itemIndex(offset, index, products.size) ?: return null
-        val product = products[absolute]
-        return product.toItemStack(product.id == selectedId)
+        return products[absolute].toItemStack()
+    }
+
+    override fun productsSelected(): Int? {
+        val products = visibleProducts()
+        val absolute = products.indexOf(selectedProduct() ?: return null)
+        return absolute - pager.clamp(offset, products.size)
     }
 
     override fun onProducts(click: IndexedClick) {
@@ -91,7 +103,7 @@ class MyShop(
         val absolute = pager.itemIndex(offset, click.index, products.size) ?: return
         val product = products[absolute]
         selectedId = product.id
-        feedback = "SELECTED"
+        feedback = null
         syncButtonStates()
     }
 
@@ -110,14 +122,14 @@ class MyShop(
     override fun onFavorites(click: Click) {
         favoritesOnly = !favoritesOnly
         resetPageAndSelection()
-        feedback = if (favoritesOnly) "FAVORITES ON" else "FAVORITES OFF"
+        feedback = null
         syncButtonStates()
     }
 
     override fun onAffordable(click: Click) {
         affordableOnly = !affordableOnly
         resetPageAndSelection()
-        feedback = if (affordableOnly) "BUDGET ON" else "BUDGET OFF"
+        feedback = null
         syncButtonStates()
     }
 
@@ -141,10 +153,10 @@ class MyShop(
         val product = selectedProduct() ?: return
         val newBalance = market.purchase(player, product.price)
         if (newBalance == null) {
-            feedback = "NEED ${product.price - coins} C"
+            feedback = "Need ${product.price - coins} more"
         } else {
             coins = newBalance
-            feedback = "PURCHASED"
+            feedback = "Purchased"
         }
         syncButtonStates()
     }
@@ -190,14 +202,14 @@ class MyShop(
     private fun selectCategory(value: CatalogCategory) {
         category = value
         resetPageAndSelection()
-        feedback = "FILTER: ${value.name}"
+        feedback = null
         syncButtonStates()
     }
 
     private fun selectSort(value: CatalogSort) {
         sort = value
         resetPageAndSelection()
-        feedback = "SORT: ${value.name}"
+        feedback = null
         syncButtonStates()
     }
 
@@ -232,7 +244,17 @@ class MyShop(
         selected: Boolean,
     ): Component = Component.text(label, if (selected) NamedTextColor.GOLD else NamedTextColor.WHITE)
 
+    /** Disabled labels fade toward the disabled button fill; enabled ones keep the slot's authored color. */
+    private fun actionLabel(
+        label: String,
+        enabled: Boolean,
+    ): Component = if (enabled) Component.text(label, NamedTextColor.WHITE) else Component.text(label, DISABLED_TEXT)
+
+    private fun lamp(on: Boolean): String = if (on) "lamp_on" else "lamp_off"
+
     private fun selectedState(selected: Boolean): String = if (selected) "selected" else "unselected"
 
     private fun enabledState(enabled: Boolean): String = if (enabled) "enabled" else "disabled"
 }
+
+private val DISABLED_TEXT = TextColor.color(0x5fb0d4)

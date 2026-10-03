@@ -40,6 +40,9 @@ public abstract class ShopView : WindowView("shop") {
     /** Render the `previous_label` slot. */
     protected abstract fun previousLabel(): Component
 
+    /** Render the `price` slot. */
+    protected abstract fun price(): Component
+
     /** Render the `selection` slot. */
     protected abstract fun selection(): Component
 
@@ -54,6 +57,15 @@ public abstract class ShopView : WindowView("shop") {
 
     /** Render the `status` slot. */
     protected abstract fun status(): Component
+
+    /** Render the `affordable_lamp` runtime sprite id. */
+    protected abstract fun affordableLampSprite(): String?
+
+    /** Render the `favorites_lamp` runtime sprite id. */
+    protected abstract fun favoritesLampSprite(): String?
+
+    /** Render the `price_coin` runtime sprite id. */
+    protected abstract fun priceCoinSprite(): String?
 
     /** Handle a click on the `affordable` button. */
     protected abstract fun onAffordable(click: Click)
@@ -100,6 +112,9 @@ public abstract class ShopView : WindowView("shop") {
     /** Handle a click on the `products` collection. */
     protected abstract fun onProducts(click: IndexedClick)
 
+    /** The selected cell index in the `products` collection, or `null` for none. */
+    protected open fun productsSelected(): Int? = null
+
     final override fun WindowScope.bind() {
         slot("affordable_label") { affordableLabel() }
         slot("balance") { balance() }
@@ -111,11 +126,15 @@ public abstract class ShopView : WindowView("shop") {
         slot("next_label") { nextLabel() }
         slot("page") { page() }
         slot("previous_label") { previousLabel() }
+        slot("price") { price() }
         slot("selection") { selection() }
         slot("sort_featured_label") { sortFeaturedLabel() }
         slot("sort_name_label") { sortNameLabel() }
         slot("sort_price_label") { sortPriceLabel() }
         slot("status") { status() }
+        sprite("affordable_lamp") { affordableLampSprite() }
+        sprite("favorites_lamp") { favoritesLampSprite() }
+        sprite("price_coin") { priceCoinSprite() }
         button("affordable", ::onAffordable)
         button("buy", ::onBuy)
         button("category_all", ::onCategoryAll)
@@ -130,5 +149,6 @@ public abstract class ShopView : WindowView("shop") {
         button("sort_name", ::onSortName)
         button("sort_price", ::onSortPrice)
         collection("products", ::productsItem, ::onProducts)
+        collectionSelection("products", ::productsSelected)
     }
 }
