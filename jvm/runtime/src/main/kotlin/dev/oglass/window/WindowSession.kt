@@ -36,7 +36,7 @@ public class WindowSession
         /** The view driving this session. */
         public val view: WindowView,
         private val player: Player,
-        scheduler: RenderScheduler,
+        private val scheduler: RenderScheduler,
         private val handle: InventoryHandle,
         diagnosticsObserver: RenderDiagnosticsObserver = RenderDiagnosticsObserver.NONE,
     ) {
@@ -47,10 +47,7 @@ public class WindowSession
         private val title = WindowTitle(definition, bindings, reactivity)
         private val writer = WindowInventoryWriter(definition, bindings, handle, reactivity)
         private val routes = SlotRoutes(entry, bindings, player, ::close)
-        private val reopens =
-            entry.inputs.values
-                .singleOrNull()
-                ?.let { AnvilReopenGate(scheduler, it.initial, handle::ping, ::applyInput, ::sendTitle) }
+        private var reopens: AnvilReopenGate? = null
 
         private val frames =
             SessionFrames(
@@ -85,14 +82,14 @@ public class WindowSession
             view.attach(player, this, reactivity)
             view.invokeBind(bindings)
             bindings.validate()
+            reopens = reopenGate()
             seedTitle()
 
             val render = title.compose()
-            handle.bundle {
+            send {
                 handle.open(render.component)
                 handle.registerListeners(::handleClick, ::handleClientClose, ::handleInput, ::handlePong)
                 writer.seed()
-                reopens?.sent()
             }
             frames.observe(render, RenderFrameReason.OPEN)
             view.invokeOnOpen()
@@ -128,13 +125,32 @@ public class WindowSession
         }
 
         private fun sendTitle() {
-            if (closed || reopens?.canReopen() == false) return
+            if (closed) return
             val render = title.compose()
-            handle.bundle {
-                handle.setTitle(render.component)
-                reopens?.sent()
-            }
+            if (!send { handle.setTitle(render.component) }) return
             frames.observe(render, RenderFrameReason.REACTIVE_UPDATE)
+        }
+
+        /** Runs [action], through the anvil reopen gate when there is one; false when the gate defers it. */
+        private fun send(action: () -> Unit): Boolean {
+            reopens?.let { return it.send(action) }
+            action()
+            return true
+        }
+
+        /** Gates the window's single anvil input, delivering edits to its bound handler. */
+        private fun reopenGate(): AnvilReopenGate? {
+            val (name, input) = entry.inputs.entries.singleOrNull() ?: return null
+            val handler = bindings.inputHandlers.getValue(name)
+
+            fun deliver(value: String) {
+                if (closed) return
+                // Title changes reopen the vanilla menu, which resets the edit box to the seed's name.
+                // Stage the typed value as that name so the next reopen restores it.
+                writer.stageInput(input, value)
+                handler(value)
+            }
+            return AnvilReopenGate(scheduler, handle, input.initial, ::deliver, ::sendTitle)
         }
 
         private fun applyButtonState(
@@ -190,15 +206,6 @@ public class WindowSession
         private fun handlePong(id: Int) {
             if (closed) return
             reopens?.pong(id)
-        }
-
-        private fun applyInput(value: String) {
-            if (closed) return
-            val (name, handler) = bindings.inputHandlers.entries.singleOrNull() ?: return
-            // Title changes reopen the vanilla menu, which resets the edit box to the seed's name.
-            // Stage the typed value as that name so the next reopen restores it.
-            writer.stageInput(entry.inputs.getValue(name), value)
-            handler(value)
         }
 
         private fun handleClientClose() {

@@ -15,34 +15,37 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 internal class AnvilReopenGate(
     private val scheduler: RenderScheduler,
-    seed: String,
-    private val ping: (Int) -> Unit,
+    private val handle: InventoryHandle,
+    initial: String,
     private val deliver: (String) -> Unit,
     private val reopen: () -> Unit,
 ) {
     /** The edit-box text the next reopen restores. */
-    var seed: String = seed
-        private set
-    private var restored = seed
+    private var seed = initial
+    private var restored = initial
     private var awaiting: Int? = null
     private var held: String? = null
     private var deferred = false
     private var owed = false
 
-    /** True when a reopen may be sent now; otherwise it is deferred until the in-flight one settles. */
-    fun canReopen(): Boolean {
-        if (awaiting == null) return true
-        deferred = true
-        return false
-    }
-
-    /** Records that a reopen restoring [seed] was sent; call inside the reopen's bundle. */
-    fun sent() {
-        restored = seed
-        owed = false
-        val id = PINGS.getAndIncrement()
-        awaiting = id
-        ping(id)
+    /**
+     * Sends a reopen: runs [action] in a bundle with a ping and returns true. While another reopen is
+     * in flight, defers the title change until it settles and returns false without running [action].
+     */
+    fun send(action: () -> Unit): Boolean {
+        if (awaiting != null) {
+            deferred = true
+            return false
+        }
+        handle.bundle {
+            action()
+            restored = seed
+            owed = false
+            val id = PINGS.getAndIncrement()
+            awaiting = id
+            handle.ping(id)
+        }
+        return true
     }
 
     /** Handles client edit-box [value]. */

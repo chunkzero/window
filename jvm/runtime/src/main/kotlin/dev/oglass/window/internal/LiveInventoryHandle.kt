@@ -66,13 +66,8 @@ internal class LiveInventoryHandle(
         item: ItemStack,
     ) {
         when (slot.area) {
-            SlotArea.CONTAINER -> {
-                inventory.setItemStack(slot.index, item)
-            }
-
-            SlotArea.PLAYER -> {
-                playerSlots.setItem(slot.index, item)
-            }
+            SlotArea.CONTAINER -> inventory.setItemStack(slot.index, item)
+            SlotArea.PLAYER -> playerSlots.setItem(slot.index, item)
         }
     }
 

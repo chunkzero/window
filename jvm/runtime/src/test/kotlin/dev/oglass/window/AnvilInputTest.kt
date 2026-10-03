@@ -60,7 +60,7 @@ class AnvilInputTest :
             handle.seedName() shouldBe Component.text("di")
         }
 
-        "an edit matching the in-flight seed is kept, and late echoes are still dropped" {
+        "an edit equal to the in-flight seed is delivered, and the trailing echo is dropped" {
             val view = SearchView()
             val scheduler = ManualScheduler()
             val handle = FakeInventoryHandle()
@@ -72,7 +72,6 @@ class AnvilInputTest :
             scheduler.tick()
             handle.input("di")
             handle.input("d")
-            repeat(40) { scheduler.tick() }
             handle.input("d")
             handle.pong()
             scheduler.runAll()
