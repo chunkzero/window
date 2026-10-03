@@ -52,9 +52,17 @@ fn maps_pack_formats_to_profiles() {
 }
 
 #[test]
+fn rejects_shader_huds_without_a_shader_profile() {
+    let hud = shader_hud("status", "coins");
+
+    assert!(emit(None, &[&hud]).is_err());
+    assert!(emit(Some(89), &[&hud]).is_err());
+}
+
+#[test]
 fn define_variant_profile_overrides_core_text_programs() {
     let hud = shader_hud("status", "coins");
-    let output = emit(Some(88), &[&hud]);
+    let output = emit(Some(88), &[&hud]).unwrap();
     let paths = output.files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>();
 
     assert_eq!(
@@ -105,7 +113,7 @@ fn generated_shader_matches_only_known_green_zero_ids() {
     let markers = segment_markers(&[&hud]);
     let static_id = renderer::marker_id(markers.static_marker("status"));
     let slot_id = renderer::marker_id(markers.slot_marker("status", "coins"));
-    let output = emit(Some(84), &[&hud]);
+    let output = emit(Some(84), &[&hud]).unwrap();
     let shader =
         output.files.iter().find(|file| file.path.ends_with("rendertype_text.vsh")).expect("text shader is emitted");
 
@@ -122,7 +130,7 @@ fn generated_shader_matches_only_known_green_zero_ids() {
 #[test]
 fn generated_shader_uses_height_independent_actionbar_source_top() {
     let hud = shader_hud("status", "coins");
-    let output = emit(Some(84), &[&hud]);
+    let output = emit(Some(84), &[&hud]).unwrap();
     let shader =
         output.files.iter().find(|file| file.path.ends_with("rendertype_text.vsh")).expect("text shader is emitted");
 

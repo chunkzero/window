@@ -155,7 +155,7 @@ fn compile_layouts(
 
     fonts::emit_fonts(&mut ctx)?;
     if options.hud_shaders {
-        hud::emit_shader_files(&mut ctx, target.pack_format, &huds);
+        hud::emit_shader_files(&mut ctx, target.pack_format, &huds)?;
     }
     let manifest = ctx.manifest(sprites, window_entries, hud_entries);
     ctx.finish(manifest)
