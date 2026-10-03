@@ -10,7 +10,10 @@ import net.minestom.server.item.Material
 
 /** Item helpers for Window button/hotspot hitboxes. */
 public object WindowItems {
-    /** Builds the seed item that enables a vanilla anvil rename field. */
+    /**
+     * Builds the seed item that enables a vanilla anvil rename field. It has no enchantments
+     * component, so the client never predicts a repair result or draws its cost label.
+     */
     public fun anvilInput(
         initial: String = "",
         itemModel: String = "window:gui/hitbox",
@@ -20,6 +23,7 @@ public object WindowItems {
             .set(DataComponents.ITEM_MODEL, itemModel)
             .set(DataComponents.CUSTOM_NAME, Component.text(initial))
             .set(DataComponents.MAX_STACK_SIZE, 1)
+            .remove(DataComponents.ENCHANTMENTS)
             .build()
 
     /** Builds an invisible Window hitbox item with [tooltip]. */

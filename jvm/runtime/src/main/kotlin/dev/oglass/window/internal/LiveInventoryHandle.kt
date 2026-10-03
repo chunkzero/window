@@ -64,17 +64,20 @@ internal class LiveInventoryHandle(
         when (slot.area) {
             SlotArea.CONTAINER -> {
                 inventory.setItemStack(slot.index, item)
-                // A seeded anvil input makes the vanilla client synthesize a repair result and a
-                // cost of one. Window uses the anvil only as a text-input transport, so reset the
-                // property after each container update. Otherwise Minecraft draws its hard-coded
-                // repair-cost backing rectangle through the custom UI.
-                (inventory as? AnvilInventory)?.setRepairCost(0)
             }
 
             SlotArea.PLAYER -> {
                 playerSlots.setItem(slot.index, item)
             }
         }
+    }
+
+    override fun stageItem(
+        slot: SlotRef,
+        item: ItemStack,
+    ) {
+        require(slot.area == SlotArea.CONTAINER) { "Only container slots can be staged" }
+        inventory.setItemStack(slot.index, item, false)
     }
 
     override fun registerListeners(

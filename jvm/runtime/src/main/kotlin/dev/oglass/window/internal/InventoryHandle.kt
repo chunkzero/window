@@ -26,6 +26,12 @@ internal interface InventoryHandle {
         item: ItemStack,
     )
 
+    /** Stores an item in a container slot without sending it; the next title change delivers it. */
+    fun stageItem(
+        slot: SlotRef,
+        item: ItemStack,
+    )
+
     /** Registers click, close, and native text-input listeners. */
     fun registerListeners(
         onClick: (ClickInfo) -> Unit,

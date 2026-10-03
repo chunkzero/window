@@ -18,6 +18,11 @@ internal class ManualScheduler : RenderScheduler {
         tasks.addLast(task)
     }
 
+    /** Runs only the tasks queued so far, like one server tick. */
+    fun tick() {
+        repeat(tasks.size) { tasks.removeFirst().run() }
+    }
+
     /** Runs all queued tasks (FIFO), draining the queue. */
     fun runAll() {
         while (tasks.isNotEmpty()) tasks.removeFirst().run()
@@ -55,6 +60,13 @@ internal class FakeInventoryHandle : InventoryHandle {
     }
 
     override fun setItem(
+        slot: SlotRef,
+        item: ItemStack,
+    ) {
+        items[slot] = item
+    }
+
+    override fun stageItem(
         slot: SlotRef,
         item: ItemStack,
     ) {
