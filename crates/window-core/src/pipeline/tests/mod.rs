@@ -13,15 +13,9 @@ fn compile_windows(
     textures: &BTreeMap<String, Texture>,
     namespace: &str,
 ) -> Result<CompileOutput> {
-    compile_layouts(
-        windows,
-        &[],
-        textures,
-        &BTreeMap::new(),
-        namespace,
-        &PackTarget::default(),
-        &BuildOptions::default(),
-    )
+    let fonts = text_font::resolve(&BTreeMap::new(), &BTreeMap::new()).unwrap();
+    let assets = Assets { textures, runtime_sprites: &BTreeMap::new(), text_fonts: &fonts };
+    compile_layouts(windows, &[], &assets, namespace, &PackTarget::default(), &BuildOptions::default())
 }
 
 /// A solid RGBA texture for tests.
@@ -70,6 +64,7 @@ fn text_slot(name: &str, text: Option<&str>, rect: Rect, align: Align, color: Rg
         underlined: false,
         strikethrough: false,
         obfuscated: false,
+        font: None,
         repeat: None,
     }
 }

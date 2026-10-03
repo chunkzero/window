@@ -52,6 +52,27 @@ Common options are `fill`, `border_color`, `border_width`, `radius`, `inset_dept
 `accent_color`, `indicator_color` (panel, button, and slot only), `stripe_color`, `stripe_shadow_color`, and
 `stripe_width`. Generated sprites use the same style options and require `width` and `height`.
 
+Themes may also declare bitmap text fonts, which `label` and `slot` select with `font`:
+
+```ts
+fonts: {
+  runes: {
+    texture: "window/fonts/runes.png",
+    chars: ["abcdefgh", "ijklmnop"],
+  },
+},
+```
+
+Each `chars` row maps one row of equally wide, 8px-tall sheet cells, left to right; `"\u0000"` leaves a cell empty and
+every mapped cell needs at least one opaque pixel. Cells sit on the text line like vanilla `ascii.png` cells, with seven
+rows above the baseline and one below, so glyph art carries its own vertical placement. Characters the sheet does not
+map fall back to vanilla glyphs. Window measures each glyph from the sheet, so layout and runtime alignment match what
+the client draws. Font names are unique across theme files.
+
+Window bundles a `small_caps` font: letters of either case as 5px small capitals, digits, and common punctuation,
+centered on vanilla capital height. `small_caps: true` is shorthand for `font: "small_caps"`; a theme font named
+`small_caps` replaces the bundled one.
+
 Window also ships a generated default theme:
 
 ```ts
@@ -180,23 +201,23 @@ are intentionally opt-in; the fallback channel remains the runtime contract.
 
 ## Elements
 
-| constructor                  | children | required                                                                                  | optional                                                                                                     |
-| ---------------------------- | -------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `panel(opts)`                | yes      | `frame`, `width`, `height`                                                                | `x`, `y`, `padding`                                                                                          |
-| `row(opts)` / `column(opts)` | yes      | none                                                                                      | `x`, `y`, `gap`, `padding`, `align` (`"start"`, `"center"`, `"end"`)                                         |
-| `sprite(name, opts)`         | no       | theme sprite name                                                                         | `x`, `y`                                                                                                     |
-| `spriteSlot(name, opts)`     | no       | slot name, `width`, `height`                                                              | `x`, `y`, `align` (`"left"`, `"center"`, `"right"`)                                                          |
-| `button(name, opts)`         | yes      | button name, and either `width`/`height` or `pattern`/`transform`                         | `frame`, `x`, `y`, `slots`, `default: "close"`, `tooltip`, `states`, `padding`                               |
-| `hotspot(name, opts)`        | no       | hotspot name, `tooltip` or `states`, and either `width`/`height` or `pattern`/`transform` | `x`, `y`, `slots`                                                                                            |
-| `item(name, opts)`           | no       | item name, and `slots`, `pattern`, `transform`, or (inside a repeater) `cell_slot`        | none                                                                                                         |
-| `collection(name, opts)`     | no       | collection name, and `slots`, `pattern`, or `transform`                                   | `frame`, `action: false` for display-only collections                                                        |
-| `toggle(name, opts)`         | yes      | button options and `states.on` / `states.off`                                             | the same options as `button`                                                                                 |
-| `choice(name, opts)`         | yes      | button options and `states.selected` / `states.unselected`                                | the same options as `button`                                                                                 |
-| `anvilInput(name, opts)`     | no       | an `anvil` window and input name                                                          | `initial`, `item_model`                                                                                      |
-| `slotRects(name, opts)`      | no       | name, and `pattern` or `transform`                                                        | `frame`, `claim: "none"`, `"all"`, or `"unowned"`                                                            |
-| `repeater(name, opts)`       | yes      | name, and `pattern` or `transform`                                                        | `frame`, `padding`                                                                                           |
-| `label(text, opts)`          | no       | text                                                                                      | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `x`, `y` |
-| `slot(name, opts)`           | no       | slot name                                                                                 | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `x`, `y` |
+| constructor                  | children | required                                                                                  | optional                                                                                                                           |
+| ---------------------------- | -------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `panel(opts)`                | yes      | `frame`, `width`, `height`                                                                | `x`, `y`, `padding`                                                                                                                |
+| `row(opts)` / `column(opts)` | yes      | none                                                                                      | `x`, `y`, `gap`, `padding`, `align` (`"start"`, `"center"`, `"end"`)                                                               |
+| `sprite(name, opts)`         | no       | theme sprite name                                                                         | `x`, `y`                                                                                                                           |
+| `spriteSlot(name, opts)`     | no       | slot name, `width`, `height`                                                              | `x`, `y`, `align` (`"left"`, `"center"`, `"right"`)                                                                                |
+| `button(name, opts)`         | yes      | button name, and either `width`/`height` or `pattern`/`transform`                         | `frame`, `x`, `y`, `slots`, `default: "close"`, `tooltip`, `states`, `padding`                                                     |
+| `hotspot(name, opts)`        | no       | hotspot name, `tooltip` or `states`, and either `width`/`height` or `pattern`/`transform` | `x`, `y`, `slots`                                                                                                                  |
+| `item(name, opts)`           | no       | item name, and `slots`, `pattern`, `transform`, or (inside a repeater) `cell_slot`        | none                                                                                                                               |
+| `collection(name, opts)`     | no       | collection name, and `slots`, `pattern`, or `transform`                                   | `frame`, `action: false` for display-only collections                                                                              |
+| `toggle(name, opts)`         | yes      | button options and `states.on` / `states.off`                                             | the same options as `button`                                                                                                       |
+| `choice(name, opts)`         | yes      | button options and `states.selected` / `states.unselected`                                | the same options as `button`                                                                                                       |
+| `anvilInput(name, opts)`     | no       | an `anvil` window and input name                                                          | `initial`, `item_model`                                                                                                            |
+| `slotRects(name, opts)`      | no       | name, and `pattern` or `transform`                                                        | `frame`, `claim: "none"`, `"all"`, or `"unowned"`                                                                                  |
+| `repeater(name, opts)`       | yes      | name, and `pattern` or `transform`                                                        | `frame`, `padding`                                                                                                                 |
+| `label(text, opts)`          | no       | text                                                                                      | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
+| `slot(name, opts)`           | no       | slot name                                                                                 | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
 
 Unpositioned button children are centered automatically. Static labels use their measured width; direct dynamic slots
 may omit their width and fill the button's padded content rect:
@@ -548,6 +569,9 @@ additional iconography instead of relying on Minecraft's missing-glyph fallback.
 - `color` is `#rrggbb`; default text color is `#404040`; `shadow` defaults to `false`.
 - Text `bold`, `italic`, `underlined`, `strikethrough`, and `obfuscated` default to `false`. Bold changes measured
   width; the other decorations are visual style only.
+- `font` draws a `label` or `slot` with a theme text font, and `small_caps: true` with the bundled small-caps font;
+  setting both is an error. Text is measured with the font's glyphs, and runtime slot values use the same font. Author
+  and send plain text (`"Buy 20"`).
 - Runtime slot values are Adventure components. Child colors, decorations, and fonts are preserved for window titles,
   and measured from the generated pack definition's per-font metrics. Shader HUDs force generated marker colors so the
   shader can relocate text; decorations and font keys are still measured.

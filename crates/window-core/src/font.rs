@@ -242,6 +242,26 @@ pub fn shifted_suffix(k: i32) -> String {
 /// Validates the vanilla ASCII/non-Latin ascent bound `-32768 < 7 - k <= 8`
 /// (otherwise [`Error::Font`]).
 pub fn shifted_font(k: i32) -> Result<Value> {
+    Ok(provider_font(shifted_providers(k)?))
+}
+
+/// The font id suffix of text font `name` at vertical offset `k`: `("small_caps", -1) -> "small_caps/ym1"`.
+pub fn text_font_suffix(name: &str, k: i32) -> String {
+    format!("{name}/{}", shifted_suffix(k))
+}
+
+/// Build the document of a text font whose glyph sheet is `file`, drawn at vertical offset `k`.
+///
+/// The sheet's cells share the vanilla ASCII cell geometry, and its provider comes first, so its glyphs replace the
+/// shifted vanilla glyphs that follow.
+pub fn text_font(file: &str, chars: &[String], k: i32) -> Result<Value> {
+    let vanilla = shifted_providers(k)?;
+    let sheet = vanilla_bitmap_provider(file, 8, 7 - k, chars.iter().map(String::as_str).collect());
+    Ok(provider_font(std::iter::once(sheet).chain(vanilla).collect()))
+}
+
+/// The space provider and the vanilla sheets shifted to vertical offset `k`.
+fn shifted_providers(k: i32) -> Result<Vec<Value>> {
     let ascent = 7 - k;
     if ascent > 8 || ascent <= -32768 {
         return Err(Error::Font(format!("shifted font y{k}: ascent {ascent} is outside the valid range (-32768, 8]")));
@@ -252,27 +272,12 @@ pub fn shifted_font(k: i32) -> Result<Value> {
             "shifted font y{k}: accented ascent {accented_ascent} is outside the valid range (-32768, 12]"
         )));
     }
-    let mut doc = Map::new();
-    doc.insert(
-        "providers".into(),
-        Value::Array(vec![
-            vanilla_space_provider(),
-            vanilla_bitmap_provider("minecraft:font/ascii.png", 8, ascent, VANILLA_ASCII_CHARS.to_vec()),
-            vanilla_bitmap_provider(
-                "minecraft:font/nonlatin_european.png",
-                8,
-                ascent,
-                vanilla_window_text_nonlatin_rows(),
-            ),
-            vanilla_bitmap_provider(
-                "minecraft:font/accented.png",
-                12,
-                accented_ascent,
-                vanilla_small_text_accented_rows(),
-            ),
-        ]),
-    );
-    Ok(Value::Object(doc))
+    Ok(vec![
+        vanilla_space_provider(),
+        vanilla_bitmap_provider("minecraft:font/ascii.png", 8, ascent, VANILLA_ASCII_CHARS.to_vec()),
+        vanilla_bitmap_provider("minecraft:font/nonlatin_european.png", 8, ascent, vanilla_window_text_nonlatin_rows()),
+        vanilla_bitmap_provider("minecraft:font/accented.png", 12, accented_ascent, vanilla_small_text_accented_rows()),
+    ])
 }
 
 #[cfg(test)]

@@ -12,11 +12,12 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::authoring::{BuildOptions, PackTarget, ParsedProject};
 use crate::compose::Texture;
-use crate::font::spacer_table;
+use crate::font::{shifted_suffix, spacer_table, text_font_suffix};
 use crate::geometry::Size;
-use crate::ir::{LaidOutHud, LaidOutWindow};
+use crate::ir::{LaidOutHud, LaidOutWindow, SlotIr};
 use crate::manifest::{HudEntry, Manifest, SpriteEntry, VERSION, WindowEntry};
-use crate::{Error, Result, vanilla};
+use crate::text_font::TextFonts;
+use crate::{Error, Result, text_font, vanilla};
 
 mod fonts;
 mod glyphs;
@@ -78,19 +79,13 @@ pub fn compile_project(project: &ParsedProject, input: &CompileInput) -> Result<
     let textures = decode_textures(&input.files)?;
 
     let texture_size = |path: &str| -> Option<Size> { textures.get(path).map(|t| Size::new(t.width, t.height)) };
-    let windows = crate::layout::solve(project, &texture_size)?;
-    let huds = crate::layout::solve_huds(project, &texture_size)?;
+    let text_fonts = text_font::resolve(&project.theme.fonts, &textures)?;
+    let windows = crate::layout::solve(project, &texture_size, &text_fonts)?;
+    let huds = crate::layout::solve_huds(project, &texture_size, &text_fonts)?;
     let runtime_sprites = sprites::runtime_sprite_assets(project, &textures, &input.namespace)?;
 
-    let output = compile_layouts(
-        &windows,
-        &huds,
-        &textures,
-        &runtime_sprites,
-        &input.namespace,
-        &project.target,
-        &project.options,
-    )?;
+    let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &text_fonts };
+    let output = compile_layouts(&windows, &huds, &assets, &input.namespace, &project.target, &project.options)?;
     let validation = crate::validation::validate_compile_output_with_pack(&output, &input.files);
     if !validation.is_valid() {
         return Err(Error::Validation(validation.to_string()));
@@ -116,13 +111,19 @@ fn decode_textures(files: &BTreeMap<String, Vec<u8>>) -> Result<BTreeMap<String,
     Ok(textures)
 }
 
+/// Decoded assets the backend draws laid-out windows and HUDs with.
+struct Assets<'a> {
+    textures: &'a BTreeMap<String, Texture>,
+    runtime_sprites: &'a BTreeMap<String, RuntimeSpriteAsset>,
+    text_fonts: &'a TextFonts,
+}
+
 /// Compile laid-out windows and HUDs into pack artifacts. Windows and HUDs are
 /// processed by name; output files are sorted by path.
 fn compile_layouts(
     windows: &[LaidOutWindow],
     huds: &[LaidOutHud],
-    textures: &BTreeMap<String, Texture>,
-    runtime_sprites: &BTreeMap<String, RuntimeSpriteAsset>,
+    assets: &Assets<'_>,
     namespace: &str,
     target: &PackTarget,
     options: &BuildOptions,
@@ -133,6 +134,7 @@ fn compile_layouts(
     let mut huds: Vec<&LaidOutHud> = huds.iter().collect();
     huds.sort_by(|a, b| a.name.cmp(&b.name));
 
+    let Assets { textures, runtime_sprites, text_fonts } = *assets;
     let uses_runtime_sprites = uses_runtime_sprites(&windows);
     if uses_runtime_sprites && runtime_sprites.is_empty() {
         return Err(Error::Validation("runtime sprite slots require at least one theme sprite".into()));
@@ -140,7 +142,7 @@ fn compile_layouts(
     let composites = glyphs::compose_layers(&windows, &huds, textures)?;
     let used_sprites = uses_runtime_sprites.then_some(runtime_sprites);
     let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;
-    let mut ctx = CompileContext::new(namespace, runtime_sprites, codepoints);
+    let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
 
     let sprites = if uses_runtime_sprites { sprites::sprite_entries(&mut ctx) } else { BTreeMap::new() };
     let mut window_entries = BTreeMap::new();
@@ -183,11 +185,13 @@ fn validate_namespace(namespace: &str) -> Result<()> {
 struct CompileContext<'a> {
     namespace: &'a str,
     runtime_sprites: &'a BTreeMap<String, RuntimeSpriteAsset>,
+    text_fonts: &'a TextFonts,
     codepoints: BTreeMap<String, u32>,
     files: Vec<OutputFile>,
     warnings: Vec<String>,
     bitmap_providers: Vec<serde_json::Value>,
     shift_offsets: BTreeSet<i32>,
+    text_font_offsets: BTreeSet<(&'a str, i32)>,
     sprite_offsets: BTreeSet<i32>,
 }
 
@@ -195,18 +199,35 @@ impl<'a> CompileContext<'a> {
     fn new(
         namespace: &'a str,
         runtime_sprites: &'a BTreeMap<String, RuntimeSpriteAsset>,
+        text_fonts: &'a TextFonts,
         codepoints: BTreeMap<String, u32>,
     ) -> Self {
         Self {
             namespace,
             runtime_sprites,
+            text_fonts,
             codepoints,
             files: Vec::new(),
             warnings: Vec::new(),
             bitmap_providers: Vec::new(),
             shift_offsets: BTreeSet::new(),
+            text_font_offsets: BTreeSet::new(),
             sprite_offsets: BTreeSet::new(),
         }
+    }
+
+    /// Registers the font `slot` draws with at vertical offset `k` and returns its id.
+    fn text_font(&mut self, slot: &SlotIr, k: i32) -> Result<String> {
+        let Some(name) = slot.font.as_deref() else {
+            self.shift_offsets.insert(k);
+            return Ok(format!("{}:{}", self.namespace, shifted_suffix(k)));
+        };
+        let (name, _) = self
+            .text_fonts
+            .get_key_value(name)
+            .ok_or_else(|| Error::Validation(format!("slot `{}` uses unknown font `{name}`", slot.name)))?;
+        self.text_font_offsets.insert((name, k));
+        Ok(format!("{}:{}", self.namespace, text_font_suffix(name, k)))
     }
 
     fn manifest(
@@ -218,7 +239,7 @@ impl<'a> CompileContext<'a> {
         let namespace = self.namespace;
         let text_advances: BTreeMap<char, u32> = vanilla::advances().collect();
         let text_glyph_widths: BTreeMap<char, u32> = vanilla::glyph_widths().collect();
-        let font_metrics = fonts::font_metrics(namespace, &self.shift_offsets, &text_advances, &text_glyph_widths);
+        let font_metrics = fonts::font_metrics(self, &text_advances, &text_glyph_widths);
         Manifest {
             version: VERSION,
             namespace: namespace.to_string(),

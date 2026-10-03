@@ -8,7 +8,7 @@ use crate::geometry::{Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, Rgb};
 use crate::model::{CrossAlign, TextStyle};
-use crate::{Error, Result};
+use crate::{Error, Result, text_font};
 
 const PANEL_FIELDS: &[&str] = &["type", "frame", "width", "height", "x", "y", "padding", "children"];
 const STACK_FIELDS: &[&str] = &["type", "x", "y", "gap", "padding", "align", "children"];
@@ -52,6 +52,8 @@ const LABEL_FIELDS: &[&str] = &[
     "underlined",
     "strikethrough",
     "obfuscated",
+    "font",
+    "small_caps",
 ];
 const SLOT_FIELDS: &[&str] = &[
     "type",
@@ -67,6 +69,8 @@ const SLOT_FIELDS: &[&str] = &[
     "underlined",
     "strikethrough",
     "obfuscated",
+    "font",
+    "small_caps",
 ];
 
 fn allowed_fields(kind: &str) -> Option<&'static [&'static str]> {
@@ -175,6 +179,13 @@ impl ElementDto {
             })?,
             None => Rgb::DEFAULT_TEXT,
         };
+        let font = match (&self.font, self.small_caps) {
+            (Some(_), true) => {
+                return Err(Error::Validation(format!("{} element sets both `font` and `small_caps`", self.kind)));
+            }
+            (Some(font), false) => Some(font.clone()),
+            (None, small_caps) => small_caps.then(|| text_font::SMALL_CAPS.to_string()),
+        };
         Ok(TextStyle {
             align,
             color,
@@ -184,6 +195,7 @@ impl ElementDto {
             underlined: self.underlined,
             strikethrough: self.strikethrough,
             obfuscated: self.obfuscated,
+            font,
         })
     }
 

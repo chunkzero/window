@@ -1,5 +1,5 @@
+use super::Solver;
 use super::target::LayoutTarget;
-use super::{Solver, styled_text_width};
 use crate::Result;
 use crate::geometry::{Insets, Point, Rect, Size};
 use crate::ir::{Align, Draw, RepeatBindingIr, SlotIr, SpriteSlotIr, TextureKey};
@@ -49,14 +49,16 @@ impl<T: LayoutTarget> Solver<'_, T> {
         style: &TextStyle,
         origin: Point,
     ) -> Result<Size> {
-        let w = width.unwrap_or_else(|| styled_text_width(text, style));
+        let font = self.text_font(style)?;
+        let measured = self.text_width(text, style)?;
+        let w = width.unwrap_or(measured);
         let rect = Rect::from_parts(origin, Size::new(w, 8));
         let name = self.next_label_name();
         self.register_name(&name)?;
         self.check_text_constraints(rect, &name, false)?;
-        self.warn_if_unsupported_static_text(text, &name);
+        self.warn_if_unsupported_static_text(text, font, &name);
         if width.is_some() {
-            self.warn_if_static_text_overflow(text, style, w, &name);
+            self.warn_if_static_text_overflow(text, measured, w, &name);
         }
         self.slots.push(text_slot_ir(name, Some(text.to_string()), rect, style, None));
         Ok(rect.size())
@@ -74,6 +76,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         let actual_name = self.scoped_name(name);
         self.register_name(&actual_name)?;
         self.check_text_constraints(rect, name, true)?;
+        self.text_font(style)?;
         let repeat = self.repeat_binding(name);
         self.slots.push(text_slot_ir(actual_name, None, rect, style, repeat));
         Ok(rect.size())
@@ -133,6 +136,7 @@ fn text_slot_ir(
         underlined: style.underlined,
         strikethrough: style.strikethrough,
         obfuscated: style.obfuscated,
+        font: style.font.clone(),
         repeat,
     }
 }

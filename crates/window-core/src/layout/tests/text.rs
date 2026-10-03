@@ -80,6 +80,17 @@ fn text_above_ascent_limit_errors() {
 }
 
 #[test]
+fn text_fonts_measure_labels_and_reject_unknown_names() {
+    let label = |font: &str| window(json!([{ "type": "label", "text": "Lv 12", "x": 8, "y": 6, "font": font }]));
+    let w = solve_one(label("small_caps"), &sizes(&[]));
+    assert_eq!(w.slots[0].font.as_deref(), Some("small_caps"));
+    // L (5) + v (6) + space (4) + 1 (4) + the 3px-wide 2.
+    assert_eq!(w.slots[0].rect.width, 22);
+    let err = solve(&label("runes"), &sizes(&[])).unwrap_err();
+    assert!(err.to_string().contains("unknown font `runes`"), "{err}");
+}
+
+#[test]
 fn widthless_slot_outside_button_is_rejected() {
     let error =
         solve(&window(json!([{ "type": "slot", "name": "caption", "x": 8, "y": 18 }])), &sizes(&[])).unwrap_err();

@@ -36,6 +36,7 @@ use crate::ir::{
 };
 use crate::model::{Element, Hud, TextStyle, Window};
 use crate::surface::Surface;
+use crate::text_font::{TextFont, TextFonts};
 use crate::vanilla;
 
 use self::controls::ControlSpec;
@@ -46,20 +47,29 @@ use self::target::{HudTarget, LayoutTarget, WindowTarget};
 ///
 /// `texture_size` resolves a pack-source-relative texture path to its pixel
 /// size (used for intrinsic sprite sizing); returning `None` means the
-/// texture is missing, which is a validation error when referenced.
-pub fn solve(project: &ParsedProject, texture_size: &dyn Fn(&str) -> Option<Size>) -> Result<Vec<LaidOutWindow>> {
+/// texture is missing, which is a validation error when referenced. `fonts`
+/// measures text drawn with a text font.
+pub fn solve(
+    project: &ParsedProject,
+    texture_size: &dyn Fn(&str) -> Option<Size>,
+    fonts: &TextFonts,
+) -> Result<Vec<LaidOutWindow>> {
     let mut out = Vec::with_capacity(project.windows.len());
     for window in &project.windows {
-        out.push(solve_window(project, window, texture_size)?);
+        out.push(solve_window(project, window, texture_size, fonts)?);
     }
     Ok(out)
 }
 
 /// Solve layout for every HUD in the project.
-pub fn solve_huds(project: &ParsedProject, texture_size: &dyn Fn(&str) -> Option<Size>) -> Result<Vec<LaidOutHud>> {
+pub fn solve_huds(
+    project: &ParsedProject,
+    texture_size: &dyn Fn(&str) -> Option<Size>,
+    fonts: &TextFonts,
+) -> Result<Vec<LaidOutHud>> {
     let mut out = Vec::with_capacity(project.huds.len());
     for hud in &project.huds {
-        out.push(solve_hud(project, hud, texture_size)?);
+        out.push(solve_hud(project, hud, texture_size, fonts)?);
     }
     Ok(out)
 }
@@ -68,6 +78,7 @@ fn solve_window(
     project: &ParsedProject,
     window: &Window,
     texture_size: &dyn Fn(&str) -> Option<Size>,
+    fonts: &TextFonts,
 ) -> Result<LaidOutWindow> {
     let surface = Surface::Container(window.container);
     let gui = surface.gui_size();
@@ -79,7 +90,7 @@ fn solve_window(
         visual_bounds: expanded(gui_rect, window.bleed),
         title_origin: surface.title_origin(),
     };
-    let mut solver = Solver::new(project, texture_size, target);
+    let mut solver = Solver::new(project, texture_size, fonts, target);
 
     // The window's children are laid out like a panel's content box: the full
     // GUI rect at origin (0, 0), padding 0.
@@ -102,13 +113,18 @@ fn solve_window(
     })
 }
 
-fn solve_hud(project: &ParsedProject, hud: &Hud, texture_size: &dyn Fn(&str) -> Option<Size>) -> Result<LaidOutHud> {
+fn solve_hud(
+    project: &ParsedProject,
+    hud: &Hud,
+    texture_size: &dyn Fn(&str) -> Option<Size>,
+    fonts: &TextFonts,
+) -> Result<LaidOutHud> {
     let target = HudTarget {
         name: &hud.name,
         bounds: Rect::new(0, 0, hud.size.width, hud.size.height),
         visual_bounds: expanded(Rect::new(0, 0, hud.size.width, hud.size.height), hud.bleed),
     };
-    let mut solver = Solver::new(project, texture_size, target);
+    let mut solver = Solver::new(project, texture_size, fonts, target);
 
     solver.layout_container_children(&hud.children, Point::new(0, 0), Insets::default())?;
     let Solved { draws, slots, sprite_slots: _, slot_rects: _, warnings, .. } = solver.finish();
@@ -123,10 +139,6 @@ fn solve_hud(project: &ParsedProject, hud: &Hud, texture_size: &dyn Fn(&str) -> 
         slots,
         warnings,
     })
-}
-
-fn styled_text_width(text: &str, style: &TextStyle) -> u32 {
-    if style.bold { vanilla::bold_text_visible_width(text) } else { vanilla::text_visible_width(text) }
 }
 
 fn expanded(rect: Rect, bleed: Insets) -> Rect {
@@ -170,6 +182,7 @@ struct Solved {
 struct Solver<'a, T> {
     project: &'a ParsedProject,
     texture_size: &'a dyn Fn(&str) -> Option<Size>,
+    fonts: &'a TextFonts,
     target: T,
     draws: Vec<Draw>,
     slots: Vec<SlotIr>,
@@ -197,10 +210,16 @@ struct ActiveRepeat {
 }
 
 impl<'a, T: LayoutTarget> Solver<'a, T> {
-    fn new(project: &'a ParsedProject, texture_size: &'a dyn Fn(&str) -> Option<Size>, target: T) -> Self {
+    fn new(
+        project: &'a ParsedProject,
+        texture_size: &'a dyn Fn(&str) -> Option<Size>,
+        fonts: &'a TextFonts,
+        target: T,
+    ) -> Self {
         Self {
             project,
             texture_size,
+            fonts,
             target,
             draws: Vec::new(),
             slots: Vec::new(),
@@ -215,6 +234,22 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             names: HashSet::new(),
             active_repeat: None,
         }
+    }
+
+    /// The text font `style` draws with, or `None` for vanilla glyphs.
+    fn text_font(&self, style: &TextStyle) -> Result<Option<&'a TextFont>> {
+        let Some(name) = style.font.as_deref() else {
+            return Ok(None);
+        };
+        self.fonts.get(name).map(Some).ok_or_else(|| self.target.layout_err(format!("unknown font `{name}`")))
+    }
+
+    /// Visible ink width of `text` drawn with `style`.
+    fn text_width(&self, text: &str, style: &TextStyle) -> Result<u32> {
+        Ok(match self.text_font(style)? {
+            Some(font) => vanilla::visible_width(text, style.bold, |c| font.advance(c), |c| font.glyph_width(c)),
+            None => vanilla::visible_width(text, style.bold, vanilla::advance, vanilla::glyph_width),
+        })
     }
 
     fn finish(self) -> Solved {

@@ -6,7 +6,7 @@ use super::insets::InsetsDto;
 use super::parse::validate_name;
 use crate::geometry::Size;
 use crate::ir::Rgb;
-use crate::model::{Frame, GeneratedKind, GeneratedStyle, SpriteDef, Theme};
+use crate::model::{FontDef, Frame, GeneratedKind, GeneratedStyle, SpriteDef, Theme};
 use crate::{Error, Result};
 
 #[derive(Debug, Default, Deserialize)]
@@ -16,6 +16,15 @@ pub(super) struct ThemeDto {
     frames: BTreeMap<String, FrameDto>,
     #[serde(default)]
     sprites: BTreeMap<String, SpriteDto>,
+    #[serde(default)]
+    fonts: BTreeMap<String, FontDto>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FontDto {
+    texture: String,
+    chars: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,7 +64,7 @@ struct GeneratedStyleDto {
 }
 
 impl ThemeDto {
-    /// Adds this document's frames and sprites to `theme`; names are global across documents.
+    /// Adds this document's frames, sprites, and fonts to `theme`; names are global across documents.
     pub(super) fn merge_into(self, theme: &mut Theme) -> Result<()> {
         for (name, frame) in self.frames {
             validate_name(&name, "frame")?;
@@ -77,6 +86,14 @@ impl ThemeDto {
                 return Err(Error::Validation(format!("sprite name `{name}` collides with a frame of the same name")));
             }
             theme.sprites.insert(name, sprite.into_sprite()?);
+        }
+
+        for (name, font) in self.fonts {
+            validate_name(&name, "font")?;
+            if theme.fonts.contains_key(&name) {
+                return Err(Error::Validation(format!("duplicate font name `{name}`")));
+            }
+            theme.fonts.insert(name, FontDef { texture: font.texture, chars: font.chars });
         }
         Ok(())
     }

@@ -25,6 +25,7 @@ pub mod model;
 pub mod pipeline;
 pub mod raster;
 pub mod surface;
+pub mod text_font;
 pub mod validation;
 pub mod vanilla;
 

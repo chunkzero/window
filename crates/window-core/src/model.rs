@@ -19,6 +19,8 @@ pub struct Theme {
     pub frames: BTreeMap<String, Frame>,
     /// Sprite styles by name.
     pub sprites: BTreeMap<String, SpriteDef>,
+    /// Bitmap text fonts by name.
+    pub fonts: BTreeMap<String, FontDef>,
 }
 
 /// A frame definition.
@@ -54,6 +56,15 @@ pub enum SpriteDef {
         /// Generated sprite style.
         style: GeneratedStyle,
     },
+}
+
+/// A bitmap text font: a glyph sheet whose cells the `chars` rows map to characters.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FontDef {
+    /// Pack-source-relative texture path.
+    pub texture: String,
+    /// One string per sheet row; `\0` marks an empty cell.
+    pub chars: Vec<String>,
 }
 
 /// One authored window.
@@ -120,6 +131,8 @@ pub struct TextStyle {
     pub strikethrough: bool,
     /// Whether the text renders obfuscated.
     pub obfuscated: bool,
+    /// The theme or bundled text font to draw with, or `None` for vanilla glyphs.
+    pub font: Option<String>,
 }
 
 impl Default for TextStyle {
@@ -133,6 +146,7 @@ impl Default for TextStyle {
             underlined: false,
             strikethrough: false,
             obfuscated: false,
+            font: None,
         }
     }
 }

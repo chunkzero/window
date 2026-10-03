@@ -291,31 +291,31 @@ pub fn bold_text_width(s: &str) -> u32 {
 /// centered inside visual boxes while [`text_width`] remains the cursor advance
 /// used for net-zero spacer math.
 pub fn text_visible_width(s: &str) -> u32 {
-    let mut cursor = 0;
-    let mut visible = 0;
-    for c in s.chars() {
-        let advance = advance(c).unwrap_or(FALLBACK_ADVANCE);
-        let glyph = glyph_width(c).unwrap_or(FALLBACK_GLYPH_WIDTH);
-        if glyph > 0 {
-            visible = visible.max(cursor + glyph);
-        }
-        cursor += advance;
-    }
-    visible
+    visible_width(s, false, advance, glyph_width)
 }
 
 /// Visible ink width of `s` when bold is active.
 pub fn bold_text_visible_width(s: &str) -> u32 {
+    visible_width(s, true, advance, glyph_width)
+}
+
+/// Visible ink width of `s` measured with a font's `advance` and `glyph_width`
+/// lookups; unknown characters use the fallback widths.
+pub fn visible_width(
+    s: &str,
+    bold: bool,
+    advance: impl Fn(char) -> Option<u32>,
+    glyph_width: impl Fn(char) -> Option<u32>,
+) -> u32 {
+    let bold_advance = if bold { BOLD_ADVANCE } else { 0 };
     let mut cursor = 0;
     let mut visible = 0;
     for c in s.chars() {
-        let advance = advance(c).unwrap_or(FALLBACK_ADVANCE) + BOLD_ADVANCE;
         let glyph = glyph_width(c).unwrap_or(FALLBACK_GLYPH_WIDTH);
-        let glyph = if glyph > 0 { glyph + BOLD_ADVANCE } else { glyph };
         if glyph > 0 {
-            visible = visible.max(cursor + glyph);
+            visible = visible.max(cursor + glyph + bold_advance);
         }
-        cursor += advance;
+        cursor += advance(c).unwrap_or(FALLBACK_ADVANCE) + bold_advance;
     }
     visible
 }

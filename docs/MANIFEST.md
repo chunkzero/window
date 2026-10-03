@@ -38,7 +38,9 @@ characters inside JSON strings, except in `spacers` where they are integers for 
   "text_glyph_widths": { " ": 0, "!": 1, /* … */ "~": 6 },
 
   // Per-font metrics keyed by font id. Generated definitions include
-  // "minecraft:default" plus every generated shifted text font.
+  // "minecraft:default", every generated shifted text font, and every
+  // text-font offset ("window:small_caps/y0"), whose sheet glyphs replace
+  // the vanilla entries.
   "font_metrics": {
     "window:y0": {
       "advances": { " ": 4, "!": 2, /* … */ "~": 7 },
@@ -84,7 +86,7 @@ characters inside JSON strings, except in `spacers` where they are integers for 
           "y": 6, // top-left of the text line (8px tall)
           "width": 160, // reserved width for alignment/clipping
           "align": "center", // "left" | "center" | "right"
-          "font": "window:y0", // shifted font for this y offset
+          "font": "window:y0", // shifted font for this y offset; "window:<font>/y0" for text fonts
           "color": "#404040", // default text color (hex, lowercase)
           "shadow": false,
           "bold": false, // optional, omitted when false

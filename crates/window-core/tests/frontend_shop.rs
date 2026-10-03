@@ -9,6 +9,7 @@ use window_core::geometry::{Rect, Size};
 use window_core::ir::{Align, ButtonDefault, Draw};
 use window_core::layout::solve;
 use window_core::surface::Surface;
+use window_core::text_font::TextFonts;
 use window_core::vanilla;
 
 fn textures(entries: &[(&str, u32, u32)]) -> impl Fn(&str) -> Option<Size> {
@@ -129,7 +130,7 @@ fn solved() -> window_core::ir::LaidOutWindow {
         ("window/sprites/button.png", 16, 16),
         ("window/sprites/coin.png", 16, 16),
     ]);
-    solve(&project(), &tx).expect("solve").pop().expect("one window")
+    solve(&project(), &tx, &TextFonts::new()).expect("solve").pop().expect("one window")
 }
 
 #[test]

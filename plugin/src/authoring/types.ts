@@ -204,9 +204,22 @@ export interface GeneratedSprite extends GeneratedStyle {
 
 export type SpriteDef = BitmapSprite | GeneratedSprite;
 
+/**
+ * A bitmap text font: a glyph sheet of 8px-tall cells that each `chars` row maps, left to right. Cells sit on the text
+ * line like vanilla `ascii.png` cells: seven rows above the baseline and one below.
+ */
+export interface TextFont {
+    /** Pack-source-relative glyph sheet path. */
+    texture: string;
+    /** One string per sheet row; use "\u0000" for empty cells. Unmapped characters fall back to vanilla glyphs. */
+    chars: string[];
+}
+
 export interface Theme {
     frames?: Record<string, Frame>;
     sprites?: Record<string, SpriteDef>;
+    /** Text fonts elements select with `font`. A `small_caps` entry replaces the bundled small-caps font. */
+    fonts?: Record<string, TextFont>;
 }
 
 export interface IndustrialPresetOptions {
@@ -279,6 +292,10 @@ export interface TextStyleOptions {
     underlined?: boolean;
     strikethrough?: boolean;
     obfuscated?: boolean;
+    /** A theme font name; text is measured and drawn with its glyphs. */
+    font?: string;
+    /** Shorthand for `font: "small_caps"`: Window's bundled small capitals, digits, and symbols. */
+    small_caps?: boolean;
 }
 
 export interface PanelOptions {

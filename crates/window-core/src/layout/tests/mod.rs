@@ -4,15 +4,19 @@ mod flow;
 mod patterns;
 mod text;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde_json::{Value, json};
 
-use super::solve;
 use crate::authoring::{ParsedProject, project_from_json};
 use crate::geometry::{Rect, Size};
 use crate::ir::{Align, Draw, LaidOutWindow, Rgb};
-use crate::vanilla;
+use crate::{text_font, vanilla};
+
+/// Solve `project` with the bundled text fonts.
+fn solve(project: &ParsedProject, tx: &dyn Fn(&str) -> Option<Size>) -> crate::Result<Vec<LaidOutWindow>> {
+    super::solve(project, tx, &text_font::resolve(&BTreeMap::new(), &BTreeMap::new()).unwrap())
+}
 
 /// Build a texture-size closure from a name→(w,h) map.
 fn sizes(entries: &[(&str, u32, u32)]) -> impl Fn(&str) -> Option<Size> + 'static {

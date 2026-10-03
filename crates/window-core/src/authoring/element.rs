@@ -44,6 +44,8 @@ pub(super) struct ElementDto {
     underlined: bool,
     strikethrough: bool,
     obfuscated: bool,
+    font: Option<String>,
+    small_caps: bool,
     children: Vec<ElementDto>,
 }
 
@@ -91,6 +93,9 @@ struct ElementShapeDto {
     strikethrough: bool,
     #[serde(default)]
     obfuscated: bool,
+    font: Option<String>,
+    #[serde(default)]
+    small_caps: bool,
     #[serde(default)]
     children: Vec<ElementDto>,
 }
@@ -141,6 +146,8 @@ impl ElementDto {
             underlined: shape.underlined,
             strikethrough: shape.strikethrough,
             obfuscated: shape.obfuscated,
+            font: shape.font,
+            small_caps: shape.small_caps,
             children: shape.children,
         }
     }

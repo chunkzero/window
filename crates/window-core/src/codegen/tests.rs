@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::ir::{Align, ButtonDefault};
 use crate::manifest::{
-    AnvilInputEntry, ButtonEntry, CollectionEntry, HudEntry, HudSurfaceEntry, ItemEntry, Manifest, RepeatGroupEntry,
-    SlotAreaEntry, SlotEntry, SlotRefEntry, SurfaceEntry, VERSION, WindowEntry,
+    AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudEntry, HudSurfaceEntry, ItemEntry, Manifest,
+    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SurfaceEntry, VERSION, WindowEntry,
 };
 use crate::pipeline::OutputFile;
 
@@ -195,4 +195,24 @@ fn hud_lifecycle_members_are_reserved() {
 
     let err = generate_kotlin(&manifest, "dev.oglass.window.generated").unwrap_err();
     assert!(err.to_string().contains("reserved WindowView member `onShow`"), "{err}");
+}
+
+#[test]
+fn fonts_with_identical_metrics_share_one_table() {
+    let small_caps = FontMetricsEntry {
+        advances: BTreeMap::from([('a', 6)]),
+        glyph_widths: BTreeMap::from([('a', 5)]),
+        bold_advance: 1,
+    };
+    let mut manifest = manifest(BTreeMap::new(), BTreeMap::new());
+    manifest.font_metrics = BTreeMap::from([
+        ("window:small_caps/y0".into(), small_caps.clone()),
+        ("window:small_caps/y9".into(), small_caps),
+    ]);
+
+    let files = generate_kotlin(&manifest, "dev.oglass.window.example.generated").unwrap();
+    let content = file_contents(&files, "WindowFonts.kt");
+    assert_eq!(content.matches("private val fontMetrics").count(), 1);
+    assert!(content.contains("\"window:small_caps/y0\" to fontMetrics0"));
+    assert!(content.contains("\"window:small_caps/y9\" to fontMetrics0"));
 }
