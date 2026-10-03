@@ -6,7 +6,7 @@ export default ui({
     children: [
         panel({ frame: "shell", x: 0, y: 0, width: 176, height: 80 }),
         repeater("rows", {
-            frame: "slot_cell",
+            frame: "recess",
             pattern: pattern.grid({ x: 0, y: 0, columns: 3, rows: 2, cell_width: 3, cell_height: 1 }),
             children: [
                 item("icon", { cell_slot: 1 }),

@@ -32,18 +32,17 @@ data class Product(
     val featured: Boolean = false,
 )
 
-fun Product.toItemStack(selected: Boolean = false): ItemStack {
-    val marker = if (selected) "> " else ""
-    return ItemStack
+fun Product.toItemStack(): ItemStack =
+    ItemStack
         .builder(material)
         .set(
             DataComponents.CUSTOM_NAME,
-            Component.text(marker + name, tier.color).decoration(TextDecoration.ITALIC, false),
+            Component.text(name, tier.color).decoration(TextDecoration.ITALIC, false),
         ).set(
             DataComponents.LORE,
             listOf(
                 Component
-                    .text("$price credits", NamedTextColor.GOLD)
+                    .text("$price coins", NamedTextColor.GOLD)
                     .decoration(TextDecoration.ITALIC, false),
                 Component
                     .text("${tier.label} / ${category.name.lowercase()}", NamedTextColor.GRAY)
@@ -54,4 +53,3 @@ fun Product.toItemStack(selected: Boolean = false): ItemStack {
             ),
         ).set(DataComponents.MAX_STACK_SIZE, 1)
         .build()
-}

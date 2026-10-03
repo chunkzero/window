@@ -7,14 +7,10 @@ import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_bottom_center` HUD. Implement the abstract members. */
 public abstract class StatusBottomCenterHud : HudView("status_bottom_center") {
-    /** Render the `left_note` slot. */
-    protected abstract fun leftNote(): Component
-
-    /** Render the `right_note` slot. */
-    protected abstract fun rightNote(): Component
+    /** Render the `hint` slot. */
+    protected abstract fun hint(): Component
 
     final override fun HudScope.bind() {
-        slot("left_note") { leftNote() }
-        slot("right_note") { rightNote() }
+        slot("hint") { hint() }
     }
 }

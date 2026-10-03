@@ -13,6 +13,9 @@ public abstract class CatalogSearchView : WindowView("catalog_search") {
     /** Render the `query_text` slot. */
     protected abstract fun queryText(): Component
 
+    /** Render the `reset_label` slot. */
+    protected abstract fun resetLabel(): Component
+
     /** Render the `result_count` slot. */
     protected abstract fun resultCount(): Component
 
@@ -36,6 +39,7 @@ public abstract class CatalogSearchView : WindowView("catalog_search") {
 
     final override fun WindowScope.bind() {
         slot("query_text") { queryText() }
+        slot("reset_label") { resetLabel() }
         slot("result_count") { resultCount() }
         button("back", ::onBack)
         button("exit", ::onExit)
