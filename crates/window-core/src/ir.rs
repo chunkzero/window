@@ -291,6 +291,8 @@ pub struct CollectionIr {
     pub name: String,
     /// Backing inventory slots, one cell per slot in authoring order.
     pub slots: Vec<InventorySlotRef>,
+    /// Theme sprite drawn over the selected cell's 18x18 box, if any.
+    pub selected_sprite: Option<String>,
     /// Whether codegen/runtime should expect a click handler.
     pub action: bool,
     /// Repeater metadata for grouped codegen, if this collection was emitted by

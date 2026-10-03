@@ -21,6 +21,7 @@ pub(super) struct ElementDto {
     initial: Option<String>,
     item_model: Option<String>,
     sprite: Option<String>,
+    selected_sprite: Option<String>,
     default: Option<String>,
     slots: Option<Vec<SlotRefDto>>,
     pattern: Option<SlotPatternDto>,
@@ -59,6 +60,7 @@ struct ElementShapeDto {
     initial: Option<String>,
     item_model: Option<String>,
     sprite: Option<String>,
+    selected_sprite: Option<String>,
     default: Option<String>,
     #[serde(default)]
     slots: Option<Vec<SlotRefDto>>,
@@ -123,6 +125,7 @@ impl ElementDto {
             initial: shape.initial,
             item_model: shape.item_model,
             sprite: shape.sprite,
+            selected_sprite: shape.selected_sprite,
             default: shape.default,
             slots: shape.slots,
             pattern: shape.pattern,

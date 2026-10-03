@@ -2,17 +2,18 @@
 
 use std::collections::BTreeMap;
 
-use crate::font::shifted_suffix;
 use crate::inventory::{InventorySlotArea, InventorySlotRef, SlotRectClaim};
-use crate::ir::{ButtonIr, LaidOutWindow, RepeatBindingIr};
+use crate::ir::{Align, ButtonIr, CollectionIr, LaidOutWindow, RepeatBindingIr};
 use crate::manifest::{
     AnvilInputEntry, ButtonEntry, CollectionEntry, ItemEntry, RepeatGroupEntry, SlotRectEntry, SlotRefEntry,
+    SpriteSlotEntry,
 };
 use crate::surface::{ContainerKind, Surface};
 use crate::{Error, Result};
 
 use super::CompileContext;
 use super::sprites::check_sprite_fits;
+use super::window::sprite_slot_entry;
 
 #[derive(Default)]
 pub(super) struct InventoryEntries {
@@ -42,7 +43,10 @@ pub(super) fn compile_inventory(
     }
     for collection in &w.collections {
         let slots = claims.claim(&collection.name, &collection.slots)?;
-        entries.collections.insert(collection.name.clone(), CollectionEntry { slots, action: collection.action });
+        let selection = collection_selection(ctx, &claims, collection, title_y)?;
+        entries
+            .collections
+            .insert(collection.name.clone(), CollectionEntry { slots, action: collection.action, selection });
     }
     for input in &w.inputs {
         let slot = claims
@@ -202,14 +206,50 @@ fn button_sprite_font(
         return Ok(None);
     }
     let k = button.rect.y - title_y;
-    ctx.sprite_offsets.insert(k);
     for (state_name, state) in &button.states {
         if let Some(sprite) = &state.sprite {
             let subject = format!("button `{}` state `{state_name}`", button.name);
             check_sprite_fits(ctx.runtime_sprites, window, &subject, sprite, &button.rect)?;
         }
     }
-    Ok(Some(format!("{}:sprite_{}", ctx.namespace, shifted_suffix(k))))
+    Ok(Some(ctx.sprite_font(k)))
+}
+
+/// One placement of the collection's selected sprite per cell, covering the
+/// cell's 18x18 slot box.
+fn collection_selection(
+    ctx: &mut CompileContext<'_>,
+    claims: &SlotClaims<'_>,
+    collection: &CollectionIr,
+    title_y: i32,
+) -> Result<Vec<SpriteSlotEntry>> {
+    let Some(sprite) = &collection.selected_sprite else {
+        return Ok(Vec::new());
+    };
+    let mut boxes = Vec::with_capacity(collection.slots.len());
+    for slot in &collection.slots {
+        let item = claims.kind.slot_ref_rect(*slot).ok_or_else(|| {
+            Error::Validation(format!(
+                "window `{}`: collection `{}` selects hidden {} slot {}",
+                claims.window,
+                collection.name,
+                slot_area_name(slot.area),
+                slot.index
+            ))
+        })?;
+        boxes.push(item.slot_box());
+    }
+    if let Some(first) = boxes.first() {
+        let subject = format!("collection `{}` selected cell", collection.name);
+        check_sprite_fits(ctx.runtime_sprites, claims.window, &subject, sprite, first)?;
+    }
+    Ok(boxes
+        .iter()
+        .map(|rect| {
+            let font = ctx.sprite_font(rect.y - title_y);
+            sprite_slot_entry(font, rect, Align::Left, Some(sprite.clone()))
+        })
+        .collect())
 }
 
 /// Group repeated controls by repeater, indexed by cell.

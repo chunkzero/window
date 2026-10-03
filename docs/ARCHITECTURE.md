@@ -51,8 +51,8 @@ Every container-title segment is net-zero: it returns the cursor to `title_origi
 spacers. Dynamic segments move to their x position, render, then compensate for both the offset and the measured
 advance. Alignment uses visible bounds; compensation uses advance width.
 
-Window overlays paint button-state sprites first, fixed and bound sprite slots second, and text last. Vanilla inventory
-items render above the title artwork.
+Window overlays paint button-state sprites first, collection selections second, fixed and bound sprite slots third, and
+text last. Vanilla inventory items render above the title artwork.
 
 HUD components claim exactly their authored width so vanilla centering remains stable. Shader-relocated overlays are
 individually net-zero relative to that fixed-width component. HUD origin, anchor, offsets, and source-position semantics

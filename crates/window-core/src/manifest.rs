@@ -287,6 +287,10 @@ pub struct CollectionEntry {
     /// Whether this collection should generate/accept a click handler.
     #[serde(default = "default_action", skip_serializing_if = "is_true")]
     pub action: bool,
+    /// The selected-cell sprite placed over each cell's 18x18 box, indexed like
+    /// `slots`; empty when the collection has no selected sprite.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub selection: Vec<SpriteSlotEntry>,
 }
 
 /// One native anvil rename-field binding.

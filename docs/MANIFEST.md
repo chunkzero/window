@@ -167,6 +167,8 @@ characters inside JSON strings, except in `spacers` where they are integers for 
 
       // Repeated dynamic item regions. Slots are ordered; collection click handlers
       // receive the clicked cell index. Set `"action": false` for display-only grids.
+      // `selection` holds one sprite slot per cell, in cell order, drawn over the cell's
+      // 18x18 slot box; it is omitted when the collection has no `selected_sprite`.
       "collections": {
         "entries": {
           "slots": [
@@ -175,6 +177,18 @@ characters inside JSON strings, except in `spacers` where they are integers for 
             { "area": "player", "index": 9 },
           ],
           "action": true,
+          "selection": [
+            {
+              "x": 7,
+              "y": 17,
+              "width": 18,
+              "height": 18,
+              "align": "left",
+              "font": "window:sprite_y11",
+              "sprite": "cell_selected",
+            },
+            // …one entry per cell
+          ],
         },
       },
 

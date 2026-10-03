@@ -63,7 +63,7 @@ pub(super) enum Member {
     GroupValue { kind: ValueKind, group: String, field: String, sources: Vec<String>, member: String },
     GroupButton { group: String, sources: Vec<String>, member: String },
     Button { source: String, member: String, is_close: bool },
-    Collection { source: String, item_member: String, handler: Option<String> },
+    Collection { source: String, item_member: String, handler: Option<String>, selection: Option<String> },
     AnvilInput { source: String, member: String },
 }
 
@@ -187,7 +187,14 @@ impl<'a> Members<'a> {
         } else {
             None
         };
-        self.members.push(Member::Collection { source: source.into(), item_member, handler });
+        let selection = if entry.selection.is_empty() {
+            None
+        } else {
+            let member = format!("{}Selected", naming::slot_member(source));
+            self.claim(&member, format!("collection `{source}` selection"))?;
+            Some(member)
+        };
+        self.members.push(Member::Collection { source: source.into(), item_member, handler, selection });
         Ok(())
     }
 

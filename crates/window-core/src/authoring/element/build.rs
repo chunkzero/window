@@ -111,6 +111,7 @@ impl ElementDto {
             slots: self.slots()?,
             pattern: self.pattern()?,
             frame: self.frame.clone(),
+            selected_sprite: self.selected_sprite.clone(),
             action: self.action.unwrap_or(true),
         })
     }

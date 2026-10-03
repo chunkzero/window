@@ -246,7 +246,7 @@ export function item(name: string, opts: ItemOptions): ItemElement {
 
 export function collection(name: string, opts: CollectionOptions): CollectionElement {
     requireName(name, "collection name");
-    const out = element("collection", opts, ["frame", ...PLACEMENT_KEYS, "action"]);
+    const out = element("collection", opts, ["frame", "selected_sprite", ...PLACEMENT_KEYS, "action"]);
     requirePlacement("collection", out, "");
     return { ...out, name } as unknown as CollectionElement;
 }

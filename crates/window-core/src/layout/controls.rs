@@ -4,7 +4,7 @@ use super::slots::{PatternCell, ResolvedControl, cells_bounds};
 use super::target::LayoutTarget;
 use super::{ActiveRepeat, Solver};
 use crate::Result;
-use crate::geometry::{Insets, Point, Rect, Size};
+use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{
     AnvilInputIr, ButtonDefault, ButtonIr, ButtonState, ButtonTooltip, CollectionIr, ItemIr, RepeatBindingIr,
@@ -132,6 +132,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         slots: Option<&Vec<InventorySlotRef>>,
         pattern: Option<&SlotPattern>,
         frame: Option<&str>,
+        selected_sprite: Option<String>,
         action: bool,
     ) -> Result<Size> {
         self.require_interaction(name)?;
@@ -142,7 +143,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
             return Err(self.target.layout_err(format!("collection `{name}` must define at least one slot")));
         }
         self.emit_slot_frames("collection", name, frame, &slots)?;
-        self.collections.push(CollectionIr { name: actual_name, slots, action, repeat: self.repeat_binding(name) });
+        self.collections.push(CollectionIr {
+            name: actual_name,
+            slots,
+            selected_sprite,
+            action,
+            repeat: self.repeat_binding(name),
+        });
         Ok(Size::new(0, 0))
     }
 
@@ -195,7 +202,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         };
         for slot in slots {
             let item = self.slot_rect(name, *slot)?;
-            let rect = Rect::new(item.x - 1, item.y - 1, item.width + 2, item.height + 2);
+            let rect = item.slot_box();
             self.emit_frame(frame, rect, &format!("{kind} `{name}` frame `{frame}`"))?;
         }
         Ok(())

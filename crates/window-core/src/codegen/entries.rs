@@ -157,10 +157,14 @@ pub(super) fn item_entry_expr(item: &ItemEntry, level: usize) -> String {
 }
 
 pub(super) fn collection_entry_expr(collection: &CollectionEntry, level: usize) -> String {
-    Call::new("CollectionEntry", level)
+    let mut call = Call::new("CollectionEntry", level)
         .arg("slots", slot_ref_list_expr(&collection.slots, level + 1))
-        .arg("action", collection.action)
-        .finish()
+        .arg("action", collection.action);
+    if !collection.selection.is_empty() {
+        let cells = collection.selection.iter().map(|cell| sprite_slot_entry_expr(cell, level + 2));
+        call = call.arg("selection", list_of(cells, level + 1));
+    }
+    call.finish()
 }
 
 pub(super) fn anvil_input_entry_expr(input: &AnvilInputEntry, level: usize) -> String {

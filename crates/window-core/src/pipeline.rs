@@ -167,6 +167,7 @@ fn uses_runtime_sprites(windows: &[&LaidOutWindow]) -> bool {
     windows.iter().any(|w| {
         !w.sprite_slots.is_empty()
             || w.buttons.iter().any(|button| button.states.values().any(|state| state.sprite.is_some()))
+            || w.collections.iter().any(|collection| collection.selected_sprite.is_some())
     })
 }
 
@@ -228,6 +229,12 @@ impl<'a> CompileContext<'a> {
             .ok_or_else(|| Error::Validation(format!("slot `{}` uses unknown font `{name}`", slot.name)))?;
         self.text_font_offsets.insert((name, k));
         Ok(format!("{}:{}", self.namespace, text_font_suffix(name, k)))
+    }
+
+    /// Registers the sprite font drawn at vertical offset `k` and returns its id.
+    fn sprite_font(&mut self, k: i32) -> String {
+        self.sprite_offsets.insert(k);
+        format!("{}:sprite_{}", self.namespace, shifted_suffix(k))
     }
 
     fn manifest(

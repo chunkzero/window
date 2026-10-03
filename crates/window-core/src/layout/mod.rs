@@ -299,9 +299,14 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             Element::Item { name, slots, pattern, cell_slot } => {
                 self.place_item(name, slots.as_ref(), pattern.as_ref(), *cell_slot)
             }
-            Element::Collection { name, slots, pattern, frame, action } => {
-                self.place_collection(name, slots.as_ref(), pattern.as_ref(), frame.as_deref(), *action)
-            }
+            Element::Collection { name, slots, pattern, frame, selected_sprite, action } => self.place_collection(
+                name,
+                slots.as_ref(),
+                pattern.as_ref(),
+                frame.as_deref(),
+                selected_sprite.clone(),
+                *action,
+            ),
             Element::AnvilInput { name, initial, item_model } => {
                 self.place_anvil_input(name, initial, item_model.as_deref())
             }

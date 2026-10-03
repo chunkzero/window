@@ -34,7 +34,8 @@ const BUTTON_FIELDS: &[&str] = &[
 const HOTSPOT_FIELDS: &[&str] =
     &["type", "name", "width", "height", "x", "y", "slots", "pattern", "transform", "tooltip", "states"];
 const ITEM_FIELDS: &[&str] = &["type", "name", "slots", "pattern", "transform", "cell_slot"];
-const COLLECTION_FIELDS: &[&str] = &["type", "name", "frame", "slots", "pattern", "transform", "action"];
+const COLLECTION_FIELDS: &[&str] =
+    &["type", "name", "frame", "selected_sprite", "slots", "pattern", "transform", "action"];
 const ANVIL_INPUT_FIELDS: &[&str] = &["type", "name", "initial", "item_model"];
 const SLOT_RECTS_FIELDS: &[&str] = &["type", "name", "frame", "pattern", "transform", "claim"];
 const REPEATER_FIELDS: &[&str] = &["type", "name", "frame", "pattern", "transform", "padding", "children"];

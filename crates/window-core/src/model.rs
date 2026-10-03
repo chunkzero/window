@@ -283,6 +283,8 @@ pub enum Element {
         pattern: Option<SlotPattern>,
         /// Optional frame drawn around every resolved inventory cell.
         frame: Option<String>,
+        /// Optional theme sprite the runtime draws over the selected cell's 18x18 box.
+        selected_sprite: Option<String>,
         /// Whether codegen/runtime should expect a click handler.
         action: bool,
     },

@@ -73,6 +73,11 @@ public data class CollectionEntry(
     val slots: List<SlotRefEntry>,
     /** Whether this collection accepts a click handler. */
     val action: Boolean = true,
+    /**
+     * The selected-cell sprite placed over each cell's 18x18 box, indexed like [slots]; empty when
+     * the collection has no selected sprite.
+     */
+    val selection: List<SpriteSlotEntry> = emptyList(),
 )
 
 /** A native anvil rename-field binding. */

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::ir::{Align, ButtonDefault};
 use crate::manifest::{
     AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudEntry, HudSurfaceEntry, ItemEntry, Manifest,
-    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SurfaceEntry, VERSION, WindowEntry,
+    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SpriteSlotEntry, SurfaceEntry, VERSION, WindowEntry,
 };
 use crate::pipeline::OutputFile;
 
@@ -117,8 +117,19 @@ fn shop_window() -> WindowEntry {
         ("entry_icon_0".into(), ItemEntry { slots: vec![container(18)] }),
         ("entry_icon_1".into(), ItemEntry { slots: vec![container(21)] }),
     ]);
-    shop.collections =
-        BTreeMap::from([("entries".into(), CollectionEntry { slots: vec![container(0)], action: true })]);
+    let selected_cell = SpriteSlotEntry {
+        x: 7,
+        y: 17,
+        width: 18,
+        height: 18,
+        align: Align::Left,
+        font: "window:sprite_y11".into(),
+        sprite: Some("slot_selected".into()),
+    };
+    shop.collections = BTreeMap::from([(
+        "entries".into(),
+        CollectionEntry { slots: vec![container(0)], action: true, selection: vec![selected_cell] },
+    )]);
     shop.groups = BTreeMap::from([(
         "entry".into(),
         RepeatGroupEntry {
@@ -164,8 +175,23 @@ fn generates_typed_view() {
     assert!(content.contains("item(\"entry_icon_1\") { entryIconItem(1) }"));
     assert!(!content.contains("entryIcon0"));
     assert!(content.contains("collection(\"entries\", ::entriesItem, ::onEntries)"));
+    assert!(content.contains("protected open fun entriesSelected(): Int? = null"));
+    assert!(content.contains("collectionSelection(\"entries\", ::entriesSelected)"));
     assert!(!content.contains("entryPrice0"));
     assert!(!content.contains("label_0(): Component"));
+}
+
+#[test]
+fn collection_selections_alone_import_sprite_slot_types() {
+    let mut window = window("generic_9x3", [176, 166], [8, 6]);
+    let selected = shop_window().collections.remove("entries").unwrap();
+    window.collections = BTreeMap::from([("entries".into(), selected)]);
+    let manifest = manifest(BTreeMap::from([("shop".into(), window)]), BTreeMap::new());
+
+    let files = generate_kotlin(&manifest, "dev.oglass.window.example.generated").unwrap();
+    let content = file_contents(&files, "WindowDefinitions.kt");
+    assert!(content.contains("import dev.oglass.window.manifest.SpriteSlotEntry"));
+    assert!(content.contains("import dev.oglass.window.manifest.Align"));
 }
 
 #[test]

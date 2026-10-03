@@ -27,6 +27,7 @@ internal class WindowBindings(
     val items = HashMap<String, () -> ItemStack?>()
     val collectionItems = HashMap<String, (Int) -> ItemStack?>()
     val collectionHandlers = HashMap<String, (IndexedClick) -> Unit>()
+    val collectionSelections = HashMap<String, () -> Int?>()
     val inputHandlers = LinkedHashMap<String, (String) -> Unit>()
 
     override fun slot(
@@ -94,6 +95,15 @@ internal class WindowBindings(
         }
     }
 
+    override fun collectionSelection(
+        name: String,
+        render: () -> Int?,
+    ) {
+        val collection = definition.requireEntry(entry.collections, name, "collection", known = "collections")
+        require(collection.selection.isNotEmpty()) { "Collection '$name' has no selected sprite" }
+        bindOnce(collectionSelections, name, render) { "Collection '$name' selection bound more than once" }
+    }
+
     override fun anvilInput(
         name: String,
         handler: (String) -> Unit,
@@ -142,6 +152,7 @@ internal class WindowBindings(
             buttonItems.keys.mapTo(this, RenderKey::ButtonItem)
             buttonStates.keys.mapTo(this, RenderKey::ButtonState)
             items.keys.mapTo(this, RenderKey::Item)
+            collectionSelections.keys.mapTo(this, RenderKey::CollectionSelection)
             for ((name, collection) in entry.collections) {
                 if (name !in collectionItems) continue
                 collection.slots.indices.mapTo(this) { RenderKey.CollectionCell(name, it) }
