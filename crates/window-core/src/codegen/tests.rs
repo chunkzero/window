@@ -182,6 +182,19 @@ fn generates_typed_view() {
 }
 
 #[test]
+fn collection_selections_alone_import_sprite_slot_types() {
+    let mut window = window("generic_9x3", [176, 166], [8, 6]);
+    let selected = shop_window().collections.remove("entries").unwrap();
+    window.collections = BTreeMap::from([("entries".into(), selected)]);
+    let manifest = manifest(BTreeMap::from([("shop".into(), window)]), BTreeMap::new());
+
+    let files = generate_kotlin(&manifest, "dev.oglass.window.example.generated").unwrap();
+    let content = file_contents(&files, "WindowDefinitions.kt");
+    assert!(content.contains("import dev.oglass.window.manifest.SpriteSlotEntry"));
+    assert!(content.contains("import dev.oglass.window.manifest.Align"));
+}
+
+#[test]
 fn generates_typed_anvil_input_binding() {
     let mut search = window("anvil", [176, 166], [60, 6]);
     search.inputs = BTreeMap::from([(

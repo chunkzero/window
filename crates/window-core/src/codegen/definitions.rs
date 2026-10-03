@@ -31,7 +31,9 @@ pub(super) fn generate_window_definitions(manifest: &Manifest, package_name: &st
 fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
     let any = |test: &dyn Fn(&WindowEntry) -> bool| manifest.windows.values().any(test);
     let has_slots = any(&|w| !w.slots.is_empty());
-    let has_sprite_slots = any(&|w| !w.sprite_slots.is_empty());
+    let has_sprite_slots = any(&|w| {
+        !w.sprite_slots.is_empty() || w.collections.values().any(|collection| !collection.selection.is_empty())
+    });
     let has_tooltip = any(&|w| {
         w.buttons.values().any(|b| b.tooltip.is_some() || b.states.values().any(|state| state.tooltip.is_some()))
     });
