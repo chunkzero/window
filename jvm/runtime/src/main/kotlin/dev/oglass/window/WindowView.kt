@@ -93,6 +93,17 @@ public abstract class WindowView(
         requireSession().setButtonState(name, state)
     }
 
+    /**
+     * Replaces the text of anvil input [name] with [value] and passes it to the input's handler. On a
+     * static anvil the player's edit box updates in place.
+     */
+    protected fun input(
+        name: String,
+        value: String,
+    ) {
+        requireSession().setInput(name, value)
+    }
+
     /** Sets or clears a tooltip on the invisible hitbox item for a button/hotspot. */
     protected fun tooltip(
         name: String,

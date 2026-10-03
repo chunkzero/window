@@ -303,8 +303,8 @@ Notes:
   `buttons.*.fill_slots` (defaulting to `buttons.*.slots`), `items.*.slots`, `collections.*.slots`, `inputs.*.slot`, and
   `slot_rects.*.slots` must be disjoint. Independently, `buttons.*.slots` and the slots of action collections must be
   disjoint from each other, because a slot can only route its clicks to one control. A repeater cell relies on exactly
-  this split: it routes all of its slots while an item control fills one of them. The runtime writes `fill_slots` and
-  routes `slots`.
+  this split: it routes all of its slots while an item control fills one of them. A button over an anvil input's slot
+  uses it too, and may leave `fill_slots` empty. The runtime writes `fill_slots` and routes `slots`.
 - `inputs` describes native inventory input metadata. It is currently valid only for `surface.container = "anvil"`;
   exactly one input owns container slot `0`, whose item name drives the vanilla edit field.
 - `slot_rects` entries are runtime fills only. The visual frames are already in the baked static layer.

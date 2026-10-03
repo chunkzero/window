@@ -68,6 +68,15 @@ internal class AnvilReopenGate(
         }
     }
 
+    /** Replaces the input with [value] and delivers it; a reopen restores it into the edit box. */
+    fun replace(value: String) {
+        release()
+        seed = value.take(MAX_NAME_LENGTH)
+        deliver(seed)
+        deferred = true
+        scheduler.schedule(::reopenIfDeferred)
+    }
+
     /** Delivers held input before another client packet is handled, since that packet proves it was an edit. */
     fun release() {
         val value = held ?: return

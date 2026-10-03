@@ -150,6 +150,9 @@ fn compile_layouts(
     let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
     ctx.warnings.extend(field_warnings);
+    if windows.iter().any(|w| !w.inputs.is_empty()) {
+        ctx.files.extend(anvil::hidden_vanilla_art()?);
+    }
     if let Some(sprite) = &options.anvil_field_sprite {
         ctx.files.extend(anvil::field_sprites(runtime_sprites, sprite)?);
     }

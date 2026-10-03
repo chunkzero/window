@@ -29,18 +29,22 @@ class AnvilInputTest :
                     query = it
                 }
             }
+
+            fun clear() = input("query", "")
         }
 
         fun FakeInventoryHandle.seedName() =
             items.getValue(SlotRef(SlotArea.CONTAINER, 0)).get(DataComponents.CUSTOM_NAME)
 
-        "static anvils deliver every edit without reopening" {
+        "static anvils deliver edits without reopening and set the edit box in place" {
             val edits = mutableListOf<String>()
             val view =
                 object : WindowView("w") {
                     override fun WindowScope.bind() {
                         anvilInput("query") { edits += it }
                     }
+
+                    fun clear() = input("query", "")
                 }
             val handle = FakeInventoryHandle()
             val static =
@@ -49,12 +53,35 @@ class AnvilInputTest :
                     inputs = mapOf("query" to AnvilInputEntry(slot = TestManifests.containerSlot(0))),
                 )
             testSession(static, "w", view, ManualScheduler(), handle).open()
+            handle.input("")
             handle.input("a")
             handle.input("as")
-            handle.input("asd")
+            handle.seedName() shouldBe Component.text("as")
+            view.clear()
+            handle.input("")
 
-            edits shouldBe listOf("a", "as", "asd")
+            edits shouldBe listOf("a", "as", "")
+            handle.seedName() shouldBe Component.text("")
             handle.titles.size shouldBe 1
+        }
+
+        "setting the input of a reopening anvil delivers it and reopens with it" {
+            val view = SearchView()
+            val scheduler = ManualScheduler()
+            val handle = FakeInventoryHandle()
+            testSession(manifest, "w", view, scheduler, handle).open()
+            handle.input("")
+            handle.pong()
+
+            handle.input("ab")
+            scheduler.runAll()
+            handle.pong()
+            view.clear()
+            scheduler.runAll()
+
+            view.edits shouldBe listOf("ab", "")
+            handle.titles.size shouldBe 3
+            handle.seedName() shouldBe Component.text("")
         }
 
         "title changes wait until the player pauses typing" {

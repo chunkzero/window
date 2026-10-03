@@ -34,8 +34,9 @@ pub(super) fn compile_inventory(
     let Surface::Container(kind) = w.surface;
     let mut claims = SlotClaims { window: &w.name, kind, owners: BTreeMap::new() };
     let mut entries = InventoryEntries::default();
+    let input_slot = (!w.inputs.is_empty()).then(|| InventorySlotRef::container(0));
     for button in &w.buttons {
-        entries.buttons.insert(button.name.clone(), button_entry(ctx, &mut claims, button, title_y)?);
+        entries.buttons.insert(button.name.clone(), button_entry(ctx, &mut claims, button, input_slot, title_y)?);
     }
     for item in &w.items {
         let slots = claims.claim(&item.name, &item.slots)?;
@@ -141,9 +142,10 @@ fn button_entry(
     ctx: &mut CompileContext<'_>,
     claims: &mut SlotClaims<'_>,
     button: &ButtonIr,
+    input_slot: Option<InventorySlotRef>,
     title_y: i32,
 ) -> Result<ButtonEntry> {
-    let (slots, fill_slots) = button_slots(claims, button)?;
+    let (slots, fill_slots) = button_slots(claims, button, input_slot)?;
     let sprite_font = button_sprite_font(ctx, claims.window, button, title_y)?;
     Ok(ButtonEntry {
         x: button.rect.x,
@@ -161,11 +163,13 @@ fn button_entry(
 }
 
 /// Click routes cover every backing slot; the button only fills (and owns) the
-/// slots it has not yielded to a repeater-cell item control. Fill slots are
-/// `None` when they equal the routed slots.
+/// slots it has not yielded to a repeater-cell item control or the anvil input,
+/// which keeps its seed item in `input_slot`. Fill slots are `None` when they
+/// equal the routed slots.
 fn button_slots(
     claims: &mut SlotClaims<'_>,
     button: &ButtonIr,
+    input_slot: Option<InventorySlotRef>,
 ) -> Result<(Vec<SlotRefEntry>, Option<Vec<SlotRefEntry>>)> {
     let window = claims.window;
     let slot_refs = button.slots.clone().unwrap_or_else(|| claims.kind.slot_refs_overlapping(&button.rect));
@@ -175,9 +179,13 @@ fn button_slots(
             button.name
         )));
     }
-    let fill_refs: Vec<InventorySlotRef> =
-        slot_refs.iter().copied().filter(|slot| !button.yielded_slots.contains(slot)).collect();
-    if fill_refs.is_empty() {
+    let routes_input = input_slot.is_some_and(|input| slot_refs.contains(&input));
+    let fill_refs: Vec<InventorySlotRef> = slot_refs
+        .iter()
+        .copied()
+        .filter(|slot| !button.yielded_slots.contains(slot) && Some(*slot) != input_slot)
+        .collect();
+    if fill_refs.is_empty() && !routes_input {
         return Err(Error::Validation(format!(
             "window `{window}`: button `{}` yielded every backing slot; leave at least one slot \
              for the button's own hitbox item",

@@ -18,6 +18,7 @@ import dev.oglass.window.internal.WindowBindings
 import dev.oglass.window.internal.WindowInventoryWriter
 import dev.oglass.window.internal.WindowTitle
 import dev.oglass.window.internal.hitboxModel
+import dev.oglass.window.internal.requireEntry
 import dev.oglass.window.internal.titleSlots
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
@@ -49,7 +50,10 @@ public class WindowSession
         private val writer = WindowInventoryWriter(definition, bindings, handle, reactivity)
         private val routes = SlotRoutes(entry, bindings, player, ::close)
         private var reopens: AnvilReopenGate? = null
-        private var input: ((String) -> Unit)? = null
+        private var inputHandler: (String) -> Unit = {}
+
+        /** The static anvil input's text as of the latest edit the handler received. */
+        private var inputValue = ""
         private var sentTitle: Component? = null
 
         private val frames =
@@ -85,7 +89,7 @@ public class WindowSession
             view.attach(player, this, reactivity)
             view.invokeBind(bindings)
             bindings.validate()
-            input = anvilInput()
+            bindAnvilInput()
             seedTitle()
 
             val render = title.compose()
@@ -147,24 +151,23 @@ public class WindowSession
         }
 
         /**
-         * Handles edits to the window's single anvil input. A static title never reopens the anvil, so
-         * edits go straight to the bound handler; otherwise they pass through a reopen gate.
+         * Binds the window's single anvil input. A static title never reopens the anvil, so edits go
+         * straight to the bound handler; otherwise they pass through a reopen gate.
          */
-        private fun anvilInput(): ((String) -> Unit)? {
-            val (name, input) = entry.inputs.entries.singleOrNull() ?: return null
+        private fun bindAnvilInput() {
+            val (name, input) = entry.inputs.entries.singleOrNull() ?: return
             val handler = bindings.inputHandlers.getValue(name)
-            if (title.isStatic) return handler
-
-            fun deliver(value: String) {
-                if (closed) return
-                // Title changes reopen the vanilla menu, which resets the edit box to the seed's name.
-                // Stage the typed value as that name so the next reopen restores it.
-                writer.stageInput(input, value)
-                handler(value)
+            inputValue = input.initial
+            inputHandler = { value ->
+                if (!closed) {
+                    // Resyncs and reopens reset the edit box to the seed's name, so keep it current.
+                    writer.stageInput(input, value)
+                    handler(value)
+                }
             }
-            val gate = AnvilReopenGate(scheduler, handle, input.initial, ::deliver) { sendTitle(reopen = true) }
-            reopens = gate
-            return gate::input
+            if (!title.isStatic) {
+                reopens = AnvilReopenGate(scheduler, handle, input.initial, inputHandler) { sendTitle(reopen = true) }
+            }
         }
 
         private fun applyButtonState(
@@ -214,7 +217,25 @@ public class WindowSession
 
         private fun handleInput(value: String) {
             if (closed) return
-            input?.invoke(value)
+            reopens?.let { return it.input(value) }
+            // Drops the client's echo of a seed name it was sent.
+            if (value == inputValue) return
+            inputValue = value
+            inputHandler(value)
+        }
+
+        internal fun setInput(
+            name: String,
+            value: String,
+        ) {
+            val input = definition.requireEntry(entry.inputs, name, "anvil input", known = "inputs")
+            if (closed) return
+            reopens?.let { return it.replace(value) }
+            if (value == inputValue) return
+            inputValue = value
+            // Sending the renamed seed sets the client's edit box in place.
+            writer.applyInput(input, value)
+            inputHandler(value)
         }
 
         private fun handlePong(id: Int) {

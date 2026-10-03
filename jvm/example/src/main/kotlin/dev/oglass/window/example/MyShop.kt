@@ -75,7 +75,10 @@ class MyShop(
 
     override fun priceCoinSprite(): String? = selectedProduct()?.let { "coin" }
 
-    override fun status(): Component = Component.text(feedback ?: "${visibleProducts().size} items")
+    override fun status(): Component {
+        val count = visibleProducts().size
+        return Component.text(feedback ?: if (query.isEmpty()) "$count items" else "$count matches")
+    }
 
     override fun buyLabel(): Component {
         val product = selectedProduct() ?: return actionLabel("Buy", false)
@@ -139,7 +142,7 @@ class MyShop(
     }
 
     override fun onSearch(click: Click) {
-        windows.open(player, CatalogSearch(windows, market))
+        windows.open(player, CatalogSearch(windows, market, query))
     }
 
     override fun onBuy(click: Click) {

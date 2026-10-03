@@ -84,14 +84,21 @@ impl SlotClaims<'_> {
 fn validate_buttons(window: &WindowEntry, claims: &mut SlotClaims, report: &mut ValidationReport) {
     for (name, button) in &window.buttons {
         claims.own(&format!("button `{name}`"), button.filled_slots(), report);
-        validate_fill_slots(claims.window_name, name, button, report);
+        validate_fill_slots(window, claims.window_name, name, button, report);
         for slot in &button.slots {
             claims.route(*slot, name, |previous, name| format!("button `{previous}` and button `{name}`"), report);
         }
     }
 }
 
-fn validate_fill_slots(window_name: &str, name: &str, button: &ButtonEntry, report: &mut ValidationReport) {
+/// A button may fill no slot only when it routes the anvil input's slot, whose seed item the input keeps.
+fn validate_fill_slots(
+    window: &WindowEntry,
+    window_name: &str,
+    name: &str,
+    button: &ButtonEntry,
+    report: &mut ValidationReport,
+) {
     let Some(fill_slots) = &button.fill_slots else {
         return;
     };
@@ -104,7 +111,8 @@ fn validate_fill_slots(window_name: &str, name: &str, button: &ButtonEntry, repo
             );
         }
     }
-    if fill_slots.is_empty() {
+    let routes_input = window.inputs.values().any(|input| button.slots.contains(&input.slot));
+    if fill_slots.is_empty() && !routes_input {
         report.push(
             "inventory.slot.fill_empty",
             format!("manifest.windows.{window_name}.buttons.{name}.fill_slots"),

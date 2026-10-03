@@ -265,6 +265,22 @@ fn anvil_inputs_open_the_art_over_the_native_field_and_can_restyle_it() {
 }
 
 #[test]
+fn anvil_inputs_hide_vanilla_anvil_art_and_share_their_slot_with_a_button() {
+    let back = r#"{"type":"button","name":"back","x":26,"y":46,"width":18,"height":18}"#;
+    let out = compile_anvil_search(back, "{}").unwrap();
+    for path in [
+        "assets/minecraft/textures/gui/container/anvil.png",
+        "assets/minecraft/textures/gui/sprites/container/anvil/error.png",
+    ] {
+        let art = Texture::decode_png(&find(&out, path).contents).unwrap();
+        assert!(art.rgba.chunks(4).all(|pixel| pixel[3] == 0), "{path}");
+    }
+    let back = &out.manifest.windows["search"].buttons["back"];
+    assert_eq!((back.slots.len(), back.fill_slots.as_deref()), (1, Some(&[][..])));
+    assert_eq!(out.manifest.windows["search"].inputs["query"].slot, back.slots[0]);
+}
+
+#[test]
 fn anvil_title_updates_require_the_experimental_option() {
     let slot = r#"{"type":"slot","name":"count","x":8,"y":70,"width":60}"#;
     let err = compile_anvil_search(slot, "{}").unwrap_err();

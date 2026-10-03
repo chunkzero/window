@@ -1,39 +1,42 @@
 import { anvilInput, button, label, panel, pattern, slotRects, sprite, ui } from "#plugins/window";
 
 const text = { color: "#ffffff", shadow: true, small_caps: true };
-const muted = { ...text, color: "#bceeff" };
 
-/** A static anvil: nothing on it changes after open, so typing never reopens the screen. */
+/**
+ * A static anvil: nothing on it changes after open, so typing never reopens the screen. Vanilla's anvil art is hidden,
+ * and the player's inventory slots are claimed so the screen ends at the hazard bar.
+ */
 export default ui({
     name: "catalog_search",
     container: "anvil",
-    bleed: { top: 1, right: 4, bottom: 7, left: 4 },
     children: [
-        panel({ frame: "shell", x: -4, y: -1, width: 184, height: 174 }),
-        panel({ frame: "recess", x: 56, y: 19, width: 112, height: 18 }),
-        panel({ frame: "panel", x: 4, y: 78, width: 168, height: 82 }),
-        panel({ frame: "hazard_bar", x: -4, y: 167, width: 184, height: 6 }),
-        sprite("rivet", { x: -2, y: 6 }),
-        sprite("rivet", { x: 173, y: 6 }),
-        sprite("rivet", { x: -2, y: 157 }),
-        sprite("rivet", { x: 173, y: 157 }),
-        label("Search the Catalog", { ...text, x: 0, y: 6, width: 176, align: "center" }),
-        label("Name", { ...muted, x: 8, y: 24, width: 44 }),
-        anvilInput("query", { initial: "", item_model: "window:gui/hitbox" }),
+        panel({ frame: "panel", x: 0, y: 0, width: 176, height: 17 }),
+        panel({ frame: "hazard_bar", x: 0, y: 0, width: 10, height: 17 }),
+        panel({ frame: "hazard_bar", x: 166, y: 0, width: 10, height: 17 }),
+        label("Search the Catalog", { ...text, x: 0, y: 5, width: 176, align: "center" }),
+        panel({ frame: "shell", x: 0, y: 16, width: 176, height: 52 }),
+        panel({ frame: "panel", x: 36, y: 18, width: 137, height: 20 }),
+        panel({ frame: "slot", x: 39, y: 19, width: 18, height: 18 }),
+        sprite("icon_search", { x: 43, y: 23 }),
+        anvilInput("query", { initial: "" }),
         button("back", {
             frame: "button_danger",
+            transform: { section: "container", x: 0, y: 0, width: 1, height: 1 },
+            children: [sprite("icon_back")],
+        }),
+        button("clear", {
+            frame: "button",
             transform: { section: "container", x: 1, y: 0, width: 1, height: 1 },
-            tooltip: "Back to market",
+            tooltip: "Clear",
+            children: [sprite("icon_clear")],
         }),
         button("confirm", {
             frame: "button_confirm",
             transform: { section: "container", x: 2, y: 0, width: 1, height: 1 },
-            tooltip: "Show matching products",
+            tooltip: "Search",
+            children: [sprite("icon_check")],
         }),
-        label("Back", { ...muted, x: 60, y: 67, width: 50, align: "center" }),
-        label("Search", { ...muted, x: 117, y: 67, width: 50, align: "center" }),
-        label("Matches names, tiers,", { ...muted, x: 8, y: 104, width: 160, align: "center" }),
-        label("and categories", { ...muted, x: 8, y: 116, width: 160, align: "center" }),
+        panel({ frame: "hazard_bar", x: 0, y: 68, width: 176, height: 6 }),
         slotRects("inventory", {
             pattern: pattern.rect({ section: "player", x: 0, y: 0, width: 9, height: 3 }),
             claim: "all",

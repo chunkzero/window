@@ -18,6 +18,10 @@ export default theme({
         buy: sized("button_accent", 106, 16),
         buy_disabled: sized("button_disabled", 106, 16),
         search_field: sized("recess", 110, 16),
+        icon_back: { texture: "window/icons/back.png" },
+        icon_clear: { texture: "window/icons/clear.png" },
+        icon_check: { texture: "window/icons/check.png" },
+        icon_search: { texture: "window/icons/search.png" },
         vent_slot: { ...industrial.frames.recess, border_width: 0, inset_depth: 0, width: 6, height: 2 },
         coin: {
             kind: "button",

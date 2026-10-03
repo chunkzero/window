@@ -1,9 +1,9 @@
 //! Anvil input windows: a static title, a hole in the art so the client's rename box shows through,
-//! and optional themed vanilla field sprites.
+//! hidden vanilla anvil art, and optional themed vanilla field sprites.
 
 use std::collections::BTreeMap;
 
-use crate::compose::Composite;
+use crate::compose::{Composite, Texture};
 use crate::geometry::Rect;
 use crate::ir::LaidOutWindow;
 use crate::surface::ContainerKind;
@@ -18,6 +18,23 @@ const FIELD_SPRITES: [&str; 2] = [
     "assets/minecraft/textures/gui/sprites/container/anvil/text_field.png",
     "assets/minecraft/textures/gui/sprites/container/anvil/text_field_disabled.png",
 ];
+
+/// Vanilla anvil art Window windows draw over, with its size: the background and the
+/// missing-result error icon.
+const VANILLA_ART: [(&str, u32, u32); 2] = [
+    ("assets/minecraft/textures/gui/container/anvil.png", 256, 256),
+    ("assets/minecraft/textures/gui/sprites/container/anvil/error.png", 28, 21),
+];
+
+/// Transparent replacements for vanilla's anvil art, so anvil windows only show Window art.
+pub(super) fn hidden_vanilla_art() -> Result<Vec<OutputFile>> {
+    VANILLA_ART
+        .iter()
+        .map(|&(path, width, height)| {
+            Ok(OutputFile { path: path.into(), contents: Texture::transparent(width, height).encode_png()? })
+        })
+        .collect()
+}
 
 /// Emits theme `sprite` as vanilla's enabled and disabled anvil text-field sprites.
 pub(super) fn field_sprites(
