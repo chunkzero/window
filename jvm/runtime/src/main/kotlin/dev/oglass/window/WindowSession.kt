@@ -4,7 +4,6 @@ import dev.oglass.window.diagnostics.RenderCorrelation
 import dev.oglass.window.diagnostics.RenderCursorConvention
 import dev.oglass.window.diagnostics.RenderFrameReason
 import dev.oglass.window.diagnostics.RenderSurfaceKind
-import dev.oglass.window.internal.AnvilReopenGate
 import dev.oglass.window.internal.ClickInfo
 import dev.oglass.window.internal.FrameCursor
 import dev.oglass.window.internal.InventoryHandle
@@ -17,6 +16,7 @@ import dev.oglass.window.internal.SlotRoutes
 import dev.oglass.window.internal.WindowBindings
 import dev.oglass.window.internal.WindowInventoryWriter
 import dev.oglass.window.internal.WindowTitle
+import dev.oglass.window.internal.hasStaticTitle
 import dev.oglass.window.internal.hitboxModel
 import dev.oglass.window.internal.requireEntry
 import dev.oglass.window.internal.titleSlots
@@ -26,34 +26,52 @@ import net.minestom.server.inventory.Inventory
 import net.minestom.server.item.ItemStack
 import org.slf4j.LoggerFactory
 
+/** Creates the session for [definition]'s window, with an anvil session for an anvil input window. */
+internal fun windowSession(
+    definition: WindowDefinition,
+    view: WindowView,
+    player: Player,
+    scheduler: RenderScheduler,
+    handle: InventoryHandle,
+    diagnosticsObserver: RenderDiagnosticsObserver = RenderDiagnosticsObserver.NONE,
+): WindowSession =
+    when {
+        definition.entry.inputs.isEmpty() -> {
+            WindowSession(definition, view, player, scheduler, handle, diagnosticsObserver)
+        }
+
+        definition.entry.hasStaticTitle -> {
+            AnvilWindowSession(definition, view, player, scheduler, handle, diagnosticsObserver)
+        }
+
+        else -> {
+            ReopeningAnvilWindowSession(definition, view, player, scheduler, handle, diagnosticsObserver)
+        }
+    }
+
 /**
  * A live window instance bound to a player.
  *
  * Owns the Minestom [inventory], routes clicks to button handlers, drives reactive slot re-renders,
  * and manages the window lifecycle. Created via [Windows.open]; not constructed directly.
  */
-public class WindowSession
+public open class WindowSession
     internal constructor(
-        private val definition: WindowDefinition,
+        internal val definition: WindowDefinition,
         /** The view driving this session. */
         public val view: WindowView,
         private val player: Player,
-        private val scheduler: RenderScheduler,
-        private val handle: InventoryHandle,
+        internal val scheduler: RenderScheduler,
+        internal val handle: InventoryHandle,
         diagnosticsObserver: RenderDiagnosticsObserver = RenderDiagnosticsObserver.NONE,
     ) {
-        private val entry = definition.entry
+        internal val entry = definition.entry
         private val reactivity = Reactivity(scheduler) { dirty -> flush(dirty) }
 
-        private val bindings = WindowBindings(definition, definition.titleSlots(reactivity))
+        internal val bindings = WindowBindings(definition, definition.titleSlots(reactivity))
         private val title = WindowTitle(definition, bindings, reactivity)
-        private val writer = WindowInventoryWriter(definition, bindings, handle, reactivity)
+        internal val writer = WindowInventoryWriter(definition, bindings, handle, reactivity)
         private val routes = SlotRoutes(entry, bindings, player, ::close)
-        private var reopens: AnvilReopenGate? = null
-        private var inputHandler: (String) -> Unit = {}
-
-        /** The static anvil input's text as of the latest edit the handler received. */
-        private var inputValue = ""
         private var sentTitle: Component? = null
 
         private val frames =
@@ -76,7 +94,8 @@ public class WindowSession
 
         private var opened = false
         private var closing = false
-        private var closed = false
+        internal var closed = false
+            private set
 
         /** The Minestom inventory backing this window. */
         public val inventory: Inventory
@@ -89,7 +108,7 @@ public class WindowSession
             view.attach(player, this, reactivity)
             view.invokeBind(bindings)
             bindings.validate()
-            bindAnvilInput()
+            bindInput()
             seedTitle()
 
             val render = title.compose()
@@ -134,7 +153,7 @@ public class WindowSession
         }
 
         /** Sends the title when it changed, or when [reopen] asks to restore an anvil's edit box. */
-        private fun sendTitle(reopen: Boolean = false) {
+        internal fun sendTitle(reopen: Boolean = false) {
             if (closed) return
             val render = title.compose()
             if (!reopen && render.component == sentTitle) return
@@ -143,32 +162,30 @@ public class WindowSession
             frames.observe(render, RenderFrameReason.REACTIVE_UPDATE)
         }
 
-        /** Runs [action], through the anvil reopen gate when there is one; false when the gate defers it. */
-        private fun send(action: () -> Unit): Boolean {
-            reopens?.let { return it.send(action) }
+        /** Runs [action], which opens the inventory or changes its title; false when it was deferred. */
+        internal open fun send(action: () -> Unit): Boolean {
             action()
             return true
         }
 
-        /**
-         * Binds the window's single anvil input. A static title never reopens the anvil, so edits go
-         * straight to the bound handler; otherwise they pass through a reopen gate.
-         */
-        private fun bindAnvilInput() {
-            val (name, input) = entry.inputs.entries.singleOrNull() ?: return
-            val handler = bindings.inputHandlers.getValue(name)
-            inputValue = input.initial
-            inputHandler = { value ->
-                if (!closed) {
-                    // Reopens and resyncs reset the edit box to the seed's name, so stage the typed value
-                    // as that name.
-                    writer.stageInput(input, value)
-                    handler(value)
-                }
-            }
-            if (!title.isStatic) {
-                reopens = AnvilReopenGate(scheduler, handle, input.initial, inputHandler) { sendTitle(reopen = true) }
-            }
+        /** Binds the window's anvil input, after the view's bindings are validated. */
+        internal open fun bindInput() {}
+
+        /** Handles the client's anvil edit-box [value]. */
+        internal open fun onInput(value: String) {}
+
+        /** Handles the client's answer to ping [id]. */
+        internal open fun onPong(id: Int) {}
+
+        /** Runs before a client click or close is handled. */
+        internal open fun onClientPacket() {}
+
+        /** Replaces the text of anvil input [name]; backs `WindowView.input`. */
+        internal open fun setInput(
+            name: String,
+            value: String,
+        ) {
+            definition.requireEntry(entry.inputs, name, "anvil input", known = "inputs")
         }
 
         private fun applyButtonState(
@@ -211,43 +228,22 @@ public class WindowSession
 
         private fun handleClick(info: ClickInfo) {
             if (closed) return
-            reopens?.release()
+            onClientPacket()
             if (closed) return
             routes.dispatch(info)
         }
 
         private fun handleInput(value: String) {
-            if (closed) return
-            reopens?.let { return it.input(value) }
-            // Drops the client's echo of a seed name it was sent.
-            if (value == inputValue) return
-            inputValue = value
-            inputHandler(value)
-        }
-
-        internal fun setInput(
-            name: String,
-            value: String,
-        ) {
-            val input = definition.requireEntry(entry.inputs, name, "anvil input", known = "inputs")
-            if (closed) return
-            reopens?.let { return it.replace(value) }
-            val text = value.take(AnvilReopenGate.MAX_NAME_LENGTH)
-            if (text == inputValue) return
-            inputValue = text
-            // Sending the renamed seed sets the client's edit box in place.
-            writer.applyInput(input, text)
-            inputHandler(text)
+            if (!closed) onInput(value)
         }
 
         private fun handlePong(id: Int) {
-            if (closed) return
-            reopens?.pong(id)
+            if (!closed) onPong(id)
         }
 
         private fun handleClientClose() {
             if (closed) return
-            reopens?.release()
+            onClientPacket()
             if (closed) return
             closed = true
             view.invokeOnClose()

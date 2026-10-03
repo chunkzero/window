@@ -80,7 +80,7 @@ public class Windows
             val type = Containers.inventoryType(definition.surface.container)
             val handle = LiveInventoryHandle(player, type)
             val session =
-                WindowSession(
+                windowSession(
                     definition,
                     view,
                     player,

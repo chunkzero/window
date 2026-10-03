@@ -5,6 +5,7 @@ import dev.oglass.window.diagnostics.RenderLayerKind
 import dev.oglass.window.diagnostics.RenderStyleTrace
 import dev.oglass.window.manifest.Align
 import dev.oglass.window.manifest.SpriteSlotEntry
+import dev.oglass.window.manifest.WindowEntry
 
 /**
  * The net-zero title segments of one window, keyed by semantic id in composition order: button
@@ -20,14 +21,6 @@ internal class WindowTitle(
     private val segments = LinkedHashMap<String, RenderedSegment>()
 
     fun compose(): ComposedRender = composer.compose(definition.name, segments)
-
-    /** Whether the title never changes after open: no text slots, bound sprites, state sprites, or selections. */
-    val isStatic: Boolean
-        get() =
-            entry.slots.values.all { it.text != null } &&
-                entry.spriteSlots.values.all { it.sprite != null } &&
-                entry.buttons.values.all { it.spriteFont == null } &&
-                entry.collections.values.all { it.selection.isEmpty() }
 
     /** Renders collection selections, fixed sprites, runtime sprites, and text slots once. */
     fun seedContent() {
@@ -136,3 +129,11 @@ internal fun WindowDefinition.titleSlots(reactivity: Reactivity): DynamicSlots =
     DynamicSlots("window", name, entry.slots, reactivity, composer::renderSlot) { id, slot ->
         emptyTitleSegment(id, RenderLayerKind.TEXT_SLOT, slot.x, slot.y, slot.font)
     }
+
+/** Whether the title never changes after open: no text slots, bound sprites, state sprites, or selections. */
+internal val WindowEntry.hasStaticTitle: Boolean
+    get() =
+        slots.values.all { it.text != null } &&
+            spriteSlots.values.all { it.sprite != null } &&
+            buttons.values.all { it.spriteFont == null } &&
+            collections.values.all { it.selection.isEmpty() }
