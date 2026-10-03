@@ -173,10 +173,10 @@ point (`0.0` is left/top, `1.0` is right/bottom); `anchor` is the normalized poi
 origin. Optional `x`/`y` values add a GUI-pixel nudge from the normalized origin. `source_bottom` is the GUI-pixel
 distance from the bottom of the GUI to the nominal bottom of the vanilla text source. Window applies Minecraft's fixed
 actionbar source inset when deriving its top edge; the source position does not change with the authored HUD height.
-Window then emits generated text core shaders for the target pack format when that format is known, including the
-matching text-background pass so vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles
-cover pack formats 9 through 88 (Minecraft 26.2); for other formats Window warns and emits no shaders. Core shaders are
-intentionally opt-in; the fallback channel remains the runtime contract.
+Window then emits generated text core shaders for the target pack format, including the matching text-background pass so
+vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles cover pack formats 9 through 88
+(Minecraft 26.2); compilation fails when a shader-placed HUD targets an unknown or unsupported pack format. Core shaders
+are intentionally opt-in; the fallback channel remains the runtime contract.
 
 ## Elements
 

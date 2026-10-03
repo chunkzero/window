@@ -63,6 +63,7 @@ test("pack format prefers the context, then mcmeta fields", () => {
     assert.equal(detectPackFormat({}, mcmeta({ supported_formats: { min_inclusive: 3, max_inclusive: 9 } })), 9);
     assert.equal(detectPackFormat({}, mcmeta({ supported_formats: [4, 8] })), 8);
     assert.equal(detectPackFormat({}, mcmeta({ min_format: 5 })), 5);
+    assert.equal(detectPackFormat({}, mcmeta({ min_format: [88, 0], max_format: [88, 1] })), 88);
     assert.equal(detectPackFormat({}, "not json"), undefined);
     assert.equal(detectPackFormat({}, undefined), undefined);
 });
