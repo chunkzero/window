@@ -60,6 +60,15 @@ function numberField(value: Fields, key: string): number | undefined {
     return typeof field === "number" ? field : undefined;
 }
 
+/** A `min_format`/`max_format` value: a major version or a `[major, minor]` pair. */
+function formatVersionField(value: Fields, key: string): number | undefined {
+    const field = value[key];
+    if (Array.isArray(field)) {
+        return typeof field[0] === "number" ? field[0] : undefined;
+    }
+    return typeof field === "number" ? field : undefined;
+}
+
 function packFormatValue(value: unknown): number | undefined {
     if (typeof value === "number") {
         return value;
@@ -70,10 +79,10 @@ function packFormatValue(value: unknown): number | undefined {
     return (
         numberField(value, "pack_format") ??
         numberField(value, "format") ??
-        numberField(value, "max_format") ??
+        formatVersionField(value, "max_format") ??
         numberField(value, "max_inclusive") ??
         numberField(value, "1") ??
-        numberField(value, "min_format") ??
+        formatVersionField(value, "min_format") ??
         numberField(value, "min_inclusive") ??
         numberField(value, "0")
     );
