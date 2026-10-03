@@ -54,6 +54,11 @@ impl Rect {
         Self { x, y, width, height }
     }
 
+    /// The 18x18 vanilla slot box around a 16x16 slot item rect.
+    pub(crate) const fn slot_box(&self) -> Self {
+        Self::new(self.x - 1, self.y - 1, self.width + 2, self.height + 2)
+    }
+
     /// Construct from a position and size.
     pub const fn from_parts(pos: Point, size: Size) -> Self {
         Self::new(pos.x, pos.y, size.width, size.height)

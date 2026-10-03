@@ -26,7 +26,7 @@ internal class WindowTitle(
         for (name in bindings.collectionSelections.keys) updateCollectionSelection(name)
         for ((name, slot) in entry.spriteSlots) {
             val sprite = slot.sprite ?: continue
-            segments[spriteId(name)] = spriteSegment(name, slot, sprite)
+            segments[spriteId(name)] = spriteSegment(spriteId(name), slot, sprite)
         }
         for ((name, slot) in entry.spriteSlots) {
             if (slot.sprite == null) updateSprite(name)
@@ -43,7 +43,8 @@ internal class WindowTitle(
     fun updateSprite(name: String) {
         val render = bindings.sprites[name] ?: return
         val sprite = reactivity.withRendering(RenderKey.Sprite(name)) { render() }
-        segments[spriteId(name)] = spriteSegment(name, entry.spriteSlots.getValue(name), sprite)
+        val id = spriteId(name)
+        segments[id] = spriteSegment(id, entry.spriteSlots.getValue(name), sprite)
     }
 
     /** Re-renders collection [name]'s selected-cell sprite under dependency capture. */
@@ -53,9 +54,7 @@ internal class WindowTitle(
         val index = reactivity.withRendering(RenderKey.CollectionSelection(name)) { render() }
         val id = "window/${definition.name}/selection/$name"
         val cell = index?.let(cells::getOrNull)
-        val empty = cells.first()
-        segments[id] = cell?.let { composer.renderSprite(id, it, it.sprite) }
-            ?: definition.emptyTitleSegment(id, RenderLayerKind.SPRITE_SLOT, empty.x, empty.y, empty.font)
+        segments[id] = spriteSegment(id, cell ?: cells.first(), cell?.sprite)
     }
 
     /** Reserves an empty segment for button [name]'s state sprite until a state is set. */
@@ -101,14 +100,12 @@ internal class WindowTitle(
     }
 
     private fun spriteSegment(
-        name: String,
+        id: String,
         slot: SpriteSlotEntry,
         sprite: String?,
-    ): RenderedSegment {
-        val id = spriteId(name)
-        return composer.renderSprite(id, slot, sprite)
+    ): RenderedSegment =
+        composer.renderSprite(id, slot, sprite)
             ?: definition.emptyTitleSegment(id, RenderLayerKind.SPRITE_SLOT, slot.x, slot.y, slot.font)
-    }
 
     private fun spriteId(name: String): String = "window/${definition.name}/sprite/$name"
 

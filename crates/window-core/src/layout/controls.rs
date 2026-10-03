@@ -4,7 +4,7 @@ use super::slots::{PatternCell, ResolvedControl, cells_bounds};
 use super::target::LayoutTarget;
 use super::{ActiveRepeat, Solver};
 use crate::Result;
-use crate::geometry::{Insets, Point, Rect, Size};
+use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{
     AnvilInputIr, ButtonDefault, ButtonIr, ButtonState, ButtonTooltip, CollectionIr, ItemIr, RepeatBindingIr,
@@ -202,7 +202,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         };
         for slot in slots {
             let item = self.slot_rect(name, *slot)?;
-            let rect = Rect::new(item.x - 1, item.y - 1, item.width + 2, item.height + 2);
+            let rect = item.slot_box();
             self.emit_frame(frame, rect, &format!("{kind} `{name}` frame `{frame}`"))?;
         }
         Ok(())

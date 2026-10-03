@@ -3,9 +3,8 @@
 use std::collections::BTreeMap;
 
 use crate::compose::Composite;
-use crate::font::shifted_suffix;
-use crate::geometry::Point;
-use crate::ir::{LaidOutWindow, Rgb, SlotIr, SpriteSlotIr};
+use crate::geometry::{Point, Rect};
+use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr};
 use crate::manifest::{SlotEntry, SpriteSlotEntry, SurfaceEntry, WindowEntry};
 use crate::surface::Surface;
 use crate::{Result, bake};
@@ -65,8 +64,11 @@ fn sprite_slots(
     let mut entries = BTreeMap::new();
     for sprite_slot in &w.sprite_slots {
         let k = sprite_slot.rect.y - title_y;
-        ctx.sprite_offsets.insert(k);
-        entries.insert(sprite_slot.name.clone(), sprite_slot_entry(ctx.namespace, sprite_slot, k));
+        let font = ctx.sprite_font(k);
+        entries.insert(
+            sprite_slot.name.clone(),
+            sprite_slot_entry(font, &sprite_slot.rect, sprite_slot.align, sprite_slot.sprite.clone()),
+        );
         if let Some(sprite) = &sprite_slot.sprite {
             let subject = format!("sprite slot `{}`", sprite_slot.name);
             check_sprite_fits(ctx.runtime_sprites, &w.name, &subject, sprite, &sprite_slot.rect)?;
@@ -96,16 +98,9 @@ pub(super) fn slot_entry(slot: &SlotIr, font: String, shader_marker: Option<Rgb>
     }
 }
 
-fn sprite_slot_entry(namespace: &str, slot: &SpriteSlotIr, k: i32) -> SpriteSlotEntry {
-    SpriteSlotEntry {
-        x: slot.rect.x,
-        y: slot.rect.y,
-        width: slot.rect.width,
-        height: slot.rect.height,
-        align: slot.align,
-        font: format!("{namespace}:sprite_{}", shifted_suffix(k)),
-        sprite: slot.sprite.clone(),
-    }
+/// Build a [`SpriteSlotEntry`] covering `rect` drawn with `font`.
+pub(super) fn sprite_slot_entry(font: String, rect: &Rect, align: Align, sprite: Option<String>) -> SpriteSlotEntry {
+    SpriteSlotEntry { x: rect.x, y: rect.y, width: rect.width, height: rect.height, align, font, sprite }
 }
 
 fn surface_entry(surface: &Surface) -> SurfaceEntry {

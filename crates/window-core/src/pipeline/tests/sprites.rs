@@ -121,16 +121,9 @@ fn collection_selection_places_its_sprite_over_each_cell_box() {
         repeat: None,
     }];
 
-    let out = compile_layouts(
-        &[w],
-        &[],
-        &textures,
-        &pickaxe_sprite(),
-        "window",
-        &PackTarget::default(),
-        &BuildOptions::default(),
-    )
-    .unwrap();
+    let runtime_sprites = pickaxe_sprite();
+    let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &TextFonts::new() };
+    let out = compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
     let cells = &out.manifest.windows["shop"].collections["products"].selection;
     let boxes: Vec<_> = cells.iter().map(|cell| (cell.x, cell.y, cell.width, cell.height)).collect();
     assert_eq!(boxes, [(7, 35, 18, 18), (25, 35, 18, 18)]);

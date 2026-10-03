@@ -231,6 +231,12 @@ impl<'a> CompileContext<'a> {
         Ok(format!("{}:{}", self.namespace, text_font_suffix(name, k)))
     }
 
+    /// Registers the sprite font drawn at vertical offset `k` and returns its id.
+    fn sprite_font(&mut self, k: i32) -> String {
+        self.sprite_offsets.insert(k);
+        format!("{}:sprite_{}", self.namespace, shifted_suffix(k))
+    }
+
     fn manifest(
         &self,
         sprites: BTreeMap<String, SpriteEntry>,
