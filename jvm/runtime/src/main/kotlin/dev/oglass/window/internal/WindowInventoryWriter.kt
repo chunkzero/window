@@ -6,12 +6,15 @@ import dev.oglass.window.WindowItems
 import dev.oglass.window.manifest.AnvilInputEntry
 import dev.oglass.window.manifest.ButtonEntry
 import dev.oglass.window.manifest.ButtonState
+import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.text.minimessage.MiniMessage
+import net.minestom.server.component.DataComponents
 import net.minestom.server.item.ItemStack
+import net.minestom.server.item.component.CustomData
 import dev.oglass.window.manifest.ButtonTooltip as ManifestTooltip
 
 /**
@@ -31,6 +34,8 @@ internal class WindowInventoryWriter(
 
     /** Parsed manifest tooltips; components are immutable, so they are shared across renders. */
     private val tooltips = HashMap<ManifestTooltip, ButtonTooltip>()
+
+    private var inputRevisions = 0
 
     /** Resolves and records button [name]'s initial named state, if it has one. */
     fun initialButtonState(name: String): String? {
@@ -127,11 +132,17 @@ internal class WindowInventoryWriter(
         handle.setItem(slot.toApi(), item ?: ItemStack.AIR)
     }
 
+    /**
+     * Sends the input seed renamed to [value]. Each send carries a new revision, since the client only
+     * resets its edit box to the seed's name when the item changes.
+     */
     fun applyInput(
         input: AnvilInputEntry,
         value: String,
     ) {
-        handle.setItem(input.slot.toApi(), inputSeed(input, value))
+        val revision = CompoundBinaryTag.builder().putInt(INPUT_REVISION, ++inputRevisions).build()
+        val seed = inputSeed(input, value).with(DataComponents.CUSTOM_DATA, CustomData(revision))
+        handle.setItem(input.slot.toApi(), seed)
     }
 
     /** Renames the input seed to [value] without sending it, so the next reopen restores [value]. */
@@ -204,5 +215,6 @@ internal class WindowInventoryWriter(
 
     private companion object {
         val MINI_MESSAGE: MiniMessage = MiniMessage.miniMessage()
+        const val INPUT_REVISION = "window_input_revision"
     }
 }

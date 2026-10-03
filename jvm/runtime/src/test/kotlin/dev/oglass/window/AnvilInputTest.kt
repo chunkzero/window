@@ -5,6 +5,7 @@ import dev.oglass.window.manifest.Align
 import dev.oglass.window.manifest.AnvilInputEntry
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import net.kyori.adventure.text.Component
 import net.minestom.server.component.DataComponents
 
@@ -56,13 +57,42 @@ class AnvilInputTest :
             handle.input("")
             handle.input("a")
             handle.input("as")
-            handle.seedName() shouldBe Component.text("as")
             view.clear()
             handle.input("")
 
             edits shouldBe listOf("a", "as", "")
             handle.seedName() shouldBe Component.text("")
             handle.titles.size shouldBe 1
+        }
+
+        "setting a static input resends a changed seed, capped at vanilla's name length" {
+            val edits = mutableListOf<String>()
+            val view =
+                object : WindowView("w") {
+                    override fun WindowScope.bind() {
+                        anvilInput("query") {
+                            edits += it
+                            input("query", it.trim())
+                        }
+                    }
+
+                    fun set(value: String) = input("query", value)
+                }
+            val handle = FakeInventoryHandle()
+            val static =
+                TestManifests.manifest(
+                    container = "anvil",
+                    inputs = mapOf("query" to AnvilInputEntry(slot = TestManifests.containerSlot(0))),
+                )
+            testSession(static, "w", view, ManualScheduler(), handle).open()
+            val opened = handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0))
+            handle.input(" a ")
+            view.set("")
+            handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0)) shouldNotBe opened
+            handle.seedName() shouldBe Component.text("")
+
+            view.set("x".repeat(60))
+            edits shouldBe listOf(" a ", "a", "", "x".repeat(50))
         }
 
         "setting the input of a reopening anvil delivers it and reopens with it" {
@@ -82,6 +112,28 @@ class AnvilInputTest :
             view.edits shouldBe listOf("ab", "")
             handle.titles.size shouldBe 3
             handle.seedName() shouldBe Component.text("")
+        }
+
+        "a binding that normalizes a reopening anvil's input settles" {
+            val edits = mutableListOf<String>()
+            val view =
+                object : WindowView("w") {
+                    override fun WindowScope.bind() {
+                        slot("query_text") { Component.empty() }
+                        anvilInput("query") {
+                            edits += it
+                            input("query", it.trim())
+                        }
+                    }
+                }
+            val handle = FakeInventoryHandle()
+            testSession(manifest, "w", view, ManualScheduler(), handle).open()
+            handle.input("")
+            handle.pong()
+            handle.input(" a ")
+
+            edits shouldBe listOf(" a ", "a")
+            handle.seedName() shouldBe Component.text("a")
         }
 
         "title changes wait until the player pauses typing" {

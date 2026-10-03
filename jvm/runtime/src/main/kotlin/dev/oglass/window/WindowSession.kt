@@ -158,16 +158,16 @@ public class WindowSession
             val (name, input) = entry.inputs.entries.singleOrNull() ?: return
             val handler = bindings.inputHandlers.getValue(name)
             inputValue = input.initial
-            inputHandler = { value ->
-                if (!closed) {
-                    // Resyncs and reopens reset the edit box to the seed's name, so keep it current.
-                    writer.stageInput(input, value)
-                    handler(value)
-                }
+            inputHandler = { value -> if (!closed) handler(value) }
+            if (title.isStatic) return
+
+            fun deliver(value: String) {
+                if (closed) return
+                // Reopens reset the edit box to the seed's name, so stage the typed value as that name.
+                writer.stageInput(input, value)
+                handler(value)
             }
-            if (!title.isStatic) {
-                reopens = AnvilReopenGate(scheduler, handle, input.initial, inputHandler) { sendTitle(reopen = true) }
-            }
+            reopens = AnvilReopenGate(scheduler, handle, input.initial, ::deliver) { sendTitle(reopen = true) }
         }
 
         private fun applyButtonState(
@@ -231,11 +231,12 @@ public class WindowSession
             val input = definition.requireEntry(entry.inputs, name, "anvil input", known = "inputs")
             if (closed) return
             reopens?.let { return it.replace(value) }
-            if (value == inputValue) return
-            inputValue = value
+            val text = value.take(AnvilReopenGate.MAX_NAME_LENGTH)
+            if (text == inputValue) return
+            inputValue = text
             // Sending the renamed seed sets the client's edit box in place.
-            writer.applyInput(input, value)
-            inputHandler(value)
+            writer.applyInput(input, text)
+            inputHandler(text)
         }
 
         private fun handlePong(id: Int) {

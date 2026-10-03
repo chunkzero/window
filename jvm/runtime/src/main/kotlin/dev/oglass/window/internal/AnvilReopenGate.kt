@@ -71,7 +71,9 @@ internal class AnvilReopenGate(
     /** Replaces the input with [value] and delivers it; a reopen restores it into the edit box. */
     fun replace(value: String) {
         release()
-        seed = value.take(MAX_NAME_LENGTH)
+        val next = value.take(MAX_NAME_LENGTH)
+        if (next == seed) return
+        seed = next
         deliver(seed)
         deferred = true
         scheduler.schedule(::reopenIfDeferred)
@@ -120,7 +122,7 @@ internal class AnvilReopenGate(
         const val QUIET_TICKS = 3
 
         /** The longest name vanilla's anvil edit box accepts. */
-        private const val MAX_NAME_LENGTH = 50
+        const val MAX_NAME_LENGTH = 50
 
         /** Ping ids start in a range unlikely to collide with other users of the ping packet. */
         private val PINGS = AtomicInteger(0x57_49_00_00)
