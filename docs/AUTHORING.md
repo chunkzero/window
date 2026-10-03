@@ -379,7 +379,9 @@ Anvil input windows are static: their title never changes after open. Vanilla ca
 reopening the screen, and each anvil reopen resets the player's edit box mid-typing. The compiler rejects text slots,
 unbound sprite slots, button state sprites, and collection selected sprites in a window with an `anvilInput`. Static
 art, labels, fixed sprites, buttons, and inventory items are all allowed, since none of them change the title. A typical
-search screen is a title, the input, and back/confirm buttons that open results elsewhere:
+search screen is a title, the input, and back/confirm buttons on the anvil's other two slots that open results
+elsewhere. Anvil slots sit at fixed, uneven positions, so each button covers one slot and only that slot's 16x16 box
+takes clicks:
 
 ```ts
 export default ui({
@@ -389,8 +391,11 @@ export default ui({
     panel({ frame: "shell", x: 0, y: 0, width: 176, height: 166 }),
     label("Search maps", { x: 0, y: 6, width: 176, align: "center" }),
     anvilInput("query", { initial: "", item_model: "demo:gui/search_input" }),
-    button("back", { frame: "button_danger", x: 58, y: 45, width: 52, height: 18, children: [label("Back")] }),
-    button("confirm", { frame: "button_confirm", x: 116, y: 45, width: 52, height: 18, children: [label("Search")] }),
+    button("back", { frame: "button_danger", transform: { section: "container", x: 1, y: 0, width: 1, height: 1 } }),
+    button("confirm", {
+      frame: "button_confirm",
+      transform: { section: "container", x: 2, y: 0, width: 1, height: 1 },
+    }),
     slotRects("inventory", {
       pattern: pattern.rect({ section: "player", x: 0, y: 0, width: 9, height: 3 }),
       claim: "all",

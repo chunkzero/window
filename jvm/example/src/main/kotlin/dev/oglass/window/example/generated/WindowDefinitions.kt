@@ -65,12 +65,12 @@ public object WindowDefinitions {
                             shaderColor = null,
                         ),
                         "label_2" to SlotEntry(
-                            x = 74,
-                            y = 50,
-                            width = 19,
+                            x = 60,
+                            y = 67,
+                            width = 50,
                             align = Align.CENTER,
-                            font = "window:small_caps/y44",
-                            color = "#ffffff",
+                            font = "window:small_caps/y61",
+                            color = "#bceeff",
                             shadow = true,
                             bold = false,
                             italic = false,
@@ -82,12 +82,12 @@ public object WindowDefinitions {
                             shaderColor = null,
                         ),
                         "label_3" to SlotEntry(
-                            x = 127,
-                            y = 50,
-                            width = 29,
+                            x = 117,
+                            y = 67,
+                            width = 50,
                             align = Align.CENTER,
-                            font = "window:small_caps/y44",
-                            color = "#ffffff",
+                            font = "window:small_caps/y61",
+                            color = "#bceeff",
                             shadow = true,
                             bold = false,
                             italic = false,
@@ -136,10 +136,10 @@ public object WindowDefinitions {
                     spriteSlots = emptyMap(),
                     buttons = mapOf(
                         "back" to ButtonEntry(
-                            x = 58,
-                            y = 45,
-                            width = 52,
-                            height = 18,
+                            x = 76,
+                            y = 47,
+                            width = 16,
+                            height = 16,
                             slots = listOf(
                                 SlotRefEntry(
                                     area = SlotAreaEntry.CONTAINER,
@@ -157,10 +157,10 @@ public object WindowDefinitions {
                             spriteFont = null,
                         ),
                         "confirm" to ButtonEntry(
-                            x = 116,
-                            y = 45,
-                            width = 52,
-                            height = 18,
+                            x = 134,
+                            y = 47,
+                            width = 16,
+                            height = 16,
                             slots = listOf(
                                 SlotRefEntry(
                                     area = SlotAreaEntry.CONTAINER,
