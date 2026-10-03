@@ -40,6 +40,7 @@ pub fn render(style: &GeneratedStyle, size: Size) -> Result<Texture> {
         }
         GeneratedKind::Panel | GeneratedKind::Button | GeneratedKind::Slot => {
             draw_panel(&mut pixmap, style);
+            draw_indicator(&mut pixmap, style);
         }
     }
 
@@ -154,6 +155,24 @@ fn draw_badge_mark(pixmap: &mut Pixmap, style: &GeneratedStyle) {
     pb.close();
     if let Some(path) = pb.finish() {
         pixmap.fill_path(&path, &paint(accent), FillRule::Winding, Transform::identity(), None);
+    }
+}
+
+/// Draws the indicator bar just inside the border and bevel, inset 1px further at each end and clear of rounded
+/// corners.
+fn draw_indicator(pixmap: &mut Pixmap, style: &GeneratedStyle) {
+    let Some(color) = style.indicator_color else {
+        return;
+    };
+    let edge = style.border_width + style.inset_depth;
+    let radius = style.radius.min(pixmap.width() / 2).min(pixmap.height() / 2);
+    let x = (edge + 1).max(radius);
+    let width = pixmap.width().saturating_sub(x * 2);
+    let Some(y) = pixmap.height().checked_sub(edge + 2) else {
+        return;
+    };
+    if width > 0 && y > edge {
+        fill_rect(pixmap, x as f32, y as f32, width as f32, 2.0, color);
     }
 }
 

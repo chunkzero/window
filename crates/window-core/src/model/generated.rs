@@ -21,6 +21,8 @@ pub struct GeneratedStyle {
     pub shadow_color: Option<Rgb>,
     /// Optional accent color for vents/badges.
     pub accent_color: Option<Rgb>,
+    /// Optional 2px indicator bar along the inner bottom edge of panels, buttons, and slots.
+    pub indicator_color: Option<Rgb>,
     /// Optional diagonal stripe color.
     pub stripe_color: Option<Rgb>,
     /// Optional diagonal stripe shadow color.
@@ -53,6 +55,7 @@ impl GeneratedStyle {
             highlight_color: Some(Rgb::new(0x2f, 0x9d, 0xb4)),
             shadow_color: Some(Rgb::new(0x04, 0x26, 0x33)),
             accent_color: Some(Rgb::new(0xc3, 0x5f, 0x00)),
+            indicator_color: None,
             stripe_color: None,
             stripe_shadow_color: None,
             stripe_width: 8,
@@ -70,6 +73,7 @@ impl GeneratedStyle {
             highlight_color: Some(Rgb::new(0x2f, 0x9d, 0xb4)),
             shadow_color: Some(Rgb::new(0x04, 0x26, 0x33)),
             accent_color: Some(Rgb::new(0xc3, 0x5f, 0x00)),
+            indicator_color: None,
             stripe_color: None,
             stripe_shadow_color: None,
             stripe_width: 8,
@@ -87,6 +91,7 @@ impl GeneratedStyle {
             highlight_color: Some(Rgb::new(0x2f, 0x9d, 0xb4)),
             shadow_color: Some(Rgb::new(0x04, 0x26, 0x33)),
             accent_color: None,
+            indicator_color: None,
             stripe_color: None,
             stripe_shadow_color: None,
             stripe_width: 8,
@@ -104,6 +109,7 @@ impl GeneratedStyle {
             highlight_color: Some(Rgb::new(0xef, 0xb3, 0x1a)),
             shadow_color: Some(Rgb::new(0x5c, 0x21, 0x00)),
             accent_color: None,
+            indicator_color: None,
             stripe_color: Some(Rgb::new(0xc3, 0x5f, 0x00)),
             stripe_shadow_color: None,
             stripe_width: 10,
@@ -121,6 +127,7 @@ impl GeneratedStyle {
             highlight_color: Some(Rgb::new(0x2f, 0x9d, 0xb4)),
             shadow_color: Some(Rgb::new(0x04, 0x26, 0x33)),
             accent_color: Some(Rgb::new(0x06, 0x1b, 0x26)),
+            indicator_color: None,
             stripe_color: None,
             stripe_shadow_color: None,
             stripe_width: 4,
@@ -138,6 +145,7 @@ impl GeneratedStyle {
             highlight_color: Some(Rgb::new(0xef, 0xb3, 0x1a)),
             shadow_color: Some(Rgb::new(0x5c, 0x21, 0x00)),
             accent_color: Some(Rgb::new(0x0b, 0x87, 0x9c)),
+            indicator_color: None,
             stripe_color: None,
             stripe_shadow_color: None,
             stripe_width: 6,

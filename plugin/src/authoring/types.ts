@@ -164,6 +164,8 @@ export interface GeneratedStyle {
     shadow_color?: string;
     /** Decorative accent color. */
     accent_color?: string;
+    /** Panel, button, and slot frames only: a 2px bar along the inner bottom edge, e.g. a selected-tab lamp. */
+    indicator_color?: string;
     /** Hazard stripe color. */
     stripe_color?: string;
     /** Hazard stripe shadow color. */

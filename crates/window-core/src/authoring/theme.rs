@@ -46,6 +46,7 @@ struct GeneratedStyleDto {
     highlight_color: Option<String>,
     shadow_color: Option<String>,
     accent_color: Option<String>,
+    indicator_color: Option<String>,
     stripe_color: Option<String>,
     stripe_shadow_color: Option<String>,
     stripe_width: Option<u32>,
@@ -160,6 +161,9 @@ impl GeneratedStyleDto {
         if self.accent_color.is_some() {
             return Some("accent_color");
         }
+        if self.indicator_color.is_some() {
+            return Some("indicator_color");
+        }
         if self.stripe_color.is_some() {
             return Some("stripe_color");
         }
@@ -199,6 +203,15 @@ impl GeneratedStyleDto {
         }
         if let Some(accent_color) = self.accent_color {
             style.accent_color = Some(parse_rgb(&accent_color, "accent_color")?);
+        }
+        if let Some(indicator_color) = self.indicator_color {
+            if !matches!(kind, GeneratedKind::Panel | GeneratedKind::Button | GeneratedKind::Slot) {
+                return Err(Error::Validation(
+                    "generated theme asset field `indicator_color` only applies to panel, button, and slot kinds"
+                        .into(),
+                ));
+            }
+            style.indicator_color = Some(parse_rgb(&indicator_color, "indicator_color")?);
         }
         if let Some(stripe_color) = self.stripe_color {
             style.stripe_color = Some(parse_rgb(&stripe_color, "stripe_color")?);

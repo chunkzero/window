@@ -242,6 +242,21 @@ fn rejects_unknown_theme_asset_fields() {
 }
 
 #[test]
+fn rejects_indicator_color_on_kinds_that_do_not_draw_it() {
+    let err = project_from_json(
+        br##"{
+          "theme": {
+            "frames": {
+              "warning": { "kind": "hazard_bar", "indicator_color": "#ff8300" }
+            }
+          }
+        }"##,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("`indicator_color` only applies to panel, button, and slot kinds"), "{err}");
+}
+
+#[test]
 fn parses_generated_theme_assets() {
     let json = br##"{
       "theme": {
