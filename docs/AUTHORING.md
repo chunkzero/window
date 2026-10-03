@@ -423,9 +423,10 @@ item("egg_info", {
 (`containerSlots`, `playerSlots`, and `hotbarSlots`) build inclusive ranges that the compiler expands after validating
 both endpoints. For convenience, raw integers inside `slots` are accepted as container slots.
 
-Slot rectangles can draw a frame once per slot in a pattern. If `frame` is omitted, they are claim-only. With
-`claim: "unowned"`, the compiler subtracts slots already owned by buttons, items, or collections, then the runtime
-clears/claims the remainder without generating a Kotlin binding.
+Slot rectangles can draw a frame once per slot in a pattern; like collection frames, it covers the full 18x18 vanilla
+slot box around each 16x16 item. If `frame` is omitted, they are claim-only. With `claim: "unowned"`, the compiler
+subtracts slots already owned by buttons, items, or collections, then the runtime clears/claims the remainder without
+generating a Kotlin binding.
 
 ```ts
 slotRects("inventory_fill", {

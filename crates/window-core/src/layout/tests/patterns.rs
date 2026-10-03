@@ -24,7 +24,7 @@ fn slot_rect_pattern_resolves_player_section_to_backing_slots_and_rect() {
         &sizes(&[]),
     );
     let buy = w.buttons.iter().find(|b| b.name == "buy").unwrap();
-    assert_eq!(buy.rect, Rect::new(116, 140, 52, 34));
+    assert_eq!(buy.rect, Rect::new(116, 139, 52, 34));
     let slots: Vec<_> = buy.slots.as_ref().unwrap().iter().map(|slot| slot.index).collect();
     assert_eq!(slots, [15, 16, 17, 24, 25, 26]);
 }
@@ -128,12 +128,12 @@ fn collection_frame_draws_each_resolved_inventory_cell() {
     assert_eq!(
         frame_rects,
         vec![
-            Rect::new(26, 18, 16, 16),
-            Rect::new(44, 18, 16, 16),
-            Rect::new(62, 18, 16, 16),
-            Rect::new(26, 36, 16, 16),
-            Rect::new(44, 36, 16, 16),
-            Rect::new(62, 36, 16, 16),
+            Rect::new(25, 17, 18, 18),
+            Rect::new(43, 17, 18, 18),
+            Rect::new(61, 17, 18, 18),
+            Rect::new(25, 35, 18, 18),
+            Rect::new(43, 35, 18, 18),
+            Rect::new(61, 35, 18, 18),
         ]
     );
 }

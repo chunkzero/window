@@ -4,7 +4,8 @@
 //! and the anvil screen used for native text entry. Modern clients lay generic
 //! screens out programmatically:
 //! `gui_height = 114 + rows * 18`, title cursor at `(8, 6)`, container slot
-//! grid at `(8, 18)` with an 18px stride, 9 columns.
+//! grid at `(8, 18)` with an 18px stride, 9 columns, player inventory at
+//! `(8, 31 + rows * 18)`, and hotbar 58px below it.
 
 use crate::geometry::{Point, Rect, Size};
 use crate::inventory::{InventorySlotArea, InventorySlotRef, InventorySlotSection};
@@ -174,7 +175,7 @@ impl ContainerKind {
     pub const fn player_inventory_origin(&self) -> Point {
         match self {
             ContainerKind::Anvil => Point::new(8, 84),
-            _ => Point::new(8, 18 + self.rows() as i32 * 18 + 14),
+            _ => Point::new(8, 18 + self.rows() as i32 * 18 + 13),
         }
     }
 

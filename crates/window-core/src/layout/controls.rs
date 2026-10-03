@@ -4,7 +4,7 @@ use super::slots::{PatternCell, ResolvedControl, cells_bounds};
 use super::target::LayoutTarget;
 use super::{ActiveRepeat, Solver};
 use crate::Result;
-use crate::geometry::{Insets, Point, Size};
+use crate::geometry::{Insets, Point, Rect, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{
     AnvilInputIr, ButtonDefault, ButtonIr, ButtonState, ButtonTooltip, CollectionIr, ItemIr, RepeatBindingIr,
@@ -182,7 +182,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(Size::new(0, 0))
     }
 
-    /// Draws `frame`, when set, over every backing slot rect in order.
+    /// Draws `frame`, when set, over the full 18x18 vanilla slot box of every backing slot in order.
     fn emit_slot_frames(
         &mut self,
         kind: &str,
@@ -194,7 +194,8 @@ impl<T: LayoutTarget> Solver<'_, T> {
             return Ok(());
         };
         for slot in slots {
-            let rect = self.slot_rect(name, *slot)?;
+            let item = self.slot_rect(name, *slot)?;
+            let rect = Rect::new(item.x - 1, item.y - 1, item.width + 2, item.height + 2);
             self.emit_frame(frame, rect, &format!("{kind} `{name}` frame `{frame}`"))?;
         }
         Ok(())
