@@ -57,6 +57,7 @@ class AnvilInputTest :
             handle.input("")
             handle.input("a")
             handle.input("as")
+            handle.seedName() shouldBe Component.text("as")
             view.clear()
             handle.input("")
 

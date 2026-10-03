@@ -158,16 +158,17 @@ public class WindowSession
             val (name, input) = entry.inputs.entries.singleOrNull() ?: return
             val handler = bindings.inputHandlers.getValue(name)
             inputValue = input.initial
-            inputHandler = { value -> if (!closed) handler(value) }
-            if (title.isStatic) return
-
-            fun deliver(value: String) {
-                if (closed) return
-                // Reopens reset the edit box to the seed's name, so stage the typed value as that name.
-                writer.stageInput(input, value)
-                handler(value)
+            inputHandler = { value ->
+                if (!closed) {
+                    // Reopens and resyncs reset the edit box to the seed's name, so stage the typed value
+                    // as that name.
+                    writer.stageInput(input, value)
+                    handler(value)
+                }
             }
-            reopens = AnvilReopenGate(scheduler, handle, input.initial, ::deliver) { sendTitle(reopen = true) }
+            if (!title.isStatic) {
+                reopens = AnvilReopenGate(scheduler, handle, input.initial, inputHandler) { sendTitle(reopen = true) }
+            }
         }
 
         private fun applyButtonState(
