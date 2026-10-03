@@ -19,6 +19,7 @@ use crate::manifest::{HudEntry, Manifest, SpriteEntry, VERSION, WindowEntry};
 use crate::text_font::TextFonts;
 use crate::{Error, Result, text_font, vanilla};
 
+mod anvil;
 mod fonts;
 mod glyphs;
 mod hud;
@@ -139,10 +140,20 @@ fn compile_layouts(
     if uses_runtime_sprites && runtime_sprites.is_empty() {
         return Err(Error::Validation("runtime sprite slots require at least one theme sprite".into()));
     }
-    let composites = glyphs::compose_layers(&windows, &huds, textures)?;
+    let mut composites = glyphs::compose_layers(&windows, &huds, textures)?;
+    let mut field_warnings = Vec::new();
+    if options.native_anvil_input.is_some() {
+        for (w, comp) in windows.iter().zip(&mut composites.windows) {
+            anvil::open_field(w, comp, &mut field_warnings);
+        }
+    }
     let used_sprites = uses_runtime_sprites.then_some(runtime_sprites);
     let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
+    ctx.warnings.extend(field_warnings);
+    if let Some(sprite) = &options.native_anvil_input {
+        ctx.files.extend(anvil::field_sprites(runtime_sprites, sprite)?);
+    }
 
     let sprites = if uses_runtime_sprites { sprites::sprite_entries(&mut ctx) } else { BTreeMap::new() };
     let mut window_entries = BTreeMap::new();

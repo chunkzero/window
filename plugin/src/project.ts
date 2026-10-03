@@ -1,8 +1,13 @@
 import type { Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
 
 export interface WindowOptions {
+    /** Namespace of the generated assets. Defaults to `window`. */
     namespace?: string;
+    /** Emit HUD shader assets. */
     hudShaders?: boolean;
+    /** A 110x16 theme sprite that restyles every anvil's native text field; see docs/AUTHORING.md. */
+    nativeAnvilInput?: string;
+    /** Kotlin package of the generated bindings. */
     kotlinPackage?: string;
 }
 
@@ -28,7 +33,7 @@ export interface ProjectJson {
     themes?: Theme[];
     windows: Window[];
     huds: Hud[];
-    options: { hud_shaders: boolean };
+    options: { hud_shaders: boolean; native_anvil_input?: string };
     target: { pack_format?: number };
 }
 
@@ -148,7 +153,10 @@ export function buildProject(
         ...(themes.length > 0 ? { themes } : {}),
         windows,
         huds,
-        options: { hud_shaders: options.hudShaders === true },
+        options: {
+            hud_shaders: options.hudShaders === true,
+            ...(options.nativeAnvilInput === undefined ? {} : { native_anvil_input: options.nativeAnvilInput }),
+        },
         target: packFormat === undefined ? {} : { pack_format: packFormat },
     };
 }

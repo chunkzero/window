@@ -375,6 +375,13 @@ export default ui({
 Generated views expose `onQueryChanged(value: String)`. Hand-written views bind the same control with
 `anvilInput("query") { value -> ... }`.
 
+By default Window's art covers the vanilla edit box, so a window shows the typed text through a text slot. The opt-in
+plugin option `nativeAnvilInput: "<sprite>"` instead keeps the client's own rename box visible, with its cursor,
+selection, and font. It names a 110x16 theme sprite that replaces vanilla's anvil text-field sprites for the whole pack,
+and Window leaves the field's rect (59, 20, 110x16) transparent in every window with an `anvilInput`. Slots drawn over
+that rect produce a warning. Title changes reopen the anvil and reset its cursor, so keep the title static while the
+player types.
+
 ## Slot Patterns
 
 Slot-space patterns are the preferred way to bind UI controls to inventory slots. Pattern coordinates are zero-based
