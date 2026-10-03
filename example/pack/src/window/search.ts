@@ -24,12 +24,6 @@ export default ui({
             transform: { section: "container", x: 0, y: 0, width: 1, height: 1 },
             children: [sprite("icon_back")],
         }),
-        button("clear", {
-            frame: "button",
-            transform: { section: "container", x: 1, y: 0, width: 1, height: 1 },
-            tooltip: "Clear",
-            children: [sprite("icon_clear")],
-        }),
         button("confirm", {
             frame: "button_confirm",
             transform: { section: "container", x: 2, y: 0, width: 1, height: 1 },

@@ -27,7 +27,7 @@ class MyShop(
     private val windows: Windows,
     private val market: Market,
     initialSelection: String? = null,
-    private val query: String = "",
+    initialQuery: String = "",
 ) : ShopView() {
     private val pager = WindowPager(cellCount = 27)
 
@@ -39,6 +39,7 @@ class MyShop(
     private var offset by state(0)
     private var selectedId by state(initialSelection)
     private var feedback by state<String?>(null)
+    private var query by state(initialQuery)
 
     override fun balance(): Component = Component.text(coins)
 
@@ -145,6 +146,12 @@ class MyShop(
         windows.open(player, CatalogSearch(windows, market, query))
     }
 
+    override fun onClearSearch(click: Click) {
+        if (query.isEmpty()) return
+        query = ""
+        filtersChanged()
+    }
+
     override fun onBuy(click: Click) {
         val product = selectedProduct() ?: return
         val newBalance = market.purchase(player, product.price)
@@ -237,6 +244,7 @@ class MyShop(
         buttonState("sort_name", selectedState(sort == CatalogSort.NAME))
         buttonState("favorites", if (favoritesOnly) "on" else "off")
         buttonState("affordable", if (affordableOnly) "on" else "off")
+        buttonState("clear_search", enabledState(query.isNotEmpty()))
         buttonState("previous", enabledState(pager.canPrevious(offset)))
         buttonState("next", enabledState(pager.canNext(offset, products.size)))
         buttonState("buy", enabledState(selectedProduct()?.price?.let { it <= coins } == true))

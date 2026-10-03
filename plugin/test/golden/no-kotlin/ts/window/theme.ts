@@ -17,6 +17,8 @@ export default theme({
         action_disabled: sized("button_disabled", 52, 16),
         buy: sized("button_accent", 106, 16),
         buy_disabled: sized("button_disabled", 106, 16),
+        clear_search: sized("button", 16, 16),
+        clear_search_disabled: sized("button_disabled", 16, 16),
         search_field: sized("recess", 110, 16),
         icon_back: { texture: "window/icons/back.png" },
         icon_clear: { texture: "window/icons/clear.png" },

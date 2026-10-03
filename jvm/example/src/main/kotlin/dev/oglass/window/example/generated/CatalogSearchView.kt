@@ -10,9 +10,6 @@ public abstract class CatalogSearchView : WindowView("catalog_search") {
     /** Handle a click on the `back` button. */
     protected abstract fun onBack(click: Click)
 
-    /** Handle a click on the `clear` button. */
-    protected abstract fun onClear(click: Click)
-
     /** Handle a click on the `confirm` button. */
     protected abstract fun onConfirm(click: Click)
 
@@ -21,7 +18,6 @@ public abstract class CatalogSearchView : WindowView("catalog_search") {
 
     final override fun WindowScope.bind() {
         button("back", ::onBack)
-        button("clear", ::onClear)
         button("confirm", ::onConfirm)
         anvilInput("query", ::onQueryChanged)
     }

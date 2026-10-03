@@ -68,27 +68,6 @@ public object WindowDefinitions {
                             states = emptyMap(),
                             spriteFont = null,
                         ),
-                        "clear" to ButtonEntry(
-                            x = 76,
-                            y = 47,
-                            width = 16,
-                            height = 16,
-                            slots = listOf(
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 1,
-                                ),
-                            ),
-                            fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = ButtonTooltip(
-                                title = "Clear",
-                                lines = emptyList(),
-                            ),
-                            states = emptyMap(),
-                            spriteFont = null,
-                        ),
                         "confirm" to ButtonEntry(
                             x = 134,
                             y = 47,
@@ -426,9 +405,9 @@ public object WindowDefinitions {
                             shaderColor = null,
                         ),
                         "label_3" to SlotEntry(
-                            x = 127,
+                            x = 124,
                             y = 161,
-                            width = 29,
+                            width = 18,
                             align = Align.CENTER,
                             font = "window:small_caps/y155",
                             color = "#ffffff",
@@ -438,7 +417,7 @@ public object WindowDefinitions {
                             underlined = false,
                             strikethrough = false,
                             obfuscated = false,
-                            text = "Search",
+                            text = "Find",
                             shaderMarker = null,
                             shaderColor = null,
                         ),
@@ -622,6 +601,15 @@ public object WindowDefinitions {
                             align = Align.LEFT,
                             font = "window:sprite_y157",
                             sprite = null,
+                        ),
+                        "clear_search_icon" to SpriteSlotEntry(
+                            x = 156,
+                            y = 162,
+                            width = 8,
+                            height = 6,
+                            align = Align.LEFT,
+                            font = "window:sprite_y156",
+                            sprite = "icon_clear",
                         ),
                         "favorites_lamp" to SpriteSlotEntry(
                             x = 13,
@@ -870,6 +858,41 @@ public object WindowDefinitions {
                             ),
                             spriteFont = "window:sprite_y12",
                         ),
+                        "clear_search" to ButtonEntry(
+                            x = 152,
+                            y = 157,
+                            width = 16,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 26,
+                                ),
+                            ),
+                            fillSlots = null,
+                            default = null,
+                            action = true,
+                            tooltip = null,
+                            states = mapOf(
+                                "disabled" to ButtonState(
+                                    itemModel = "window:gui/hitbox",
+                                    sprite = "clear_search_disabled",
+                                    tooltip = ButtonTooltip(
+                                        title = "Clear search unavailable",
+                                        lines = emptyList(),
+                                    ),
+                                ),
+                                "enabled" to ButtonState(
+                                    itemModel = "window:gui/hitbox",
+                                    sprite = "clear_search",
+                                    tooltip = ButtonTooltip(
+                                        title = "Clear search",
+                                        lines = emptyList(),
+                                    ),
+                                ),
+                            ),
+                            spriteFont = "window:sprite_y151",
+                        ),
                         "exit" to ButtonEntry(
                             x = 116,
                             y = 197,
@@ -1031,7 +1054,7 @@ public object WindowDefinitions {
                         "search" to ButtonEntry(
                             x = 116,
                             y = 157,
-                            width = 52,
+                            width = 34,
                             height = 16,
                             slots = listOf(
                                 SlotRefEntry(
@@ -1041,10 +1064,6 @@ public object WindowDefinitions {
                                 SlotRefEntry(
                                     area = SlotAreaEntry.PLAYER,
                                     index = 25,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 26,
                                 ),
                             ),
                             fillSlots = null,

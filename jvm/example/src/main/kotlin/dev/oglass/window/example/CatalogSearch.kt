@@ -21,12 +21,10 @@ class CatalogSearch(
     }
 
     override fun onBack(click: Click) {
-        windows.open(player, MyShop(windows, market, query = current))
+        windows.open(player, MyShop(windows, market, initialQuery = current))
     }
 
-    override fun onClear(click: Click) = input("query", "")
-
     override fun onConfirm(click: Click) {
-        windows.open(player, MyShop(windows, market, query = query))
+        windows.open(player, MyShop(windows, market, initialQuery = query))
     }
 }

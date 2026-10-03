@@ -39,6 +39,22 @@ public object WindowSprites {
                 advance = 107,
                 glyph = "\uEEE6",
             ),
+            "clear_search" to SpriteEntry(
+                width = 16,
+                height = 16,
+                xOffset = 0,
+                glyphWidth = 16,
+                advance = 17,
+                glyph = "\uE978",
+            ),
+            "clear_search_disabled" to SpriteEntry(
+                width = 16,
+                height = 16,
+                xOffset = 0,
+                glyphWidth = 16,
+                advance = 17,
+                glyph = "\uF28D",
+            ),
             "coin" to SpriteEntry(
                 width = 8,
                 height = 8,

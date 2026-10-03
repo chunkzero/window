@@ -116,9 +116,14 @@ export default ui({
         lampToggle("affordable", 3, "Afford", "Affordable only"),
         button("search", {
             frame: "button",
-            transform: { section: "player", x: 6, y: 1, width: 3, height: 1 },
+            transform: { section: "player", x: 6, y: 1, width: 2, height: 1 },
             tooltip: "Search the catalog",
-            children: [label("Search", text)],
+            children: [label("Find", text)],
+        }),
+        button("clear_search", {
+            transform: { section: "player", x: 8, y: 1, width: 1, height: 1 },
+            states: enabledStates("Clear search", "clear_search"),
+            children: [spriteSlot("clear_search_icon", { width: 8, height: 6, sprite: "icon_clear" })],
         }),
         slot("status", { ...text, x: 12, y: 179, width: 92, color: "#bceeff" }),
         slot("balance", { ...text, x: 104, y: 179, width: 48, align: "right", color: "#ffb20b" }),
