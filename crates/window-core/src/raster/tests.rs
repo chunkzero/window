@@ -56,3 +56,41 @@ fn hazard_bar_contains_stripes() {
         .count();
     assert!(stripe_pixels > 0, "hazard stripes should be visible");
 }
+
+#[test]
+fn indicator_bar_sits_inside_the_bottom_bevel() {
+    let lamp = Rgb::new(0xff, 0x83, 0x00);
+    let style = GeneratedStyle {
+        border_width: 1,
+        inset_depth: 1,
+        radius: 0,
+        indicator_color: Some(lamp),
+        ..GeneratedStyle::defaults(GeneratedKind::Button)
+    };
+    let texture = render(&style, Size::new(52, 16)).unwrap();
+    let lamp = [lamp.r, lamp.g, lamp.b, 255];
+    let fill = [style.fill.r, style.fill.g, style.fill.b, 255];
+    assert_eq!(rgba_at(&texture, 3, 12), lamp);
+    assert_eq!(rgba_at(&texture, 48, 13), lamp);
+    assert_eq!(rgba_at(&texture, 2, 12), fill);
+    assert_eq!(rgba_at(&texture, 10, 11), fill);
+    assert_ne!(rgba_at(&texture, 10, 14), lamp);
+}
+
+#[test]
+fn indicator_bar_stays_clear_of_rounded_corners() {
+    let style = GeneratedStyle {
+        border_width: 1,
+        inset_depth: 1,
+        radius: 16,
+        indicator_color: Some(Rgb::new(0xff, 0x83, 0x00)),
+        ..GeneratedStyle::defaults(GeneratedKind::Button)
+    };
+    let texture = render(&style, Size::new(52, 32)).unwrap();
+    assert_eq!(rgba_at(&texture, 3, 29)[3], 0);
+    assert_eq!(rgba_at(&texture, 26, 29)[..3], [0xff, 0x83, 0x00]);
+
+    // The frame clamps its radius to half the shorter side, and the bar follows the clamped corners.
+    let texture = render(&style, Size::new(24, 12)).unwrap();
+    assert_eq!(rgba_at(&texture, 12, 9)[..3], [0xff, 0x83, 0x00]);
+}

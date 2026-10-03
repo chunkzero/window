@@ -49,8 +49,8 @@ plus optional `insets`, where `insets` may be a number or `{ top: ..., right: ..
 
 Generated frames omit `texture` and use `kind`: `"panel"`, `"button"`, `"slot"`, `"hazard_bar"`, `"vent"`, or `"badge"`.
 Common options are `fill`, `border_color`, `border_width`, `radius`, `inset_depth`, `highlight_color`, `shadow_color`,
-`accent_color`, `stripe_color`, `stripe_shadow_color`, and `stripe_width`. Generated sprites use the same style options
-and require `width` and `height`.
+`accent_color`, `indicator_color` (panel, button, and slot only), `stripe_color`, `stripe_shadow_color`, and
+`stripe_width`. Generated sprites use the same style options and require `width` and `height`.
 
 Window also ships a generated default theme:
 
