@@ -6,8 +6,9 @@ use super::glsl::{
 };
 use super::marker_id;
 
-// Minecraft 26.1.2's Gui.extractOverlayMessage translates to guiHeight - 68
-// and draws text at y=-4, placing Window's authored y=0 at guiHeight - 72.
+// Minecraft's actionbar renderer (Gui.extractOverlayMessage in 26.1.2,
+// Hud.extractOverlayMessage in 26.2) translates to guiHeight - 68 and draws
+// text at y=-4, placing Window's authored y=0 at guiHeight - 72.
 // `source_bottom` defaults to 59, so its nominal point is 13px below that
 // fixed source origin. This is independent of the custom bitmap's height.
 const ACTIONBAR_SOURCE_INSET: i32 = 13;
@@ -278,6 +279,62 @@ void main() {{
 {fog_assign}
     vertexColor = window_hud_vertex_color(Color, sample_lightmap(Sampler2, UV2), Position.y);
     texCoord0 = UV0;{texture_mode_assign}
+}}
+"#
+    )
+}
+
+/// Renders `core/text.vsh`, which vanilla compiles once per pipeline with `IS_GUI`,
+/// `IS_SEE_THROUGH`, and `IS_GRAYSCALE` defines; each variant keeps vanilla's inputs and bindings.
+pub(in crate::hud) fn render_v330_define_variant_text_shader(rules: &[HudShaderRule]) -> String {
+    let helpers = render_text_helpers(rules, ScreenSizeSource::Globals, true);
+
+    format!(
+        r#"#version 330
+
+#if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)
+#moj_import <minecraft:fog.glsl>
+#moj_import <minecraft:sample_lightmap.glsl>
+#endif
+
+#moj_import <minecraft:globals.glsl>
+#moj_import <minecraft:dynamictransforms.glsl>
+#moj_import <minecraft:projection.glsl>
+
+in vec3 Position;
+in vec4 Color;
+in vec2 UV0;
+#if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)
+in ivec2 UV2;
+
+uniform sampler2D Sampler2;
+
+out float sphericalVertexDistance;
+out float cylindricalVertexDistance;
+#endif
+
+out vec4 vertexColor;
+out vec2 texCoord0;
+#ifdef IS_GRAYSCALE
+flat out int windowHudTextureMode;
+#endif
+{helpers}
+void main() {{
+    vec3 pos = Position;
+    window_hud_apply(pos, Color);
+    gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
+
+#if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)
+    sphericalVertexDistance = fog_spherical_distance(Position);
+    cylindricalVertexDistance = fog_cylindrical_distance(Position);
+    vertexColor = window_hud_vertex_color(Color, sample_lightmap(Sampler2, UV2), Position.y);
+#else
+    vertexColor = window_hud_vertex_color(Color, vec4(1.0), Position.y);
+#endif
+    texCoord0 = UV0;
+#ifdef IS_GRAYSCALE
+    windowHudTextureMode = window_hud_texture_mode(Color);
+#endif
 }}
 "#
     )

@@ -63,7 +63,7 @@ import { defineConfig } from "#rpp/config";
 import window from "#plugins/window";
 
 export default defineConfig({
-  pack: { name: "my-pack", description: "My server pack", packFormat: 84 },
+  pack: { name: "my-pack", description: "My server pack", packFormat: 88 },
   plugins: [
     window({
       namespace: "window",
@@ -92,7 +92,17 @@ just example-pack    # build the resource pack and Kotlin bindings
 just example-run     # start the server on :25565
 ```
 
-Then connect with a Minecraft 26.1.2 client.
+Then connect with a Minecraft 26.2 client.
+
+## Supported versions
+
+Window targets Minecraft 26.2 (resource pack format 88). The Kotlin runtime and example server use a Minestom build for
+26.2, and Minestom serves a single protocol version, so they accept only 26.2 clients. The
+[inspector](docs/INSPECTOR.md) also targets 26.2.
+
+The compiler still emits packs for 26.1.x (pack format 84): its glyph metrics are shared with 26.2, and `hudShaders`
+selects the core text shaders for the configured pack format. Serving 26.1.x clients requires a server that speaks their
+protocol; Window's runtime does not.
 
 ## Documentation
 

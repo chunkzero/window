@@ -22,9 +22,9 @@ repositories {
 }
 
 dependencies {
-    minecraft("com.mojang:minecraft:26.1.2")
-    implementation("net.fabricmc:fabric-loader:0.19.3")
-    implementation("net.fabricmc.fabric-api:fabric-api:0.154.2+26.1.2")
+    minecraft("com.mojang:minecraft:26.2")
+    implementation("net.fabricmc:fabric-loader:0.19.5")
+    implementation("net.fabricmc.fabric-api:fabric-api:0.161.0+26.2")
     if (withValidation) {
         compileOnly("dev.rpp.mcvalidation:core:0.1.0-SNAPSHOT")
         compileOnly("dev.rpp.mcvalidation:fabric-client:0.1.0-SNAPSHOT")

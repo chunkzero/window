@@ -147,3 +147,50 @@ void main() {{
 "#
     )
 }
+
+/// Renders `core/text_background.vsh`, which vanilla compiles with and without `IS_SEE_THROUGH`.
+pub(in crate::hud) fn render_v330_define_variant_text_background_shader(rules: &[HudShaderRule]) -> String {
+    let helpers = render_background_helpers(rules, ScreenSizeSource::Globals);
+
+    format!(
+        r#"#version 330
+
+#ifndef IS_SEE_THROUGH
+#moj_import <minecraft:fog.glsl>
+#moj_import <minecraft:sample_lightmap.glsl>
+#endif
+
+#moj_import <minecraft:globals.glsl>
+#moj_import <minecraft:dynamictransforms.glsl>
+#moj_import <minecraft:projection.glsl>
+
+in vec3 Position;
+in vec4 Color;
+#ifndef IS_SEE_THROUGH
+in ivec2 UV2;
+
+uniform sampler2D Sampler2;
+
+out float sphericalVertexDistance;
+out float cylindricalVertexDistance;
+#endif
+
+out vec4 vertexColor;
+{helpers}
+void main() {{
+    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
+
+#ifndef IS_SEE_THROUGH
+    sphericalVertexDistance = fog_spherical_distance(Position);
+    cylindricalVertexDistance = fog_cylindrical_distance(Position);
+    vertexColor = Color * sample_lightmap(Sampler2, UV2);
+#else
+    vertexColor = Color;
+#endif
+    if (window_hud_background_matches(Position.x, Position.y)) {{
+        vertexColor.a = 0.0;
+    }}
+}}
+"#
+    )
+}

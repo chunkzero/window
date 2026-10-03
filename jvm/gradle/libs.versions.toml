@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.3.10"
-minestom = "2026.06.05-26.1.2"
+minestom = "2026.09.12-26.2"
 adventure = "5.1.1"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = "1.10.0"

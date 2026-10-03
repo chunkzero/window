@@ -12,9 +12,10 @@
 //! common UI symbols that vanilla renders from `nonlatin_european.png` and
 //! `accented.png`, and the vanilla space-provider entries (`' '`, `U+200C`).
 //! Every character the shifted fonts provide has exactly one entry here.
-//! Bitmap advances are measured from the rightmost opaque cell pixels in
-//! Minecraft 26.1.2's bitmap sheets; getting even one glyph wrong causes each
-//! net-zero title segment to leak cursor movement into every segment after it.
+//! Bitmap advances are measured from the rightmost opaque cell pixels in the
+//! identical bitmap sheets shipped by Minecraft 26.1.2 and 26.2; getting even
+//! one glyph wrong causes each net-zero title segment to leak cursor movement
+//! into every segment after it.
 
 /// The advance table: `(char, advance)` pairs covering printable ASCII,
 /// sorted ascending by codepoint. `advance == glyph_width + 1`.
