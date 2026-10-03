@@ -12,9 +12,8 @@ fn panel_renders_border_and_fill() {
     let texture = render(&style, Size::new(20, 12)).unwrap();
     assert_eq!(texture.width, 20);
     assert_eq!(texture.height, 12);
-    let border = 10 * 4;
-    assert_eq!(texture.rgba[border + 3], 255);
-    assert!(texture.rgba[border] >= style.border_color.r);
+    let border = style.border_color;
+    assert_eq!(rgba_at(&texture, 10, 0), [border.r, border.g, border.b, 255]);
 
     let fill = style.fill;
     assert_eq!(rgba_at(&texture, 10, 4), [fill.r, fill.g, fill.b, 255]);
