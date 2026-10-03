@@ -20,6 +20,7 @@ import net.minestom.server.inventory.type.AnvilInventory
 import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.client.common.ClientPongPacket
 import net.minestom.server.network.packet.server.common.PingPacket
+import net.minestom.server.network.packet.server.play.BundlePacket
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicLong
 
@@ -85,6 +86,15 @@ internal class LiveInventoryHandle(
 
     override fun ping(id: Int) {
         player.sendPacket(PingPacket(id))
+    }
+
+    override fun bundle(action: () -> Unit) {
+        player.sendPacket(BundlePacket())
+        try {
+            action()
+        } finally {
+            player.sendPacket(BundlePacket())
+        }
     }
 
     override fun registerListeners(

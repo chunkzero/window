@@ -88,11 +88,13 @@ public class WindowSession
             seedTitle()
 
             val render = title.compose()
-            handle.open(render.component)
+            handle.bundle {
+                handle.open(render.component)
+                handle.registerListeners(::handleClick, ::handleClientClose, ::handleInput, ::handlePong)
+                writer.seed()
+                reopens?.sent()
+            }
             frames.observe(render, RenderFrameReason.OPEN)
-            handle.registerListeners(::handleClick, ::handleClientClose, ::handleInput, ::handlePong)
-            writer.seed()
-            reopens?.sent()
             view.invokeOnOpen()
             opened = true
         }
@@ -128,8 +130,10 @@ public class WindowSession
         private fun sendTitle() {
             if (closed || reopens?.canReopen() == false) return
             val render = title.compose()
-            handle.setTitle(render.component)
-            reopens?.sent()
+            handle.bundle {
+                handle.setTitle(render.component)
+                reopens?.sent()
+            }
             frames.observe(render, RenderFrameReason.REACTIVE_UPDATE)
         }
 
@@ -173,6 +177,7 @@ public class WindowSession
 
         private fun handleClick(info: ClickInfo) {
             if (closed) return
+            reopens?.release()
             routes.dispatch(info)
         }
 
@@ -197,6 +202,7 @@ public class WindowSession
 
         private fun handleClientClose() {
             if (closed) return
+            reopens?.release()
             closed = true
             view.invokeOnClose()
             handle.teardownListeners()

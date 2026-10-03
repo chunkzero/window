@@ -6,12 +6,12 @@ import java.util.concurrent.atomic.AtomicInteger
  * Separates anvil reopen echoes from user edits and keeps at most one reopen in flight.
  *
  * Changing an anvil's title reopens the vanilla screen, which resets its edit box to the input
- * seed's name; the client then sends that name back as input. Each reopen is followed by a ping, so
- * the client's pong marks where the echo ends: input received before the pong is buffered, its
- * last value is the echo when it matches the seed the reopen restored, and the rest are edits typed
- * on the old screen. Those edits are delivered on the pong, and since the reopen wiped them from the
- * client's edit box, another reopen restores them. Title changes requested while a reopen is in
- * flight wait for its pong.
+ * seed's name; the client then sends that name back as input. Each reopen is bundled with a ping,
+ * so the client handles both at once and its echo arrives immediately before the pong. While a
+ * reopen is in flight the latest input is held back: any later packet proves it was a user edit,
+ * and the pong proves it was the echo when it matches the restored seed. Edits typed on the old
+ * screen were wiped from the client's edit box, so another reopen restores them. Title changes
+ * requested while a reopen is in flight wait for its pong.
  */
 internal class AnvilReopenGate(
     private val scheduler: RenderScheduler,
@@ -25,7 +25,7 @@ internal class AnvilReopenGate(
         private set
     private var restored = seed
     private var awaiting: Int? = null
-    private val buffered = mutableListOf<String>()
+    private var held: String? = null
     private var deferred = false
     private var owed = false
 
@@ -36,7 +36,7 @@ internal class AnvilReopenGate(
         return false
     }
 
-    /** Records that a reopen restoring [seed] was sent, and pings behind it. */
+    /** Records that a reopen restoring [seed] was sent; call inside the reopen's bundle. */
     fun sent() {
         restored = seed
         owed = false
@@ -45,18 +45,30 @@ internal class AnvilReopenGate(
         ping(id)
     }
 
-    /** Handles client edit-box [value], buffering it while a reopen is in flight. */
+    /** Handles client edit-box [value]. */
     fun input(value: String) {
-        if (awaiting != null) buffered += value else apply(value)
+        if (awaiting == null) {
+            apply(value)
+        } else {
+            release()
+            held = value
+        }
+    }
+
+    /** Delivers held input before another client packet is handled, since that packet proves it was an edit. */
+    fun release() {
+        val value = held ?: return
+        held = null
+        apply(value)
     }
 
     /** Settles the in-flight reopen when [id] answers its ping. */
     fun pong(id: Int) {
         if (id != awaiting) return
         awaiting = null
-        val edits = if (buffered.lastOrNull() == restored) buffered.dropLast(1) else buffered.toList()
-        buffered.clear()
-        edits.forEach(::apply)
+        val last = held
+        held = null
+        if (last != null && last != restored) apply(last)
         if (deferred || seed != restored) {
             deferred = false
             owed = true

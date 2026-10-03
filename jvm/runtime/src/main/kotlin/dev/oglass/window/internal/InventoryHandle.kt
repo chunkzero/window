@@ -35,6 +35,9 @@ internal interface InventoryHandle {
     /** Sends the player a ping whose pong reaches [registerListeners]' `onPong` in packet order. */
     fun ping(id: Int)
 
+    /** Runs [action] with the packets it sends delivered as one bundle the client handles at once. */
+    fun bundle(action: () -> Unit)
+
     /** Registers click, close, native text-input, and pong listeners. */
     fun registerListeners(
         onClick: (ClickInfo) -> Unit,

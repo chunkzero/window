@@ -45,15 +45,13 @@ class AnvilInputTest :
             scheduler.tick()
             handle.titles.size shouldBe 2
 
-            // Typed before the "d" reopen arrives, then the reopen's echo.
+            // Typed on the old screen before the "d" reopen lands, then the reopen's echo.
             handle.input("di")
             handle.input("d")
-            scheduler.tick()
-            handle.titles.size shouldBe 2
-
             handle.pong()
             scheduler.tick()
             handle.titles.size shouldBe 3
+
             handle.input("di")
             handle.pong()
             scheduler.runAll()
@@ -81,5 +79,21 @@ class AnvilInputTest :
 
             view.edits shouldBe listOf("d", "di", "d")
             handle.seedName() shouldBe Component.text("d")
+        }
+
+        "edits held for a pending reopen reach the view before a close" {
+            val view = SearchView()
+            val scheduler = ManualScheduler()
+            val handle = FakeInventoryHandle()
+            testSession(manifest, "w", view, scheduler, handle).open()
+            handle.input("")
+            handle.pong()
+
+            handle.input("d")
+            scheduler.tick()
+            handle.input("di")
+            handle.clientClose()
+
+            view.edits shouldBe listOf("d", "di")
         }
     })

@@ -91,6 +91,10 @@ internal class FakeInventoryHandle : InventoryHandle {
         pings += id
     }
 
+    override fun bundle(action: () -> Unit) {
+        action()
+    }
+
     override fun close() {
         closed = true
         listenersTorndown = true
