@@ -35,6 +35,8 @@ pub(super) struct ProjectDto {
 struct OptionsDto {
     #[serde(default)]
     hud_shaders: bool,
+    #[serde(default)]
+    native_anvil_input: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -65,7 +67,10 @@ impl ProjectDto {
             theme,
             windows: convert_windows(self.windows)?,
             huds: convert_huds(self.huds)?,
-            options: BuildOptions { hud_shaders: self.options.hud_shaders },
+            options: BuildOptions {
+                hud_shaders: self.options.hud_shaders,
+                native_anvil_input: self.options.native_anvil_input,
+            },
             target: PackTarget { pack_format: self.target.pack_format },
         })
     }

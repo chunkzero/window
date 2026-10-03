@@ -10,6 +10,12 @@ export interface WindowConfig {
     namespace?: string;
     /** Emit HUD shader assets. */
     hudShaders?: boolean;
+    /**
+     * A 110x16 theme sprite that restyles every anvil's native text field. Windows with an anvil
+     * input then leave the client's rename box (cursor, selection, editing keys) visible instead of
+     * covering it. Overrides vanilla's anvil text-field sprites for the whole pack.
+     */
+    nativeAnvilInput?: string;
     /** Generate Kotlin bindings into the `output` directory, relative to the project root. */
     kotlin?: { package: string; output: string };
 }
@@ -18,10 +24,11 @@ const configure: (options: WindowOptions, access?: Access) => PluginEntry = defi
 
 /** Configure the Window plugin in `rpp.config.ts`. */
 const window: (config?: WindowConfig, access?: Access) => PluginEntry = (config = {}, access) => {
-    const { namespace, hudShaders, kotlin } = config;
+    const { namespace, hudShaders, nativeAnvilInput, kotlin } = config;
     const options: WindowOptions = {
         ...(namespace === undefined ? {} : { namespace }),
         ...(hudShaders === undefined ? {} : { hudShaders }),
+        ...(nativeAnvilInput === undefined ? {} : { nativeAnvilInput }),
         ...(kotlin === undefined ? {} : { kotlinPackage: kotlin.package }),
     };
     return configure(options, {

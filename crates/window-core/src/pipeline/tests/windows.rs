@@ -224,3 +224,33 @@ fn static_glyph_codepoint_in_private_use_area() {
     });
     assert!(glyph.is_some(), "static string contains a glyph codepoint");
 }
+
+#[test]
+fn native_anvil_input_restyles_the_vanilla_field_and_opens_the_art_over_it() {
+    let project = r##"{
+      "theme":{
+        "frames":{"recess":{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0}},
+        "sprites":{"field":{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0,"width":110,"height":16}}
+      },
+      "windows":[{"name":"search","container":"anvil","children":[
+        {"type":"panel","frame":"recess","x":0,"y":0,"width":176,"height":166},
+        {"type":"slot","name":"query_text","x":62,"y":24,"width":103},
+        {"type":"anvil_input","name":"query"}
+      ]}],
+      "options":{"native_anvil_input":"field"}
+    }"##;
+
+    let out = crate::pipeline::compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
+    for path in [
+        "assets/minecraft/textures/gui/sprites/container/anvil/text_field.png",
+        "assets/minecraft/textures/gui/sprites/container/anvil/text_field_disabled.png",
+    ] {
+        let field = Texture::decode_png(&find(&out, path).contents).unwrap();
+        assert_eq!((field.width, field.height), (110, 16));
+    }
+    let art = Texture::decode_png(&find(&out, "assets/window/textures/font/search.png").contents).unwrap();
+    let alpha = |x: u32, y: u32| art.rgba[((y * art.width + x) * 4 + 3) as usize];
+    assert_eq!((alpha(59, 20), alpha(168, 35)), (0, 0));
+    assert_eq!((alpha(58, 20), alpha(59, 36)), (255, 255));
+    assert!(out.warnings.iter().any(|w| w.contains("`query_text` draws over the native anvil text field")));
+}
