@@ -7,13 +7,13 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
+import net.minestom.server.component.DataComponents
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.EventFilter
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.inventory.InventoryType
-import net.minestom.server.inventory.type.AnvilInventory
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.listener.WindowListener
@@ -306,7 +306,7 @@ class LiveInventoryHandleTest :
             val handle = LiveInventoryHandle(player, InventoryType.CHEST_3_ROW)
             val clicks = mutableListOf<dev.oglass.window.internal.ClickInfo>()
             handle.open(Component.text("test"))
-            handle.registerListeners({ clicks += it }, {}, {})
+            handle.registerListeners({ clicks += it }, {}, {}, {})
             try {
                 EventDispatcher.call(
                     InventoryPreClickEvent(
@@ -322,21 +322,8 @@ class LiveInventoryHandleTest :
             }
         }
 
-        "anvil input items keep the client out of repair mode" {
-            val connection = RecordingConnection()
-            val player = testPlayer(connection)
-            val handle = LiveInventoryHandle(player, InventoryType.ANVIL)
-            handle.open(Component.text("test"))
-            try {
-                handle.inventory::class shouldBe AnvilInventory::class
-                val anvil = handle.inventory as AnvilInventory
-                anvil.repairCost = 7
-                handle.setItem(SlotRef(SlotArea.CONTAINER, 0), WindowItems.anvilInput("maps"))
-
-                anvil.repairCost shouldBe 0
-            } finally {
-                handle.close()
-            }
+        "anvil input seeds cannot hold enchantments, so the client never prices a repair" {
+            WindowItems.anvilInput("maps").has(DataComponents.ENCHANTMENTS) shouldBe false
         }
     })
 

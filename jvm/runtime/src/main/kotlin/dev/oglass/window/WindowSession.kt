@@ -4,6 +4,7 @@ import dev.oglass.window.diagnostics.RenderCorrelation
 import dev.oglass.window.diagnostics.RenderCursorConvention
 import dev.oglass.window.diagnostics.RenderFrameReason
 import dev.oglass.window.diagnostics.RenderSurfaceKind
+import dev.oglass.window.internal.AnvilReopenGate
 import dev.oglass.window.internal.ClickInfo
 import dev.oglass.window.internal.FrameCursor
 import dev.oglass.window.internal.InventoryHandle
@@ -35,7 +36,7 @@ public class WindowSession
         /** The view driving this session. */
         public val view: WindowView,
         private val player: Player,
-        scheduler: RenderScheduler,
+        private val scheduler: RenderScheduler,
         private val handle: InventoryHandle,
         diagnosticsObserver: RenderDiagnosticsObserver = RenderDiagnosticsObserver.NONE,
     ) {
@@ -46,6 +47,7 @@ public class WindowSession
         private val title = WindowTitle(definition, bindings, reactivity)
         private val writer = WindowInventoryWriter(definition, bindings, handle, reactivity)
         private val routes = SlotRoutes(entry, bindings, player, ::close)
+        private var reopens: AnvilReopenGate? = null
 
         private val frames =
             SessionFrames(
@@ -80,13 +82,16 @@ public class WindowSession
             view.attach(player, this, reactivity)
             view.invokeBind(bindings)
             bindings.validate()
+            reopens = reopenGate()
             seedTitle()
 
             val render = title.compose()
-            handle.open(render.component)
+            send {
+                handle.open(render.component)
+                handle.registerListeners(::handleClick, ::handleClientClose, ::handleInput, ::handlePong)
+                writer.seed()
+            }
             frames.observe(render, RenderFrameReason.OPEN)
-            handle.registerListeners(::handleClick, ::handleClientClose, ::handleInput)
-            writer.seed()
             view.invokeOnOpen()
             opened = true
         }
@@ -120,9 +125,32 @@ public class WindowSession
         }
 
         private fun sendTitle() {
+            if (closed) return
             val render = title.compose()
-            handle.setTitle(render.component)
+            if (!send { handle.setTitle(render.component) }) return
             frames.observe(render, RenderFrameReason.REACTIVE_UPDATE)
+        }
+
+        /** Runs [action], through the anvil reopen gate when there is one; false when the gate defers it. */
+        private fun send(action: () -> Unit): Boolean {
+            reopens?.let { return it.send(action) }
+            action()
+            return true
+        }
+
+        /** Gates the window's single anvil input, delivering edits to its bound handler. */
+        private fun reopenGate(): AnvilReopenGate? {
+            val (name, input) = entry.inputs.entries.singleOrNull() ?: return null
+            val handler = bindings.inputHandlers.getValue(name)
+
+            fun deliver(value: String) {
+                if (closed) return
+                // Title changes reopen the vanilla menu, which resets the edit box to the seed's name.
+                // Stage the typed value as that name so the next reopen restores it.
+                writer.stageInput(input, value)
+                handler(value)
+            }
+            return AnvilReopenGate(scheduler, handle, input.initial, ::deliver, ::sendTitle)
         }
 
         private fun applyButtonState(
@@ -151,6 +179,7 @@ public class WindowSession
             name: String,
             state: String,
         ) {
+            if (writer.buttonState(name) == state) return
             applyButtonState(name, state)
             if (!closed) sendTitle()
         }
@@ -164,20 +193,24 @@ public class WindowSession
 
         private fun handleClick(info: ClickInfo) {
             if (closed) return
+            reopens?.release()
+            if (closed) return
             routes.dispatch(info)
         }
 
         private fun handleInput(value: String) {
             if (closed) return
-            val (name, handler) = bindings.inputHandlers.entries.singleOrNull() ?: return
-            // Reactive text changes update the inventory title, which reopens the vanilla menu. Keep
-            // slot zero's custom name in sync first so Minecraft restores the current edit-box value
-            // instead of replacing it with the original seed text after every keystroke.
-            writer.applyInput(entry.inputs.getValue(name), value)
-            handler(value)
+            reopens?.input(value)
+        }
+
+        private fun handlePong(id: Int) {
+            if (closed) return
+            reopens?.pong(id)
         }
 
         private fun handleClientClose() {
+            if (closed) return
+            reopens?.release()
             if (closed) return
             closed = true
             view.invokeOnClose()

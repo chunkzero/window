@@ -254,6 +254,7 @@ class ButtonStateBindingTest :
 
             val input = handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0))
             input.get(DataComponents.ITEM_MODEL) shouldBe "demo:gui/search"
+            handle.pong()
             handle.input("maps")
             queries shouldBe listOf("maps")
             handle.items

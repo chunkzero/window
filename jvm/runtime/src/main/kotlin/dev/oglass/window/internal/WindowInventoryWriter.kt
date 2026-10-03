@@ -131,9 +131,24 @@ internal class WindowInventoryWriter(
         input: AnvilInputEntry,
         value: String,
     ) {
-        val model = input.itemModel ?: definition.hitboxModel
-        handle.setItem(input.slot.toApi(), WindowItems.anvilInput(value, model))
+        handle.setItem(input.slot.toApi(), inputSeed(input, value))
     }
+
+    /** Renames the input seed to [value] without sending it, so the next reopen restores [value]. */
+    fun stageInput(
+        input: AnvilInputEntry,
+        value: String,
+    ) {
+        handle.stageItem(input.slot.toApi(), inputSeed(input, value))
+    }
+
+    /** Button [name]'s current named state, if it has one. */
+    fun buttonState(name: String): String? = buttonStateValues[name]
+
+    private fun inputSeed(
+        input: AnvilInputEntry,
+        value: String,
+    ): ItemStack = WindowItems.anvilInput(value, input.itemModel ?: definition.hitboxModel)
 
     private fun renderButtonItem(name: String): ItemStack? {
         val render = bindings.buttonItems.getValue(name)

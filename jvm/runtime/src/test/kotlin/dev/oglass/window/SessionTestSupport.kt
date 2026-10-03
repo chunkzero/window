@@ -18,6 +18,11 @@ internal class ManualScheduler : RenderScheduler {
         tasks.addLast(task)
     }
 
+    /** Runs only the tasks queued so far, like one server tick. */
+    fun tick() {
+        repeat(tasks.size) { tasks.removeFirst().run() }
+    }
+
     /** Runs all queued tasks (FIFO), draining the queue. */
     fun runAll() {
         while (tasks.isNotEmpty()) tasks.removeFirst().run()
@@ -44,6 +49,8 @@ internal class FakeInventoryHandle : InventoryHandle {
     private var onClick: ((ClickInfo) -> Unit)? = null
     private var onClose: (() -> Unit)? = null
     private var onInput: ((String) -> Unit)? = null
+    private var onPong: ((Int) -> Unit)? = null
+    val pings = mutableListOf<Int>()
 
     override fun open(title: Component) {
         opened = true
@@ -61,14 +68,31 @@ internal class FakeInventoryHandle : InventoryHandle {
         items[slot] = item
     }
 
+    override fun stageItem(
+        slot: SlotRef,
+        item: ItemStack,
+    ) {
+        items[slot] = item
+    }
+
     override fun registerListeners(
         onClick: (ClickInfo) -> Unit,
         onClose: () -> Unit,
         onInput: (String) -> Unit,
+        onPong: (Int) -> Unit,
     ) {
         this.onClick = onClick
         this.onClose = onClose
         this.onInput = onInput
+        this.onPong = onPong
+    }
+
+    override fun ping(id: Int) {
+        pings += id
+    }
+
+    override fun bundle(action: () -> Unit) {
+        action()
     }
 
     override fun close() {
@@ -105,6 +129,11 @@ internal class FakeInventoryHandle : InventoryHandle {
     /** Simulates a native inventory text-input update. */
     fun input(value: String) {
         onInput?.invoke(value)
+    }
+
+    /** Simulates the client answering the latest ping. */
+    fun pong() {
+        onPong?.invoke(pings.last())
     }
 }
 

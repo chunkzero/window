@@ -12,11 +12,15 @@ import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryOpenEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerAnvilInputEvent
+import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.trait.PlayerEvent
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.inventory.type.AnvilInventory
 import net.minestom.server.item.ItemStack
+import net.minestom.server.network.packet.client.common.ClientPongPacket
+import net.minestom.server.network.packet.server.common.PingPacket
+import net.minestom.server.network.packet.server.play.BundlePacket
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicLong
 
@@ -62,18 +66,29 @@ internal class LiveInventoryHandle(
         item: ItemStack,
     ) {
         when (slot.area) {
-            SlotArea.CONTAINER -> {
-                inventory.setItemStack(slot.index, item)
-                // A seeded anvil input makes the vanilla client synthesize a repair result and a
-                // cost of one. Window uses the anvil only as a text-input transport, so reset the
-                // property after each container update. Otherwise Minecraft draws its hard-coded
-                // repair-cost backing rectangle through the custom UI.
-                (inventory as? AnvilInventory)?.setRepairCost(0)
-            }
+            SlotArea.CONTAINER -> inventory.setItemStack(slot.index, item)
+            SlotArea.PLAYER -> playerSlots.setItem(slot.index, item)
+        }
+    }
 
-            SlotArea.PLAYER -> {
-                playerSlots.setItem(slot.index, item)
-            }
+    override fun stageItem(
+        slot: SlotRef,
+        item: ItemStack,
+    ) {
+        require(slot.area == SlotArea.CONTAINER) { "Only container slots can be staged" }
+        inventory.setItemStack(slot.index, item, false)
+    }
+
+    override fun ping(id: Int) {
+        player.sendPacket(PingPacket(id))
+    }
+
+    override fun bundle(action: () -> Unit) {
+        player.sendPacket(BundlePacket())
+        try {
+            action()
+        } finally {
+            player.sendPacket(BundlePacket())
         }
     }
 
@@ -81,6 +96,7 @@ internal class LiveInventoryHandle(
         onClick: (ClickInfo) -> Unit,
         onClose: () -> Unit,
         onInput: (String) -> Unit,
+        onPong: (Int) -> Unit,
     ) {
         val sessionNode =
             EventNode.value(
@@ -120,6 +136,10 @@ internal class LiveInventoryHandle(
         sessionNode.addListener(PlayerAnvilInputEvent::class.java) { event ->
             if (event.inventory !== inventory) return@addListener
             onInput(event.input)
+        }
+        sessionNode.addListener(PlayerPacketEvent::class.java) { event ->
+            val packet = event.packet
+            if (packet is ClientPongPacket) onPong(packet.id())
         }
         MinecraftServer.getGlobalEventHandler().addChild(sessionNode)
         node = sessionNode
