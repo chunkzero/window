@@ -1,9 +1,13 @@
 import type { Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
 
 export interface WindowOptions {
+    /** Namespace of the generated assets. Defaults to `window`. */
     namespace?: string;
+    /** Emit HUD shader assets. */
     hudShaders?: boolean;
+    /** A 110x16 theme sprite that restyles every anvil's native text field; see docs/AUTHORING.md. */
     nativeAnvilInput?: string;
+    /** Kotlin package of the generated bindings. */
     kotlinPackage?: string;
 }
 

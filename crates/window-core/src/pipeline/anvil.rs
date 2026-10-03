@@ -6,13 +6,13 @@ use std::collections::BTreeMap;
 use crate::compose::Composite;
 use crate::geometry::Rect;
 use crate::ir::LaidOutWindow;
+use crate::surface::ContainerKind;
 use crate::{Error, Result};
 
 use super::OutputFile;
 use super::sprites::RuntimeSpriteAsset;
 
-/// GUI rect of vanilla's anvil text-field sprite; the rename box draws inside it.
-const TEXT_FIELD: Rect = Rect::new(59, 20, 110, 16);
+const TEXT_FIELD: Rect = ContainerKind::ANVIL_TEXT_FIELD;
 
 const FIELD_SPRITES: [&str; 2] = [
     "assets/minecraft/textures/gui/sprites/container/anvil/text_field.png",

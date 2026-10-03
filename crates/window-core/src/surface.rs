@@ -129,6 +129,9 @@ impl ContainerKind {
         }
     }
 
+    /// GUI rect of vanilla's anvil text-field sprite; the rename box draws inside it.
+    pub(crate) const ANVIL_TEXT_FIELD: Rect = Rect::new(59, 20, 110, 16);
+
     /// Where the title cursor starts, in GUI space.
     pub const fn title_origin(&self) -> Point {
         match self {
