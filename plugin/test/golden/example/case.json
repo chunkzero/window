@@ -1,1 +1,6 @@
-{ "packFormat": 84, "hudShaders": true, "kotlinPackage": "dev.oglass.window.example.generated" }
+{
+  "packFormat": 84,
+  "hudShaders": true,
+  "anvilFieldSprite": "search_field",
+  "kotlinPackage": "dev.oglass.window.example.generated"
+}

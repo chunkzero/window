@@ -2,49 +2,23 @@
 package dev.oglass.window.example.generated
 
 import dev.oglass.window.Click
-import dev.oglass.window.IndexedClick
 import dev.oglass.window.WindowScope
 import dev.oglass.window.WindowView
-import net.kyori.adventure.text.Component
-import net.minestom.server.item.ItemStack
 
 /** Typed view for the `catalog_search` window. Implement the abstract members. */
 public abstract class CatalogSearchView : WindowView("catalog_search") {
-    /** Render the `query_text` slot. */
-    protected abstract fun queryText(): Component
-
-    /** Render the `reset_label` slot. */
-    protected abstract fun resetLabel(): Component
-
-    /** Render the `result_count` slot. */
-    protected abstract fun resultCount(): Component
-
     /** Handle a click on the `back` button. */
     protected abstract fun onBack(click: Click)
 
-    /** Handle a click on the `exit` button (default: close the window). */
-    protected open fun onExit(click: Click): Unit = close()
-
-    /** Handle a click on the `reset` button. */
-    protected abstract fun onReset(click: Click)
-
-    /** Render one cell in the `results` collection. */
-    protected abstract fun resultsItem(index: Int): ItemStack?
-
-    /** Handle a click on the `results` collection. */
-    protected abstract fun onResults(click: IndexedClick)
+    /** Handle a click on the `confirm` button. */
+    protected abstract fun onConfirm(click: Click)
 
     /** Handle a value change from the native `query` anvil input. */
     protected abstract fun onQueryChanged(value: String)
 
     final override fun WindowScope.bind() {
-        slot("query_text") { queryText() }
-        slot("reset_label") { resetLabel() }
-        slot("result_count") { resultCount() }
         button("back", ::onBack)
-        button("exit", ::onExit)
-        button("reset", ::onReset)
-        collection("results", ::resultsItem, ::onResults)
+        button("confirm", ::onConfirm)
         anvilInput("query", ::onQueryChanged)
     }
 }

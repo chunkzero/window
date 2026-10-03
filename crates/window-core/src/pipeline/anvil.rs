@@ -1,9 +1,9 @@
-//! Opt-in native anvil text field: themed vanilla field sprites, and a hole in each anvil input
-//! window's art so the client's rename box shows through.
+//! Anvil input windows: a static title, a hole in the art so the client's rename box shows through,
+//! hidden vanilla anvil art, and optional themed vanilla field sprites.
 
 use std::collections::BTreeMap;
 
-use crate::compose::Composite;
+use crate::compose::{Composite, Texture};
 use crate::geometry::Rect;
 use crate::ir::LaidOutWindow;
 use crate::surface::ContainerKind;
@@ -19,6 +19,23 @@ const FIELD_SPRITES: [&str; 2] = [
     "assets/minecraft/textures/gui/sprites/container/anvil/text_field_disabled.png",
 ];
 
+/// Vanilla anvil art Window windows draw over, with its size: the background and the
+/// missing-result error icon.
+const VANILLA_ART: [(&str, u32, u32); 2] = [
+    ("assets/minecraft/textures/gui/container/anvil.png", 256, 256),
+    ("assets/minecraft/textures/gui/sprites/container/anvil/error.png", 28, 21),
+];
+
+/// Transparent replacements for vanilla's anvil art, so anvil windows only show Window art.
+pub(super) fn hidden_vanilla_art() -> Result<Vec<OutputFile>> {
+    VANILLA_ART
+        .iter()
+        .map(|&(path, width, height)| {
+            Ok(OutputFile { path: path.into(), contents: Texture::transparent(width, height).encode_png()? })
+        })
+        .collect()
+}
+
 /// Emits theme `sprite` as vanilla's enabled and disabled anvil text-field sprites.
 pub(super) fn field_sprites(
     runtime_sprites: &BTreeMap<String, RuntimeSpriteAsset>,
@@ -26,20 +43,51 @@ pub(super) fn field_sprites(
 ) -> Result<Vec<OutputFile>> {
     let asset = runtime_sprites
         .get(sprite)
-        .ok_or_else(|| Error::Validation(format!("native_anvil_input references unknown sprite `{sprite}`")))?;
+        .ok_or_else(|| Error::Validation(format!("anvil_field_sprite references unknown sprite `{sprite}`")))?;
     if asset.size != TEXT_FIELD.size() {
         return Err(Error::Validation(format!(
-            "native_anvil_input sprite `{sprite}` must be {}x{}",
+            "anvil_field_sprite `{sprite}` must be {}x{}",
             TEXT_FIELD.width, TEXT_FIELD.height
         )));
     }
     let output = asset.output.as_ref().ok_or_else(|| {
-        Error::Validation(format!("native_anvil_input sprite `{sprite}` must be generated or bundled, not external"))
+        Error::Validation(format!("anvil_field_sprite `{sprite}` must be generated or bundled, not external"))
     })?;
     Ok(FIELD_SPRITES
         .iter()
         .map(|path| OutputFile { path: (*path).into(), contents: output.contents.clone() })
         .collect())
+}
+
+/// Rejects controls that change the title of `w` when it has an anvil input, since each title change
+/// reopens the anvil and races the player's typing. With `experimental` set, warns instead.
+pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut Vec<String>) -> Result<()> {
+    if w.inputs.is_empty() {
+        return Ok(());
+    }
+    let slots = w.slots.iter().filter(|slot| slot.text.is_none()).map(|slot| &slot.name);
+    let sprites = w.sprite_slots.iter().filter(|slot| slot.sprite.is_none()).map(|slot| &slot.name);
+    let buttons = w.buttons.iter().filter(|button| button.states.values().any(|state| state.sprite.is_some()));
+    let collections = w.collections.iter().filter(|collection| collection.selected_sprite.is_some());
+    let updates = slots
+        .chain(sprites)
+        .chain(buttons.map(|button| &button.name))
+        .chain(collections.map(|collection| &collection.name));
+    for name in updates {
+        if !experimental {
+            return Err(Error::Validation(format!(
+                "window `{}`: `{name}` changes the title of an anvil input window, which reopens the anvil while \
+                 the player types; keep anvil windows static or set experimental_anvil_updates",
+                w.name
+            )));
+        }
+        warnings.push(format!(
+            "window `{}`: `{name}` reopens the anvil to change its title (experimental_anvil_updates), which can \
+             flicker and drop keystrokes",
+            w.name
+        ));
+    }
+    Ok(())
 }
 
 /// Clears the text field from `w`'s static art when it has an anvil input, and warns about

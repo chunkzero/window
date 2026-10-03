@@ -373,33 +373,60 @@ while cursor advance still follows the client's rightmost-pixel rule.
 ## Native anvil search
 
 Use the `anvil` surface when a UI needs real keyboard input. Window seeds the first anvil slot, keeps it owned by the
-input, listens to Minestom's `PlayerAnvilInputEvent`, and exposes a typed `anvilInput` binding. The rest of the screen
-is normal Window chrome, so the vanilla edit box can sit inside a custom search panel.
+input, listens to Minestom's `PlayerAnvilInputEvent`, and exposes a typed `anvilInput` binding.
+
+A pack with an `anvilInput` hands every anvil screen to Window: it replaces vanilla's anvil background and
+missing-result icon with transparent textures, so only Window art shows, and vanilla anvils no longer draw their own
+GUI.
+
+Anvil input windows are static: their title never changes after open. Vanilla can only change a container title by
+reopening the screen, and each anvil reopen resets the player's edit box mid-typing. The compiler rejects text slots,
+unbound sprite slots, button state sprites, and collection selected sprites in a window with an `anvilInput`. Static
+art, labels, fixed sprites, buttons, and inventory items are all allowed, since none of them change the title.
+
+A typical search screen is a title, the input, and buttons on the anvil's three slots. Anvil slots sit at fixed, uneven
+positions, so each button covers one slot and only that slot's 16x16 box takes clicks. A button over the input's slot
+routes its clicks while the input keeps the slot's item, which shows no tooltip. Claiming the player's slots hides their
+items, so the screen ends where the art does:
 
 ```ts
 export default ui({
   name: "map_search",
   container: "anvil",
   children: [
-    panel({ frame: "panel", x: 54, y: 18, width: 116, height: 20 }),
-    label("Search maps", { x: 60, y: 6, width: 104, align: "center" }),
-    anvilInput("query", {
-      initial: "",
-      item_model: "demo:gui/search_input",
+    panel({ frame: "shell", x: 0, y: 0, width: 176, height: 70 }),
+    label("Search maps", { x: 0, y: 6, width: 176, align: "center" }),
+    anvilInput("query", { initial: "" }),
+    button("back", { frame: "button_danger", transform: { section: "container", x: 0, y: 0, width: 1, height: 1 } }),
+    button("confirm", {
+      frame: "button_confirm",
+      transform: { section: "container", x: 2, y: 0, width: 1, height: 1 },
+    }),
+    slotRects("inventory", {
+      pattern: pattern.rect({ section: "player", x: 0, y: 0, width: 9, height: 3 }),
+      claim: "all",
+    }),
+    slotRects("hotbar", {
+      pattern: pattern.rect({ section: "hotbar", x: 0, y: 0, width: 9, height: 1 }),
+      claim: "all",
     }),
   ],
 });
 ```
 
 Generated views expose `onQueryChanged(value: String)`. Hand-written views bind the same control with
-`anvilInput("query") { value -> ... }`.
+`anvilInput("query") { value -> ... }`. Every edit reaches the binding as the player types. Views set the text with
+`input("query", value)`, for example to restore a previous query in `onOpen` or to clear it; the player's edit box
+updates in place and the binding receives the value.
 
-By default Window's art covers the vanilla edit box, so a window shows the typed text through a text slot. The opt-in
-plugin option `nativeAnvilInput: "<sprite>"` instead keeps the client's own rename box visible, with its cursor,
-selection, and font. It names a 110x16 theme sprite that replaces vanilla's anvil text-field sprites for the whole pack,
-and Window leaves the field's rect (59, 20, 110x16) transparent in every window with an `anvilInput`. Slots drawn over
-that rect produce a warning. Title changes reopen the anvil and reset its cursor, so keep the title static while the
-player types.
+Window keeps the client's own rename box visible, with its cursor, selection, and font: in every window with an
+`anvilInput`, the field's rect (59, 20, 110x16) stays transparent in Window's art. Slots drawn over that rect produce a
+warning. The plugin option `anvilFieldSprite: "<sprite>"` names a 110x16 theme sprite that replaces vanilla's anvil
+text-field sprites for the whole pack.
+
+The plugin option `experimentalAnvilUpdates: true` lifts the static-title rule. Title changes then reopen the anvil:
+Window holds them until the player pauses typing and rebases edits typed during a reopen, but the screen can still
+flicker, keystrokes can still be lost, and each reopen moves the cursor to the end. `input` also reopens the anvil.
 
 ## Slot Patterns
 

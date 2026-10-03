@@ -172,7 +172,7 @@ internal fun testSession(
     player: net.minestom.server.entity.Player = stubPlayer,
     diagnosticsObserver: RenderDiagnosticsObserver = RenderDiagnosticsObserver.NONE,
 ): WindowSession =
-    WindowSession(
+    windowSession(
         definitionOf(manifest, name),
         view,
         player,

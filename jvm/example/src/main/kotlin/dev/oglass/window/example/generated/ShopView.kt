@@ -76,6 +76,9 @@ public abstract class ShopView : WindowView("shop") {
     /** Handle a click on the `category_magic` button. */
     protected abstract fun onCategoryMagic(click: Click)
 
+    /** Handle a click on the `clear_search` button. */
+    protected abstract fun onClearSearch(click: Click)
+
     /** Handle a click on the `exit` button (default: close the window). */
     protected open fun onExit(click: Click): Unit = close()
 
@@ -132,6 +135,7 @@ public abstract class ShopView : WindowView("shop") {
         button("category_all", ::onCategoryAll)
         button("category_gear", ::onCategoryGear)
         button("category_magic", ::onCategoryMagic)
+        button("clear_search", ::onClearSearch)
         button("exit", ::onExit)
         button("favorites", ::onFavorites)
         button("next", ::onNext)

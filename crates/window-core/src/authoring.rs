@@ -41,9 +41,11 @@ pub struct ParsedProject {
 pub struct BuildOptions {
     /// Whether to emit generated core shader overrides for HUD relocation.
     pub hud_shaders: bool,
-    /// 110x16 theme sprite that restyles vanilla's anvil text field pack-wide; windows with an
-    /// anvil input then leave the native rename box visible instead of covering it.
-    pub native_anvil_input: Option<String>,
+    /// 110x16 theme sprite that restyles vanilla's anvil text field pack-wide.
+    pub anvil_field_sprite: Option<String>,
+    /// Allow anvil input windows to change their title at runtime. Experimental: each change reopens
+    /// the anvil, which races the player's typing.
+    pub experimental_anvil_updates: bool,
 }
 
 /// Target pack metadata supplied by the rpp plugin host.

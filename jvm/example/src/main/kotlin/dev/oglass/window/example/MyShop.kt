@@ -27,6 +27,7 @@ class MyShop(
     private val windows: Windows,
     private val market: Market,
     initialSelection: String? = null,
+    initialQuery: String = "",
 ) : ShopView() {
     private val pager = WindowPager(cellCount = 27)
 
@@ -38,6 +39,7 @@ class MyShop(
     private var offset by state(0)
     private var selectedId by state(initialSelection)
     private var feedback by state<String?>(null)
+    private var query by state(initialQuery)
 
     override fun balance(): Component = Component.text(coins)
 
@@ -74,7 +76,10 @@ class MyShop(
 
     override fun priceCoinSprite(): String? = selectedProduct()?.let { "coin" }
 
-    override fun status(): Component = Component.text(feedback ?: "${visibleProducts().size} items")
+    override fun status(): Component {
+        val count = visibleProducts().size
+        return Component.text(feedback ?: if (query.isEmpty()) "$count items" else "$count matches")
+    }
 
     override fun buyLabel(): Component {
         val product = selectedProduct() ?: return actionLabel("Buy", false)
@@ -138,7 +143,13 @@ class MyShop(
     }
 
     override fun onSearch(click: Click) {
-        windows.open(player, CatalogSearch(windows, market))
+        windows.open(player, CatalogSearch(windows, market, query))
+    }
+
+    override fun onClearSearch(click: Click) {
+        if (query.isEmpty()) return
+        query = ""
+        filtersChanged()
     }
 
     override fun onBuy(click: Click) {
@@ -160,7 +171,7 @@ class MyShop(
     }
 
     private fun visibleProducts(): List<Product> {
-        var products = market.products.asSequence()
+        var products = market.products.asSequence().filter(::matchesQuery)
         products =
             when (category) {
                 CatalogCategory.ALL -> products
@@ -185,6 +196,11 @@ class MyShop(
             }
         }.toList()
     }
+
+    private fun matchesQuery(product: Product): Boolean =
+        product.name.contains(query, ignoreCase = true) ||
+            product.tier.label.contains(query, ignoreCase = true) ||
+            product.category.name.contains(query, ignoreCase = true)
 
     private fun selectedProduct(): Product? {
         val products = visibleProducts()
@@ -228,6 +244,7 @@ class MyShop(
         buttonState("sort_name", selectedState(sort == CatalogSort.NAME))
         buttonState("favorites", if (favoritesOnly) "on" else "off")
         buttonState("affordable", if (affordableOnly) "on" else "off")
+        buttonState("clear_search", enabledState(query.isNotEmpty()))
         buttonState("previous", enabledState(pager.canPrevious(offset)))
         buttonState("next", enabledState(pager.canNext(offset, products.size)))
         buttonState("buy", enabledState(selectedProduct()?.price?.let { it <= coins } == true))

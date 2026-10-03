@@ -17,6 +17,7 @@ export default defineConfig({
         window({
             namespace: "window",
             hudShaders: true,
+            anvilFieldSprite: "search_field",
             kotlin: {
                 package: "dev.oglass.window.example.generated",
                 output: "../../jvm/example/src/main/kotlin/dev/oglass/window/example/generated",

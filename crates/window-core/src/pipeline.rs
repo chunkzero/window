@@ -142,16 +142,18 @@ fn compile_layouts(
     }
     let mut composites = glyphs::compose_layers(&windows, &huds, textures)?;
     let mut field_warnings = Vec::new();
-    if options.native_anvil_input.is_some() {
-        for (w, comp) in windows.iter().zip(&mut composites.windows) {
-            anvil::open_field(w, comp, &mut field_warnings);
-        }
+    for (w, comp) in windows.iter().zip(&mut composites.windows) {
+        anvil::check_title(w, options.experimental_anvil_updates, &mut field_warnings)?;
+        anvil::open_field(w, comp, &mut field_warnings);
     }
     let used_sprites = uses_runtime_sprites.then_some(runtime_sprites);
     let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
     ctx.warnings.extend(field_warnings);
-    if let Some(sprite) = &options.native_anvil_input {
+    if windows.iter().any(|w| !w.inputs.is_empty()) {
+        ctx.files.extend(anvil::hidden_vanilla_art()?);
+    }
+    if let Some(sprite) = &options.anvil_field_sprite {
         ctx.files.extend(anvil::field_sprites(runtime_sprites, sprite)?);
     }
 

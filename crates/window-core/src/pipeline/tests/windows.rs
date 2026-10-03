@@ -225,22 +225,33 @@ fn static_glyph_codepoint_in_private_use_area() {
     assert!(glyph.is_some(), "static string contains a glyph codepoint");
 }
 
-#[test]
-fn native_anvil_input_restyles_the_vanilla_field_and_opens_the_art_over_it() {
-    let project = r##"{
-      "theme":{
-        "frames":{"recess":{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0}},
-        "sprites":{"field":{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0,"width":110,"height":16}}
-      },
-      "windows":[{"name":"search","container":"anvil","children":[
-        {"type":"panel","frame":"recess","x":0,"y":0,"width":176,"height":166},
-        {"type":"slot","name":"query_text","x":62,"y":24,"width":103},
-        {"type":"anvil_input","name":"query"}
-      ]}],
-      "options":{"native_anvil_input":"field"}
-    }"##;
+fn compile_anvil_search(child: &str, options: &str) -> crate::Result<CompileOutput> {
+    let project = format!(
+        r##"{{
+      "theme":{{
+        "frames":{{"recess":{{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0}}}},
+        "sprites":{{"field":{{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0,"width":110,"height":16}}}}
+      }},
+      "windows":[{{"name":"search","container":"anvil","children":[
+        {{"type":"panel","frame":"recess","x":0,"y":0,"width":176,"height":166}},
+        {child},
+        {{"type":"anvil_input","name":"query"}}
+      ]}}],
+      "options":{options}
+    }}"##
+    );
+    crate::pipeline::compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new()))
+}
 
-    let out = crate::pipeline::compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
+fn search_art_alpha(out: &CompileOutput, x: u32, y: u32) -> u8 {
+    let art = Texture::decode_png(&find(out, "assets/window/textures/font/search.png").contents).unwrap();
+    art.rgba[((y * art.width + x) * 4 + 3) as usize]
+}
+
+#[test]
+fn anvil_inputs_open_the_art_over_the_native_field_and_can_restyle_it() {
+    let label = r#"{"type":"label","text":"Query","x":62,"y":24,"width":103}"#;
+    let out = compile_anvil_search(label, r#"{"anvil_field_sprite":"field"}"#).unwrap();
     for path in [
         "assets/minecraft/textures/gui/sprites/container/anvil/text_field.png",
         "assets/minecraft/textures/gui/sprites/container/anvil/text_field_disabled.png",
@@ -248,9 +259,33 @@ fn native_anvil_input_restyles_the_vanilla_field_and_opens_the_art_over_it() {
         let field = Texture::decode_png(&find(&out, path).contents).unwrap();
         assert_eq!((field.width, field.height), (110, 16));
     }
-    let art = Texture::decode_png(&find(&out, "assets/window/textures/font/search.png").contents).unwrap();
-    let alpha = |x: u32, y: u32| art.rgba[((y * art.width + x) * 4 + 3) as usize];
-    assert_eq!((alpha(59, 20), alpha(168, 35)), (0, 0));
-    assert_eq!((alpha(58, 20), alpha(59, 36)), (255, 255));
-    assert!(out.warnings.iter().any(|w| w.contains("`query_text` draws over the native anvil text field")));
+    assert_eq!((search_art_alpha(&out, 59, 20), search_art_alpha(&out, 168, 35)), (0, 0));
+    assert_eq!((search_art_alpha(&out, 58, 20), search_art_alpha(&out, 59, 36)), (255, 255));
+    assert!(out.warnings.iter().any(|w| w.contains("draws over the native anvil text field")));
+}
+
+#[test]
+fn anvil_inputs_hide_vanilla_anvil_art_and_share_their_slot_with_a_button() {
+    let back = r#"{"type":"button","name":"back","x":26,"y":46,"width":18,"height":18}"#;
+    let out = compile_anvil_search(back, "{}").unwrap();
+    for path in [
+        "assets/minecraft/textures/gui/container/anvil.png",
+        "assets/minecraft/textures/gui/sprites/container/anvil/error.png",
+    ] {
+        let art = Texture::decode_png(&find(&out, path).contents).unwrap();
+        assert!(art.rgba.chunks(4).all(|pixel| pixel[3] == 0), "{path}");
+    }
+    let back = &out.manifest.windows["search"].buttons["back"];
+    assert_eq!((back.slots.len(), back.fill_slots.as_deref()), (1, Some(&[][..])));
+    assert_eq!(out.manifest.windows["search"].inputs["query"].slot, back.slots[0]);
+}
+
+#[test]
+fn anvil_title_updates_require_the_experimental_option() {
+    let slot = r#"{"type":"slot","name":"count","x":8,"y":70,"width":60}"#;
+    let err = compile_anvil_search(slot, "{}").unwrap_err();
+    assert!(err.to_string().contains("`count` changes the title of an anvil input window"), "{err}");
+
+    let out = compile_anvil_search(slot, r#"{"experimental_anvil_updates":true}"#).unwrap();
+    assert!(out.warnings.iter().any(|w| w.contains("`count` reopens the anvil")));
 }

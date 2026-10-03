@@ -5,7 +5,6 @@ import dev.oglass.window.manifest.AnvilInputEntry
 import dev.oglass.window.manifest.ButtonState
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.minestom.server.component.DataComponents
 import dev.oglass.window.manifest.ButtonTooltip as ManifestTooltip
@@ -254,12 +253,8 @@ class ButtonStateBindingTest :
 
             val input = handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0))
             input.get(DataComponents.ITEM_MODEL) shouldBe "demo:gui/search"
-            handle.pong()
             handle.input("maps")
             queries shouldBe listOf("maps")
-            handle.items
-                .getValue(SlotRef(SlotArea.CONTAINER, 0))
-                .get(DataComponents.CUSTOM_NAME) shouldBe Component.text("maps")
             handle.clickContainer(2)
             confirmations shouldBe 0
             view.enabled = true
