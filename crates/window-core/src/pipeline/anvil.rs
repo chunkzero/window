@@ -1,5 +1,5 @@
-//! Opt-in native anvil text field: themed vanilla field sprites, and a hole in each anvil input
-//! window's art so the client's rename box shows through.
+//! Native anvil text field: a hole in each anvil input window's art so the client's rename box
+//! shows through, and optional themed vanilla field sprites.
 
 use std::collections::BTreeMap;
 
@@ -26,20 +26,31 @@ pub(super) fn field_sprites(
 ) -> Result<Vec<OutputFile>> {
     let asset = runtime_sprites
         .get(sprite)
-        .ok_or_else(|| Error::Validation(format!("native_anvil_input references unknown sprite `{sprite}`")))?;
+        .ok_or_else(|| Error::Validation(format!("anvil_field_sprite references unknown sprite `{sprite}`")))?;
     if asset.size != TEXT_FIELD.size() {
         return Err(Error::Validation(format!(
-            "native_anvil_input sprite `{sprite}` must be {}x{}",
+            "anvil_field_sprite `{sprite}` must be {}x{}",
             TEXT_FIELD.width, TEXT_FIELD.height
         )));
     }
     let output = asset.output.as_ref().ok_or_else(|| {
-        Error::Validation(format!("native_anvil_input sprite `{sprite}` must be generated or bundled, not external"))
+        Error::Validation(format!("anvil_field_sprite `{sprite}` must be generated or bundled, not external"))
     })?;
     Ok(FIELD_SPRITES
         .iter()
         .map(|path| OutputFile { path: (*path).into(), contents: output.contents.clone() })
         .collect())
+}
+
+/// Warns that `w`'s anvil input uses the unstable drawn field.
+pub(super) fn warn_drawn_input(w: &LaidOutWindow, warnings: &mut Vec<String>) {
+    if !w.inputs.is_empty() {
+        warnings.push(format!(
+            "window `{}`: unstable_drawn_anvil_input is unstable; text drawn over the anvil field only updates by \
+             reopening the anvil, which can flicker while the player types",
+            w.name
+        ));
+    }
 }
 
 /// Clears the text field from `w`'s static art when it has an anvil input, and warns about

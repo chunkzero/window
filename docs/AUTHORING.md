@@ -394,12 +394,18 @@ export default ui({
 Generated views expose `onQueryChanged(value: String)`. Hand-written views bind the same control with
 `anvilInput("query") { value -> ... }`.
 
-By default Window's art covers the vanilla edit box, so a window shows the typed text through a text slot. The opt-in
-plugin option `nativeAnvilInput: "<sprite>"` instead keeps the client's own rename box visible, with its cursor,
-selection, and font. It names a 110x16 theme sprite that replaces vanilla's anvil text-field sprites for the whole pack,
-and Window leaves the field's rect (59, 20, 110x16) transparent in every window with an `anvilInput`. Slots drawn over
-that rect produce a warning. Title changes reopen the anvil and reset its cursor, so keep the title static while the
-player types.
+Window keeps the client's own rename box visible, with its cursor, selection, and font: in every window with an
+`anvilInput`, the field's rect (59, 20, 110x16) stays transparent in Window's art. Slots drawn over that rect produce a
+warning. The plugin option `anvilFieldSprite: "<sprite>"` names a 110x16 theme sprite that replaces vanilla's anvil
+text-field sprites for the whole pack.
+
+Title changes reopen the anvil, which resets its edit box to the latest input the server has seen. Window holds title
+changes until the player pauses typing, and rebases edits typed while a reopen was in flight onto the latest input, so
+fast typing keeps every keystroke. Each reopen still moves the cursor to the end.
+
+The plugin option `unstableDrawnAnvilInput: true` instead covers the field with Window art and leaves the typed text to
+a text slot. It is unstable: the drawn text only updates when the anvil reopens, so it lags behind typing and can
+flicker. It cannot be combined with `anvilFieldSprite`.
 
 ## Slot Patterns
 

@@ -36,7 +36,9 @@ struct OptionsDto {
     #[serde(default)]
     hud_shaders: bool,
     #[serde(default)]
-    native_anvil_input: Option<String>,
+    anvil_field_sprite: Option<String>,
+    #[serde(default)]
+    unstable_drawn_anvil_input: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -69,7 +71,8 @@ impl ProjectDto {
             huds: convert_huds(self.huds)?,
             options: BuildOptions {
                 hud_shaders: self.options.hud_shaders,
-                native_anvil_input: self.options.native_anvil_input,
+                anvil_field_sprite: self.options.anvil_field_sprite,
+                unstable_drawn_anvil_input: self.options.unstable_drawn_anvil_input,
             },
             target: PackTarget { pack_format: self.target.pack_format },
         })

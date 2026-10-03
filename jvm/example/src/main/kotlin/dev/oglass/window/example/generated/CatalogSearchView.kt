@@ -10,9 +10,6 @@ import net.minestom.server.item.ItemStack
 
 /** Typed view for the `catalog_search` window. Implement the abstract members. */
 public abstract class CatalogSearchView : WindowView("catalog_search") {
-    /** Render the `query_text` slot. */
-    protected abstract fun queryText(): Component
-
     /** Render the `reset_label` slot. */
     protected abstract fun resetLabel(): Component
 
@@ -38,7 +35,6 @@ public abstract class CatalogSearchView : WindowView("catalog_search") {
     protected abstract fun onQueryChanged(value: String)
 
     final override fun WindowScope.bind() {
-        slot("query_text") { queryText() }
         slot("reset_label") { resetLabel() }
         slot("result_count") { resultCount() }
         button("back", ::onBack)

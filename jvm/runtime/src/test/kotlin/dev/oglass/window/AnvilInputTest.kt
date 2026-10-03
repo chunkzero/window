@@ -1,5 +1,6 @@
 package dev.oglass.window
 
+import dev.oglass.window.internal.AnvilReopenGate
 import dev.oglass.window.manifest.Align
 import dev.oglass.window.manifest.AnvilInputEntry
 import io.kotest.core.spec.style.StringSpec
@@ -33,7 +34,7 @@ class AnvilInputTest :
         fun FakeInventoryHandle.seedName() =
             items.getValue(SlotRef(SlotArea.CONTAINER, 0)).get(DataComponents.CUSTOM_NAME)
 
-        "reopen echoes are not edits, and edits typed before a reopen lands are restored" {
+        "title changes wait until the player pauses typing" {
             val view = SearchView()
             val scheduler = ManualScheduler()
             val handle = FakeInventoryHandle()
@@ -43,21 +44,45 @@ class AnvilInputTest :
 
             handle.input("d")
             scheduler.tick()
+            handle.input("di")
+            scheduler.tick()
+            handle.input("din")
+            scheduler.tick()
+            handle.titles.size shouldBe 1
+
+            scheduler.runAll()
+            handle.titles.size shouldBe 2
+            view.edits shouldBe listOf("d", "di", "din")
+            handle.seedName() shouldBe Component.text("din")
+        }
+
+        "reopen echoes are not edits, and edits typed on a rewound edit box are rebased" {
+            val view = SearchView()
+            val scheduler = ManualScheduler()
+            val handle = FakeInventoryHandle()
+            testSession(manifest, "w", view, scheduler, handle).open()
+            handle.input("")
+            handle.pong()
+
+            handle.input("a")
+            scheduler.runAll()
             handle.titles.size shouldBe 2
 
-            // Typed on the old screen before the "d" reopen lands, then the reopen's echo.
-            handle.input("di")
-            handle.input("d")
+            // Typed on the old screen before the "a" reopen lands, then the reopen's echo.
+            handle.input("as")
+            handle.input("a")
             handle.pong()
-            scheduler.tick()
+            // Typed on the box the reopen rewound to "a".
+            handle.input("ad")
+            scheduler.runAll()
             handle.titles.size shouldBe 3
 
-            handle.input("di")
+            handle.input("asd")
             handle.pong()
             scheduler.runAll()
             handle.titles.size shouldBe 3
-            view.edits shouldBe listOf("d", "di")
-            handle.seedName() shouldBe Component.text("di")
+            view.edits shouldBe listOf("a", "as", "asd")
+            handle.seedName() shouldBe Component.text("asd")
         }
 
         "an edit equal to the in-flight seed is delivered, and the trailing echo is dropped" {
@@ -69,7 +94,7 @@ class AnvilInputTest :
             handle.pong()
 
             handle.input("d")
-            scheduler.tick()
+            scheduler.runAll()
             handle.input("di")
             handle.input("d")
             handle.input("d")
@@ -78,6 +103,15 @@ class AnvilInputTest :
 
             view.edits shouldBe listOf("d", "di", "d")
             handle.seedName() shouldBe Component.text("d")
+        }
+
+        "stale edits rebase onto the latest input around the text the edit box lost" {
+            AnvilReopenGate.rebase("a", "ad", "as") shouldBe "asd"
+            AnvilReopenGate.rebase("a", "", "as") shouldBe "s"
+            AnvilReopenGate.rebase("a", "Xa", "as") shouldBe "Xas"
+            AnvilReopenGate.rebase("ab", "a", "axb") shouldBe "ax"
+            AnvilReopenGate.rebase("ab", "aXb", "ayb") shouldBe "ayXb"
+            AnvilReopenGate.rebase("ab", "aZb", "aXbY") shouldBe "aXZbY"
         }
 
         "edits held for a pending reopen reach the view before a close" {
@@ -89,7 +123,7 @@ class AnvilInputTest :
             handle.pong()
 
             handle.input("d")
-            scheduler.tick()
+            scheduler.runAll()
             handle.input("di")
             handle.clientClose()
 

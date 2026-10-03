@@ -142,8 +142,10 @@ fn compile_layouts(
     }
     let mut composites = glyphs::compose_layers(&windows, &huds, textures)?;
     let mut field_warnings = Vec::new();
-    if options.native_anvil_input.is_some() {
-        for (w, comp) in windows.iter().zip(&mut composites.windows) {
+    for (w, comp) in windows.iter().zip(&mut composites.windows) {
+        if options.unstable_drawn_anvil_input {
+            anvil::warn_drawn_input(w, &mut field_warnings);
+        } else {
             anvil::open_field(w, comp, &mut field_warnings);
         }
     }
@@ -151,7 +153,12 @@ fn compile_layouts(
     let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
     ctx.warnings.extend(field_warnings);
-    if let Some(sprite) = &options.native_anvil_input {
+    if let Some(sprite) = &options.anvil_field_sprite {
+        if options.unstable_drawn_anvil_input {
+            return Err(Error::Validation(
+                "anvil_field_sprite styles the native anvil text field, which unstable_drawn_anvil_input covers".into(),
+            ));
+        }
         ctx.files.extend(anvil::field_sprites(runtime_sprites, sprite)?);
     }
 

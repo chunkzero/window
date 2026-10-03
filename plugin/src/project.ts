@@ -6,7 +6,12 @@ export interface WindowOptions {
     /** Emit HUD shader assets. */
     hudShaders?: boolean;
     /** A 110x16 theme sprite that restyles every anvil's native text field; see docs/AUTHORING.md. */
-    nativeAnvilInput?: string;
+    anvilFieldSprite?: string;
+    /**
+     * Unstable: cover the anvil's native text field with Window art and show typed text through slots.
+     * The drawn text updates only by reopening the anvil, so it lags and can flicker while the player types.
+     */
+    unstableDrawnAnvilInput?: boolean;
     /** Kotlin package of the generated bindings. */
     kotlinPackage?: string;
 }
@@ -33,7 +38,7 @@ export interface ProjectJson {
     themes?: Theme[];
     windows: Window[];
     huds: Hud[];
-    options: { hud_shaders: boolean; native_anvil_input?: string };
+    options: { hud_shaders: boolean; anvil_field_sprite?: string; unstable_drawn_anvil_input?: boolean };
     target: { pack_format?: number };
 }
 
@@ -155,7 +160,8 @@ export function buildProject(
         huds,
         options: {
             hud_shaders: options.hudShaders === true,
-            ...(options.nativeAnvilInput === undefined ? {} : { native_anvil_input: options.nativeAnvilInput }),
+            ...(options.anvilFieldSprite === undefined ? {} : { anvil_field_sprite: options.anvilFieldSprite }),
+            ...(options.unstableDrawnAnvilInput === true ? { unstable_drawn_anvil_input: true } : {}),
         },
         target: packFormat === undefined ? {} : { pack_format: packFormat },
     };

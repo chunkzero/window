@@ -21,7 +21,6 @@ export default ui({
         sprite("rivet", { x: 173, y: 157 }),
         label("Catalog Search", { ...text, x: 0, y: 6, width: 176, align: "center" }),
         label("Query", { ...muted, x: 8, y: 24, width: 44 }),
-        slot("query_text", { ...text, x: 62, y: 24, width: 103 }),
         anvilInput("query", { initial: "", item_model: hitbox }),
         label("Select a result to view it", { ...muted, x: 8, y: 40, width: 160 }),
         label("Results", { ...muted, x: 8, y: 68, width: 56 }),

@@ -71,6 +71,14 @@ public object WindowSprites {
                 advance = 6,
                 glyph = "\uEF10",
             ),
+            "search_field" to SpriteEntry(
+                width = 110,
+                height = 16,
+                xOffset = 0,
+                glyphWidth = 110,
+                advance = 111,
+                glyph = "\uE53D",
+            ),
             "slot_selected" to SpriteEntry(
                 width = 18,
                 height = 18,

@@ -16,10 +16,6 @@ class CatalogSearch(
     private var input by state("")
     private val query get() = input.trim()
 
-    /** Window art covers the vanilla edit box, so this draws the typed text with a cursor at its end. */
-    override fun queryText(): Component =
-        if (input.isEmpty()) Component.text("Item name", PLACEHOLDER_TEXT) else Component.text(input + CURSOR)
-
     override fun resultCount(): Component {
         val count = results().size
         return Component.text(
@@ -69,7 +65,5 @@ class CatalogSearch(
 }
 
 private const val RESULT_CELLS = 27
-
-private const val CURSOR = "_"
 
 private val PLACEHOLDER_TEXT = TextColor.color(0x5fb0d4)

@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 interface Case {
     packFormat?: number;
     hudShaders?: boolean;
+    anvilFieldSprite?: string;
     kotlinPackage?: string;
 }
 
@@ -44,6 +45,9 @@ function tsProject(caseDir: string, dir: string, options: Case): void {
     write(join(dir, "rpp.json"), JSON.stringify({ dependencies: { window: `path:${pluginDir}` } }));
     const windowOptions = [
         `hudShaders: ${options.hudShaders === true}`,
+        ...(options.anvilFieldSprite === undefined
+            ? []
+            : [`anvilFieldSprite: ${JSON.stringify(options.anvilFieldSprite)}`]),
         ...(options.kotlinPackage === undefined
             ? []
             : [`kotlin: { package: ${JSON.stringify(options.kotlinPackage)}, output: ${JSON.stringify(kotlinDir)} }`]),
