@@ -173,14 +173,14 @@ export default hud({
       color: "#ffffff",
     }),
     panel({
-      frame: "hud_chip",
+      frame: "recess",
       x: 0,
       y: 18,
       width: 92,
       height: 16,
     }),
-    sprite("pack_badge", { x: 4, y: 19 }),
-    label("Power", { x: 20, y: 22, color: "#ffd700" }),
+    sprite("coin", { x: 4, y: 22 }),
+    label("Power", { x: 16, y: 22, color: "#ffd700" }),
     slot("power", {
       x: 52,
       y: 22,

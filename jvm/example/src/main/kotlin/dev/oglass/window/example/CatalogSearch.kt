@@ -32,7 +32,7 @@ class CatalogSearch(
     }
 
     override fun resetLabel(): Component =
-        if (query.isEmpty()) Component.text("Clear", PLACEHOLDER_TEXT) else Component.text("Clear")
+        if (input.isEmpty()) Component.text("Clear", PLACEHOLDER_TEXT) else Component.text("Clear")
 
     override fun resultsItem(index: Int): ItemStack? = results().getOrNull(index)?.toItemStack()
 
@@ -56,7 +56,7 @@ class CatalogSearch(
         windows.open(player, CatalogSearch(windows, market))
     }
 
-    private fun syncResetState() = buttonState("reset", if (query.isEmpty()) "disabled" else "enabled")
+    private fun syncResetState() = buttonState("reset", if (input.isEmpty()) "disabled" else "enabled")
 
     private fun results(): List<Product> {
         if (query.isBlank()) return market.products
