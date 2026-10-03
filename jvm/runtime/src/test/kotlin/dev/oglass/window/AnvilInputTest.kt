@@ -9,49 +9,77 @@ import net.minestom.server.component.DataComponents
 
 class AnvilInputTest :
     StringSpec({
-        "reopen echoes are not edits and later titles wait for them" {
-            val manifest =
-                TestManifests.manifest(
-                    container = "anvil",
-                    titleOrigin = listOf(60, 6),
-                    slots = mapOf("query_text" to TestManifests.slot(x = 60, width = 100, align = Align.LEFT)),
-                    inputs = mapOf("query" to AnvilInputEntry(slot = TestManifests.containerSlot(0))),
-                )
-            val edits = mutableListOf<String>()
-            val view =
-                object : WindowView("w") {
-                    var query by state("")
+        val manifest =
+            TestManifests.manifest(
+                container = "anvil",
+                titleOrigin = listOf(60, 6),
+                slots = mapOf("query_text" to TestManifests.slot(x = 60, width = 100, align = Align.LEFT)),
+                inputs = mapOf("query" to AnvilInputEntry(slot = TestManifests.containerSlot(0))),
+            )
 
-                    override fun WindowScope.bind() {
-                        slot("query_text") { Component.text(query) }
-                        anvilInput("query") {
-                            edits += it
-                            query = it
-                        }
-                    }
+        class SearchView : WindowView("w") {
+            val edits = mutableListOf<String>()
+            var query by state("")
+
+            override fun WindowScope.bind() {
+                slot("query_text") { Component.text(query) }
+                anvilInput("query") {
+                    edits += it
+                    query = it
                 }
+            }
+        }
+
+        fun FakeInventoryHandle.seedName() =
+            items.getValue(SlotRef(SlotArea.CONTAINER, 0)).get(DataComponents.CUSTOM_NAME)
+
+        "reopen echoes are not edits, and edits typed before a reopen lands are restored" {
+            val view = SearchView()
             val scheduler = ManualScheduler()
             val handle = FakeInventoryHandle()
             testSession(manifest, "w", view, scheduler, handle).open()
-
             handle.input("")
+            handle.pong()
+
             handle.input("d")
             scheduler.tick()
             handle.titles.size shouldBe 2
 
-            // Typed before the "d" reopen arrives: re-rendered, but its title waits for the echo.
+            // Typed before the "d" reopen arrives, then the reopen's echo.
             handle.input("di")
+            handle.input("d")
             scheduler.tick()
             handle.titles.size shouldBe 2
 
-            handle.input("d")
+            handle.pong()
+            scheduler.tick()
             handle.titles.size shouldBe 3
             handle.input("di")
+            handle.pong()
             scheduler.runAll()
             handle.titles.size shouldBe 3
-            edits shouldBe listOf("d", "di")
-            handle.items
-                .getValue(SlotRef(SlotArea.CONTAINER, 0))
-                .get(DataComponents.CUSTOM_NAME) shouldBe Component.text("di")
+            view.edits shouldBe listOf("d", "di")
+            handle.seedName() shouldBe Component.text("di")
+        }
+
+        "an edit matching the in-flight seed is kept, and late echoes are still dropped" {
+            val view = SearchView()
+            val scheduler = ManualScheduler()
+            val handle = FakeInventoryHandle()
+            testSession(manifest, "w", view, scheduler, handle).open()
+            handle.input("")
+            handle.pong()
+
+            handle.input("d")
+            scheduler.tick()
+            handle.input("di")
+            handle.input("d")
+            repeat(40) { scheduler.tick() }
+            handle.input("d")
+            handle.pong()
+            scheduler.runAll()
+
+            view.edits shouldBe listOf("d", "di", "d")
+            handle.seedName() shouldBe Component.text("d")
         }
     })

@@ -50,7 +50,7 @@ public class WindowSession
         private val reopens =
             entry.inputs.values
                 .singleOrNull()
-                ?.let { AnvilReopenGate(scheduler, it.initial, ::sendTitle) }
+                ?.let { AnvilReopenGate(scheduler, it.initial, handle::ping, ::applyInput, ::sendTitle) }
 
         private val frames =
             SessionFrames(
@@ -90,7 +90,7 @@ public class WindowSession
             val render = title.compose()
             handle.open(render.component)
             frames.observe(render, RenderFrameReason.OPEN)
-            handle.registerListeners(::handleClick, ::handleClientClose, ::handleInput)
+            handle.registerListeners(::handleClick, ::handleClientClose, ::handleInput, ::handlePong)
             writer.seed()
             reopens?.sent()
             view.invokeOnOpen()
@@ -178,12 +178,19 @@ public class WindowSession
 
         private fun handleInput(value: String) {
             if (closed) return
+            reopens?.input(value)
+        }
+
+        private fun handlePong(id: Int) {
+            if (closed) return
+            reopens?.pong(id)
+        }
+
+        private fun applyInput(value: String) {
+            if (closed) return
             val (name, handler) = bindings.inputHandlers.entries.singleOrNull() ?: return
-            val gate = reopens ?: return
-            if (gate.consumeEcho(value)) return
             // Title changes reopen the vanilla menu, which resets the edit box to the seed's name.
             // Stage the typed value as that name so the next reopen restores it.
-            gate.seed = value
             writer.stageInput(entry.inputs.getValue(name), value)
             handler(value)
         }

@@ -306,7 +306,7 @@ class LiveInventoryHandleTest :
             val handle = LiveInventoryHandle(player, InventoryType.CHEST_3_ROW)
             val clicks = mutableListOf<dev.oglass.window.internal.ClickInfo>()
             handle.open(Component.text("test"))
-            handle.registerListeners({ clicks += it }, {}, {})
+            handle.registerListeners({ clicks += it }, {}, {}, {})
             try {
                 EventDispatcher.call(
                     InventoryPreClickEvent(

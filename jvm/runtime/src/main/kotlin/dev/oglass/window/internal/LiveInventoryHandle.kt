@@ -12,11 +12,14 @@ import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryOpenEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerAnvilInputEvent
+import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.trait.PlayerEvent
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.inventory.type.AnvilInventory
 import net.minestom.server.item.ItemStack
+import net.minestom.server.network.packet.client.common.ClientPongPacket
+import net.minestom.server.network.packet.server.common.PingPacket
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicLong
 
@@ -80,10 +83,15 @@ internal class LiveInventoryHandle(
         inventory.setItemStack(slot.index, item, false)
     }
 
+    override fun ping(id: Int) {
+        player.sendPacket(PingPacket(id))
+    }
+
     override fun registerListeners(
         onClick: (ClickInfo) -> Unit,
         onClose: () -> Unit,
         onInput: (String) -> Unit,
+        onPong: (Int) -> Unit,
     ) {
         val sessionNode =
             EventNode.value(
@@ -123,6 +131,10 @@ internal class LiveInventoryHandle(
         sessionNode.addListener(PlayerAnvilInputEvent::class.java) { event ->
             if (event.inventory !== inventory) return@addListener
             onInput(event.input)
+        }
+        sessionNode.addListener(PlayerPacketEvent::class.java) { event ->
+            val packet = event.packet
+            if (packet is ClientPongPacket) onPong(packet.id())
         }
         MinecraftServer.getGlobalEventHandler().addChild(sessionNode)
         node = sessionNode

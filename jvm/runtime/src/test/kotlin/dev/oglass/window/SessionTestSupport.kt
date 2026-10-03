@@ -49,6 +49,8 @@ internal class FakeInventoryHandle : InventoryHandle {
     private var onClick: ((ClickInfo) -> Unit)? = null
     private var onClose: (() -> Unit)? = null
     private var onInput: ((String) -> Unit)? = null
+    private var onPong: ((Int) -> Unit)? = null
+    val pings = mutableListOf<Int>()
 
     override fun open(title: Component) {
         opened = true
@@ -77,10 +79,16 @@ internal class FakeInventoryHandle : InventoryHandle {
         onClick: (ClickInfo) -> Unit,
         onClose: () -> Unit,
         onInput: (String) -> Unit,
+        onPong: (Int) -> Unit,
     ) {
         this.onClick = onClick
         this.onClose = onClose
         this.onInput = onInput
+        this.onPong = onPong
+    }
+
+    override fun ping(id: Int) {
+        pings += id
     }
 
     override fun close() {
@@ -117,6 +125,11 @@ internal class FakeInventoryHandle : InventoryHandle {
     /** Simulates a native inventory text-input update. */
     fun input(value: String) {
         onInput?.invoke(value)
+    }
+
+    /** Simulates the client answering the latest ping. */
+    fun pong() {
+        onPong?.invoke(pings.last())
     }
 }
 

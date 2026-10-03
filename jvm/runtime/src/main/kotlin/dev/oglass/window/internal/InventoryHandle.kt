@@ -32,11 +32,15 @@ internal interface InventoryHandle {
         item: ItemStack,
     )
 
-    /** Registers click, close, and native text-input listeners. */
+    /** Sends the player a ping whose pong reaches [registerListeners]' `onPong` in packet order. */
+    fun ping(id: Int)
+
+    /** Registers click, close, native text-input, and pong listeners. */
     fun registerListeners(
         onClick: (ClickInfo) -> Unit,
         onClose: () -> Unit,
         onInput: (String) -> Unit,
+        onPong: (Int) -> Unit,
     )
 
     /** Closes the inventory for the player and tears down listeners. */
