@@ -9,9 +9,10 @@ import net.minestom.server.event.EventFilter
 import net.minestom.server.event.EventListener
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryCloseEvent
+import net.minestom.server.event.inventory.InventoryOpenEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerAnvilInputEvent
-import net.minestom.server.event.trait.InventoryEvent
+import net.minestom.server.event.trait.PlayerEvent
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.inventory.type.AnvilInventory
@@ -22,9 +23,10 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Live Minestom-backed [InventoryHandle].
  *
- * Builds a real [Inventory] of the given [type], wires a per-session [EventNode] filtered to that
- * inventory onto the global handler, normalises [InventoryPreClickEvent] clicks (always cancelled),
- * and updates the title via [Inventory.setTitle].
+ * Builds a real [Inventory] of the given [type], wires a per-session [EventNode] filtered to the
+ * player onto the global handler, normalises [InventoryPreClickEvent] clicks (always cancelled),
+ * and updates the title via [Inventory.setTitle]. Opening any other inventory over this one ends the
+ * session like a close, because Minestom replaces it without an [InventoryCloseEvent].
  */
 internal class LiveInventoryHandle(
     private val player: Player,
@@ -37,7 +39,7 @@ internal class LiveInventoryHandle(
     override val containerId: Int?
         get() = if (::inventory.isInitialized) inventory.windowId.toInt() and 0xff else null
 
-    private var node: EventNode<InventoryEvent>? = null
+    private var node: EventNode<PlayerEvent>? = null
     private val playerSlots = PlayerSlotLease(player) { inventory }
     private val clicks = ClickNormalizer(player) { inventory }
 
@@ -81,16 +83,17 @@ internal class LiveInventoryHandle(
         onInput: (String) -> Unit,
     ) {
         val sessionNode =
-            EventNode.event(
+            EventNode.value(
                 "window-session-${NODE_ID.getAndIncrement()}",
-                EventFilter.INVENTORY,
-                { event -> event.inventory === inventory || event.inventory === player.inventory },
+                EventFilter.PLAYER,
+                { it === player },
             )
         sessionNode.addListener(
             EventListener
                 .builder(InventoryPreClickEvent::class.java)
                 .ignoreCancelled(false)
                 .handler { event ->
+                    if (event.inventory !== inventory && event.inventory !== player.inventory) return@handler
                     event.isCancelled = true
                     val slot = clicks.slot(event) ?: return@handler
                     LOGGER.trace(
@@ -106,6 +109,11 @@ internal class LiveInventoryHandle(
         )
         sessionNode.addListener(InventoryCloseEvent::class.java) { event ->
             if (event.inventory !== inventory) return@addListener
+            playerSlots.restore()
+            onClose()
+        }
+        sessionNode.addListener(InventoryOpenEvent::class.java) { event ->
+            if (event.inventory === inventory || player.openInventory !== inventory) return@addListener
             playerSlots.restore()
             onClose()
         }
