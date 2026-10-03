@@ -42,7 +42,7 @@ fun Product.toItemStack(): ItemStack =
             DataComponents.LORE,
             listOf(
                 Component
-                    .text("$price credits", NamedTextColor.GOLD)
+                    .text("$price coins", NamedTextColor.GOLD)
                     .decoration(TextDecoration.ITALIC, false),
                 Component
                     .text("${tier.label} / ${category.name.lowercase()}", NamedTextColor.GRAY)

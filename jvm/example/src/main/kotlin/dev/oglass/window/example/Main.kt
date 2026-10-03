@@ -32,7 +32,7 @@ import java.nio.file.Path
  * jvm/gradlew -p jvm :example:run
  * ```
  *
- * Then connect a 1.21.x client and the shop opens on spawn. Reopen it with `/shop` or the emerald in the hotbar.
+ * Then connect a Minecraft 26.2 client and the shop opens on spawn. Reopen it with `/shop` or the hotbar emerald.
  */
 fun main() {
     val server = MinecraftServer.init()

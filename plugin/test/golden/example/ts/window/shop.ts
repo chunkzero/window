@@ -29,7 +29,7 @@ function enabledStates(label: string, sprite: string) {
     };
 }
 /** A raised toggle with a lamp at its left and its label centered in the remaining width. */
-function lampToggle(name: string, x: number, tooltip: string) {
+function lampToggle(name: string, x: number, title: string, tooltip: string) {
     return toggle(name, {
         frame: "button",
         transform: { section: "player", x, y: 1, width: 3, height: 1 },
@@ -39,7 +39,7 @@ function lampToggle(name: string, x: number, tooltip: string) {
         },
         children: [
             spriteSlot(name + "_lamp", { x: 5, y: 6, width: 4, height: 4 }),
-            slot(name + "_label", { ...text, x: 12, y: 4, width: 36, align: "center" }),
+            label(title, { ...text, x: 12, y: 4, width: 36, align: "center" }),
         ],
     });
 }
@@ -112,8 +112,8 @@ export default ui({
             states: choiceStates("Name sort"),
             children: [slot("sort_name_label", text)],
         }),
-        lampToggle("favorites", 0, "Favorites only"),
-        lampToggle("affordable", 3, "Affordable only"),
+        lampToggle("favorites", 0, "Favs", "Favorites only"),
+        lampToggle("affordable", 3, "Afford", "Affordable only"),
         button("search", {
             frame: "button",
             transform: { section: "player", x: 6, y: 1, width: 3, height: 1 },

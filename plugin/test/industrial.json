@@ -133,18 +133,6 @@
       "highlight_color": "#eef5ff",
       "shadow_color": "#0a1433"
     },
-    "coin": {
-      "kind": "button",
-      "width": 8,
-      "height": 8,
-      "fill": "#ffb20b",
-      "border_color": "#8d3c03",
-      "border_width": 1,
-      "radius": 4,
-      "inset_depth": 1,
-      "highlight_color": "#ffd731",
-      "shadow_color": "#c67707"
-    },
     "lamp_on": {
       "kind": "button",
       "width": 4,

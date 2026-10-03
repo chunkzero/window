@@ -1,4 +1,4 @@
-import type { GeneratedFrame, GeneratedSprite, IndustrialPresetOptions, Theme } from "./types.ts";
+import type { GeneratedFrame, GeneratedSprite, IndustrialPresetOptions } from "./types.ts";
 
 function mix(hex: string, target: string, amount: number): string {
     const channel = (value: string, at: number) => parseInt(value.slice(at, at + 2), 16);
@@ -48,7 +48,26 @@ function sunken(kind: "panel" | "slot" | "button", fill: string, border: string 
     };
 }
 
-function industrial(opts: IndustrialPresetOptions = {}): Theme {
+type IndustrialFrame =
+    | "shell"
+    | "panel"
+    | "recess"
+    | "slot"
+    | "button"
+    | "button_selected"
+    | "button_disabled"
+    | "button_accent"
+    | "button_danger"
+    | "button_confirm"
+    | "hud"
+    | "hazard_bar";
+type IndustrialSprite = "rivet" | "lamp_on" | "lamp_off" | "slot_selected";
+
+/** Assignable to `Theme`, with frame and sprite names typed so callers can reference them by key. */
+function industrial(opts: IndustrialPresetOptions = {}): {
+    frames: Record<IndustrialFrame, GeneratedFrame>;
+    sprites: Record<IndustrialSprite, GeneratedSprite>;
+} {
     const border = opts.border_color ?? "#03091f";
     const accent = opts.accent_color ?? "#ff8300";
     const danger = opts.danger_color ?? "#ed171b";
@@ -79,18 +98,6 @@ function industrial(opts: IndustrialPresetOptions = {}): Theme {
         radius: 0,
         inset_depth: 0,
     });
-    const coin: GeneratedSprite = {
-        kind: "button",
-        width: 8,
-        height: 8,
-        fill: stripeFill,
-        border_color: mix(stripeFill, warm.dark, 0.7),
-        border_width: 1,
-        radius: 4,
-        inset_depth: 1,
-        highlight_color: mix(stripeFill, warm.light, 0.6),
-        shadow_color: mix(stripeFill, warm.dark, 0.35),
-    };
 
     return {
         frames: {
@@ -137,7 +144,6 @@ function industrial(opts: IndustrialPresetOptions = {}): Theme {
         },
         sprites: {
             rivet,
-            coin,
             lamp_on: lamp(opts.lamp_color ?? "#8dff5a"),
             lamp_off: lamp(mix(disabled, border, 0.4)),
             slot_selected: { ...sunken("slot", selectedFill, accent, cool), width: 18, height: 18 },

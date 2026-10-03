@@ -10,9 +10,6 @@ import net.minestom.server.item.ItemStack
 
 /** Typed view for the `shop` window. Implement the abstract members. */
 public abstract class ShopView : WindowView("shop") {
-    /** Render the `affordable_label` slot. */
-    protected abstract fun affordableLabel(): Component
-
     /** Render the `balance` slot. */
     protected abstract fun balance(): Component
 
@@ -27,9 +24,6 @@ public abstract class ShopView : WindowView("shop") {
 
     /** Render the `category_magic_label` slot. */
     protected abstract fun categoryMagicLabel(): Component
-
-    /** Render the `favorites_label` slot. */
-    protected abstract fun favoritesLabel(): Component
 
     /** Render the `next_label` slot. */
     protected abstract fun nextLabel(): Component
@@ -116,13 +110,11 @@ public abstract class ShopView : WindowView("shop") {
     protected open fun productsSelected(): Int? = null
 
     final override fun WindowScope.bind() {
-        slot("affordable_label") { affordableLabel() }
         slot("balance") { balance() }
         slot("buy_label") { buyLabel() }
         slot("category_all_label") { categoryAllLabel() }
         slot("category_gear_label") { categoryGearLabel() }
         slot("category_magic_label") { categoryMagicLabel() }
-        slot("favorites_label") { favoritesLabel() }
         slot("next_label") { nextLabel() }
         slot("page") { page() }
         slot("previous_label") { previousLabel() }

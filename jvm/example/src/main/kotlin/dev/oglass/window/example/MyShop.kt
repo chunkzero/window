@@ -53,11 +53,7 @@ class MyShop(
 
     override fun sortNameLabel(): Component = tabLabel("Name", sort == CatalogSort.NAME)
 
-    override fun favoritesLabel(): Component = Component.text("Favs")
-
     override fun favoritesLampSprite(): String = lamp(favoritesOnly)
-
-    override fun affordableLabel(): Component = Component.text("Afford")
 
     override fun affordableLampSprite(): String = lamp(affordableOnly)
 
@@ -121,16 +117,12 @@ class MyShop(
 
     override fun onFavorites(click: Click) {
         favoritesOnly = !favoritesOnly
-        resetPageAndSelection()
-        feedback = null
-        syncButtonStates()
+        filtersChanged()
     }
 
     override fun onAffordable(click: Click) {
         affordableOnly = !affordableOnly
-        resetPageAndSelection()
-        feedback = null
-        syncButtonStates()
+        filtersChanged()
     }
 
     override fun onPrevious(click: Click) {
@@ -201,13 +193,15 @@ class MyShop(
 
     private fun selectCategory(value: CatalogCategory) {
         category = value
-        resetPageAndSelection()
-        feedback = null
-        syncButtonStates()
+        filtersChanged()
     }
 
     private fun selectSort(value: CatalogSort) {
         sort = value
+        filtersChanged()
+    }
+
+    private fun filtersChanged() {
         resetPageAndSelection()
         feedback = null
         syncButtonStates()

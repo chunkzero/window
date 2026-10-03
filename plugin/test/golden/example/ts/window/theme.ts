@@ -1,12 +1,10 @@
 import { presets, theme } from "#plugins/window";
-import type { GeneratedFrame } from "#plugins/window";
 
 const industrial = presets.industrial();
-const frames = industrial.frames as Record<string, GeneratedFrame>;
 
 /** State sprites draw at a fixed size, so each button width gets its own copy of the frame style. */
-function sized(frame: string, width: number, height: number) {
-    return { ...frames[frame], width, height };
+function sized(frame: keyof typeof industrial.frames, width: number, height: number) {
+    return { ...industrial.frames[frame], width, height };
 }
 
 export default theme({
@@ -19,6 +17,18 @@ export default theme({
         action_disabled: sized("button_disabled", 52, 16),
         buy: sized("button_accent", 106, 16),
         buy_disabled: sized("button_disabled", 106, 16),
-        vent_slot: { ...frames.recess, border_width: 0, inset_depth: 0, width: 6, height: 2 },
+        vent_slot: { ...industrial.frames.recess, border_width: 0, inset_depth: 0, width: 6, height: 2 },
+        coin: {
+            kind: "button",
+            width: 8,
+            height: 8,
+            radius: 4,
+            border_width: 1,
+            inset_depth: 1,
+            fill: "#ffb20b",
+            border_color: "#8d3c03",
+            highlight_color: "#ffd731",
+            shadow_color: "#c67707",
+        },
     },
 });
