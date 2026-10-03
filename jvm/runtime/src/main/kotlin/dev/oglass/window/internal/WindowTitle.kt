@@ -45,6 +45,14 @@ internal class WindowTitle(
         segments[spriteId(name)] = spriteSegment(name, entry.spriteSlots.getValue(name), sprite)
     }
 
+    /** Reserves an empty segment for button [name]'s state sprite until a state is set. */
+    fun reserveButtonVisual(name: String) {
+        val button = entry.buttons.getValue(name)
+        val font = button.spriteFont ?: return
+        val id = buttonId(name)
+        segments[id] = definition.emptyTitleSegment(id, RenderLayerKind.SPRITE_SLOT, button.x, button.y, font)
+    }
+
     /** Draws button [name]'s sprite for [stateName], or nothing when the state has no sprite. */
     fun setButtonVisual(
         name: String,
@@ -52,7 +60,7 @@ internal class WindowTitle(
     ) {
         val button = entry.buttons.getValue(name)
         val state = definition.requireButtonState(name, stateName)
-        val id = "window/${definition.name}/button/$name"
+        val id = buttonId(name)
         val font = button.spriteFont
         val sprite = state.sprite
         segments[id] =
@@ -90,6 +98,8 @@ internal class WindowTitle(
     }
 
     private fun spriteId(name: String): String = "window/${definition.name}/sprite/$name"
+
+    private fun buttonId(name: String): String = "window/${definition.name}/button/$name"
 }
 
 private val EMPTY_STYLE = RenderStyleTrace(color = "#ffffff", shadow = false)

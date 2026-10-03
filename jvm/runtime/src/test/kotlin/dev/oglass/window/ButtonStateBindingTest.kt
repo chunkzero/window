@@ -127,6 +127,43 @@ class ButtonStateBindingTest :
             selected.contains('\uE100') shouldBe false
         }
 
+        "state sprites set after open still draw beneath labels" {
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    slots =
+                        mapOf(
+                            "label" to TestManifests.slot(x = 8, width = 40, align = Align.CENTER, text = "Mode"),
+                        ),
+                    buttons =
+                        mapOf(
+                            "mode" to
+                                TestManifests.button(
+                                    slots = listOf(0),
+                                    width = 40,
+                                    states = mapOf("on" to ButtonState(sprite = "selected")),
+                                    spriteFont = "window:sprite_y0",
+                                ),
+                        ),
+                    sprites = mapOf("selected" to TestManifests.sprite(width = 40, glyph = "\uE101")),
+                )
+            val view =
+                object : WindowView("w") {
+                    override fun WindowScope.bind() {
+                        button("mode") {}
+                    }
+
+                    override fun onOpen() = buttonState("mode", "on")
+                }
+            val scheduler = ManualScheduler()
+            val handle = FakeInventoryHandle()
+            testSession(manifest, "w", view, scheduler, handle).open()
+            scheduler.runAll()
+
+            val title = PlainTextComponentSerializer.plainText().serialize(handle.titles.last())
+            (title.indexOf('\uE101') in 0..<title.indexOf("Mode")) shouldBe true
+        }
+
         "choice buttons are mutually exclusive and route their typed value" {
             val states =
                 mapOf(

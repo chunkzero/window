@@ -91,11 +91,14 @@ public class WindowSession
             opened = true
         }
 
-        /** Renders button state sprites first so they draw beneath sprite and text slots. */
+        /**
+         * Renders button state sprites first so they draw beneath sprite and text slots. Buttons whose
+         * state is set later keep this position, since title segments compose in insertion order.
+         */
         private fun seedTitle() {
             for (name in entry.buttons.keys) {
-                val state = writer.initialButtonState(name) ?: continue
-                title.setButtonVisual(name, state)
+                val state = writer.initialButtonState(name)
+                if (state != null) title.setButtonVisual(name, state) else title.reserveButtonVisual(name)
             }
             title.seedContent()
         }
