@@ -96,4 +96,26 @@ class AnvilInputTest :
 
             view.edits shouldBe listOf("d", "di")
         }
+
+        "a held edit that closes the window ends the client close" {
+            var closes = 0
+            val view =
+                object : WindowView("w") {
+                    override fun WindowScope.bind() {
+                        slot("query_text") { Component.empty() }
+                        anvilInput("query") { if (it == "x") close() }
+                    }
+
+                    override fun onClose() {
+                        closes++
+                    }
+                }
+            val scheduler = ManualScheduler()
+            val handle = FakeInventoryHandle()
+            testSession(manifest, "w", view, scheduler, handle).open()
+            handle.input("x")
+            handle.clientClose()
+
+            closes shouldBe 1
+        }
     })

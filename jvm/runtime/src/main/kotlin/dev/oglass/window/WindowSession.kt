@@ -178,6 +178,7 @@ public class WindowSession
         private fun handleClick(info: ClickInfo) {
             if (closed) return
             reopens?.release()
+            if (closed) return
             routes.dispatch(info)
         }
 
@@ -203,6 +204,7 @@ public class WindowSession
         private fun handleClientClose() {
             if (closed) return
             reopens?.release()
+            if (closed) return
             closed = true
             view.invokeOnClose()
             handle.teardownListeners()
