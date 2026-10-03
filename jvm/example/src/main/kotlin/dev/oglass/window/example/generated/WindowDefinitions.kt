@@ -356,10 +356,10 @@ public object WindowDefinitions {
                     slots = mapOf(
                         "affordable_label" to SlotEntry(
                             x = 98,
-                            y = 162,
+                            y = 161,
                             width = 70,
                             align = Align.CENTER,
-                            font = "window:y156",
+                            font = "window:y155",
                             color = "#ffffff",
                             shadow = false,
                             bold = false,
@@ -390,10 +390,10 @@ public object WindowDefinitions {
                         ),
                         "buy_label" to SlotEntry(
                             x = 62,
-                            y = 202,
+                            y = 201,
                             width = 70,
                             align = Align.CENTER,
-                            font = "window:y196",
+                            font = "window:y195",
                             color = "#1b1607",
                             shadow = false,
                             bold = true,
@@ -458,10 +458,10 @@ public object WindowDefinitions {
                         ),
                         "favorites_label" to SlotEntry(
                             x = 8,
-                            y = 162,
+                            y = 161,
                             width = 70,
                             align = Align.CENTER,
-                            font = "window:y156",
+                            font = "window:y155",
                             color = "#ffffff",
                             shadow = false,
                             bold = false,
@@ -492,10 +492,10 @@ public object WindowDefinitions {
                         ),
                         "label_1" to SlotEntry(
                             x = 13,
-                            y = 202,
+                            y = 201,
                             width = 41,
                             align = Align.CENTER,
-                            font = "window:y196",
+                            font = "window:y195",
                             color = "#ffffff",
                             shadow = false,
                             bold = true,
@@ -509,10 +509,10 @@ public object WindowDefinitions {
                         ),
                         "label_2" to SlotEntry(
                             x = 138,
-                            y = 202,
+                            y = 201,
                             width = 25,
                             align = Align.CENTER,
-                            font = "window:y196",
+                            font = "window:y195",
                             color = "#ffffff",
                             shadow = false,
                             bold = true,
@@ -594,10 +594,10 @@ public object WindowDefinitions {
                         ),
                         "sort_featured_label" to SlotEntry(
                             x = 8,
-                            y = 144,
+                            y = 143,
                             width = 52,
                             align = Align.CENTER,
-                            font = "window:y138",
+                            font = "window:y137",
                             color = "#ffffff",
                             shadow = false,
                             bold = false,
@@ -611,10 +611,10 @@ public object WindowDefinitions {
                         ),
                         "sort_name_label" to SlotEntry(
                             x = 116,
-                            y = 144,
+                            y = 143,
                             width = 52,
                             align = Align.CENTER,
-                            font = "window:y138",
+                            font = "window:y137",
                             color = "#ffffff",
                             shadow = false,
                             bold = false,
@@ -628,10 +628,10 @@ public object WindowDefinitions {
                         ),
                         "sort_price_label" to SlotEntry(
                             x = 62,
-                            y = 144,
+                            y = 143,
                             width = 52,
                             align = Align.CENTER,
-                            font = "window:y138",
+                            font = "window:y137",
                             color = "#ffffff",
                             shadow = false,
                             bold = false,
@@ -665,7 +665,7 @@ public object WindowDefinitions {
                     buttons = mapOf(
                         "affordable" to ButtonEntry(
                             x = 98,
-                            y = 158,
+                            y = 157,
                             width = 70,
                             height = 16,
                             slots = listOf(
@@ -712,7 +712,7 @@ public object WindowDefinitions {
                         ),
                         "buy" to ButtonEntry(
                             x = 62,
-                            y = 198,
+                            y = 197,
                             width = 70,
                             height = 16,
                             slots = listOf(
@@ -888,7 +888,7 @@ public object WindowDefinitions {
                         ),
                         "exit" to ButtonEntry(
                             x = 134,
-                            y = 198,
+                            y = 197,
                             width = 34,
                             height = 16,
                             slots = listOf(
@@ -913,7 +913,7 @@ public object WindowDefinitions {
                         ),
                         "favorites" to ButtonEntry(
                             x = 8,
-                            y = 158,
+                            y = 157,
                             width = 70,
                             height = 16,
                             slots = listOf(
@@ -1038,7 +1038,7 @@ public object WindowDefinitions {
                         ),
                         "search" to ButtonEntry(
                             x = 8,
-                            y = 198,
+                            y = 197,
                             width = 52,
                             height = 16,
                             slots = listOf(
@@ -1067,7 +1067,7 @@ public object WindowDefinitions {
                         ),
                         "sort_featured" to ButtonEntry(
                             x = 8,
-                            y = 140,
+                            y = 139,
                             width = 52,
                             height = 16,
                             slots = listOf(
@@ -1110,7 +1110,7 @@ public object WindowDefinitions {
                         ),
                         "sort_name" to ButtonEntry(
                             x = 116,
-                            y = 140,
+                            y = 139,
                             width = 52,
                             height = 16,
                             slots = listOf(
@@ -1153,7 +1153,7 @@ public object WindowDefinitions {
                         ),
                         "sort_price" to ButtonEntry(
                             x = 62,
-                            y = 140,
+                            y = 139,
                             width = 52,
                             height = 16,
                             slots = listOf(

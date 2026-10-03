@@ -8,8 +8,8 @@ fn generic_9x6_metrics() {
     assert_eq!(k.slot_count(), 54);
     assert_eq!(k.slot_rect(0), Some(Rect::new(8, 18, 16, 16)));
     assert_eq!(k.slot_rect(10), Some(Rect::new(26, 36, 16, 16)));
-    assert_eq!(k.player_slot_rect(9), Some(Rect::new(8, 140, 16, 16)));
-    assert_eq!(k.player_slot_rect(0), Some(Rect::new(8, 198, 16, 16)));
+    assert_eq!(k.player_slot_rect(9), Some(Rect::new(8, 139, 16, 16)));
+    assert_eq!(k.player_slot_rect(0), Some(Rect::new(8, 197, 16, 16)));
 }
 
 #[test]
@@ -30,13 +30,13 @@ fn generic_sections_preserve_native_gutters() {
     for kind in ContainerKind::ALL.into_iter().filter(|kind| *kind != ContainerKind::Anvil) {
         let rows = kind.rows();
         assert_eq!(kind.section_bounds(InventorySlotSection::Container), Rect::new(8, 18, 160, 18 * rows - 2),);
-        assert_eq!(kind.section_bounds(InventorySlotSection::Player), Rect::new(8, 18 * rows as i32 + 32, 160, 52),);
-        assert_eq!(kind.section_bounds(InventorySlotSection::Hotbar), Rect::new(8, 18 * rows as i32 + 90, 160, 16),);
+        assert_eq!(kind.section_bounds(InventorySlotSection::Player), Rect::new(8, 18 * rows as i32 + 31, 160, 52),);
+        assert_eq!(kind.section_bounds(InventorySlotSection::Hotbar), Rect::new(8, 18 * rows as i32 + 89, 160, 16),);
         assert_eq!(
             kind.reserved_gutters(),
             [
-                InventoryGutter { name: "container-to-player", rect: Rect::new(8, 18 * rows as i32 + 16, 160, 16) },
-                InventoryGutter { name: "player-to-hotbar", rect: Rect::new(8, 18 * rows as i32 + 84, 160, 6) },
+                InventoryGutter { name: "container-to-player", rect: Rect::new(8, 18 * rows as i32 + 16, 160, 15) },
+                InventoryGutter { name: "player-to-hotbar", rect: Rect::new(8, 18 * rows as i32 + 83, 160, 6) },
             ],
         );
     }

@@ -68,7 +68,7 @@ fn exact_section_controls_do_not_warn_about_gutters() {
         &sizes(&[]),
     );
     assert!(w.warnings.is_empty());
-    assert_eq!(w.buttons[0].rect, Rect::new(8, 144, 16, 16));
+    assert_eq!(w.buttons[0].rect, Rect::new(8, 143, 16, 16));
 }
 
 #[test]

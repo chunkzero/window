@@ -43,9 +43,7 @@ pub fn render(style: &GeneratedStyle, size: Size) -> Result<Texture> {
         }
     }
 
-    let mut texture = texture_from_pixmap(&pixmap);
-    apply_lighting(&mut texture, style);
-    Ok(texture)
+    Ok(texture_from_pixmap(&pixmap))
 }
 
 fn draw_panel(pixmap: &mut Pixmap, style: &GeneratedStyle) {
@@ -186,52 +184,6 @@ fn draw_inset(pixmap: &mut Pixmap, style: &GeneratedStyle, inset: u32) {
             draw_rounded_edge(pixmap, rect, Edge::Bottom, color);
             draw_rounded_edge(pixmap, rect, Edge::Right, color);
         }
-    }
-}
-
-fn apply_lighting(texture: &mut Texture, style: &GeneratedStyle) {
-    let w = texture.width;
-    let h = texture.height;
-    if w == 0 || h == 0 {
-        return;
-    }
-
-    let (top_light, bottom_shadow, side_light, side_shadow) = match style.kind {
-        GeneratedKind::HazardBar => (3, 8, 1, 2),
-        GeneratedKind::Button | GeneratedKind::Slot => (4, 10, 1, 3),
-        GeneratedKind::Vent | GeneratedKind::Badge => (4, 9, 1, 3),
-        GeneratedKind::Panel => (5, 11, 1, 3),
-    };
-
-    for y in 0..h {
-        for x in 0..w {
-            let i = ((y * w + x) * 4) as usize;
-            if texture.rgba[i + 3] == 0 {
-                continue;
-            }
-
-            let vertical = if h > 1 { y as i32 * (top_light + bottom_shadow) / (h - 1) as i32 } else { 0 };
-            let mut delta = top_light - vertical;
-
-            let edge = w.min(h).clamp(2, 5);
-            if x < edge {
-                delta += side_light * (edge - x) as i32 / edge as i32;
-            }
-            if x + edge >= w {
-                delta -= side_shadow * (x + edge + 1 - w) as i32 / edge as i32;
-            }
-            if y + edge >= h {
-                delta -= bottom_shadow / 3;
-            }
-
-            shade_pixel(&mut texture.rgba[i..i + 4], delta);
-        }
-    }
-}
-
-fn shade_pixel(px: &mut [u8], delta: i32) {
-    for channel in &mut px[0..3] {
-        *channel = (*channel as i32 + delta).clamp(0, 255) as u8;
     }
 }
 
