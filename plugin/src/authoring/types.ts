@@ -399,6 +399,8 @@ export interface ItemOptions {
 export interface CollectionOptions {
     /** Optional frame drawn once around every collection cell. */
     frame?: string;
+    /** Optional theme sprite drawn over the 18x18 box of the cell the runtime marks selected. */
+    selected_sprite?: string;
     /** Ordered backing inventory slots for this collection. Integers mean container slots. */
     slots?: SlotList;
     /** Slot-space pattern for backing slots. */

@@ -132,6 +132,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         slots: Option<&Vec<InventorySlotRef>>,
         pattern: Option<&SlotPattern>,
         frame: Option<&str>,
+        selected_sprite: Option<String>,
         action: bool,
     ) -> Result<Size> {
         self.require_interaction(name)?;
@@ -142,7 +143,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
             return Err(self.target.layout_err(format!("collection `{name}` must define at least one slot")));
         }
         self.emit_slot_frames("collection", name, frame, &slots)?;
-        self.collections.push(CollectionIr { name: actual_name, slots, action, repeat: self.repeat_binding(name) });
+        self.collections.push(CollectionIr {
+            name: actual_name,
+            slots,
+            selected_sprite,
+            action,
+            repeat: self.repeat_binding(name),
+        });
         Ok(Size::new(0, 0))
     }
 

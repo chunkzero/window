@@ -119,6 +119,7 @@ public class WindowSession
                     is RenderKey.ButtonState -> applyButtonState(key.name, writer.renderButtonState(key.name))
                     is RenderKey.Item -> writer.writeItem(key.name)
                     is RenderKey.CollectionCell -> writer.writeCollectionCell(key.name, key.index)
+                    is RenderKey.CollectionSelection -> title.updateCollectionSelection(key.name)
                 }
             }
             sendTitle()

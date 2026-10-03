@@ -92,7 +92,7 @@ fn declare(w: &mut KotlinWriter, member: &Member) {
             format_args!("Handle a value change from the native `{source}` anvil input."),
             format_args!("{member}(value: String)"),
         ),
-        Member::Collection { source, item_member, handler } => {
+        Member::Collection { source, item_member, handler, selection } => {
             abstract_fun(
                 w,
                 format_args!("Render one cell in the `{source}` collection."),
@@ -104,6 +104,11 @@ fn declare(w: &mut KotlinWriter, member: &Member) {
                     format_args!("Handle a click on the `{source}` collection."),
                     format_args!("{handler}(click: IndexedClick)"),
                 );
+            }
+            if let Some(selection) = selection {
+                w.doc(format_args!("The selected cell index in the `{source}` collection, or `null` for none."));
+                w.line(format_args!("protected open fun {selection}(): Int? = null"));
+                w.blank();
             }
         }
     }
@@ -135,11 +140,14 @@ fn bind(w: &mut KotlinWriter, member: &Member) {
             }
         }
         Member::Button { source, member, .. } => w.line(format_args!("button(\"{source}\", ::{member})")),
-        Member::Collection { source, item_member, handler: Some(handler) } => {
-            w.line(format_args!("collection(\"{source}\", ::{item_member}, ::{handler})"))
-        }
-        Member::Collection { source, item_member, handler: None } => {
-            w.line(format_args!("collectionItem(\"{source}\", ::{item_member})"))
+        Member::Collection { source, item_member, handler, selection } => {
+            match handler {
+                Some(handler) => w.line(format_args!("collection(\"{source}\", ::{item_member}, ::{handler})")),
+                None => w.line(format_args!("collectionItem(\"{source}\", ::{item_member})")),
+            }
+            if let Some(selection) = selection {
+                w.line(format_args!("collectionSelection(\"{source}\", ::{selection})"));
+            }
         }
         Member::AnvilInput { source, member } => w.line(format_args!("anvilInput(\"{source}\", ::{member})")),
     }

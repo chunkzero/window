@@ -86,6 +86,17 @@ public interface WindowScope {
     )
 
     /**
+     * Binds the selected cell of a collection with a selected sprite. [render] returns the cell
+     * index to mark, or `null` (or an index outside the collection) to mark none.
+     *
+     * @throws IllegalArgumentException if [name] is not a collection with a selected sprite.
+     */
+    public fun collectionSelection(
+        name: String,
+        render: () -> Int?,
+    )
+
+    /**
      * Binds a native anvil rename field. The handler receives each value the player types; the text
      * the client sends back after a title change reopens the anvil is not passed on.
      */

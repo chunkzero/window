@@ -1,5 +1,6 @@
 use super::*;
-use crate::ir::SpriteSlotIr;
+use crate::inventory::InventorySlotRef;
+use crate::ir::{CollectionIr, SpriteSlotIr};
 use crate::model::SpriteDef;
 use crate::pipeline::metrics::{GlyphMetrics, bitmap_metrics};
 use crate::pipeline::sprites::runtime_sprite_assets;
@@ -107,4 +108,32 @@ fn runtime_sprites_are_duplicated_by_y_font_not_texture() {
     let descriptor =
         crate::debug::DebugDescriptor::from_json(&find(&out, "assets/window/window/debug.json").contents).unwrap();
     assert_eq!(descriptor.sprites["pickaxe"].resource.as_deref(), Some("window:font/sprites/pickaxe.png"));
+}
+
+#[test]
+fn collection_selection_places_its_sprite_over_each_cell_box() {
+    let (mut w, textures) = sample_window();
+    w.collections = vec![CollectionIr {
+        name: "products".into(),
+        slots: vec![InventorySlotRef::container(9), InventorySlotRef::container(10)],
+        selected_sprite: Some("pickaxe".into()),
+        action: true,
+        repeat: None,
+    }];
+
+    let out = compile_layouts(
+        &[w],
+        &[],
+        &textures,
+        &pickaxe_sprite(),
+        "window",
+        &PackTarget::default(),
+        &BuildOptions::default(),
+    )
+    .unwrap();
+    let cells = &out.manifest.windows["shop"].collections["products"].selection;
+    let boxes: Vec<_> = cells.iter().map(|cell| (cell.x, cell.y, cell.width, cell.height)).collect();
+    assert_eq!(boxes, [(7, 35, 18, 18), (25, 35, 18, 18)]);
+    assert!(cells.iter().all(|cell| cell.font == "window:sprite_y29" && cell.sprite.as_deref() == Some("pickaxe")));
+    assert!(out.files.iter().any(|f| f.path == "assets/window/font/sprite_y29.json"));
 }

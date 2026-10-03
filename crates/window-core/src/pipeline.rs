@@ -167,6 +167,7 @@ fn uses_runtime_sprites(windows: &[&LaidOutWindow]) -> bool {
     windows.iter().any(|w| {
         !w.sprite_slots.is_empty()
             || w.buttons.iter().any(|button| button.states.values().any(|state| state.sprite.is_some()))
+            || w.collections.iter().any(|collection| collection.selected_sprite.is_some())
     })
 }
 

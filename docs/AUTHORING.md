@@ -210,7 +210,7 @@ are intentionally opt-in; the fallback channel remains the runtime contract.
 | `button(name, opts)`         | yes      | button name, and either `width`/`height` or `pattern`/`transform`                         | `frame`, `x`, `y`, `slots`, `default: "close"`, `tooltip`, `states`, `padding`                                                     |
 | `hotspot(name, opts)`        | no       | hotspot name, `tooltip` or `states`, and either `width`/`height` or `pattern`/`transform` | `x`, `y`, `slots`                                                                                                                  |
 | `item(name, opts)`           | no       | item name, and `slots`, `pattern`, `transform`, or (inside a repeater) `cell_slot`        | none                                                                                                                               |
-| `collection(name, opts)`     | no       | collection name, and `slots`, `pattern`, or `transform`                                   | `frame`, `action: false` for display-only collections                                                                              |
+| `collection(name, opts)`     | no       | collection name, and `slots`, `pattern`, or `transform`                                   | `frame`, `selected_sprite`, `action: false` for display-only collections                                                           |
 | `toggle(name, opts)`         | yes      | button options and `states.on` / `states.off`                                             | the same options as `button`                                                                                                       |
 | `choice(name, opts)`         | yes      | button options and `states.selected` / `states.unselected`                                | the same options as `button`                                                                                                       |
 | `anvilInput(name, opts)`     | no       | an `anvil` window and input name                                                          | `initial`, `item_model`                                                                                                            |
@@ -317,8 +317,9 @@ spriteSlot("quality_icon", {
 });
 ```
 
-Fixed sprite slots require no generated Kotlin binding. Window composes button-state backgrounds, then fixed/runtime
-sprite slots, then text, so icons and labels remain visible above an opaque selected background.
+Fixed sprite slots require no generated Kotlin binding. Window composes button-state backgrounds, then collection
+selections, then fixed/runtime sprite slots, then text, so icons and labels remain visible above an opaque selected
+background.
 
 The Minestom runtime provides `toggle`, typed `choice`, `enabledButton`, and `pager` helpers. `pager` binds
 previous/next buttons to `WindowPager`, updates their `enabled`/`disabled` states, suppresses disabled clicks, and
@@ -401,9 +402,14 @@ button("buy", {
 
 collection("pets", {
   frame: "slot_cell",
+  selected_sprite: "slot_selected",
   pattern: pattern.rect({ section: "container", x: 1, y: 1, width: 7, height: 2 }),
 });
 ```
+
+`selected_sprite` names a theme sprite that marks one cell at runtime, drawn over the cell's 18x18 slot box above the
+static frame and below the item. The generated view gains `protected open fun petsSelected(): Int?`, returning the cell
+index to mark or `null` for none.
 
 Available constructors:
 

@@ -32,4 +32,9 @@ internal sealed interface RenderKey {
         val name: String,
         val index: Int,
     ) : RenderKey
+
+    /** The selected-cell sprite of a repeated item collection. */
+    data class CollectionSelection(
+        val name: String,
+    ) : RenderKey
 }
