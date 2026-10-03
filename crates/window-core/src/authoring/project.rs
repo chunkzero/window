@@ -38,7 +38,7 @@ struct OptionsDto {
     #[serde(default)]
     anvil_field_sprite: Option<String>,
     #[serde(default)]
-    unstable_drawn_anvil_input: bool,
+    experimental_anvil_updates: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -72,7 +72,7 @@ impl ProjectDto {
             options: BuildOptions {
                 hud_shaders: self.options.hud_shaders,
                 anvil_field_sprite: self.options.anvil_field_sprite,
-                unstable_drawn_anvil_input: self.options.unstable_drawn_anvil_input,
+                experimental_anvil_updates: self.options.experimental_anvil_updates,
             },
             target: PackTarget { pack_format: self.target.pack_format },
         })

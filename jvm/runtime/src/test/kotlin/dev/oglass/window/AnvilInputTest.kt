@@ -34,6 +34,29 @@ class AnvilInputTest :
         fun FakeInventoryHandle.seedName() =
             items.getValue(SlotRef(SlotArea.CONTAINER, 0)).get(DataComponents.CUSTOM_NAME)
 
+        "static anvils deliver every edit without reopening" {
+            val edits = mutableListOf<String>()
+            val view =
+                object : WindowView("w") {
+                    override fun WindowScope.bind() {
+                        anvilInput("query") { edits += it }
+                    }
+                }
+            val handle = FakeInventoryHandle()
+            val static =
+                TestManifests.manifest(
+                    container = "anvil",
+                    inputs = mapOf("query" to AnvilInputEntry(slot = TestManifests.containerSlot(0))),
+                )
+            testSession(static, "w", view, ManualScheduler(), handle).open()
+            handle.input("a")
+            handle.input("as")
+            handle.input("asd")
+
+            edits shouldBe listOf("a", "as", "asd")
+            handle.titles.size shouldBe 1
+        }
+
         "title changes wait until the player pauses typing" {
             val view = SearchView()
             val scheduler = ManualScheduler()

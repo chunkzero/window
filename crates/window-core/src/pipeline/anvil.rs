@@ -1,5 +1,5 @@
-//! Native anvil text field: a hole in each anvil input window's art so the client's rename box
-//! shows through, and optional themed vanilla field sprites.
+//! Anvil input windows: a static title, a hole in the art so the client's rename box shows through,
+//! and optional themed vanilla field sprites.
 
 use std::collections::BTreeMap;
 
@@ -42,15 +42,35 @@ pub(super) fn field_sprites(
         .collect())
 }
 
-/// Warns that `w`'s anvil input uses the unstable drawn field.
-pub(super) fn warn_drawn_input(w: &LaidOutWindow, warnings: &mut Vec<String>) {
-    if !w.inputs.is_empty() {
+/// Rejects controls that change the title of `w` when it has an anvil input, since each title change
+/// reopens the anvil and races the player's typing. With `experimental` set, warns instead.
+pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut Vec<String>) -> Result<()> {
+    if w.inputs.is_empty() {
+        return Ok(());
+    }
+    let slots = w.slots.iter().filter(|slot| slot.text.is_none()).map(|slot| &slot.name);
+    let sprites = w.sprite_slots.iter().filter(|slot| slot.sprite.is_none()).map(|slot| &slot.name);
+    let buttons = w.buttons.iter().filter(|button| button.states.values().any(|state| state.sprite.is_some()));
+    let collections = w.collections.iter().filter(|collection| collection.selected_sprite.is_some());
+    let updates = slots
+        .chain(sprites)
+        .chain(buttons.map(|button| &button.name))
+        .chain(collections.map(|collection| &collection.name));
+    for name in updates {
+        if !experimental {
+            return Err(Error::Validation(format!(
+                "window `{}`: `{name}` changes the title of an anvil input window, which reopens the anvil while \
+                 the player types; keep anvil windows static or set experimental_anvil_updates",
+                w.name
+            )));
+        }
         warnings.push(format!(
-            "window `{}`: unstable_drawn_anvil_input is unstable; text drawn over the anvil field only updates by \
-             reopening the anvil, which can flicker while the player types",
+            "window `{}`: `{name}` reopens the anvil to change its title (experimental_anvil_updates), which can \
+             flicker and drop keystrokes",
             w.name
         ));
     }
+    Ok(())
 }
 
 /// Clears the text field from `w`'s static art when it has an anvil input, and warns about

@@ -97,8 +97,8 @@ public interface WindowScope {
     )
 
     /**
-     * Binds a native anvil rename field. The handler receives each value the player types; the text
-     * the client sends back after a title change reopens the anvil is not passed on.
+     * Binds a native anvil rename field. The handler receives each value the player types. With
+     * experimental anvil updates, the text the client sends back after a reopen is not passed on.
      */
     public fun anvilInput(
         name: String,

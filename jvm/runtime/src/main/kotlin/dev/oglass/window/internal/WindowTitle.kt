@@ -21,6 +21,14 @@ internal class WindowTitle(
 
     fun compose(): ComposedRender = composer.compose(definition.name, segments)
 
+    /** Whether the title never changes after open: no text slots, bound sprites, state sprites, or selections. */
+    val isStatic: Boolean
+        get() =
+            entry.slots.values.all { it.text != null } &&
+                entry.spriteSlots.values.all { it.sprite != null } &&
+                entry.buttons.values.all { it.spriteFont == null } &&
+                entry.collections.values.all { it.selection.isEmpty() }
+
     /** Renders collection selections, fixed sprites, runtime sprites, and text slots once. */
     fun seedContent() {
         for (name in bindings.collectionSelections.keys) updateCollectionSelection(name)

@@ -225,8 +225,8 @@ fn static_glyph_codepoint_in_private_use_area() {
     assert!(glyph.is_some(), "static string contains a glyph codepoint");
 }
 
-fn anvil_search_project(options: &str) -> String {
-    format!(
+fn compile_anvil_search(child: &str, options: &str) -> crate::Result<CompileOutput> {
+    let project = format!(
         r##"{{
       "theme":{{
         "frames":{{"recess":{{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0}}}},
@@ -234,12 +234,13 @@ fn anvil_search_project(options: &str) -> String {
       }},
       "windows":[{{"name":"search","container":"anvil","children":[
         {{"type":"panel","frame":"recess","x":0,"y":0,"width":176,"height":166}},
-        {{"type":"slot","name":"query_text","x":62,"y":24,"width":103}},
+        {child},
         {{"type":"anvil_input","name":"query"}}
       ]}}],
       "options":{options}
     }}"##
-    )
+    );
+    crate::pipeline::compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new()))
 }
 
 fn search_art_alpha(out: &CompileOutput, x: u32, y: u32) -> u8 {
@@ -249,8 +250,8 @@ fn search_art_alpha(out: &CompileOutput, x: u32, y: u32) -> u8 {
 
 #[test]
 fn anvil_inputs_open_the_art_over_the_native_field_and_can_restyle_it() {
-    let project = anvil_search_project(r#"{"anvil_field_sprite":"field"}"#);
-    let out = crate::pipeline::compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
+    let label = r#"{"type":"label","text":"Query","x":62,"y":24,"width":103}"#;
+    let out = compile_anvil_search(label, r#"{"anvil_field_sprite":"field"}"#).unwrap();
     for path in [
         "assets/minecraft/textures/gui/sprites/container/anvil/text_field.png",
         "assets/minecraft/textures/gui/sprites/container/anvil/text_field_disabled.png",
@@ -260,19 +261,15 @@ fn anvil_inputs_open_the_art_over_the_native_field_and_can_restyle_it() {
     }
     assert_eq!((search_art_alpha(&out, 59, 20), search_art_alpha(&out, 168, 35)), (0, 0));
     assert_eq!((search_art_alpha(&out, 58, 20), search_art_alpha(&out, 59, 36)), (255, 255));
-    assert!(out.warnings.iter().any(|w| w.contains("`query_text` draws over the native anvil text field")));
+    assert!(out.warnings.iter().any(|w| w.contains("draws over the native anvil text field")));
 }
 
 #[test]
-fn unstable_drawn_anvil_input_covers_the_field_and_warns() {
-    let project = anvil_search_project(r#"{"unstable_drawn_anvil_input":true}"#);
-    let out = crate::pipeline::compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
-    assert_eq!(search_art_alpha(&out, 59, 20), 255);
-    assert!(!out.files.iter().any(|f| f.path.contains("anvil/text_field")));
-    assert!(out.warnings.iter().any(|w| w.contains("unstable_drawn_anvil_input is unstable")));
+fn anvil_title_updates_require_the_experimental_option() {
+    let slot = r#"{"type":"slot","name":"count","x":8,"y":70,"width":60}"#;
+    let err = compile_anvil_search(slot, "{}").unwrap_err();
+    assert!(err.to_string().contains("`count` changes the title of an anvil input window"), "{err}");
 
-    let project = anvil_search_project(r#"{"unstable_drawn_anvil_input":true,"anvil_field_sprite":"field"}"#);
-    let err =
-        crate::pipeline::compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap_err();
-    assert!(err.to_string().contains("which unstable_drawn_anvil_input covers"), "{err}");
+    let out = compile_anvil_search(slot, r#"{"experimental_anvil_updates":true}"#).unwrap();
+    assert!(out.warnings.iter().any(|w| w.contains("`count` reopens the anvil")));
 }

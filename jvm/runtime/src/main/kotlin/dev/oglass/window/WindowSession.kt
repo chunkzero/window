@@ -19,6 +19,7 @@ import dev.oglass.window.internal.WindowInventoryWriter
 import dev.oglass.window.internal.WindowTitle
 import dev.oglass.window.internal.hitboxModel
 import dev.oglass.window.internal.titleSlots
+import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.item.ItemStack
@@ -48,6 +49,8 @@ public class WindowSession
         private val writer = WindowInventoryWriter(definition, bindings, handle, reactivity)
         private val routes = SlotRoutes(entry, bindings, player, ::close)
         private var reopens: AnvilReopenGate? = null
+        private var input: ((String) -> Unit)? = null
+        private var sentTitle: Component? = null
 
         private val frames =
             SessionFrames(
@@ -82,7 +85,7 @@ public class WindowSession
             view.attach(player, this, reactivity)
             view.invokeBind(bindings)
             bindings.validate()
-            reopens = reopenGate()
+            input = anvilInput()
             seedTitle()
 
             val render = title.compose()
@@ -91,6 +94,7 @@ public class WindowSession
                 handle.registerListeners(::handleClick, ::handleClientClose, ::handleInput, ::handlePong)
                 writer.seed()
             }
+            sentTitle = render.component
             frames.observe(render, RenderFrameReason.OPEN)
             view.invokeOnOpen()
             opened = true
@@ -125,10 +129,13 @@ public class WindowSession
             sendTitle()
         }
 
-        private fun sendTitle() {
+        /** Sends the title when it changed, or when [reopen] asks to restore an anvil's edit box. */
+        private fun sendTitle(reopen: Boolean = false) {
             if (closed) return
             val render = title.compose()
+            if (!reopen && render.component == sentTitle) return
             if (!send { handle.setTitle(render.component) }) return
+            sentTitle = render.component
             frames.observe(render, RenderFrameReason.REACTIVE_UPDATE)
         }
 
@@ -139,10 +146,14 @@ public class WindowSession
             return true
         }
 
-        /** Gates the window's single anvil input, delivering edits to its bound handler. */
-        private fun reopenGate(): AnvilReopenGate? {
+        /**
+         * Handles edits to the window's single anvil input. A static title never reopens the anvil, so
+         * edits go straight to the bound handler; otherwise they pass through a reopen gate.
+         */
+        private fun anvilInput(): ((String) -> Unit)? {
             val (name, input) = entry.inputs.entries.singleOrNull() ?: return null
             val handler = bindings.inputHandlers.getValue(name)
+            if (title.isStatic) return handler
 
             fun deliver(value: String) {
                 if (closed) return
@@ -151,7 +162,9 @@ public class WindowSession
                 writer.stageInput(input, value)
                 handler(value)
             }
-            return AnvilReopenGate(scheduler, handle, input.initial, ::deliver, ::sendTitle)
+            val gate = AnvilReopenGate(scheduler, handle, input.initial, ::deliver) { sendTitle(reopen = true) }
+            reopens = gate
+            return gate::input
         }
 
         private fun applyButtonState(
@@ -201,7 +214,7 @@ public class WindowSession
 
         private fun handleInput(value: String) {
             if (closed) return
-            reopens?.input(value)
+            input?.invoke(value)
         }
 
         private fun handlePong(id: Int) {

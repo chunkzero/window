@@ -27,6 +27,7 @@ class MyShop(
     private val windows: Windows,
     private val market: Market,
     initialSelection: String? = null,
+    private val query: String = "",
 ) : ShopView() {
     private val pager = WindowPager(cellCount = 27)
 
@@ -160,7 +161,7 @@ class MyShop(
     }
 
     private fun visibleProducts(): List<Product> {
-        var products = market.products.asSequence()
+        var products = market.products.asSequence().filter(::matchesQuery)
         products =
             when (category) {
                 CatalogCategory.ALL -> products
@@ -185,6 +186,11 @@ class MyShop(
             }
         }.toList()
     }
+
+    private fun matchesQuery(product: Product): Boolean =
+        product.name.contains(query, ignoreCase = true) ||
+            product.tier.label.contains(query, ignoreCase = true) ||
+            product.category.name.contains(query, ignoreCase = true)
 
     private fun selectedProduct(): Product? {
         val products = visibleProducts()

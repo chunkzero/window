@@ -251,6 +251,10 @@ export function collection(name: string, opts: CollectionOptions): CollectionEle
     return { ...out, name } as unknown as CollectionElement;
 }
 
+/**
+ * Binds the vanilla anvil rename field in an `anvil` window. The window's title must stay static: no text slots,
+ * unbound sprite slots, button state sprites, or collection selected sprites, unless `experimentalAnvilUpdates` is set.
+ */
 export function anvilInput(name: string, opts?: AnvilInputOptions): AnvilInputElement {
     requireName(name, "anvilInput name");
     return {

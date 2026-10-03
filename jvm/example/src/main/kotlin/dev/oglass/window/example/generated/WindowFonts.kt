@@ -827,9 +827,9 @@ public object WindowFonts {
             "window:small_caps/y0" to fontMetrics0,
             "window:small_caps/y10" to fontMetrics0,
             "window:small_caps/y106" to fontMetrics0,
+            "window:small_caps/y110" to fontMetrics0,
             "window:small_caps/y137" to fontMetrics0,
             "window:small_caps/y14" to fontMetrics0,
-            "window:small_caps/y140" to fontMetrics0,
             "window:small_caps/y155" to fontMetrics0,
             "window:small_caps/y16" to fontMetrics0,
             "window:small_caps/y173" to fontMetrics0,
@@ -837,9 +837,9 @@ public object WindowFonts {
             "window:small_caps/y195" to fontMetrics0,
             "window:small_caps/y24" to fontMetrics0,
             "window:small_caps/y3" to fontMetrics0,
-            "window:small_caps/y34" to fontMetrics0,
             "window:small_caps/y4" to fontMetrics0,
-            "window:small_caps/y62" to fontMetrics0,
+            "window:small_caps/y44" to fontMetrics0,
             "window:small_caps/y88" to fontMetrics0,
+            "window:small_caps/y98" to fontMetrics0,
         )
 }

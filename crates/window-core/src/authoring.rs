@@ -43,9 +43,9 @@ pub struct BuildOptions {
     pub hud_shaders: bool,
     /// 110x16 theme sprite that restyles vanilla's anvil text field pack-wide.
     pub anvil_field_sprite: Option<String>,
-    /// Cover the anvil's native rename box with Window art, leaving text display to slots. Unstable:
-    /// the drawn text only updates through anvil reopens, which race the player's typing.
-    pub unstable_drawn_anvil_input: bool,
+    /// Allow anvil input windows to change their title at runtime. Experimental: each change reopens
+    /// the anvil, which races the player's typing.
+    pub experimental_anvil_updates: bool,
 }
 
 /// Target pack metadata supplied by the rpp plugin host.
