@@ -87,14 +87,6 @@ public object WindowSprites {
                 advance = 9,
                 glyph = "\uF660",
             ),
-            "icon_search" to SpriteEntry(
-                width = 10,
-                height = 10,
-                xOffset = 0,
-                glyphWidth = 10,
-                advance = 11,
-                glyph = "\uF60B",
-            ),
             "lamp_off" to SpriteEntry(
                 width = 4,
                 height = 4,
