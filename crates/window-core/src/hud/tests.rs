@@ -91,9 +91,9 @@ fn format_ranges_place_later_profiles_in_overlays() {
     assert_eq!(
         output.overlays,
         [
-            json!({ "directory": "window_hud_63_83", "min_format": 63, "max_format": 83, "formats": [63, 83] }),
-            json!({ "directory": "window_hud_84_84", "min_format": 84, "max_format": 84, "formats": [84, 84] }),
-            json!({ "directory": "window_hud_85_88", "min_format": 85, "max_format": [88, 1], "formats": [85, 88] }),
+            json!({ "directory": "window_hud_63_83", "min_format": 63, "max_format": 83 }),
+            json!({ "directory": "window_hud_84_84", "min_format": 84, "max_format": 84 }),
+            json!({ "directory": "window_hud_85_88", "min_format": 85, "max_format": [88, 1] }),
         ]
     );
 }

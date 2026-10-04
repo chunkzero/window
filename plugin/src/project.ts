@@ -68,6 +68,8 @@ export interface WindowContext {
 
 const DEFINITIONS = "definitions";
 const TEXTURE_REFERENCE = /^([\w.-]+):(.+)$/s;
+/** When any overlay entry reaches below this format, every entry needs the legacy `formats` field. */
+const FIRST_MIN_MAX_FORMAT = 65;
 
 type Fields = Record<string, unknown>;
 
@@ -101,6 +103,19 @@ function legacyRange(value: unknown): FormatRange | undefined {
           ? [value["min_inclusive"], value["max_inclusive"]]
           : [];
     return typeof min === "number" && typeof max === "number" ? { min_format: min, max_format: max } : undefined;
+}
+
+function major(version: FormatVersion): number {
+    return typeof version === "number" ? version : version[0];
+}
+
+/** The lowest format an overlay entry applies to, from `min_format` or else its legacy `formats`. */
+function overlayMinimum(entry: unknown): number | undefined {
+    if (!isFields(entry)) {
+        return undefined;
+    }
+    const min = formatVersion(entry["min_format"]) ?? legacyRange(entry["formats"])?.min_format;
+    return min === undefined ? undefined : major(min);
 }
 
 function rangeFromMcmeta(text: string | undefined): FormatRange | undefined {
@@ -152,7 +167,14 @@ export function addPackOverlays(mcmeta: string | undefined, entries: readonly st
                 "shaders; rename that overlay directory",
         );
     }
-    data["overlays"] = { ...overlays, entries: [...existing, ...added] };
+    const legacy = [...existing, ...added].some((entry) => (overlayMinimum(entry) ?? Infinity) < FIRST_MIN_MAX_FORMAT);
+    const generated = legacy
+        ? added.map((entry) => ({
+              ...entry,
+              formats: [major(formatVersion(entry["min_format"])!), major(formatVersion(entry["max_format"])!)],
+          }))
+        : added;
+    data["overlays"] = { ...overlays, entries: [...existing, ...generated] };
     return `${JSON.stringify(data, null, 4)}\n`;
 }
 

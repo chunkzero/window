@@ -85,16 +85,15 @@ test("pack formats keep the declared mcmeta range, then fall back to the context
 test("pack overlays are appended after the declared ones", () => {
     const mine = { directory: "mine", min_format: 84, max_format: 84 };
     const pack = { pack: { pack_format: 84 }, overlays: { entries: [mine] } };
-    const window = { directory: "window_hud_85_88", min_format: 85, max_format: 88 };
+    const window = { directory: "window_hud_85_88", min_format: 85, max_format: [88, 1] };
+    const add = (entries: unknown[], added: object = window) =>
+        JSON.parse(addPackOverlays(JSON.stringify({ ...pack, overlays: { entries } }), [JSON.stringify(added)]));
 
-    assert.deepEqual(JSON.parse(addPackOverlays(JSON.stringify(pack), [JSON.stringify(window)])), {
-        ...pack,
-        overlays: { entries: [mine, window] },
-    });
-    assert.throws(
-        () => addPackOverlays(JSON.stringify(pack), [JSON.stringify({ ...window, directory: "mine" })]),
-        /already declares an overlay in `mine`/,
-    );
+    assert.deepEqual(add([mine]), { ...pack, overlays: { entries: [mine, window] } });
+
+    const legacy = { directory: "legacy", formats: [61, 62] };
+    assert.deepEqual(add([legacy]).overlays.entries, [legacy, { ...window, formats: [85, 88] }]);
+    assert.throws(() => add([mine], { ...window, directory: "mine" }), /already declares an overlay in `mine`/);
 });
 
 test("project JSON omits empty themes and an unknown pack format", () => {
