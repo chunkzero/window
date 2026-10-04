@@ -134,6 +134,15 @@ fn compile_layouts(
     windows.sort_by(|a, b| a.name.cmp(&b.name));
     let mut huds: Vec<&LaidOutHud> = huds.iter().collect();
     huds.sort_by(|a, b| a.name.cmp(&b.name));
+    if !options.hud_shaders
+        && let Some(hud) = huds.iter().find(|h| h.shader.is_some())
+    {
+        return Err(Error::Validation(format!(
+            "HUD `{}` uses `shader` placement, but hudShaders is disabled; set `hudShaders: true` in the Window \
+             plugin options or remove the HUD `shader` placement",
+            hud.name
+        )));
+    }
 
     let Assets { textures, runtime_sprites, text_fonts } = *assets;
     let uses_runtime_sprites = uses_runtime_sprites(&windows);

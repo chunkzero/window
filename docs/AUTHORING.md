@@ -216,7 +216,8 @@ actionbar source inset when deriving its top edge; the source position does not 
 Window then emits generated text core shaders for the pack's `pack.format` (the `max` of a range), including the
 matching text-background pass so vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles
 cover pack formats 9 through 88 (Minecraft 26.2); compilation fails when a shader-placed HUD targets an unsupported pack
-format. Core shaders are intentionally opt-in; the fallback channel remains the runtime contract.
+format or `hudShaders` is not enabled. Core shaders are intentionally opt-in; the fallback channel remains the runtime
+contract.
 
 ## Elements
 
