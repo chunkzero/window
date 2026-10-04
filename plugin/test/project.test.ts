@@ -119,6 +119,23 @@ test("compilation is skipped without definitions", () => {
     assert.deepEqual(removed, ["window/badge.png"]);
 });
 
+test("generated files must not replace existing pack files", () => {
+    const shader = "assets/minecraft/shaders/core/rendertype_text.vsh";
+    const output: CompileOutput = {
+        files: [
+            { path: "assets/window/a.json", contents: bytes("{}") },
+            { path: shader, contents: bytes("generated") },
+        ],
+        kotlinFiles: [],
+        warnings: [],
+    };
+    const { ctx, emitted } = fake({ "window/a.ts": shop });
+    ctx.emit(shader, bytes("existing"));
+
+    assert.throws(() => generate(ctx, () => output), new RegExp(`replace files already in the pack:\\n  ${shader}\\n`));
+    assert.deepEqual([...emitted.keys()], [shader]);
+});
+
 test("Kotlin files are emitted only with a package", () => {
     const output: CompileOutput = {
         files: [{ path: "assets/window/a.json", contents: bytes("{}") }],

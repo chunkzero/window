@@ -218,6 +218,12 @@ vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profi
 (Minecraft 26.2); compilation fails when a shader-placed HUD targets an unknown or unsupported pack format. Core shaders
 are intentionally opt-in; the fallback channel remains the runtime contract.
 
+Generated core shaders replace vanilla's text shaders, so the build fails when the pack already contains a file at any
+path Window generates and lists the conflicting paths; remove or merge those overrides, or disable the option that
+generates them. Window cannot see resource packs loaded separately on the client or mods that replace the same core text
+shaders (shader packs or text-rendering mods, for example); whichever loads last wins, which can break HUD placement or
+other text rendering.
+
 ## Elements
 
 | constructor                  | children | required                                                                                  | optional                                                                                                                           |

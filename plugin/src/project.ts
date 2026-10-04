@@ -220,6 +220,14 @@ export function generate(ctx: WindowContext, compile: Compile): void {
     const packFormat = detectPackFormat(ctx.pack, ctx.readSourceText("pack.mcmeta"));
     const project = buildProject(documents, options, packFormat);
     const output = compile(options.namespace ?? "window", JSON.stringify(project), files, options.kotlinPackage);
+    const conflicts = output.files.filter((file) => ctx.read(file.path) !== undefined).map((file) => file.path);
+    if (conflicts.length > 0) {
+        throw new Error(
+            `Window would replace files already in the pack:\n${conflicts.map((path) => `  ${path}`).join("\n")}\n` +
+                "Remove or merge these overrides, or disable the Window option that generates them " +
+                "(hudShaders for core shaders, anvilFieldSprite for anvil textures).",
+        );
+    }
     for (const file of output.files) {
         ctx.emit(file.path, file.contents);
     }
