@@ -224,7 +224,7 @@ export function generate(ctx: WindowContext, compile: Compile): void {
     if (conflicts.length > 0) {
         throw new Error(
             `Window would replace files already in the pack:\n${conflicts.map((path) => `  ${path}`).join("\n")}\n` +
-                "Remove or merge these overrides, or disable the Window option that generates them " +
+                "Remove these files from the pack, or disable the Window option that generates them " +
                 "(hudShaders for core shaders, anvilFieldSprite for anvil textures).",
         );
     }
