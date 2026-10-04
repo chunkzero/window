@@ -25,7 +25,9 @@ use rule::{HudShaderRule, rules};
 
 /// The first resource pack format that loads `pack.mcmeta` overlays.
 const FIRST_OVERLAY_FORMAT: u32 = 18;
-/// Overlay entries reaching below this format also need the legacy `formats` field.
+/// When any overlay entry reaches below this format, every overlay entry needs the legacy
+/// `formats` field. Window's entries lie inside the declared range, so this applies when the
+/// declared minimum is below it.
 const FIRST_MIN_MAX_FORMAT: u32 = 65;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -103,7 +105,7 @@ pub fn emit(formats: Option<FormatRange>, huds: &[&LaidOutHud]) -> Result<Shader
         }
         let directory = format!("window_hud_{start}_{end}");
         output.files.extend(shader_files(&format!("{directory}/"), profile, &rules));
-        output.overlays.push(overlay_entry(&directory, majors, formats.max));
+        output.overlays.push(overlay_entry(&directory, majors, formats.max, min < FIRST_MIN_MAX_FORMAT));
     }
     output.warnings.push(format!(
         "emitted generated core text shaders for {}; core shader overrides are client-version-sensitive, \
@@ -113,12 +115,13 @@ pub fn emit(formats: Option<FormatRange>, huds: &[&LaidOutHud]) -> Result<Shader
     Ok(output)
 }
 
-/// An overlay entry for `majors`, ending at the declared `max` when it reaches it.
-fn overlay_entry(directory: &str, majors: RangeInclusive<u32>, max: FormatVersion) -> Value {
+/// An overlay entry for `majors`, ending at the declared `max` when it reaches it. `legacy_formats`
+/// adds the legacy `formats` field.
+fn overlay_entry(directory: &str, majors: RangeInclusive<u32>, max: FormatVersion, legacy_formats: bool) -> Value {
     let (start, end) = (*majors.start(), *majors.end());
     let max_format = if end == max.major() { max } else { FormatVersion::Major(end) };
     let mut entry = json!({ "directory": directory, "min_format": start, "max_format": max_format });
-    if start < FIRST_MIN_MAX_FORMAT {
+    if legacy_formats {
         entry["formats"] = json!([start, end]);
     }
     entry
