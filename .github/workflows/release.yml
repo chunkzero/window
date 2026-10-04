@@ -35,7 +35,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  RPP_VERSION: 0.1.0-alpha.0
+  RPP_VERSION: 0.1.0-nightly.20261004.g12336a991a34
 
 jobs:
   plan:

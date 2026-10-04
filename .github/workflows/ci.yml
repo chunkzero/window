@@ -8,10 +8,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Pinned chunkzero/rpp main revision; switch to the release installer once rpp publishes one.
-  RPP_REV: f8c86d2409adebbaf6393fc893d58953db0ceebe
-
 jobs:
   formatting:
     name: Formatting
@@ -55,17 +51,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v4
         with:
-          install_args: rust just node pnpm
+          install_args: rust just node pnpm aqua:chunkzero/rpp-nightly
       - name: Install pinned Rust components and target
         run: rustup show
       - uses: Swatinem/rust-cache@v2
       - run: pnpm install --frozen-lockfile
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/rpp
-          key: rpp-${{ runner.os }}-${{ env.RPP_REV }}
-      - name: Install rpp
-        run: command -v rpp || cargo install --locked --git https://github.com/chunkzero/rpp --rev "$RPP_REV" rpp-cli
       - run: just ci-ts
 
   golden:
@@ -75,16 +65,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v4
         with:
-          install_args: rust just node pnpm
+          install_args: rust just node pnpm aqua:chunkzero/rpp-nightly
       - name: Install pinned Rust components and target
         run: rustup show
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/rpp
-          key: rpp-${{ runner.os }}-${{ env.RPP_REV }}
-      - name: Install rpp
-        run: command -v rpp || cargo install --locked --git https://github.com/chunkzero/rpp --rev "$RPP_REV" rpp-cli
       - run: pnpm install --frozen-lockfile
       - run: just golden
 

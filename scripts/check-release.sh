@@ -16,7 +16,7 @@ cat > "$consumer/pack/rpp.config.ts" <<'TS'
 import { defineConfig } from "#rpp/config";
 import window from "#plugins/window";
 export default defineConfig({
-    pack: { name: "release-consumer", description: "Window release consumer", packFormat: 88 },
+    pack: { name: "release-consumer", description: "Window release consumer", format: 88 },
     build: { source: "src", output: "dist" },
     plugins: [window({ namespace: "window", kotlin: { package: "consumer.ui", output: "../jvm/src/main/kotlin/consumer/ui" } })],
 });

@@ -63,7 +63,7 @@ import { defineConfig } from "#rpp/config";
 import window from "#plugins/window";
 
 export default defineConfig({
-  pack: { name: "my-pack", description: "My server pack", packFormat: 88 },
+  pack: { name: "my-pack", description: "My server pack", format: 88 },
   plugins: [
     window({
       namespace: "window",
@@ -101,8 +101,8 @@ Window targets Minecraft 26.2 (resource pack format 88). The Kotlin runtime and 
 [inspector](docs/INSPECTOR.md) also targets 26.2.
 
 The compiler still emits packs for 26.1.x (pack format 84): its glyph metrics are shared with 26.2, and `hudShaders`
-selects the core text shaders for the configured pack format. Serving 26.1.x clients requires a server that speaks their
-protocol; Window's runtime does not.
+selects the core text shaders for the configured `pack.format`. Serving 26.1.x clients requires a server that speaks
+their protocol; Window's runtime does not.
 
 ## Documentation
 
@@ -125,8 +125,9 @@ just                 # list tasks
 just ready           # everything CI runs
 ```
 
-The example pack also needs [rpp](https://github.com/chunkzero/rpp) on your `PATH`. Commits and pull request titles
-follow [Conventional Commits](https://www.conventionalcommits.org).
+Mise 2026.10.0 or newer is required; `mise install` also provides the pinned [rpp](https://github.com/chunkzero/rpp)
+nightly used by the example pack, golden cases, and TypeScript checks. Commits and pull request titles follow
+[Conventional Commits](https://www.conventionalcommits.org).
 
 ## License
 

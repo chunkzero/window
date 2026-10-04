@@ -7,9 +7,8 @@ plugin, emit typed Kotlin pack classes, and render it on a Minestom server.
 example/
 ├── pack/                       # rpp resource-pack project (built by `rpp build`)
 │   ├── rpp.json                # references the Window plugin at ../../plugin
-│   ├── rpp.config.ts           # pack, build, and Window plugin configuration
+│   ├── rpp.config.ts           # pack metadata, build, and Window plugin configuration
 │   ├── src/
-│   │   ├── pack.mcmeta
 │   │   └── window/             # UI sources — stripped from the built pack
 │   │       ├── theme.ts        # generated industrial theme preset
 │   │       ├── shop.ts         # paged catalog, toggles, choices, and buttons
