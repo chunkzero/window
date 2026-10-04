@@ -111,6 +111,14 @@ test("the newest format of the pack's range is the compile target", () => {
     });
 });
 
+test("an rpp without pack format ranges is rejected", () => {
+    const { ctx } = fake({ "window/a.ts": shop }, {}, {}, 84 as never);
+    assert.throws(
+        () => generate(ctx, () => assert.fail("compile must not run")),
+        /requires rpp 0\.1\.0-nightly\.20261004/,
+    );
+});
+
 test("compilation is skipped without definitions", () => {
     const { ctx, removed } = fake({}, { "window/badge.png": "png" });
     generate(ctx, () => assert.fail("compile must not run"));

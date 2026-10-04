@@ -154,6 +154,15 @@ export function collectInputs(ctx: WindowContext): { documents: WindowDocument[]
     return { documents, files };
 }
 
+/** The newest format of the pack's range. rpp's version check ignores pre-release tags, so older hosts are rejected here. */
+function packFormat(format: unknown): number {
+    const max = isFields(format) ? format["max"] : undefined;
+    if (typeof max !== "number") {
+        throw new Error("Window requires rpp 0.1.0-nightly.20261004 or newer; upgrade rpp and set pack.format.");
+    }
+    return max;
+}
+
 /** Compile the project's definitions and write the pack files, warnings, and Kotlin bindings. */
 export function generate(ctx: WindowContext, compile: Compile): void {
     const { documents, files } = collectInputs(ctx);
@@ -161,7 +170,7 @@ export function generate(ctx: WindowContext, compile: Compile): void {
         return;
     }
     const { options } = ctx;
-    const project = buildProject(documents, options, ctx.pack.format.max);
+    const project = buildProject(documents, options, packFormat(ctx.pack.format));
     const output = compile(options.namespace ?? "window", JSON.stringify(project), files, options.kotlinPackage);
     for (const file of output.files) {
         ctx.emit(file.path, file.contents);
