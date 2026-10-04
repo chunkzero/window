@@ -101,8 +101,8 @@ Window targets Minecraft 26.2 (resource pack format 88). The Kotlin runtime and 
 [inspector](docs/INSPECTOR.md) also targets 26.2.
 
 The compiler still emits packs for 26.1.x (pack format 84): its glyph metrics are shared with 26.2, and `hudShaders`
-selects the core text shaders for the configured pack format. Serving 26.1.x clients requires a server that speaks their
-protocol; Window's runtime does not.
+selects the core text shaders for the pack's declared formats. Serving 26.1.x clients requires a server that speaks
+their protocol; Window's runtime does not.
 
 ## Documentation
 

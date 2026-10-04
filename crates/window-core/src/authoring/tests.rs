@@ -1,4 +1,4 @@
-use super::project_from_json;
+use super::{FormatRange, FormatVersion, project_from_json};
 use crate::geometry::{Insets, Size};
 use crate::inventory::InventorySlotRef;
 use crate::ir::{HudChannel, Rgb};
@@ -317,7 +317,7 @@ fn parses_generated_theme_assets() {
 fn parses_hud_project_json() {
     let json = br##"{
       "options": { "hud_shaders": true },
-      "target": { "pack_format": 84 },
+      "target": { "min_format": 84, "max_format": [88, 1] },
       "theme": {
         "sprites": {
           "meter": { "texture": "window/sprites/meter.png" }
@@ -344,7 +344,10 @@ fn parses_hud_project_json() {
 
     let project = project_from_json(json).unwrap();
     assert!(project.options.hud_shaders);
-    assert_eq!(project.target.pack_format, Some(84));
+    assert_eq!(
+        project.target.formats,
+        Some(FormatRange { min: FormatVersion::Major(84), max: FormatVersion::MajorMinor(88, 1) })
+    );
     assert_eq!(project.huds[0].name, "status");
     assert_eq!(project.huds[0].channel, HudChannel::ActionBar);
     assert_eq!(project.huds[0].size, Size::new(120, 16));

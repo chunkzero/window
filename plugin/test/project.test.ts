@@ -3,7 +3,14 @@ import { test } from "node:test";
 
 import { hud, theme, ui } from "../src/authoring/index.ts";
 import type { WindowDocument } from "../src/authoring/types.ts";
-import { buildProject, collectInputs, detectPackFormat, generate, resourceTexturePath } from "../src/project.ts";
+import {
+    addPackOverlays,
+    buildProject,
+    collectInputs,
+    detectPackFormats,
+    generate,
+    resourceTexturePath,
+} from "../src/project.ts";
 import type { CompileOutput, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
 
 const encoder = new TextEncoder();
@@ -56,16 +63,38 @@ test("a discovered module without a default document fails naming its path", () 
     assert.throws(() => collectInputs(ctx), /window\/a\.ts must export default/);
 });
 
-test("pack format prefers the context, then mcmeta fields", () => {
+test("pack formats keep the declared mcmeta range, then fall back to the context", () => {
     const mcmeta = (pack: unknown): string => JSON.stringify({ pack });
-    assert.equal(detectPackFormat({ format: 7 }, mcmeta({ pack_format: 84 })), 7);
-    assert.equal(detectPackFormat({}, mcmeta({ pack_format: 84, min_format: 1 })), 84);
-    assert.equal(detectPackFormat({}, mcmeta({ supported_formats: { min_inclusive: 3, max_inclusive: 9 } })), 9);
-    assert.equal(detectPackFormat({}, mcmeta({ supported_formats: [4, 8] })), 8);
-    assert.equal(detectPackFormat({}, mcmeta({ min_format: 5 })), 5);
-    assert.equal(detectPackFormat({}, mcmeta({ min_format: [88, 0], max_format: [88, 1] })), 88);
-    assert.equal(detectPackFormat({}, "not json"), undefined);
-    assert.equal(detectPackFormat({}, undefined), undefined);
+    const range = (min_format: unknown, max_format: unknown) => ({ min_format, max_format });
+    assert.deepEqual(detectPackFormats({ format: 84 }, mcmeta({ pack_format: 84 })), range(84, 84));
+    assert.deepEqual(detectPackFormats({}, mcmeta({ pack_format: 84, min_format: 1 })), range(1, 84));
+    assert.deepEqual(
+        detectPackFormats({}, mcmeta({ supported_formats: { min_inclusive: 3, max_inclusive: 9 } })),
+        range(3, 9),
+    );
+    assert.deepEqual(detectPackFormats({}, mcmeta({ pack_format: 34, supported_formats: [18, 34] })), range(18, 34));
+    assert.deepEqual(detectPackFormats({}, mcmeta({ min_format: 5 })), range(5, 5));
+    assert.deepEqual(
+        detectPackFormats({}, mcmeta({ min_format: [84, 0], max_format: [88, 1] })),
+        range([84, 0], [88, 1]),
+    );
+    assert.deepEqual(detectPackFormats({ format: 7 }, "not json"), range(7, 7));
+    assert.equal(detectPackFormats({}, undefined), undefined);
+});
+
+test("pack overlays are appended after the declared ones", () => {
+    const mine = { directory: "mine", min_format: 84, max_format: 84 };
+    const pack = { pack: { pack_format: 84 }, overlays: { entries: [mine] } };
+    const window = { directory: "window_hud_85_88", min_format: 85, max_format: 88 };
+
+    assert.deepEqual(JSON.parse(addPackOverlays(JSON.stringify(pack), [JSON.stringify(window)])), {
+        ...pack,
+        overlays: { entries: [mine, window] },
+    });
+    assert.throws(
+        () => addPackOverlays(JSON.stringify(pack), [JSON.stringify({ ...window, directory: "mine" })]),
+        /already declares an overlay in `mine`/,
+    );
 });
 
 test("project JSON omits empty themes and an unknown pack format", () => {
@@ -76,12 +105,19 @@ test("project JSON omits empty themes and an unknown pack format", () => {
         target: {},
     });
     const themed: WindowDocument = theme({ sprites: { badge: { kind: "badge", width: 1, height: 1 } } });
-    const project = buildProject([themed, { ...status, window: shop.windows[0]! }], { hudShaders: true }, 84);
+    const project = buildProject(
+        [themed, { ...status, window: shop.windows[0]! }],
+        { hudShaders: true },
+        {
+            min_format: 84,
+            max_format: [88, 1],
+        },
+    );
     assert.equal(project.themes?.length, 1);
     assert.deepEqual(project.windows, shop.windows);
     assert.deepEqual(project.huds, status.huds);
     assert.deepEqual(project.options, { hud_shaders: true });
-    assert.deepEqual(project.target, { pack_format: 84 });
+    assert.deepEqual(project.target, { min_format: 84, max_format: [88, 1] });
 });
 
 test("referenced resource textures are added once", () => {
@@ -124,6 +160,7 @@ test("Kotlin files are emitted only with a package", () => {
         files: [{ path: "assets/window/a.json", contents: bytes("{}") }],
         kotlinFiles: [{ path: "A.kt", contents: bytes("class A") }],
         warnings: [],
+        packOverlays: [],
     };
     const calls: (string | undefined)[] = [];
     const compile = (_namespace: string, _json: string, _files: SourceFile[], kotlinPackage: string | undefined) => {

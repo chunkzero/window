@@ -71,6 +71,7 @@ fn to_wit_compile_output(output: PluginCompileOutput) -> CompileOutput {
         files: output.core.files.into_iter().map(to_wit_output_file).collect(),
         kotlin_files: output.kotlin_files.into_iter().map(to_wit_output_file).collect(),
         warnings: output.core.warnings,
+        pack_overlays: output.core.pack_overlays.iter().map(ToString::to_string).collect(),
     }
 }
 

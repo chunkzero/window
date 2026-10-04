@@ -67,6 +67,8 @@ pub struct CompileOutput {
     pub files: Vec<OutputFile>,
     /// Non-fatal findings to surface to the user.
     pub warnings: Vec<String>,
+    /// Entries to append to `pack.mcmeta` `overlays.entries` for files emitted in overlay directories.
+    pub pack_overlays: Vec<serde_json::Value>,
     /// The typed runtime/codegen contract built from the authored project.
     pub manifest: Manifest,
 }
@@ -170,7 +172,7 @@ fn compile_layouts(
 
     fonts::emit_fonts(&mut ctx)?;
     if options.hud_shaders {
-        hud::emit_shader_files(&mut ctx, target.pack_format, &huds)?;
+        hud::emit_shader_files(&mut ctx, target.formats, &huds)?;
     }
     let manifest = ctx.manifest(sprites, window_entries, hud_entries);
     ctx.finish(manifest)
@@ -203,6 +205,7 @@ struct CompileContext<'a> {
     codepoints: BTreeMap<String, u32>,
     files: Vec<OutputFile>,
     warnings: Vec<String>,
+    pack_overlays: Vec<serde_json::Value>,
     bitmap_providers: Vec<serde_json::Value>,
     shift_offsets: BTreeSet<i32>,
     text_font_offsets: BTreeSet<(&'a str, i32)>,
@@ -223,6 +226,7 @@ impl<'a> CompileContext<'a> {
             codepoints,
             files: Vec::new(),
             warnings: Vec::new(),
+            pack_overlays: Vec::new(),
             bitmap_providers: Vec::new(),
             shift_offsets: BTreeSet::new(),
             text_font_offsets: BTreeSet::new(),
@@ -284,6 +288,6 @@ impl<'a> CompileContext<'a> {
             contents: debug_descriptor.to_json_bytes()?,
         });
         files.sort_by(|a, b| a.path.cmp(&b.path));
-        Ok(CompileOutput { files, warnings: self.warnings, manifest })
+        Ok(CompileOutput { files, warnings: self.warnings, pack_overlays: self.pack_overlays, manifest })
     }
 }

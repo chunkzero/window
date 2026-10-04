@@ -17,6 +17,8 @@ mod theme;
 #[cfg(test)]
 mod tests;
 
+use serde::{Deserialize, Serialize};
+
 use self::project::ProjectDto;
 use crate::model::{Hud, Theme, Window};
 use crate::{Error, Result};
@@ -51,8 +53,31 @@ pub struct BuildOptions {
 /// Target pack metadata supplied by the rpp plugin host.
 #[derive(Clone, Debug, Default)]
 pub struct PackTarget {
-    /// Resource pack format, when known.
-    pub pack_format: Option<u32>,
+    /// Resource pack formats the pack declares support for, when known.
+    pub formats: Option<FormatRange>,
+}
+
+/// An inclusive `pack.mcmeta` format range.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FormatRange {
+    pub min: FormatVersion,
+    pub max: FormatVersion,
+}
+
+/// A `pack.mcmeta` `min_format`/`max_format` value: a major version, or a `[major, minor]` pair.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum FormatVersion {
+    Major(u32),
+    MajorMinor(u32, u32),
+}
+
+impl FormatVersion {
+    pub fn major(self) -> u32 {
+        match self {
+            Self::Major(major) | Self::MajorMinor(major, _) => major,
+        }
+    }
 }
 
 /// Parse the plugin's JSON project payload into the authored model.

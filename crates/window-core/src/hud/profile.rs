@@ -1,4 +1,5 @@
 use std::fmt;
+use std::ops::RangeInclusive;
 
 use super::renderer::{
     render_dynamic_text_intensity_fragment, render_v150_dynamic_text_background_shader,
@@ -19,17 +20,32 @@ pub(super) enum ShaderProfile {
     Pack85To88DefineVariants,
 }
 
+/// Profiles in ascending, contiguous pack-format order.
+const PROFILES: [(ShaderProfile, RangeInclusive<u32>); 6] = [
+    (ShaderProfile::Pack9To13LegacyFog, 9..=13),
+    (ShaderProfile::Pack14To41Fog, 14..=41),
+    (ShaderProfile::Pack42To62NamespacedFog, 42..=62),
+    (ShaderProfile::Pack63To83DynamicTransforms, 63..=83),
+    (ShaderProfile::Pack84SampleLightmap, 84..=84),
+    (ShaderProfile::Pack85To88DefineVariants, 85..=88),
+];
+
+/// Pack formats covered by a shader profile.
+pub(super) const SUPPORTED_FORMATS: RangeInclusive<u32> = 9..=88;
+
 impl ShaderProfile {
+    #[cfg(test)]
     pub(super) fn for_pack_format(pack_format: u32) -> Option<Self> {
-        match pack_format {
-            9..=13 => Some(Self::Pack9To13LegacyFog),
-            14..=41 => Some(Self::Pack14To41Fog),
-            42..=62 => Some(Self::Pack42To62NamespacedFog),
-            63..=83 => Some(Self::Pack63To83DynamicTransforms),
-            84 => Some(Self::Pack84SampleLightmap),
-            85..=88 => Some(Self::Pack85To88DefineVariants),
-            _ => None,
-        }
+        PROFILES.iter().find(|(_, formats)| formats.contains(&pack_format)).map(|(profile, _)| *profile)
+    }
+
+    /// The profiles serving `min..=max`, each with the major formats it serves there, in ascending order.
+    pub(super) fn covering(min: u32, max: u32) -> impl Iterator<Item = (Self, RangeInclusive<u32>)> {
+        PROFILES.into_iter().filter_map(move |(profile, formats)| {
+            let start = (*formats.start()).max(min);
+            let end = (*formats.end()).min(max);
+            (start <= end).then_some((profile, start..=end))
+        })
     }
 
     /// Returns `(file name, source)` pairs for `assets/minecraft/shaders/core`.

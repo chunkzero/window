@@ -215,8 +215,11 @@ distance from the bottom of the GUI to the nominal bottom of the vanilla text so
 actionbar source inset when deriving its top edge; the source position does not change with the authored HUD height.
 Window then emits generated text core shaders for the target pack format, including the matching text-background pass so
 vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles cover pack formats 9 through 88
-(Minecraft 26.2); compilation fails when a shader-placed HUD targets an unknown or unsupported pack format. Core shaders
-are intentionally opt-in; the fallback channel remains the runtime contract.
+(Minecraft 26.2). When `pack.mcmeta` declares a format range (`min_format`/`max_format` or `supported_formats`) that
+spans several profiles, the lowest profile goes in the pack root and each later one in a `window_hud_<min>_<max>`
+overlay, whose entry Window appends to `pack.mcmeta` after the overlays already declared there. Compilation fails when
+the pack format is unknown, when any declared format has no profile, or when a profile change falls below format 18,
+which cannot load overlays. Core shaders are intentionally opt-in; the fallback channel remains the runtime contract.
 
 ## Elements
 
