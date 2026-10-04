@@ -25,6 +25,8 @@ export interface CompileOutput {
     files: SourceFile[];
     kotlinFiles: SourceFile[];
     warnings: string[];
+    /** JSON objects to append to `pack.mcmeta` `overlays.entries`. */
+    packOverlays: string[];
 }
 
 export type Compile = (
@@ -39,7 +41,15 @@ export interface ProjectJson {
     windows: Window[];
     huds: Hud[];
     options: { hud_shaders: boolean; anvil_field_sprite?: string; experimental_anvil_updates?: boolean };
-    target: { pack_format?: number };
+    target: Partial<FormatRange>;
+}
+
+/** A `min_format`/`max_format` value: a major version or a `[major, minor]` pair. */
+export type FormatVersion = number | [number, number];
+
+export interface FormatRange {
+    min_format: FormatVersion;
+    max_format: FormatVersion;
 }
 
 /** The slice of the generator context the Window plugin uses. */
@@ -58,6 +68,8 @@ export interface WindowContext {
 
 const DEFINITIONS = "definitions";
 const TEXTURE_REFERENCE = /^([\w.-]+):(.+)$/s;
+/** When any overlay entry reaches below this format, every entry needs the legacy `formats` field. */
+const FIRST_MIN_MAX_FORMAT = 65;
 
 type Fields = Record<string, unknown>;
 
@@ -70,35 +82,43 @@ function numberField(value: Fields, key: string): number | undefined {
     return typeof field === "number" ? field : undefined;
 }
 
-/** A `min_format`/`max_format` value: a major version or a `[major, minor]` pair. */
-function formatVersionField(value: Fields, key: string): number | undefined {
-    const field = value[key];
-    if (Array.isArray(field)) {
-        return typeof field[0] === "number" ? field[0] : undefined;
-    }
-    return typeof field === "number" ? field : undefined;
-}
-
-function packFormatValue(value: unknown): number | undefined {
+function formatVersion(value: unknown): FormatVersion | undefined {
     if (typeof value === "number") {
         return value;
     }
-    if (!isFields(value)) {
-        return undefined;
+    if (Array.isArray(value) && typeof value[0] === "number") {
+        return typeof value[1] === "number" ? [value[0], value[1]] : value[0];
     }
-    return (
-        numberField(value, "pack_format") ??
-        numberField(value, "format") ??
-        formatVersionField(value, "max_format") ??
-        numberField(value, "max_inclusive") ??
-        numberField(value, "1") ??
-        formatVersionField(value, "min_format") ??
-        numberField(value, "min_inclusive") ??
-        numberField(value, "0")
-    );
+    return undefined;
 }
 
-function packFormatFromMcmeta(text: string | undefined): number | undefined {
+/** A legacy `supported_formats` value: `n`, `[min, max]`, or `{ min_inclusive, max_inclusive }`. */
+function legacyRange(value: unknown): FormatRange | undefined {
+    if (typeof value === "number") {
+        return { min_format: value, max_format: value };
+    }
+    const [min, max] = Array.isArray(value)
+        ? value
+        : isFields(value)
+          ? [value["min_inclusive"], value["max_inclusive"]]
+          : [];
+    return typeof min === "number" && typeof max === "number" ? { min_format: min, max_format: max } : undefined;
+}
+
+function major(version: FormatVersion): number {
+    return typeof version === "number" ? version : version[0];
+}
+
+/** The lowest format an overlay entry applies to, from `min_format` or else its legacy `formats`. */
+function overlayMinimum(entry: unknown): number | undefined {
+    if (!isFields(entry)) {
+        return undefined;
+    }
+    const min = formatVersion(entry["min_format"]) ?? legacyRange(entry["formats"])?.min_format;
+    return min === undefined ? undefined : major(min);
+}
+
+function rangeFromMcmeta(text: string | undefined): FormatRange | undefined {
     if (text === undefined) {
         return undefined;
     }
@@ -112,12 +132,58 @@ function packFormatFromMcmeta(text: string | undefined): number | undefined {
         return undefined;
     }
     const pack = data["pack"];
-    return packFormatValue(pack["pack_format"]) ?? packFormatValue(pack["supported_formats"]) ?? packFormatValue(pack);
+    const legacy = legacyRange(pack["supported_formats"]) ?? legacyRange(numberField(pack, "pack_format"));
+    const min = formatVersion(pack["min_format"]) ?? legacy?.min_format;
+    const max = formatVersion(pack["max_format"]) ?? legacy?.max_format;
+    const either = min ?? max;
+    return either === undefined ? undefined : { min_format: min ?? either, max_format: max ?? either };
 }
 
-/** The configured pack format, else the one declared by `pack.mcmeta`. */
-export function detectPackFormat(pack: { readonly format?: number }, mcmeta: string | undefined): number | undefined {
-    return pack.format ?? packFormatFromMcmeta(mcmeta);
+/** The format range `pack.mcmeta` declares, else the configured pack format. */
+export function detectPackFormats(
+    pack: { readonly format?: number },
+    mcmeta: string | undefined,
+): FormatRange | undefined {
+    return (
+        rangeFromMcmeta(mcmeta) ??
+        (pack.format === undefined ? undefined : { min_format: pack.format, max_format: pack.format })
+    );
+}
+
+/** The overlay entry with `formats` taken from its `min_format`/`max_format` majors when it declares none. */
+function withLegacyFormats(entry: unknown): unknown {
+    if (!isFields(entry) || entry["formats"] !== undefined) {
+        return entry;
+    }
+    const min = formatVersion(entry["min_format"]);
+    const max = formatVersion(entry["max_format"]);
+    return min === undefined || max === undefined ? entry : { ...entry, formats: [major(min), major(max)] };
+}
+
+/**
+ * `pack.mcmeta` with `entries` appended to its overlays, keeping the entries it already declares. Minecraft requires
+ * `formats` on every entry once any entry reaches below format 65, so each entry lacking it then gets it.
+ */
+export function addPackOverlays(mcmeta: string | undefined, entries: readonly string[]): string {
+    const data: unknown = mcmeta === undefined ? undefined : JSON.parse(mcmeta);
+    if (!isFields(data)) {
+        throw new Error("HUD shader overlays need a pack.mcmeta object to declare them in");
+    }
+    const overlays = isFields(data["overlays"]) ? data["overlays"] : {};
+    const existing: unknown[] = Array.isArray(overlays["entries"]) ? overlays["entries"] : [];
+    const added = entries.map((entry) => JSON.parse(entry) as Fields);
+    const taken = new Set(existing.map((entry) => (isFields(entry) ? entry["directory"] : undefined)));
+    const clash = added.find((entry) => taken.has(entry["directory"]));
+    if (clash !== undefined) {
+        throw new Error(
+            `pack.mcmeta already declares an overlay in \`${String(clash["directory"])}\`, which Window uses for HUD ` +
+                "shaders; rename that overlay directory",
+        );
+    }
+    const merged = [...existing, ...added];
+    const legacy = merged.some((entry) => (overlayMinimum(entry) ?? Infinity) < FIRST_MIN_MAX_FORMAT);
+    data["overlays"] = { ...overlays, entries: legacy ? merged.map(withLegacyFormats) : merged };
+    return `${JSON.stringify(data, null, 4)}\n`;
 }
 
 /** The pack path of a `namespace:path` texture reference, or undefined for other values. */
@@ -136,7 +202,7 @@ export function resourceTexturePath(texture: unknown): string | undefined {
 export function buildProject(
     documents: readonly WindowDocument[],
     options: WindowOptions,
-    packFormat: number | undefined,
+    formats: FormatRange | undefined,
 ): ProjectJson {
     const themes: Theme[] = [];
     const windows: Window[] = [];
@@ -163,7 +229,7 @@ export function buildProject(
             ...(options.anvilFieldSprite === undefined ? {} : { anvil_field_sprite: options.anvilFieldSprite }),
             ...(options.experimentalAnvilUpdates === true ? { experimental_anvil_updates: true } : {}),
         },
-        target: packFormat === undefined ? {} : { pack_format: packFormat },
+        target: formats ?? {},
     };
 }
 
@@ -217,11 +283,16 @@ export function generate(ctx: WindowContext, compile: Compile): void {
         return;
     }
     const { options } = ctx;
-    const packFormat = detectPackFormat(ctx.pack, ctx.readSourceText("pack.mcmeta"));
-    const project = buildProject(documents, options, packFormat);
+    const formats = detectPackFormats(ctx.pack, ctx.readSourceText("pack.mcmeta"));
+    const project = buildProject(documents, options, formats);
     const output = compile(options.namespace ?? "window", JSON.stringify(project), files, options.kotlinPackage);
     for (const file of output.files) {
         ctx.emit(file.path, file.contents);
+    }
+    if (output.packOverlays.length > 0) {
+        const mcmeta = ctx.read("pack.mcmeta");
+        const text = mcmeta === undefined ? undefined : new TextDecoder().decode(mcmeta);
+        ctx.emit("pack.mcmeta", new TextEncoder().encode(addPackOverlays(text, output.packOverlays)));
     }
     for (const warning of output.warnings) {
         console.warn(warning);

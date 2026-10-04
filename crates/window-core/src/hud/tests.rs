@@ -2,8 +2,11 @@ use std::collections::BTreeSet;
 
 use super::markers::marker_color;
 use super::profile::ShaderProfile;
-use super::{emit, renderer, segment_markers};
+use super::{ShaderFile, emit, renderer, segment_markers};
 
+use serde_json::json;
+
+use crate::authoring::{FormatRange, FormatVersion};
 use crate::geometry::Rect;
 use crate::ir::{Align, HudChannel, HudShader, LaidOutHud, Rgb, SlotIr};
 
@@ -42,6 +45,14 @@ fn shader_hud(name: &str, slot_name: &str) -> LaidOutHud {
     }
 }
 
+fn range(min: u32, max: u32) -> Option<FormatRange> {
+    Some(FormatRange { min: FormatVersion::Major(min), max: FormatVersion::Major(max) })
+}
+
+fn single(format: u32) -> Option<FormatRange> {
+    range(format, format)
+}
+
 #[test]
 fn maps_pack_formats_to_profiles() {
     assert_eq!(ShaderProfile::for_pack_format(9), Some(ShaderProfile::Pack9To13LegacyFog));
@@ -55,15 +66,42 @@ fn maps_pack_formats_to_profiles() {
 #[test]
 fn rejects_shader_huds_without_a_shader_profile() {
     let hud = shader_hud("status", "coins");
+    let error = |min, max| emit(range(min, max), &[&hud]).unwrap_err().to_string();
 
     assert!(emit(None, &[&hud]).is_err());
-    assert!(emit(Some(89), &[&hud]).is_err());
+    assert!(error(89, 89).contains("declared pack formats 89 have no core shader profile"));
+    assert!(error(5, 95).contains("declared pack formats 5-8 and 89-95 have no core shader profile"));
+    assert!(error(9, 20).contains("pack formats 14-17 need the pack_format 14-41"));
+}
+
+#[test]
+fn format_ranges_place_later_profiles_in_overlays() {
+    let hud = shader_hud("status", "coins");
+    let output =
+        emit(Some(FormatRange { min: FormatVersion::Major(60), max: FormatVersion::MajorMinor(88, 1) }), &[&hud])
+            .unwrap();
+    let directories =
+        output.files.iter().map(|file| file.path.split_once("assets/").unwrap().0).collect::<BTreeSet<_>>();
+
+    assert_eq!(directories, BTreeSet::from(["", "window_hud_63_83/", "window_hud_84_84/", "window_hud_85_88/"]));
+    assert!(output.files.contains(&ShaderFile {
+        path: "window_hud_85_88/assets/minecraft/shaders/core/text.vsh".into(),
+        contents: emit(single(88), &[&hud]).unwrap().files[0].contents.clone(),
+    }));
+    assert_eq!(
+        output.overlays,
+        [
+            json!({ "directory": "window_hud_63_83", "min_format": 63, "max_format": 83 }),
+            json!({ "directory": "window_hud_84_84", "min_format": 84, "max_format": 84 }),
+            json!({ "directory": "window_hud_85_88", "min_format": 85, "max_format": [88, 1] }),
+        ]
+    );
 }
 
 #[test]
 fn define_variant_profile_overrides_core_text_programs() {
     let hud = shader_hud("status", "coins");
-    let output = emit(Some(88), &[&hud]).unwrap();
+    let output = emit(single(88), &[&hud]).unwrap();
     let paths = output.files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>();
 
     assert_eq!(
@@ -114,7 +152,7 @@ fn generated_shader_matches_only_known_green_zero_ids() {
     let markers = segment_markers(&[&hud]);
     let static_id = renderer::marker_id(markers.static_marker("status"));
     let slot_id = renderer::marker_id(markers.slot_marker("status", "coins"));
-    let output = emit(Some(84), &[&hud]).unwrap();
+    let output = emit(single(84), &[&hud]).unwrap();
     let shader =
         output.files.iter().find(|file| file.path.ends_with("rendertype_text.vsh")).expect("text shader is emitted");
 
@@ -131,7 +169,7 @@ fn generated_shader_matches_only_known_green_zero_ids() {
 #[test]
 fn generated_shader_uses_height_independent_actionbar_source_top() {
     let hud = shader_hud("status", "coins");
-    let output = emit(Some(84), &[&hud]).unwrap();
+    let output = emit(single(84), &[&hud]).unwrap();
     let shader =
         output.files.iter().find(|file| file.path.ends_with("rendertype_text.vsh")).expect("text shader is emitted");
 

@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::authoring::FormatRange;
 use crate::compose::Composite;
 use crate::geometry::Point;
 use crate::hud::SegmentMarkers;
@@ -72,13 +73,14 @@ fn shader_entry(shader: HudShader, static_marker: Rgb) -> HudShaderEntry {
 
 pub(super) fn emit_shader_files(
     ctx: &mut CompileContext<'_>,
-    pack_format: Option<u32>,
+    formats: Option<FormatRange>,
     huds: &[&LaidOutHud],
 ) -> Result<()> {
-    let output = crate::hud::emit(pack_format, huds)?;
+    let output = crate::hud::emit(formats, huds)?;
     ctx.files.extend(
         output.files.into_iter().map(|file| OutputFile { path: file.path, contents: file.contents.into_bytes() }),
     );
     ctx.warnings.extend(output.warnings);
+    ctx.pack_overlays.extend(output.overlays);
     Ok(())
 }

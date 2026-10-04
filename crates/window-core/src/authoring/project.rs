@@ -8,7 +8,7 @@ use super::hud::HudDto;
 use super::insets::InsetsDto;
 use super::parse::validate_name;
 use super::theme::ThemeDto;
-use super::{BuildOptions, PackTarget, ParsedProject};
+use super::{BuildOptions, FormatRange, FormatVersion, PackTarget, ParsedProject};
 use crate::model::{Hud, Theme, Window};
 use crate::surface::ContainerKind;
 use crate::{Error, Result};
@@ -44,7 +44,8 @@ struct OptionsDto {
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TargetDto {
-    pack_format: Option<u32>,
+    min_format: Option<FormatVersion>,
+    max_format: Option<FormatVersion>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,7 +75,14 @@ impl ProjectDto {
                 anvil_field_sprite: self.options.anvil_field_sprite,
                 experimental_anvil_updates: self.options.experimental_anvil_updates,
             },
-            target: PackTarget { pack_format: self.target.pack_format },
+            target: PackTarget {
+                formats: self
+                    .target
+                    .min_format
+                    .or(self.target.max_format)
+                    .zip(self.target.max_format.or(self.target.min_format))
+                    .map(|(min, max)| FormatRange { min, max }),
+            },
         })
     }
 }
