@@ -150,7 +150,20 @@ export function detectPackFormats(
     );
 }
 
-/** `pack.mcmeta` with `entries` appended to its overlays, keeping the entries it already declares. */
+/** The overlay entry with `formats` taken from its `min_format`/`max_format` majors when it declares none. */
+function withLegacyFormats(entry: unknown): unknown {
+    if (!isFields(entry) || entry["formats"] !== undefined) {
+        return entry;
+    }
+    const min = formatVersion(entry["min_format"]);
+    const max = formatVersion(entry["max_format"]);
+    return min === undefined || max === undefined ? entry : { ...entry, formats: [major(min), major(max)] };
+}
+
+/**
+ * `pack.mcmeta` with `entries` appended to its overlays, keeping the entries it already declares. Minecraft requires
+ * `formats` on every entry once any entry reaches below format 65, so each entry lacking it then gets it.
+ */
 export function addPackOverlays(mcmeta: string | undefined, entries: readonly string[]): string {
     const data: unknown = mcmeta === undefined ? undefined : JSON.parse(mcmeta);
     if (!isFields(data)) {
@@ -167,14 +180,9 @@ export function addPackOverlays(mcmeta: string | undefined, entries: readonly st
                 "shaders; rename that overlay directory",
         );
     }
-    const legacy = [...existing, ...added].some((entry) => (overlayMinimum(entry) ?? Infinity) < FIRST_MIN_MAX_FORMAT);
-    const generated = legacy
-        ? added.map((entry) => ({
-              ...entry,
-              formats: [major(formatVersion(entry["min_format"])!), major(formatVersion(entry["max_format"])!)],
-          }))
-        : added;
-    data["overlays"] = { ...overlays, entries: [...existing, ...generated] };
+    const merged = [...existing, ...added];
+    const legacy = merged.some((entry) => (overlayMinimum(entry) ?? Infinity) < FIRST_MIN_MAX_FORMAT);
+    data["overlays"] = { ...overlays, entries: legacy ? merged.map(withLegacyFormats) : merged };
     return `${JSON.stringify(data, null, 4)}\n`;
 }
 

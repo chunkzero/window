@@ -93,6 +93,13 @@ test("pack overlays are appended after the declared ones", () => {
 
     const legacy = { directory: "legacy", formats: [61, 62] };
     assert.deepEqual(add([legacy]).overlays.entries, [legacy, { ...window, formats: [85, 88] }]);
+
+    const ranged = { directory: "ranged", min_format: 84, max_format: 88 };
+    const low = { directory: "window_hud_63_83", min_format: 63, max_format: 83 };
+    assert.deepEqual(add([ranged], low).overlays.entries, [
+        { ...ranged, formats: [84, 88] },
+        { ...low, formats: [63, 83] },
+    ]);
     assert.throws(() => add([mine], { ...window, directory: "mine" }), /already declares an overlay in `mine`/);
 });
 
