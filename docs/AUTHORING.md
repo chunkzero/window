@@ -215,8 +215,8 @@ distance from the bottom of the GUI to the nominal bottom of the vanilla text so
 actionbar source inset when deriving its top edge; the source position does not change with the authored HUD height.
 Window then emits generated text core shaders for the target pack format, including the matching text-background pass so
 vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles cover pack formats 9 through 88
-(Minecraft 26.2); compilation fails when a shader-placed HUD targets an unknown or unsupported pack format. Core shaders
-are intentionally opt-in; the fallback channel remains the runtime contract.
+(Minecraft 26.2); compilation fails when a shader-placed HUD targets an unknown or unsupported pack format, or when
+`hudShaders` is not enabled. Core shaders are intentionally opt-in; the fallback channel remains the runtime contract.
 
 ## Elements
 
