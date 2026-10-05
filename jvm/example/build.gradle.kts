@@ -3,7 +3,7 @@ plugins {
     application
 }
 
-application { mainClass = "dev.oglass.window.example.MainKt" }
+application { mainClass = "com.chunkzero.window.example.MainKt" }
 
 dependencies {
     implementation(libs.minestom)

@@ -1,6 +1,6 @@
 plugins { kotlin("jvm") }
 
-group = "dev.oglass.window"
+group = "com.chunkzero.window"
 
 version = providers.gradleProperty("windowVersion").orElse("0.1.0-alpha.0").get()
 

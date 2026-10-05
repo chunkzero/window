@@ -11,7 +11,7 @@ use super::entries::{
 use super::literals::{kt_string, string_map};
 use super::writer::{Call, KotlinWriter, indent, multiline_call};
 
-const MANIFEST_PACKAGE: &str = "dev.oglass.window.manifest";
+const MANIFEST_PACKAGE: &str = "com.chunkzero.window.manifest";
 
 pub(super) fn generate_window_definitions(manifest: &Manifest, package_name: &str) -> OutputFile {
     let imports = window_imports(manifest).into_iter().map(|name| format!("{MANIFEST_PACKAGE}.{name}"));

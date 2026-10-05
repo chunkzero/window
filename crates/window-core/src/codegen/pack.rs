@@ -8,7 +8,7 @@ use super::literals::{char_map, kt_string, string_map};
 use super::writer::{Call, KotlinWriter, map_of};
 
 pub(super) fn generate_pack(manifest: &Manifest, package_name: &str) -> OutputFile {
-    let imports = ["dev.oglass.window.Windows", "dev.oglass.window.manifest.WindowManifest"];
+    let imports = ["com.chunkzero.window.Windows", "com.chunkzero.window.manifest.WindowManifest"];
     let mut w = KotlinWriter::file(package_name, imports);
     w.doc("Compiled Window pack definition.");
     w.open("public object WindowPack {");
@@ -65,7 +65,7 @@ pub(super) fn generate_fonts(manifest: &Manifest, package_name: &str) -> OutputF
         })
         .collect();
 
-    let mut w = KotlinWriter::file(package_name, ["dev.oglass.window.manifest.FontMetricsEntry"]);
+    let mut w = KotlinWriter::file(package_name, ["com.chunkzero.window.manifest.FontMetricsEntry"]);
     w.doc("Generated font metrics used for runtime text measurement.");
     w.open("public object WindowFonts {");
     w.property("val advances: Map<String, Int>", char_map(&manifest.text_advances, 2));
@@ -86,7 +86,7 @@ pub(super) fn generate_fonts(manifest: &Manifest, package_name: &str) -> OutputF
 }
 
 pub(super) fn generate_sprites(manifest: &Manifest, package_name: &str) -> OutputFile {
-    let mut w = KotlinWriter::file(package_name, ["dev.oglass.window.manifest.SpriteEntry"]);
+    let mut w = KotlinWriter::file(package_name, ["com.chunkzero.window.manifest.SpriteEntry"]);
     w.doc("Generated runtime sprite catalog for this Window pack.");
     w.open("public object WindowSprites {");
     w.property("val all: Map<String, SpriteEntry>", string_map(&manifest.sprites, 2, sprite_entry_expr));
