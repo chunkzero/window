@@ -8,8 +8,10 @@ use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, HudChannel, HudShader, Rgb};
 use crate::surface::ContainerKind;
 
+mod flex;
 mod generated;
 
+pub use flex::{FlexBox, ItemLayout, LayoutChild, SlotSection};
 pub use generated::{GeneratedKind, GeneratedStyle};
 
 /// All theme definitions across every theme document (names are global).
@@ -76,6 +78,8 @@ pub struct Window {
     pub container: ContainerKind,
     /// Extra visual overflow allowed outside the container GUI.
     pub bleed: Insets,
+    /// Frame drawn first, over the GUI rect grown by `bleed`.
+    pub frame: Option<String>,
     /// The root element (the `window` node's single child in practice, but
     /// any number of children is allowed — they are laid out like a panel's).
     pub children: Vec<Element>,
@@ -88,10 +92,12 @@ pub struct Hud {
     pub name: String,
     /// Vanilla transport channel used by the runtime.
     pub channel: HudChannel,
-    /// Fixed canvas/line size.
-    pub size: Size,
+    /// Fixed canvas/line size; `None` sizes the HUD to the extent of its children.
+    pub size: Option<Size>,
     /// Extra visual overflow allowed outside the HUD canvas.
     pub bleed: Insets,
+    /// Frame drawn first, over the HUD rect grown by `bleed`.
+    pub frame: Option<String>,
     /// Optional core-shader relocation settings.
     pub shader: Option<HudShader>,
     /// The root elements. HUDs share the same visual primitives as windows, but
@@ -346,4 +352,8 @@ pub enum Element {
         /// Styling.
         style: TextStyle,
     },
+    /// A taffy flexbox or grid box.
+    Flex(Box<FlexBox>),
+    /// A slot section laid out as a taffy grid of inventory slots.
+    Section(Box<SlotSection>),
 }

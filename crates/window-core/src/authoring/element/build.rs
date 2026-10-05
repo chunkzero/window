@@ -1,5 +1,7 @@
-use super::{ElementDto, convert_children};
-use crate::model::Element;
+use super::{ElementDto, convert_children, convert_layout_children};
+use crate::authoring::flex::parse_auto_flow;
+use crate::inventory::{InventorySlotSection, SlotRectClaim};
+use crate::model::{Element, FlexBox, SlotSection};
 use crate::{Error, Result};
 
 impl ElementDto {
@@ -20,6 +22,8 @@ impl ElementDto {
             "repeater" => self.build_repeater(),
             "label" => self.build_label(),
             "slot" => self.build_slot(),
+            "flex" => self.build_flex(),
+            "section" => self.build_section(),
             other => Err(Error::Validation(format!("unknown element type `{other}`"))),
         }
     }
@@ -159,5 +163,37 @@ impl ElementDto {
             pos: self.pos()?,
             style: self.text_style()?,
         })
+    }
+
+    fn build_flex(self) -> Result<Element> {
+        Ok(Element::Flex(Box::new(FlexBox {
+            pos: self.pos()?,
+            frame: self.frame.clone(),
+            style: self.style.clone().unwrap_or_default().into_style()?,
+            children: convert_layout_children(self.children)?,
+        })))
+    }
+
+    fn build_section(self) -> Result<Element> {
+        let section = match self.section.as_deref() {
+            Some("container") => InventorySlotSection::Container,
+            Some("player") => InventorySlotSection::Player,
+            Some("hotbar") => InventorySlotSection::Hotbar,
+            Some(other) => {
+                return Err(Error::Validation(format!(
+                    "section element has unknown section `{other}`; valid sections: container, player, hotbar"
+                )));
+            }
+            None => return Err(Error::Validation("section element requires `section`".into())),
+        };
+        let claim = if self.claim.is_some() { self.claim()? } else { SlotRectClaim::Unowned };
+        Ok(Element::Section(Box::new(SlotSection {
+            section,
+            frame: self.frame.clone(),
+            outset: self.outset.map(|o| o.into_insets()).unwrap_or_default(),
+            claim,
+            flow: self.flow.as_deref().map(parse_auto_flow).transpose()?.unwrap_or_default(),
+            children: convert_layout_children(self.children)?,
+        })))
     }
 }

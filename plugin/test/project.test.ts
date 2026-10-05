@@ -28,7 +28,10 @@ function fake(
     const ctx: WindowContext = {
         options,
         pack: { format },
-        discovered: () => Object.entries(modules).map(([path, doc]) => ({ path, module: { default: doc } })),
+        discovered: (name) =>
+            Object.entries(modules)
+                .filter(([path]) => name === (path.endsWith(".tsx") ? "jsx" : "definitions"))
+                .map(([path, doc]) => ({ path, module: { default: doc } })),
         sourceFiles: () => Object.keys(sources).filter((path) => path.startsWith("window/")),
         read: (path) => emitted.get(path),
         readSource: (path) => (sources[path] === undefined ? undefined : bytes(sources[path])),
@@ -43,7 +46,7 @@ const shop = ui({ name: "shop", container: "generic_9x6" });
 const status = hud({ name: "status", width: 10, height: 10 });
 
 test("documents are collected in path order", () => {
-    const { ctx } = fake({ "window/b.ts": status, "window/a.ts": shop });
+    const { ctx } = fake({ "window/b.tsx": [status], "window/a.ts": shop });
     const { documents } = collectInputs(ctx);
     assert.deepEqual(buildProject(documents, {}, 84).windows, shop.windows);
     assert.equal(documents[0], shop);

@@ -14,6 +14,13 @@ image = { version = "0.25.10", default-features = false, features = ["png"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 sha2 = "0.10.9"
+taffy = { version = "0.14.0", default-features = false, features = [
+  "std",
+  "flexbox",
+  "grid",
+  "taffy_tree",
+  "content_size",
+] }
 thiserror = "2.0.18"
 tiny-skia = { version = "0.12.0", default-features = false, features = ["std"] }
 wit-bindgen = "0.58.0"

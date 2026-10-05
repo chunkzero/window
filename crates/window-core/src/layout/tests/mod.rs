@@ -1,5 +1,6 @@
 mod controls;
 mod draws;
+mod flex;
 mod flow;
 mod patterns;
 mod text;

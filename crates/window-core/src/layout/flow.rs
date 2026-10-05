@@ -92,6 +92,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
     ) -> Result<()> {
         let content = self.button_content_rect(button_name, button_rect, padding)?;
         for authored_child in children {
+            if let Element::Flex(node) = authored_child {
+                match node.pos {
+                    None => self.place_flex(node, content.origin(), Some(content.size()))?,
+                    Some(pos) => self.place_flex(node, Point::new(content.x + pos.x, content.y + pos.y), None)?,
+                };
+                continue;
+            }
             let auto_center = pos_of(authored_child).is_none();
             let child = resolve_button_child(authored_child, content.width, auto_center);
             let child_size = self.measure(&child)?;

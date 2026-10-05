@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use super::element::ElementDto;
+use super::element::{ElementDto, convert_children};
 use super::insets::InsetsDto;
 use crate::geometry::Size;
 use crate::ir::{HudChannel, HudShader};
@@ -13,10 +13,11 @@ pub(super) struct HudDto {
     pub(super) name: String,
     #[serde(default)]
     channel: String,
-    width: u32,
-    height: u32,
+    width: Option<u32>,
+    height: Option<u32>,
     #[serde(default)]
     bleed: InsetsDto,
+    frame: Option<String>,
     shader: Option<HudShaderDto>,
     #[serde(default)]
     children: Vec<ElementDto>,
@@ -52,15 +53,23 @@ fn default_actionbar_source_bottom() -> i32 {
 
 impl HudDto {
     pub(super) fn into_hud(self) -> Result<Hud> {
-        let mut children = Vec::with_capacity(self.children.len());
-        for child in self.children {
-            children.push(child.into_element()?);
-        }
+        let children = convert_children(self.children)?;
+        let size = match (self.width, self.height) {
+            (Some(width), Some(height)) => Some(Size::new(width, height)),
+            (None, None) => None,
+            _ => {
+                return Err(Error::Validation(format!(
+                    "hud `{}` must set both `width` and `height`, or neither",
+                    self.name
+                )));
+            }
+        };
         Ok(Hud {
             name: self.name,
             channel: parse_hud_channel(&self.channel)?,
-            size: Size::new(self.width, self.height),
+            size,
             bleed: self.bleed.into_insets(),
+            frame: self.frame,
             shader: self.shader.map(HudShaderDto::into_shader).transpose()?,
             children,
         })

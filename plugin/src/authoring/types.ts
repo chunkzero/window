@@ -495,7 +495,85 @@ export interface SlotElement extends SlotOptions {
     name: string;
 }
 
-export type Element =
+/** A CSS length: pixels, a percentage, or a sizing keyword. */
+export type FixedLength = number | `${number}%`;
+export type AutoLength = FixedLength | "auto";
+export type Length = AutoLength | "min-content" | "max-content" | "fit-content" | "stretch";
+/** Per-edge lengths; a single value applies to all edges. */
+export type Edges<T extends Length = AutoLength> = T | { top?: T; right?: T; bottom?: T; left?: T };
+/** A one-based grid line, or `{ start?, end?, span? }`. Negative lines count from the end. */
+export type GridLine = number | { start?: number; end?: number; span?: number };
+export type FlexAlign = "start" | "end" | "center" | "stretch" | "baseline";
+export type FlexJustify = "start" | "end" | "center" | "stretch" | "between" | "around" | "evenly";
+export type GridFlow = "row" | "column" | "row-dense" | "column-dense";
+
+/** Container style of a flex element. */
+export interface FlexStyle {
+    display?: "flex" | "grid";
+    direction?: "row" | "column" | "row-reverse" | "column-reverse";
+    wrap?: boolean;
+    justify?: FlexJustify;
+    align?: FlexAlign;
+    align_content?: FlexJustify;
+    gap?: FixedLength | [FixedLength, FixedLength];
+    padding?: Edges<FixedLength>;
+    width?: Length;
+    height?: Length;
+    min_width?: AutoLength;
+    min_height?: AutoLength;
+    max_width?: AutoLength;
+    max_height?: AutoLength;
+    aspect_ratio?: number;
+    /** Grid columns: a count of equal `1fr` tracks, or track sizes such as `24`, `"1fr"`, or `"auto"`. */
+    columns?: number | (AutoLength | "min-content" | "max-content" | `${number}fr`)[];
+    rows?: number | (AutoLength | "min-content" | "max-content" | `${number}fr`)[];
+    auto_flow?: GridFlow;
+}
+
+/** Item layout of a child of a flex or section element. */
+export interface ItemLayout {
+    grow?: number;
+    shrink?: number;
+    basis?: Length;
+    align_self?: FlexAlign;
+    justify_self?: FlexAlign;
+    margin?: Edges;
+    position?: "relative" | "absolute";
+    top?: AutoLength;
+    right?: AutoLength;
+    bottom?: AutoLength;
+    left?: AutoLength;
+    min_width?: AutoLength;
+    min_height?: AutoLength;
+    max_width?: AutoLength;
+    max_height?: AutoLength;
+    column?: GridLine;
+    row?: GridLine;
+    /** Pixel offset applied after layout to the element and its subtree. */
+    translate?: [number, number];
+}
+
+export interface FlexElement {
+    type: "flex";
+    x?: number;
+    y?: number;
+    frame?: string;
+    style?: FlexStyle;
+    children?: Element[];
+}
+
+export interface SectionElement {
+    type: "section";
+    section: SlotSection;
+    frame?: string;
+    outset?: Insets;
+    /** Claim for section slots no child owns. Defaults to "unowned". */
+    claim?: SlotRectClaim;
+    flow?: GridFlow;
+    children?: Element[];
+}
+
+export type Element = (
     | PanelElement
     | RowElement
     | ColumnElement
@@ -509,23 +587,31 @@ export type Element =
     | SlotRectsElement
     | RepeaterElement
     | LabelElement
-    | SlotElement;
+    | SlotElement
+    | FlexElement
+    | SectionElement
+) & { layout?: ItemLayout };
 
 export interface Window {
     name: string;
     container: ContainerKind;
     /** Visual overflow allowed outside the container GUI. */
     bleed?: Insets;
+    /** Frame drawn first, over the GUI rect grown by `bleed`. */
+    frame?: string;
     children?: Element[];
 }
 
 export interface Hud {
     name: string;
     channel?: HudChannel;
-    width: number;
-    height: number;
+    /** Canvas width; omit with `height` to size the HUD to its children. */
+    width?: number;
+    height?: number;
     /** Visual overflow allowed outside the HUD canvas. */
     bleed?: Insets;
+    /** Frame drawn first, over the HUD rect grown by `bleed`. */
+    frame?: string;
     shader?: HudShader;
     children?: Element[];
 }
