@@ -1,48 +1,54 @@
 # Releasing
 
-Window publishes its TypeScript/WASIp2 rpp plugin, a versioned Maven repository archive (runtime, diagnostics protocol
-and Minestom diagnostics, including POMs, sources and Javadoc). Window has no native CLI and is not an aqua package.
-TypeScript package files replace the former Lua package; all artifacts use the same version and include SHA-256
-sidecars. `release.json` records the full source commit.
+Window publishes its TypeScript/WASIp2 rpp plugin and a Maven repository archive of its JVM libraries (runtime,
+diagnostics protocol and Minestom diagnostics, with POMs, sources and Javadoc). Every artifact of a build uses the same
+version and has a SHA-256 sidecar; `release.json` records the full source commit.
+
+## Versions
+
+Versions follow the [chunkzero release scheme](https://github.com/chunkzero/release-tools). `Cargo.toml`'s workspace
+version is the upcoming release; bump it after each release.
+
+| Channel | Version                                               | Maven repository                        |
+| ------- | ----------------------------------------------------- | --------------------------------------- |
+| Release | the workspace version, e.g. `0.1.0-alpha.0`           | `https://maven.chunkzero.com`           |
+| Nightly | `0.1.0-nightly.<UTC commit time>.g<12-character sha>` | `https://maven.chunkzero.com/nightlies` |
+
+A commit always gets the same nightly version, published releases never change and none are deleted, so pinned versions
+and lockfiles keep working.
 
 ## Publish
 
-RPP must already have the release pinned by `RPP_VERSION` in the release workflow. The organization secrets
-`REGISTRY_APP_ID` and `REGISTRY_APP_PRIVATE_KEY` grant the publishing job access to `chunkzero/rpp-registry`; no PR job
-has release write credentials. The repository secret `MAVEN_R2_TOKEN` authorizes publication of the matching JVM
-libraries to `https://maven.chunkzero.com` through Maven R2.
+The `Release` workflow publishes a nightly from `main` every day, skipping a commit that is already published. To
+publish manually, run it on `main` with `channel=nightly` or `channel=release`; on other branches it only builds and
+checks the artifacts. It publishes the Maven libraries first, then the GitHub release, then opens a registry PR in
+`chunkzero/rpp-registry`. Prereleases are never marked latest.
 
-Push `v<version>` matching `Cargo.toml` for a stable/beta release, or manually run `Release` on `main` with
-`mode=nightly` and `publish=true`. Dispatch with `publish=false` builds and checks artifacts without publishing. Only
-`main` and version tags are supported publishing refs. The plugin manifest and JVM version are set in the build
-workspace to the coordinated release version.
+It uses the organization secrets `MAVEN_R2_TOKEN` for Maven and `REGISTRY_APP_ID`/`REGISTRY_APP_PRIVATE_KEY` for the
+registry. `RPP_VERSION` in the workflow pins the rpp release used to pack and check the plugin.
 
-Daily builds skip when the most recently published nightly has the same source SHA. Drafts do not count as published.
-Nightlies use `v0.1.0-nightly.<UTC date>.g<12-character commit>`, never a rolling tag. All releases first upload to a
-draft, download and compare every asset, then become public. Prereleases use `latest=false`. Publication is serialized;
-retries can resume drafts or verify already-published assets and recover the registry PR.
+Before publishing, the workflow unpacks the packed plugin, builds an authored UI with it, and compiles the generated
+Kotlin against the packaged Maven repository.
 
-The consumer job unpacks the actual plugin, loads its WASIp2 compiler, type-checks and builds an authored UI, then
-compiles its generated Kotlin against the packaged Maven repository with no composite build or source substitutions.
+## Install a pinned version
 
-## Install a pinned nightly
-
-After its registry PR has been reviewed and merged:
+After its registry PR merges:
 
 ```sh
-rpp add window@0.1.0-nightly.20261001.g0123456789ab
+rpp add window@0.1.0-nightly.20261005021334.g0123456789ab
 rpp build
 ```
 
-Commit `rpp.json` and `rpp.lock`. Use the exact published version, including the commit suffix. The JVM runtime must use
-the same version. Configure Gradle with `maven("https://maven.chunkzero.com")` and Maven Central, then depend on
-`com.chunkzero.window:window-runtime:<version>`. Each release publishes the runtime and its Window dependencies
-together.
+Commit `rpp.json` and `rpp.lock`. Depend on `com.chunkzero.window:window-runtime` at the same version, from the
+repository for its channel:
 
-For an offline mirror, download `window-<version>-maven.tar.gz` and its `.sha256` from that tag, verify the checksum,
-and extract it. Point a Gradle Maven repository at `window-<version>-maven`; Maven Central supplies third-party
-dependencies.
+```kotlin
+repositories {
+    maven("https://maven.chunkzero.com/nightlies") // nightlies only
+    maven("https://maven.chunkzero.com")
+    mavenCentral()
+}
+```
 
-Only the latest 30 published nightlies are retained. Stable and beta releases are never pruned. Deleted nightly versions
-cannot be freshly installed, even with an old lockfile; use a stable/beta release for long-lived deployments or retain
-the verified artifacts.
+For an offline mirror, download `window-<version>-maven.tar.gz` and its `.sha256` from the release, verify and extract
+it, and point a Gradle Maven repository at `window-<version>-maven`.

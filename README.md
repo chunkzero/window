@@ -84,6 +84,8 @@ repositories {
 dependencies { implementation("com.chunkzero.window:window-runtime:0.1.0-alpha.0") }
 ```
 
+Nightly versions come from `https://maven.chunkzero.com/nightlies`; see [Releasing](docs/RELEASING.md).
+
 The [example](example/README.md) is a complete project: a shop with a paged catalog, filters and anvil search, and a set
 of shader HUDs, running on a Minestom server. To try it:
 
