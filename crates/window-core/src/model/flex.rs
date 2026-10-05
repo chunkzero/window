@@ -36,6 +36,24 @@ pub struct SlotSection {
     pub children: Vec<LayoutChild>,
 }
 
+/// Visual cases stacked in one box that takes the largest case's size; the runtime draws only the case
+/// named by the `name` binding.
+#[derive(Clone, Debug)]
+pub struct Switch {
+    /// Binding name of the active case value.
+    pub name: String,
+    /// Explicit position relative to the parent content origin; inside a box it positions absolutely.
+    pub pos: Option<Point>,
+    pub cases: Vec<SwitchCase>,
+}
+
+/// One case of a [`Switch`]: a box that fills the switch.
+#[derive(Clone, Debug)]
+pub struct SwitchCase {
+    pub value: String,
+    pub body: FlexBox,
+}
+
 /// A child of a [`FlexBox`] or [`SlotSection`] with its item-level layout.
 #[derive(Clone, Debug)]
 pub struct LayoutChild {

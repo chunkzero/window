@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::SlotEntry;
+use super::{SlotEntry, SwitchEntry};
 
 /// One compiled HUD.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -18,6 +18,9 @@ pub struct HudEntry {
     /// Optional core-shader relocation settings.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shader: Option<HudShaderEntry>,
+    /// Runtime-selected visual cases by binding name.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub switches: BTreeMap<String, SwitchEntry>,
 }
 
 /// HUD surface/channel metadata.

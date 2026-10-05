@@ -34,6 +34,7 @@ use crate::geometry::{Insets, Point, Rect, Size};
 use crate::inventory::InventorySlotRef;
 use crate::ir::{
     AnvilInputIr, ButtonIr, CollectionIr, Draw, ItemIr, LaidOutHud, LaidOutWindow, SlotIr, SlotRectIr, SpriteSlotIr,
+    SwitchIr,
 };
 use crate::model::{Element, Hud, TextStyle, Window};
 use crate::surface::Surface;
@@ -99,7 +100,7 @@ fn solve_window(
     // The window's children are laid out like a panel's content box: the full
     // GUI rect at origin (0, 0), padding 0.
     solver.layout_container_children(&window.children, gui_rect, Insets::default())?;
-    let Solved { draws, slots, sprite_slots, buttons, items, collections, inputs, slot_rects, warnings } =
+    let Solved { draws, slots, sprite_slots, buttons, items, collections, inputs, slot_rects, switches, warnings } =
         solver.finish();
 
     Ok(LaidOutWindow {
@@ -113,6 +114,7 @@ fn solve_window(
         collections,
         inputs,
         slot_rects,
+        switches,
         warnings,
     })
 }
@@ -139,7 +141,7 @@ fn solve_hud(
         solver.emit_frame(frame, expanded(rect, hud.bleed), &format!("hud frame `{frame}`"))?;
     }
     solver.layout_container_children(&hud.children, rect, Insets::default())?;
-    let Solved { draws, slots, sprite_slots: _, slot_rects: _, warnings, .. } = solver.finish();
+    let Solved { draws, slots, switches, warnings, .. } = solver.finish();
 
     Ok(LaidOutHud {
         name: hud.name.clone(),
@@ -149,6 +151,7 @@ fn solve_hud(
         shader: hud.shader,
         draws,
         slots,
+        switches,
         warnings,
     })
 }
@@ -172,6 +175,7 @@ fn pos_of(el: &Element) -> Option<Point> {
         | Element::Label { pos, .. }
         | Element::Slot { pos, .. } => *pos,
         Element::Flex(node) => node.pos,
+        Element::Switch(switch) => switch.pos,
         Element::Item { .. }
         | Element::Collection { .. }
         | Element::AnvilInput { .. }
@@ -190,6 +194,7 @@ struct Solved {
     collections: Vec<CollectionIr>,
     inputs: Vec<AnvilInputIr>,
     slot_rects: Vec<SlotRectIr>,
+    switches: Vec<SwitchIr>,
     warnings: Vec<String>,
 }
 
@@ -206,6 +211,7 @@ struct Solver<'a, T> {
     collections: Vec<CollectionIr>,
     inputs: Vec<AnvilInputIr>,
     slot_rects: Vec<SlotRectIr>,
+    switches: Vec<SwitchIr>,
     warnings: Vec<String>,
     next_label: usize,
     names: HashSet<String>,
@@ -243,6 +249,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             collections: Vec::new(),
             inputs: Vec::new(),
             slot_rects: Vec::new(),
+            switches: Vec::new(),
             warnings: Vec::new(),
             next_label: 0,
             names: HashSet::new(),
@@ -276,6 +283,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             collections: self.collections,
             inputs: self.inputs,
             slot_rects: self.slot_rects,
+            switches: self.switches,
             warnings: self.warnings,
         }
     }
@@ -356,6 +364,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             }
             Element::Flex(node) => self.place_flex(node, origin, None),
             Element::Section(section) => self.place_section(section),
+            Element::Switch(switch) => self.place_switch(switch, origin, None),
         }
     }
 }

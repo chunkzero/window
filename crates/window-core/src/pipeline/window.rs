@@ -10,14 +10,16 @@ use crate::surface::Surface;
 use crate::{Result, bake};
 
 use super::CompileContext;
-use super::glyphs::static_key;
+use super::glyphs::{Layers, static_key, window_key_prefix};
 use super::inventory::{compile_inventory, repeat_groups};
 use super::sprites::check_sprite_fits;
 
-pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, comp: &Composite) -> Result<WindowEntry> {
+pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, layers: &Layers) -> Result<WindowEntry> {
     ctx.warnings.extend(w.warnings.iter().cloned());
     let title_origin = w.surface.title_origin();
-    let static_text = bake_static(ctx, w, comp, title_origin)?;
+    let static_text = bake_static(ctx, w, &layers.base, title_origin)?;
+    let switches =
+        ctx.switch_entries(&w.name, &window_key_prefix(&w.name), &w.name, &w.switches, &layers.cases, title_origin)?;
 
     let mut slots = BTreeMap::new();
     for slot in &w.slots {
@@ -38,6 +40,7 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, co
         inputs: inventory.inputs,
         slot_rects: inventory.slot_rects,
         groups: repeat_groups(w),
+        switches,
     })
 }
 

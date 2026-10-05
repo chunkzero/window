@@ -74,7 +74,7 @@ class MyShop(
 
     override fun price(): Component = Component.text(selectedProduct()?.price?.toString().orEmpty())
 
-    override fun priceCoinSprite(): String? = selectedProduct()?.let { "coin" }
+    override fun hasPrice(): Boolean = selectedProduct() != null
 
     override fun status(): Component {
         val count = visibleProducts().size

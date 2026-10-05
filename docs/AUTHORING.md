@@ -321,6 +321,7 @@ also accept `"auto"`.
 | `<Repeater name cell={[w, h]} columns rows>`                         | `repeater`                   | `<Item cellSlot>` children stay in the cell; others are centered in a column             |
 | `<Slots name span frame? claim?>`                                    | `slotRects`                  |                                                                                          |
 | `<AnvilInput name>`                                                  | `anvilInput`                 |                                                                                          |
+| `<Switch bind><Case value>…</Case></Switch>` / `<Show when>`         | `switch`                     | runtime conditionals; see [Conditionals](#conditionals)                                  |
 
 `text={{ ... }}` on a window, HUD, section, box, button, tabs, or repeater sets default text style (`color`, `shadow`,
 `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `smallCaps`, `align`) for the text inside it; the
@@ -334,23 +335,25 @@ Generated Kotlin is the same as for the function API: binding names come from `n
 
 ## Elements
 
-| constructor                  | children | required                                                                                  | optional                                                                                                                           |
-| ---------------------------- | -------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `panel(opts)`                | yes      | `frame`, `width`, `height`                                                                | `x`, `y`, `padding`                                                                                                                |
-| `row(opts)` / `column(opts)` | yes      | none                                                                                      | `x`, `y`, `gap`, `padding`, `align` (`"start"`, `"center"`, `"end"`)                                                               |
-| `sprite(name, opts)`         | no       | theme sprite name                                                                         | `x`, `y`                                                                                                                           |
-| `spriteSlot(name, opts)`     | no       | slot name, `width`, `height`                                                              | `x`, `y`, `align` (`"left"`, `"center"`, `"right"`)                                                                                |
-| `button(name, opts)`         | yes      | button name, and either `width`/`height` or `pattern`/`transform`                         | `frame`, `x`, `y`, `slots`, `default: "close"`, `tooltip`, `states`, `padding`                                                     |
-| `hotspot(name, opts)`        | no       | hotspot name, `tooltip` or `states`, and either `width`/`height` or `pattern`/`transform` | `x`, `y`, `slots`                                                                                                                  |
-| `item(name, opts)`           | no       | item name, and `slots`, `pattern`, `transform`, or (inside a repeater) `cell_slot`        | none                                                                                                                               |
-| `collection(name, opts)`     | no       | collection name, and `slots`, `pattern`, or `transform`                                   | `frame`, `selected_sprite`, `action: false` for display-only collections                                                           |
-| `toggle(name, opts)`         | yes      | button options and `states.on` / `states.off`                                             | the same options as `button`                                                                                                       |
-| `choice(name, opts)`         | yes      | button options and `states.selected` / `states.unselected`                                | the same options as `button`                                                                                                       |
-| `anvilInput(name, opts)`     | no       | an `anvil` window and input name                                                          | `initial`, `item_model`                                                                                                            |
-| `slotRects(name, opts)`      | no       | name, and `pattern` or `transform`                                                        | `frame`, `claim: "none"`, `"all"`, or `"unowned"`                                                                                  |
-| `repeater(name, opts)`       | yes      | name, and `pattern` or `transform`                                                        | `frame`, `padding`                                                                                                                 |
-| `label(text, opts)`          | no       | text                                                                                      | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
-| `slot(name, opts)`           | no       | slot name                                                                                 | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
+| constructor                   | children | required                                                                                  | optional                                                                                                                           |
+| ----------------------------- | -------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `panel(opts)`                 | yes      | `frame`, `width`, `height`                                                                | `x`, `y`, `padding`                                                                                                                |
+| `row(opts)` / `column(opts)`  | yes      | none                                                                                      | `x`, `y`, `gap`, `padding`, `align` (`"start"`, `"center"`, `"end"`)                                                               |
+| `sprite(name, opts)`          | no       | theme sprite name                                                                         | `x`, `y`                                                                                                                           |
+| `spriteSlot(name, opts)`      | no       | slot name, `width`, `height`                                                              | `x`, `y`, `align` (`"left"`, `"center"`, `"right"`)                                                                                |
+| `button(name, opts)`          | yes      | button name, and either `width`/`height` or `pattern`/`transform`                         | `frame`, `x`, `y`, `slots`, `default: "close"`, `tooltip`, `states`, `padding`                                                     |
+| `hotspot(name, opts)`         | no       | hotspot name, `tooltip` or `states`, and either `width`/`height` or `pattern`/`transform` | `x`, `y`, `slots`                                                                                                                  |
+| `item(name, opts)`            | no       | item name, and `slots`, `pattern`, `transform`, or (inside a repeater) `cell_slot`        | none                                                                                                                               |
+| `collection(name, opts)`      | no       | collection name, and `slots`, `pattern`, or `transform`                                   | `frame`, `selected_sprite`, `action: false` for display-only collections                                                           |
+| `toggle(name, opts)`          | yes      | button options and `states.on` / `states.off`                                             | the same options as `button`                                                                                                       |
+| `choice(name, opts)`          | yes      | button options and `states.selected` / `states.unselected`                                | the same options as `button`                                                                                                       |
+| `anvilInput(name, opts)`      | no       | an `anvil` window and input name                                                          | `initial`, `item_model`                                                                                                            |
+| `slotRects(name, opts)`       | no       | name, and `pattern` or `transform`                                                        | `frame`, `claim: "none"`, `"all"`, or `"unowned"`                                                                                  |
+| `repeater(name, opts)`        | yes      | name, and `pattern` or `transform`                                                        | `frame`, `padding`                                                                                                                 |
+| `label(text, opts)`           | no       | text                                                                                      | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
+| `slot(name, opts)`            | no       | slot name                                                                                 | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
+| `switchOn(name, cases, opts)` | yes      | binding name and at least one case, keyed by value                                        | `x`, `y`; each case takes `frame`, `style`, `children`; see [Conditionals](#conditionals)                                          |
+| `show(when, opts)`            | yes      | Boolean binding name                                                                      | `x`, `y`, and the case options for the shown case                                                                                  |
 
 Unpositioned button children are centered automatically. Static labels use their measured width; direct dynamic slots
 may omit their width and fill the button's padded content rect:
@@ -483,6 +486,52 @@ runtime sprite metrics. For decoded bitmap sprites, runtime cursor advance match
 rightmost non-transparent pixel after scaling to the declared sprite height, plus the client's one-pixel bitmap gap.
 Transparent padding on either side affects runtime sprite alignment through the sprite's measured visible ink bounds,
 while cursor advance still follows the client's rightmost-pixel rule.
+
+## Conditionals
+
+A switch draws one of its cases, chosen at runtime by a server-provided binding. Both authoring styles build the same
+element: `<Switch bind><Case value>` or `switchOn(name, cases)`, and `<Show when>` or `show(when, opts)`, which is a
+switch with a `true` case holding its children and an empty `false` case.
+
+```tsx
+<Switch bind="mode">
+  <Case value="buy">
+    <Row frame="recess"><Text>Buy</Text><Text bind="price" /></Row>
+  </Case>
+  <Case value="sell">
+    <Row frame="button_accent"><Text>Sell</Text><Text bind="payout" /></Row>
+  </Case>
+</Switch>
+<Show when="on_sale">
+  <Sprite name="sale_badge" />
+</Show>
+```
+
+```ts
+switchOn("mode", {
+  buy: { frame: "recess", children: [label("Buy"), slot("price")] },
+  sell: { frame: "button_accent", children: [label("Sell"), slot("payout")] },
+});
+show("on_sale", { children: [sprite("sale_badge")] });
+```
+
+- Every case is laid out in the same box. On its own the box takes the largest case's size; an unpositioned switch
+  directly inside a panel, button, or box fills that parent's content instead. Auto-sized cases stretch to fill the box,
+  while cases with an explicit `width`/`height` keep it. The space is always reserved, like CSS `visibility: hidden`, so
+  siblings never move at runtime.
+- A case is a column box. `<Case>` takes box props such as `frame`, `justify`, and `align`, and `<Show>` passes its box
+  props to its shown case and its item props (`grow`, `span`, `x`/`y`, …) to the switch. `switchOn` cases take `frame`,
+  `style` (flex style; `direction` defaults to `"column"`), and `children`; `switchOn` and `show` take `x`/`y` (set
+  both), and `show` also takes the case options for its shown case. The JSX `text` prop, which cascades text styling to
+  descendants, has no function-style equivalent; style labels and slots directly.
+- Cases are visual: sprites, frames, labels, and `<Text bind>`/`<Icon bind>` bindings. Slot-bound controls, nested
+  switches, and switches inside repeaters are build errors. Bindings inside cases keep their own window-wide names.
+- Each case's art becomes its own layer. Windows redraw the title and HUDs their line when the case changes; case art
+  draws above the static chrome and below the text and icon slots.
+- Generated Kotlin returns the active case: an enum of the case values (`protected abstract fun mode(): Mode` with
+  `enum class Mode { BUY, SELL }`), or `Boolean` when the cases are exactly `true` and `false`
+  (`protected abstract fun onSale(): Boolean`). Views without generated bindings use
+  `WindowScope.switch(name) { value }` or `HudScope.switch`.
 
 ## Native anvil search
 

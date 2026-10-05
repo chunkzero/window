@@ -573,6 +573,44 @@ export interface SectionElement {
     children?: Element[];
 }
 
+/** A case of `switchOn`, or the shown case of `show`: a flex box that stretches to the switch unless sized. */
+export interface CaseOptions {
+    frame?: string;
+    /** Box layout; `direction` defaults to `"column"`. */
+    style?: FlexStyle;
+    children?: Element[];
+}
+
+export interface SwitchOptions {
+    x?: number;
+    y?: number;
+}
+
+export type ShowOptions = CaseOptions & SwitchOptions;
+
+/** One case of a switch: a flex box that fills the switch. */
+export interface CaseElement {
+    type: "case";
+    /** Value the switch binding returns to draw this case. */
+    value: string;
+    frame?: string;
+    style?: FlexStyle;
+    children?: Element[];
+}
+
+/**
+ * Visual cases stacked in one box sized to the largest case. The runtime draws only the case its binding names.
+ * Cases hold static art and text/icon bindings, not slot-bound controls.
+ */
+export interface SwitchElement {
+    type: "switch";
+    /** Binding name. Kotlin gets a Boolean for exactly `true`/`false` cases, otherwise an enum of the case values. */
+    name: string;
+    x?: number;
+    y?: number;
+    children: CaseElement[];
+}
+
 export type Element = (
     | PanelElement
     | RowElement
@@ -590,6 +628,7 @@ export type Element = (
     | SlotElement
     | FlexElement
     | SectionElement
+    | SwitchElement
 ) & { layout?: ItemLayout };
 
 export interface Window {

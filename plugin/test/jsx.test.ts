@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Box, Button, Collection, Fragment, Tab, Tabs, Text, h } from "../src/authoring/jsx.ts";
+import { Box, Button, Case, Collection, Fragment, Show, Switch, Tab, Tabs, Text, h } from "../src/authoring/jsx.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
     const child = Box({ children: Text({ children: "Hello" }) });
@@ -29,6 +29,23 @@ test("JSX fragments preserve tabs and ignore conditional booleans", () => {
     assert.equal(tabs[0]?.type, "button");
     assert.equal(tabs[0]?.name, "kind_all");
     assert.throws(() => Box({ children: Tab({ value: "bad" }) }), /inside <Tabs>/);
+});
+
+test("Show is a true/false switch whose box props style the shown case", () => {
+    const show = Show({ when: "on_sale", grow: 1, justify: "center", children: Text({ children: "Sale" }) });
+    assert.equal(show.type, "switch");
+    assert.equal(show.name, "on_sale");
+    assert.deepEqual(show.layout, { grow: 1 });
+    const [shown, hidden] = show.children;
+    assert.equal(shown?.value, "true");
+    assert.deepEqual(shown.style, { direction: "column", justify: "center" });
+    assert.equal(shown.children?.[0]?.type, "label");
+    assert.deepEqual(hidden, { type: "case", value: "false", style: { direction: "column" }, children: [] });
+});
+
+test("cases belong directly inside a switch", () => {
+    assert.throws(() => Box({ children: Case({ value: "buy" }) }), /<Case> inside <Switch>/);
+    assert.throws(() => Switch({ bind: "mode", children: "Buy" }), /children must be <Case>/);
 });
 
 test("explicit collection spans override the full-width default", () => {

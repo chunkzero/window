@@ -38,6 +38,7 @@ fn shader_hud(name: &str, slot_name: &str) -> LaidOutHud {
             font: None,
             repeat: None,
         }],
+        switches: Vec::new(),
         warnings: Vec::new(),
     }
 }

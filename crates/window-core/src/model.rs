@@ -11,7 +11,7 @@ use crate::surface::ContainerKind;
 mod flex;
 mod generated;
 
-pub use flex::{FlexBox, ItemLayout, LayoutChild, SlotSection};
+pub use flex::{FlexBox, ItemLayout, LayoutChild, SlotSection, Switch, SwitchCase};
 pub use generated::{GeneratedKind, GeneratedStyle};
 
 /// All theme definitions across every theme document (names are global).
@@ -356,4 +356,6 @@ pub enum Element {
     Flex(Box<FlexBox>),
     /// A slot section laid out as a taffy grid of inventory slots.
     Section(Box<SlotSection>),
+    /// Runtime-selected visual cases stacked in one box.
+    Switch(Box<Switch>),
 }

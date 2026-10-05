@@ -4,8 +4,8 @@
  * @jsxFrag Fragment
  */
 import {
-    Box,
     Button,
+    Case,
     Container,
     Grid,
     Header,
@@ -17,9 +17,11 @@ import {
     Player,
     Repeater,
     Row,
+    Show,
     Slots,
     Spacer,
     Sprite,
+    Switch,
     Text,
     Toggle,
     Window,
@@ -48,9 +50,14 @@ export default (
                     <Sprite name="coin" translate={[0, 1]} />
                 </Row>
             </Header>
-            <Box frame="button_danger" x={146} y={3} width={24} height={12} justify="center" align="center">
-                <Text>New</Text>
-            </Box>
+            <Switch bind="mode" x={146} y={3}>
+                <Case value="idle" frame="button_danger" width={24} height={12} justify="center" align="center">
+                    <Text>New</Text>
+                </Case>
+                <Case value="forging" frame="button_accent" justify="center" align="center">
+                    <Text bind="progress" width={20} align="center" color="#2a1200" shadow={false} />
+                </Case>
+            </Switch>
 
             <Container frame="panel" outset={{ top: 2, right: 3, bottom: 3, left: 3 }}>
                 <Repeater name="recipe" cell={[3, 2]} columns={3} rows={1} frame="button">
@@ -112,6 +119,12 @@ export default (
         >
             <Row gap={4}>
                 <Text grow>Forging</Text>
+                <Show when="overheated">
+                    <Row frame="recess" padding={{ left: 2, right: 2 }} gap={2}>
+                        <Sprite name="coin" />
+                        <Text color="#ff8300">Hot</Text>
+                    </Row>
+                </Show>
                 <Text bind="percent" width={24} align="right" color="#ffd75e" />
             </Row>
             <Grid columns={["1fr", "1fr"]} gap={[4, 1]}>

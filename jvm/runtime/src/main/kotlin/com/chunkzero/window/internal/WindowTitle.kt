@@ -8,8 +8,9 @@ import com.chunkzero.window.manifest.SpriteSlotEntry
 import com.chunkzero.window.manifest.WindowEntry
 
 /**
- * The net-zero title segments of one window, keyed by semantic id in composition order: button
- * state sprites, then collection selections, then sprite slots, then text slots.
+ * The net-zero title segments of one window, keyed by semantic id in composition order: switch case
+ * art, then button state sprites, then collection selections, then sprite slots, then text slots.
+ * Slots of inactive switch cases are left out of the composed title.
  */
 internal class WindowTitle(
     private val definition: WindowDefinition,
@@ -20,7 +21,19 @@ internal class WindowTitle(
     private val composer = definition.composer
     private val segments = LinkedHashMap<String, RenderedSegment>()
 
-    fun compose(): ComposedRender = composer.compose(definition.name, segments)
+    fun compose(): ComposedRender {
+        val switches = bindings.switches
+        val hidden =
+            switches.hiddenSlots().mapTo(HashSet(), bindings.slots::semanticId) +
+                switches.hiddenSpriteSlots().map(::spriteId)
+        return composer.compose(definition.name, segments.filterKeys { it !in hidden })
+    }
+
+    /** Draws the art of switch [name]'s active case, re-selected under dependency capture. */
+    fun updateSwitch(name: String) {
+        val id = bindings.switches.semanticId(name)
+        segments[id] = composer.renderStatic(id, bindings.switches.render(name).static)
+    }
 
     /** Renders collection selections, fixed sprites, runtime sprites, and text slots once. */
     fun seedContent() {
@@ -130,10 +143,14 @@ internal fun WindowDefinition.titleSlots(reactivity: Reactivity): DynamicSlots =
         emptyTitleSegment(id, RenderLayerKind.TEXT_SLOT, slot.x, slot.y, slot.font)
     }
 
-/** Whether the title never changes after open: no text slots, bound sprites, state sprites, or selections. */
+/**
+ * Whether the title never changes after open: no text slots, bound sprites, state sprites,
+ * selections, or switches.
+ */
 internal val WindowEntry.hasStaticTitle: Boolean
     get() =
-        slots.values.all { it.text != null } &&
+        switches.isEmpty() &&
+            slots.values.all { it.text != null } &&
             spriteSlots.values.all { it.sprite != null } &&
             buttons.values.all { it.spriteFont == null } &&
             collections.values.all { it.selection.isEmpty() }

@@ -4,14 +4,15 @@
 //! every element keeps its usual validation. Leaves are fixed-size taffy nodes measured from fonts and
 //! sprites; text is vertically centered in its box and fills its width, and fixed-size art is centered.
 
-use taffy::style_helpers::{TaffyAuto, TaffyGridSpan, TaffyMaxContent, length};
+use taffy::style_helpers::{TaffyAuto, TaffyGridLine, TaffyGridSpan, TaffyMaxContent, length};
 use taffy::{AvailableSpace, Dimension, FlexDirection, GridPlacement, LengthPercentageAuto, Line, NodeId, TaffyTree};
 
 use super::target::LayoutTarget;
 use super::{Solver, pos_of};
 use crate::geometry::{Point, Rect, Size};
 use crate::inventory::{SlotGridPattern, SlotPattern, SlotRectClaim, SlotRectPattern};
-use crate::model::{Element, FlexBox, ItemLayout, SlotSection};
+use crate::ir::{SwitchCaseIr, SwitchIr};
+use crate::model::{Element, FlexBox, ItemLayout, SlotSection, Switch};
 use crate::{Error, Result};
 
 type Tree = TaffyTree<()>;
@@ -19,15 +20,29 @@ type Tree = TaffyTree<()>;
 impl<T: LayoutTarget> Solver<'_, T> {
     /// The max-content size of a box placed outside any content box.
     pub(super) fn measure_flex(&self, node: &FlexBox) -> Result<Size> {
-        let (tree, root) = self.solve_flex(node, None)?;
+        let (tree, root) = self.solve(None, |s, tree| s.add_box(tree, node, None))?;
         let layout = tree.layout(root).map_err(|e| self.taffy_err(e))?;
         Ok(Size::new(px(layout.size.width), px(layout.size.height)))
     }
 
     /// Solves and emits a box at `origin`. `fill` is the parent content box size an auto-sized box fills.
     pub(super) fn place_flex(&mut self, node: &FlexBox, origin: Point, fill: Option<Size>) -> Result<Size> {
-        let (tree, root) = self.solve_flex(node, fill)?;
+        let (tree, root) = self.solve(fill, |s, tree| s.add_box(tree, node, None))?;
         let rect = self.emit_box(&tree, root, node, origin)?;
+        Ok(rect.size())
+    }
+
+    /// The size of a switch placed outside any content box: its largest case.
+    pub(super) fn measure_switch(&self, switch: &Switch) -> Result<Size> {
+        let (tree, root) = self.solve(None, |s, tree| s.add_switch(tree, switch, None))?;
+        let layout = tree.layout(root).map_err(|e| self.taffy_err(e))?;
+        Ok(Size::new(px(layout.size.width), px(layout.size.height)))
+    }
+
+    /// Solves and emits a switch at `origin`, filling `fill` like an auto-sized box.
+    pub(super) fn place_switch(&mut self, switch: &Switch, origin: Point, fill: Option<Size>) -> Result<Size> {
+        let (tree, root) = self.solve(fill, |s, tree| s.add_switch(tree, switch, None))?;
+        let rect = self.emit_switch(&tree, root, switch, origin)?;
         Ok(rect.size())
     }
 
@@ -42,6 +57,9 @@ impl<T: LayoutTarget> Solver<'_, T> {
             Element::Flex(node) if node.pos.is_none() => {
                 self.place_flex(node, origin, Some(content.size()))?;
             }
+            Element::Switch(switch) if switch.pos.is_none() => {
+                self.place_switch(switch, origin, Some(content.size()))?;
+            }
             _ => {
                 self.place(child, origin)?;
             }
@@ -49,9 +67,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(())
     }
 
-    fn solve_flex(&self, node: &FlexBox, fill: Option<Size>) -> Result<(Tree, NodeId)> {
+    fn solve(
+        &self,
+        fill: Option<Size>,
+        build: impl FnOnce(&Self, &mut Tree) -> Result<NodeId>,
+    ) -> Result<(Tree, NodeId)> {
         let mut tree = Tree::new();
-        let root = self.add_box(&mut tree, node, None)?;
+        let root = build(self, &mut tree)?;
         let mut available = taffy::Size { width: AvailableSpace::MaxContent, height: AvailableSpace::MaxContent };
         if let Some(fill) = fill {
             let mut style = tree.style(root).map_err(|e| self.taffy_err(e))?.clone();
@@ -85,10 +107,43 @@ impl<T: LayoutTarget> Solver<'_, T> {
         for child in &node.children {
             children.push(match &child.element {
                 Element::Flex(inner) => self.add_box(tree, inner, Some(&child.layout))?,
+                Element::Switch(switch) => self.add_switch(tree, switch, Some(&child.layout))?,
                 leaf => self.add_leaf(tree, leaf, &child.layout, horizontal)?,
             });
         }
         tree.new_with_children(style, &children).map_err(|e| self.taffy_err(e))
+    }
+
+    /// A switch is a one-cell grid whose cases all occupy the cell, so it takes the largest case's size and
+    /// every case box fills it.
+    fn add_switch(&self, tree: &mut Tree, switch: &Switch, item: Option<&ItemLayout>) -> Result<NodeId> {
+        self.check_switch(switch)?;
+        let mut style = taffy::Style { display: taffy::Display::Grid, ..Default::default() };
+        if let Some(item) = item {
+            if let Some(pos) = switch.pos {
+                absolute_at(&mut style, pos);
+            }
+            item.apply(&mut style);
+        }
+        let first = Line { start: GridPlacement::from_line_index(1), end: GridPlacement::AUTO };
+        let cell = ItemLayout { column: Some(first.clone()), row: Some(first), ..Default::default() };
+        let mut cases = Vec::with_capacity(switch.cases.len());
+        for case in &switch.cases {
+            cases.push(self.add_box(tree, &case.body, Some(&cell))?);
+        }
+        tree.new_with_children(style, &cases).map_err(|e| self.taffy_err(e))
+    }
+
+    /// Rejects slot-bound controls and nested switches inside `switch`'s cases.
+    fn check_switch(&self, switch: &Switch) -> Result<()> {
+        for case in &switch.cases {
+            for child in &case.body.children {
+                if let Some(error) = case_conflict(&child.element, &switch.name) {
+                    return Err(self.target.layout_err(error));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Text leaves stretch across their line and are at least 8px tall; dynamic text without a width
@@ -147,12 +202,41 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 Element::Flex(inner) => {
                     self.emit_box(tree, child_id, inner, origin)?;
                 }
+                Element::Switch(switch) => {
+                    self.emit_switch(tree, child_id, switch, origin)?;
+                }
                 leaf => {
                     let leaf_rect = self.node_rect(tree, child_id, origin)?;
                     self.place_leaf(leaf, leaf_rect)?;
                 }
             }
         }
+        Ok(rect)
+    }
+
+    /// Emits each case box over the switch rect, collecting its draws and text regions into its own case.
+    fn emit_switch(&mut self, tree: &Tree, id: NodeId, switch: &Switch, parent: Point) -> Result<Rect> {
+        if let Some(repeat) = &self.active_repeat {
+            return Err(self
+                .target
+                .layout_err(format!("switch `{}` cannot be inside repeater `{}`", switch.name, repeat.group)));
+        }
+        self.register_name(&switch.name)?;
+        let rect = self.node_rect(tree, id, parent)?;
+        let ids = tree.children(id).map_err(|e| self.taffy_err(e))?;
+        let mut cases = Vec::with_capacity(switch.cases.len());
+        for (case, case_id) in switch.cases.iter().zip(ids) {
+            let outer_draws = std::mem::take(&mut self.draws);
+            let (slots, sprite_slots) = (self.slots.len(), self.sprite_slots.len());
+            self.emit_box(tree, case_id, &case.body, rect.origin())?;
+            cases.push(SwitchCaseIr {
+                value: case.value.clone(),
+                draws: std::mem::replace(&mut self.draws, outer_draws),
+                slots: self.slots[slots..].iter().map(|slot| slot.name.clone()).collect(),
+                sprite_slots: self.sprite_slots[sprite_slots..].iter().map(|slot| slot.name.clone()).collect(),
+            });
+        }
+        self.switches.push(SwitchIr { name: switch.name.clone(), cases });
         Ok(rect)
     }
 
@@ -351,6 +435,9 @@ impl<T: LayoutTarget> Solver<'_, T> {
             Element::Flex(node) => {
                 self.place_flex(node, cell.origin(), Some(cell.size()))?;
             }
+            Element::Switch(switch) => {
+                self.place_switch(switch, cell.origin(), Some(cell.size()))?;
+            }
             other => self.place_leaf(other, cell)?,
         }
         Ok(())
@@ -493,5 +580,33 @@ fn describe(el: &Element) -> String {
         Element::Row { .. } => "row".into(),
         Element::Column { .. } => "column".into(),
         Element::Flex(_) => "flex box".into(),
+        Element::Switch(switch) => format!("switch `{}`", switch.name),
     }
+}
+
+/// Why `el`, inside a case of switch `switch`, is not allowed there.
+fn case_conflict(el: &Element, switch: &str) -> Option<String> {
+    let children: &[Element] = match el {
+        Element::Button { .. }
+        | Element::Hotspot { .. }
+        | Element::Item { .. }
+        | Element::Collection { .. }
+        | Element::AnvilInput { .. }
+        | Element::SlotRects { .. }
+        | Element::Repeater { .. }
+        | Element::Section(_) => {
+            return Some(format!(
+                "{} cannot be inside switch `{switch}`: switch cases are visual only, so place slot-bound \
+                 controls outside the switch",
+                describe(el)
+            ));
+        }
+        Element::Switch(inner) => {
+            return Some(format!("switch `{}` cannot be nested inside switch `{switch}`", inner.name));
+        }
+        Element::Flex(node) => return node.children.iter().find_map(|c| case_conflict(&c.element, switch)),
+        Element::Panel { children, .. } | Element::Row { children, .. } | Element::Column { children, .. } => children,
+        Element::Sprite { .. } | Element::SpriteSlot { .. } | Element::Label { .. } | Element::Slot { .. } => &[],
+    };
+    children.iter().find_map(|c| case_conflict(c, switch))
 }

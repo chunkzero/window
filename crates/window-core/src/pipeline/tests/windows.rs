@@ -289,3 +289,32 @@ fn anvil_title_updates_require_the_experimental_option() {
     let out = compile_anvil_search(slot, r#"{"experimental_anvil_updates":true}"#).unwrap();
     assert!(out.warnings.iter().any(|w| w.contains("`count` reopens the anvil")));
 }
+
+#[test]
+fn switch_cases_bake_their_own_net_zero_glyphs() {
+    let mut textures = BTreeMap::new();
+    textures.insert("badge.png".to_string(), solid(8, 8, [255, 0, 0, 255]));
+    let badge = |x| Draw::Sprite { texture: TextureKey("badge.png".into()), dest: Rect::new(x, 20, 8, 8) };
+    let mut w = bare_window("shop", ContainerKind::Generic9x3, vec![badge(4)]);
+    w.switches = vec![crate::ir::SwitchIr {
+        name: "mode".into(),
+        cases: vec![
+            crate::ir::SwitchCaseIr {
+                value: "buy".into(),
+                draws: vec![badge(30)],
+                slots: vec!["price".into()],
+                sprite_slots: vec![],
+            },
+            crate::ir::SwitchCaseIr { value: "sell".into(), draws: vec![], slots: vec![], sprite_slots: vec![] },
+        ],
+    }];
+
+    let out = compile_windows(&[w], &textures, "window").unwrap();
+    crate::validation::validate_compile_output(&out).assert_valid();
+    find(&out, "assets/window/textures/font/shop_switch/mode/buy.png");
+    let entry = &out.manifest.windows["shop"];
+    let cases = &entry.switches["mode"].cases;
+    assert_eq!(cases[0].slots, vec!["price"]);
+    assert!(!cases[0].static_text.is_empty() && cases[0].static_text != entry.static_text);
+    assert_eq!((cases[1].value.as_str(), cases[1].static_text.as_str()), ("sell", ""));
+}

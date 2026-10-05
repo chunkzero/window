@@ -63,23 +63,40 @@ internal class HudComposer(
         )
     }
 
-    /** Appends already-rendered slot segments after the static segment, ordered left to right. */
+    /**
+     * Appends already-rendered slot segments after the static segment, ordered left to right. Each
+     * [caseArt] entry, keyed by semantic id, is a net-zero segment from the HUD's left edge drawn
+     * between the static segment and the slots.
+     */
     fun compose(
         hudName: String,
         slotSegments: Map<String, RenderedSegment>,
+        caseArt: Map<String, String> = emptyMap(),
     ): ComposedRender {
         val ordered = orderedRenderedSegments(slotSegments)
-        val staticTrace = staticTrace(hudName)
-        return if (shaderHud) composeShader(staticTrace, ordered) else composeFixedWidth(staticTrace, ordered)
+        val base = arrayListOf(staticTrace("hud/$hudName/static", hud.static, originX))
+        caseArt.mapTo(base) { (id, art) -> staticTrace(id, art, 0) }
+        val static = withCaseArt(caseArt.values)
+        return if (shaderHud) composeShader(static, base, ordered) else composeFixedWidth(static, base, ordered)
+    }
+
+    /** The static component followed by each net-zero [art] segment, ending where the static ends. */
+    private fun withCaseArt(art: Collection<String>): Component {
+        if (art.isEmpty()) return staticComponent
+        val end = if (shaderHud) 0 else originX
+        var component = staticComponent.appendSpacer(-end)
+        for (text in art) component = component.append(Component.text(text).style(spacerStyle))
+        return component.appendSpacer(end)
     }
 
     /** Each segment is positioned from the HUD origin and returns to it independently. */
     private fun composeShader(
-        staticTrace: RenderLayerTrace,
+        static: Component,
+        base: List<RenderLayerTrace>,
         ordered: List<Map.Entry<String, RenderedSegment>>,
     ): ComposedRender {
-        var component = staticComponent
-        val traces = arrayListOf(staticTrace)
+        var component = static
+        val traces = ArrayList(base)
         for ((_, rendered) in ordered) {
             val trace = rendered.trace
             val xStart = trace.expectedBounds.x
@@ -95,12 +112,13 @@ internal class HudComposer(
 
     /** Segments chain left to right from the HUD right edge, which the cursor returns to at the end. */
     private fun composeFixedWidth(
-        staticTrace: RenderLayerTrace,
+        static: Component,
+        base: List<RenderLayerTrace>,
         ordered: List<Map.Entry<String, RenderedSegment>>,
     ): ComposedRender {
-        var component = staticComponent
+        var component = static
         var cursor = originX
-        val traces = arrayListOf(staticTrace)
+        val traces = ArrayList(base)
         for ((_, rendered) in ordered) {
             val trace = rendered.trace
             val start = cursor
@@ -111,21 +129,26 @@ internal class HudComposer(
         return ComposedRender(component.appendSpacer(originX - cursor), traces)
     }
 
-    private fun staticTrace(hudName: String): RenderLayerTrace =
+    /** A static layer starting at the HUD's left edge whose cursor ends at [end]. */
+    private fun staticTrace(
+        semanticId: String,
+        content: String,
+        end: Int,
+    ): RenderLayerTrace =
         RenderLayerTrace(
-            semanticId = "hud/$hudName/static",
+            semanticId = semanticId,
             kind = RenderLayerKind.HUD_STATIC,
-            content = hud.static,
+            content = content,
             font = font,
             style = RenderStyleTrace(color = staticColor.asHexString(), shadow = false),
             expectedBounds = RenderBounds(0, 0, hud.surface.width, hud.surface.height),
             cursorStart = 0,
             contentCursorStart = 0,
-            contentCursorEnd = originX,
-            cursorEnd = originX,
-            advance = originX,
+            contentCursorEnd = end,
+            cursorEnd = end,
+            advance = end,
             visualWidth = hud.surface.width,
-            netCursorDelta = originX,
+            netCursorDelta = end,
         )
 
     private fun orderedRenderedSegments(

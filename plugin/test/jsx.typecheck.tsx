@@ -3,7 +3,22 @@
  * @jsx h
  * @jsxFrag Fragment
  */
-import { Box, Container, Fragment, Hud, Tab, Tabs, Text, Window, h } from "../src/authoring/jsx.ts";
+import {
+    Box,
+    Case,
+    Container,
+    Fragment,
+    Hud,
+    Row,
+    Show,
+    Sprite,
+    Switch,
+    Tab,
+    Tabs,
+    Text,
+    Window,
+    h,
+} from "../src/authoring/jsx.ts";
 
 export default (
     <>
@@ -21,6 +36,18 @@ export default (
         </Window>
         <Hud name="status">
             <Text bind="value" width={40} />
+            <Switch bind="mode" grow>
+                <Case value="buy" frame="recess">
+                    <Row>
+                        <Text>Buy</Text>
+                        <Text bind="price" />
+                    </Row>
+                </Case>
+                <Case value="sell" justify="center" />
+            </Switch>
+            <Show when="on_sale" align="end">
+                <Sprite name="sale_badge" />
+            </Show>
         </Hud>
     </>
 );
@@ -33,4 +60,8 @@ const invalidInset = <Text top="max-content">Hi</Text>;
 const invalidTrack = <Box columns={["stretch"]} />;
 // @ts-expect-error HUD canvas dimensions are pixel numbers.
 const invalidHud = <Hud name="invalid" width="100%" height="100%" />;
-void [invalidPadding, invalidInset, invalidTrack, invalidHud];
+// @ts-expect-error A case is a box placed by its switch, so it takes no item layout.
+const invalidCase = <Case value="buy" grow />;
+// @ts-expect-error Show needs the Boolean binding it reads.
+const invalidShow = <Show />;
+void [invalidPadding, invalidInset, invalidTrack, invalidHud, invalidCase, invalidShow];

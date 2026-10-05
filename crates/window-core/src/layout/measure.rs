@@ -42,6 +42,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             Element::Column { gap, padding, children, .. } => self.measure_flow(*gap, *padding, children, Axis::Column),
             Element::Flex(node) => self.measure_flex(node),
             Element::Section(_) => Ok(Size::new(0, 0)),
+            Element::Switch(switch) => self.measure_switch(switch),
         }
     }
 

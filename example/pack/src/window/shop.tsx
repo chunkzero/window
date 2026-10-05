@@ -13,6 +13,7 @@ import {
     Icon,
     Player,
     Row,
+    Show,
     Sprite,
     Tab,
     Tabs,
@@ -106,7 +107,9 @@ export default (
             <Row span={9} frame="recess" padding={{ left: 5, right: 4 }} gap={4}>
                 <Text bind="selection" color="#ffb20b" />
                 <Text bind="price" width={40} align="right" />
-                <Icon bind="price_coin" size={8} />
+                <Show when="has_price">
+                    <Sprite name="coin" />
+                </Show>
             </Row>
         </Container>
 

@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::Result;
 use crate::codegen::naming;
 use crate::ir::ButtonDefault;
-use crate::manifest::{CollectionEntry, RepeatGroupEntry, WindowEntry};
+use crate::manifest::{CollectionEntry, RepeatGroupEntry, SwitchEntry, WindowEntry};
 
 /// A runtime-rendered value bound by name: a text slot, sprite id, or inventory item.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -59,12 +59,52 @@ impl ValueKind {
 
 /// One generated view member and the manifest names it binds.
 pub(super) enum Member {
-    Value { kind: ValueKind, source: String, member: String },
-    GroupValue { kind: ValueKind, group: String, field: String, sources: Vec<String>, member: String },
-    GroupButton { group: String, sources: Vec<String>, member: String },
-    Button { source: String, member: String, is_close: bool },
-    Collection { source: String, item_member: String, handler: Option<String>, selection: Option<String> },
-    AnvilInput { source: String, member: String },
+    Value {
+        kind: ValueKind,
+        source: String,
+        member: String,
+    },
+    GroupValue {
+        kind: ValueKind,
+        group: String,
+        field: String,
+        sources: Vec<String>,
+        member: String,
+    },
+    GroupButton {
+        group: String,
+        sources: Vec<String>,
+        member: String,
+    },
+    Button {
+        source: String,
+        member: String,
+        is_close: bool,
+    },
+    Collection {
+        source: String,
+        item_member: String,
+        handler: Option<String>,
+        selection: Option<String>,
+    },
+    AnvilInput {
+        source: String,
+        member: String,
+    },
+    /// A switch bound to a `Boolean` when its cases are exactly `true` and `false`, otherwise to a generated
+    /// enum whose constants are the upper-cased case values.
+    Switch {
+        source: String,
+        member: String,
+        cases: Option<SwitchEnum>,
+    },
+}
+
+/// A generated enum naming the cases of one switch.
+pub(super) struct SwitchEnum {
+    pub(super) name: String,
+    /// `(constant, case value)` pairs in authoring order.
+    pub(super) constants: Vec<(String, String)>,
 }
 
 /// Collects members in declaration order, rejecting invalid, reserved, or colliding names.
@@ -104,6 +144,7 @@ impl<'a> Members<'a> {
                 members.value(ValueKind::Sprite, slot)?;
             }
         }
+        members.switches(&window.switches)?;
         for (button, entry) in &window.buttons {
             if entry.action && !members.grouped_buttons.contains(button) {
                 members.button(button, entry.default == Some(ButtonDefault::Close))?;
@@ -133,6 +174,26 @@ impl<'a> Members<'a> {
         let member = kind.member(source);
         self.claim(&member, format!("{} `{source}`", kind.label()))?;
         self.members.push(Member::Value { kind, source: source.into(), member });
+        Ok(())
+    }
+
+    pub(super) fn switches(&mut self, switches: &BTreeMap<String, SwitchEntry>) -> Result<()> {
+        for (source, switch) in switches {
+            let member = naming::slot_member(source);
+            self.claim(&member, format!("switch `{source}`"))?;
+            let mut values: Vec<&str> = switch.cases.iter().map(|case| case.value.as_str()).collect();
+            values.sort_unstable();
+            let cases = if values == ["false", "true"] {
+                None
+            } else {
+                let name = naming::type_name(source);
+                self.claim(&name, format!("switch `{source}` enum"))?;
+                let constants =
+                    switch.cases.iter().map(|case| (case.value.to_uppercase(), case.value.clone())).collect();
+                Some(SwitchEnum { name, constants })
+            };
+            self.members.push(Member::Switch { source: source.clone(), member, cases });
+        }
         Ok(())
     }
 

@@ -57,6 +57,8 @@ const LABEL_FIELDS: &[&str] = &[
     "small_caps",
 ];
 const FLEX_FIELDS: &[&str] = &["type", "x", "y", "frame", "style", "children"];
+const SWITCH_FIELDS: &[&str] = &["type", "name", "x", "y", "children"];
+const CASE_FIELDS: &[&str] = &["type", "value", "frame", "style", "children"];
 const SECTION_FIELDS: &[&str] = &["type", "section", "frame", "outset", "claim", "flow", "children"];
 const SLOT_FIELDS: &[&str] = &[
     "type",
@@ -93,6 +95,8 @@ fn allowed_fields(kind: &str) -> Option<&'static [&'static str]> {
         "slot" => SLOT_FIELDS,
         "flex" => FLEX_FIELDS,
         "section" => SECTION_FIELDS,
+        "switch" => SWITCH_FIELDS,
+        "case" => CASE_FIELDS,
         _ => return None,
     })
 }
@@ -112,6 +116,7 @@ impl ElementDto {
             "name" => self.name.clone(),
             "frame" => self.frame.clone(),
             "text" => self.text.clone(),
+            "value" => self.value.clone(),
             _ => None,
         }
         .ok_or_else(|| Error::Validation(format!("{} element requires `{field}`", self.kind)))

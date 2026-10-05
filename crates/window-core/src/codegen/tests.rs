@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use crate::ir::{Align, ButtonDefault};
 use crate::manifest::{
     AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudEntry, HudSurfaceEntry, ItemEntry, Manifest,
-    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SpriteSlotEntry, SurfaceEntry, VERSION, WindowEntry,
+    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry,
+    SwitchEntry, VERSION, WindowEntry,
 };
 use crate::pipeline::OutputFile;
 
@@ -36,6 +37,7 @@ fn window(container: &str, size: [u32; 2], title_origin: [i32; 2]) -> WindowEntr
         inputs: BTreeMap::new(),
         slot_rects: BTreeMap::new(),
         groups: BTreeMap::new(),
+        switches: BTreeMap::new(),
     }
 }
 
@@ -195,6 +197,38 @@ fn collection_selections_alone_import_sprite_slot_types() {
 }
 
 #[test]
+fn switches_bind_typed_enums_and_booleans() {
+    let switch = |values: &[&str]| SwitchEntry {
+        cases: values
+            .iter()
+            .map(|value| SwitchCaseEntry {
+                value: value.to_string(),
+                static_text: String::new(),
+                slots: vec![],
+                sprite_slots: vec![],
+            })
+            .collect(),
+    };
+    let mut shop = window("generic_9x3", [176, 166], [8, 6]);
+    shop.switches =
+        BTreeMap::from([("mode".into(), switch(&["buy", "sell"])), ("on_sale".into(), switch(&["true", "false"]))]);
+    let manifest = manifest(BTreeMap::from([("shop".into(), shop)]), BTreeMap::new());
+
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.generated").unwrap();
+    let view = file_contents(&files, "ShopView.kt");
+    assert!(view.contains(
+        "public enum class Mode(public val value: String) {\n        BUY(\"buy\"),\n        SELL(\"sell\"),"
+    ));
+    assert!(view.contains("protected abstract fun mode(): Mode"));
+    assert!(view.contains("switch(\"mode\") { mode().value }"));
+    assert!(view.contains("protected abstract fun onSale(): Boolean"));
+    assert!(view.contains("switch(\"on_sale\") { onSale().toString() }"));
+    let definitions = file_contents(&files, "WindowDefinitions.kt");
+    assert!(definitions.contains("import com.chunkzero.window.manifest.SwitchCaseEntry"));
+    assert!(definitions.contains("SwitchCaseEntry(\n"));
+}
+
+#[test]
 fn generates_typed_anvil_input_binding() {
     let mut search = window("anvil", [176, 166], [60, 6]);
     search.inputs = BTreeMap::from([(
@@ -216,6 +250,7 @@ fn hud_lifecycle_members_are_reserved() {
         static_text: String::new(),
         slots: BTreeMap::from([("on_show".into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
         shader: None,
+        switches: BTreeMap::new(),
     };
     let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
 

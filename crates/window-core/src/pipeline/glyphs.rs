@@ -2,20 +2,26 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::compose::{Composite, Texture, compose_draws, compose_window};
+use crate::compose::{Composite, Texture, compose_draws};
 use crate::font::{allocate, bitmap_provider};
 use crate::geometry::Size;
-use crate::ir::{LaidOutHud, LaidOutWindow};
+use crate::ir::{Draw, LaidOutHud, LaidOutWindow, SwitchIr};
 use crate::{Error, Result};
 
 use super::metrics::bitmap_metrics;
 use super::sprites::RuntimeSpriteAsset;
 use super::{CompileContext, OutputFile};
 
+/// A surface's static composite plus one composite per switch case, indexed `[switch][case]`.
+pub(super) struct Layers {
+    pub(super) base: Composite,
+    pub(super) cases: Vec<Vec<Composite>>,
+}
+
 /// Static layer composites, index-aligned with the name-sorted windows and HUDs.
 pub(super) struct Composites {
-    pub(super) windows: Vec<Composite>,
-    pub(super) huds: Vec<Composite>,
+    pub(super) windows: Vec<Layers>,
+    pub(super) huds: Vec<Layers>,
 }
 
 pub(super) fn compose_layers(
@@ -23,12 +29,20 @@ pub(super) fn compose_layers(
     huds: &[&LaidOutHud],
     textures: &BTreeMap<String, Texture>,
 ) -> Result<Composites> {
-    let windows = windows.iter().map(|w| compose_window(w, textures)).collect::<Result<_>>()?;
-    let huds = huds.iter().map(|h| compose_draws(&h.draws, &h.name, textures)).collect::<Result<_>>()?;
+    let windows = windows.iter().map(|w| layers(&w.name, &w.draws, &w.switches, textures)).collect::<Result<_>>()?;
+    let huds = huds.iter().map(|h| layers(&h.name, &h.draws, &h.switches, textures)).collect::<Result<_>>()?;
     Ok(Composites { windows, huds })
 }
 
-/// Allocate codepoints across the whole build: one key per static composite
+fn layers(name: &str, draws: &[Draw], switches: &[SwitchIr], textures: &BTreeMap<String, Texture>) -> Result<Layers> {
+    let cases = switches
+        .iter()
+        .map(|switch| switch.cases.iter().map(|case| compose_draws(&case.draws, name, textures)).collect())
+        .collect::<Result<_>>()?;
+    Ok(Layers { base: compose_draws(draws, name, textures)?, cases })
+}
+
+/// Allocate codepoints across the whole build: one key per static or case composite
 /// with content, plus one per runtime sprite when any window uses sprites.
 pub(super) fn allocate_codepoints(
     windows: &[&LaidOutWindow],
@@ -37,15 +51,11 @@ pub(super) fn allocate_codepoints(
     runtime_sprites: Option<&BTreeMap<String, RuntimeSpriteAsset>>,
 ) -> Result<BTreeMap<String, u32>> {
     let mut keys: BTreeSet<String> = BTreeSet::new();
-    for (w, comp) in windows.iter().zip(&composites.windows) {
-        if comp.has_content {
-            keys.insert(static_key(&w.name));
-        }
+    for (w, layers) in windows.iter().zip(&composites.windows) {
+        layer_keys(&mut keys, &window_key_prefix(&w.name), &w.switches, layers);
     }
-    for (h, comp) in huds.iter().zip(&composites.huds) {
-        if comp.has_content {
-            keys.insert(hud_static_key(&h.name));
-        }
+    for (h, layers) in huds.iter().zip(&composites.huds) {
+        layer_keys(&mut keys, &hud_key_prefix(&h.name), &h.switches, layers);
     }
     for sprite in runtime_sprites.into_iter().flat_map(BTreeMap::keys) {
         keys.insert(sprite_key(sprite));
@@ -53,13 +63,39 @@ pub(super) fn allocate_codepoints(
     allocate(&keys)
 }
 
+fn layer_keys(keys: &mut BTreeSet<String>, prefix: &str, switches: &[SwitchIr], layers: &Layers) {
+    if layers.base.has_content {
+        keys.insert(format!("{prefix}/static"));
+    }
+    for (switch, cases) in switches.iter().zip(&layers.cases) {
+        for (case, comp) in switch.cases.iter().zip(cases) {
+            if comp.has_content {
+                keys.insert(case_key(prefix, &switch.name, &case.value));
+            }
+        }
+    }
+}
+
+pub(super) fn window_key_prefix(window: &str) -> String {
+    format!("window/{window}")
+}
+
+pub(super) fn hud_key_prefix(hud: &str) -> String {
+    format!("hud/{hud}")
+}
+
+/// The codepoint allocation key for one switch case's composite under a surface key prefix.
+pub(super) fn case_key(prefix: &str, switch: &str, case: &str) -> String {
+    format!("{prefix}/switch/{switch}/{case}")
+}
+
 /// The codepoint allocation key for a window's static composite.
 pub(super) fn static_key(window: &str) -> String {
-    format!("window/{window}/static")
+    format!("{}/static", window_key_prefix(window))
 }
 
 pub(super) fn hud_static_key(hud: &str) -> String {
-    format!("hud/{hud}/static")
+    format!("{}/static", hud_key_prefix(hud))
 }
 
 fn sprite_key(sprite: &str) -> String {

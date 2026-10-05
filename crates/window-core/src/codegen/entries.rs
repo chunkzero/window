@@ -6,7 +6,7 @@ use crate::ir::{ButtonState, ButtonTooltip};
 use crate::manifest::{
     AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry,
     RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRectEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry,
-    SurfaceEntry,
+    SurfaceEntry, SwitchCaseEntry, SwitchEntry,
 };
 
 use super::literals::{
@@ -190,6 +190,20 @@ pub(super) fn repeat_group_entry_expr(group: &RepeatGroupEntry, level: usize) ->
         .arg("spriteSlots", string_lists(&group.sprite_slots))
         .arg("items", string_lists(&group.items))
         .arg("buttons", string_list_expr(&group.buttons))
+        .finish()
+}
+
+pub(super) fn switch_entry_expr(switch: &SwitchEntry, level: usize) -> String {
+    let cases = switch.cases.iter().map(|case| switch_case_entry_expr(case, level + 2));
+    Call::new("SwitchEntry", level).arg("cases", list_of(cases, level + 1)).finish()
+}
+
+fn switch_case_entry_expr(case: &SwitchCaseEntry, level: usize) -> String {
+    Call::new("SwitchCaseEntry", level)
+        .arg("value", kt_string(&case.value))
+        .arg("static", kt_string(&case.static_text))
+        .arg("slots", string_list_expr(&case.slots))
+        .arg("spriteSlots", string_list_expr(&case.sprite_slots))
         .finish()
 }
 

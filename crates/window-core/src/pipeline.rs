@@ -26,6 +26,7 @@ mod hud;
 mod inventory;
 mod metrics;
 mod sprites;
+mod switches;
 mod window;
 
 #[cfg(test)]
@@ -151,9 +152,9 @@ fn compile_layouts(
     }
     let mut composites = glyphs::compose_layers(&windows, &huds, textures)?;
     let mut field_warnings = Vec::new();
-    for (w, comp) in windows.iter().zip(&mut composites.windows) {
+    for (w, layers) in windows.iter().zip(&mut composites.windows) {
         anvil::check_title(w, options.experimental_anvil_updates, &mut field_warnings)?;
-        anvil::open_field(w, comp, &mut field_warnings);
+        anvil::open_field(w, layers, &mut field_warnings);
     }
     let used_sprites = uses_runtime_sprites.then_some(runtime_sprites);
     let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;

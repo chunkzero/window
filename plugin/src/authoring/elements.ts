@@ -3,14 +3,17 @@ import type {
     AnvilInputOptions,
     ButtonElement,
     ButtonOptions,
+    CaseElement,
+    CaseOptions,
     ChoiceOptions,
     CollectionElement,
     CollectionOptions,
     ColumnElement,
     ColumnOptions,
-    Hud,
+    FlexStyle,
     HotspotElement,
     HotspotOptions,
+    Hud,
     ItemElement,
     ItemOptions,
     LabelElement,
@@ -21,6 +24,7 @@ import type {
     RepeaterOptions,
     RowElement,
     RowOptions,
+    ShowOptions,
     SlotElement,
     SlotOptions,
     SlotRectsElement,
@@ -29,6 +33,8 @@ import type {
     SpriteOptions,
     SpriteSlotElement,
     SpriteSlotOptions,
+    SwitchElement,
+    SwitchOptions,
     Theme,
     ToggleOptions,
     Window,
@@ -290,4 +296,33 @@ export function label(text: string, opts?: LabelOptions): LabelElement {
 export function slot(name: string, opts?: SlotOptions): SlotElement {
     requireName(name, "slot name");
     return { ...element("slot", opts, TEXT_KEYS), name } as unknown as SlotElement;
+}
+
+function switchCase(name: string, value: string, opts: CaseOptions): CaseElement {
+    requireName(value, `switch \`${name}\` case value`);
+    const out = copyKnown(`switch \`${name}\` case \`${value}\``, opts, ["frame", "style", "children"]);
+    const style: FlexStyle = { direction: "column", ...(out.style as FlexStyle | undefined) };
+    return { ...out, type: "case", value, style, children: out.children ?? [] } as unknown as CaseElement;
+}
+
+/**
+ * Stack `cases`, keyed by value, in one box sized to the largest case; the runtime draws only the case the binding
+ * `name` returns. Cases are visual: art, labels, and text/icon slots, but no slot-bound controls.
+ */
+export function switchOn(name: string, cases: Record<string, CaseOptions>, opts?: SwitchOptions): SwitchElement {
+    requireName(name, "switchOn name");
+    const children = Object.entries(requireObject(cases, "switchOn cases")).map(([value, body]) =>
+        switchCase(name, value, body),
+    );
+    if (children.length === 0) {
+        throw new Error(`switchOn \`${name}\` requires at least one case`);
+    }
+    return { ...element("switch", opts, ["x", "y"]), name, children } as unknown as SwitchElement;
+}
+
+/** Draw `opts.children` only while the Boolean binding `when` is true; their space is always reserved. */
+export function show(when: string, opts: ShowOptions): SwitchElement {
+    const { x, y, ...box } = requireObject(opts, "show options");
+    const placement = { ...(x === undefined ? {} : { x }), ...(y === undefined ? {} : { y }) };
+    return switchOn(when, { true: box, false: {} }, placement);
 }

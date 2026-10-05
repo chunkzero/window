@@ -17,6 +17,7 @@ import net.minestom.server.item.ItemStack
 internal class WindowBindings(
     private val definition: WindowDefinition,
     val slots: DynamicSlots,
+    val switches: Switches,
 ) : WindowScope {
     private val entry = definition.entry
 
@@ -104,6 +105,11 @@ internal class WindowBindings(
         bindOnce(collectionSelections, name, render) { "Collection '$name' selection bound more than once" }
     }
 
+    override fun switch(
+        name: String,
+        render: () -> String,
+    ) = switches.bind(name, render)
+
     override fun anvilInput(
         name: String,
         handler: (String) -> Unit,
@@ -131,6 +137,7 @@ internal class WindowBindings(
     /** Fails fast on unbound dynamic content and on actions lacking both a handler and a default. */
     fun validate() {
         slots.validate()
+        switches.validate()
         val dynamicSprites = entry.spriteSlots.filterValues { it.sprite == null }.keys
         checkNone(dynamicSprites - sprites.keys) { "Unbound dynamic sprite slots in window '$it'" }
         val actionsWithoutDefault = entry.buttons.filterValues { it.action && it.default == null }.keys
@@ -153,6 +160,7 @@ internal class WindowBindings(
             buttonStates.keys.mapTo(this, RenderKey::ButtonState)
             items.keys.mapTo(this, RenderKey::Item)
             collectionSelections.keys.mapTo(this, RenderKey::CollectionSelection)
+            switches.names.mapTo(this, RenderKey::Switch)
             for ((name, collection) in entry.collections) {
                 if (name !in collectionItems) continue
                 collection.slots.indices.mapTo(this) { RenderKey.CollectionCell(name, it) }

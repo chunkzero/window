@@ -96,6 +96,33 @@ pub struct WindowEntry {
     /// Group metadata for flattened repeater controls.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub groups: BTreeMap<String, RepeatGroupEntry>,
+    /// Runtime-selected visual cases by binding name.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub switches: BTreeMap<String, SwitchEntry>,
+}
+
+/// Visual cases of which the runtime draws only the one its binding names.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SwitchEntry {
+    /// Cases in authoring order.
+    pub cases: Vec<SwitchCaseEntry>,
+}
+
+/// One case of a [`SwitchEntry`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SwitchCaseEntry {
+    /// Case value the binding returns to select this case.
+    pub value: String,
+    /// Net-zero baked art of this case, drawn after the surface's static segment in [`Manifest::font`].
+    /// Window cases start and end at the title origin; HUD cases at the HUD's left edge.
+    #[serde(rename = "static", default, skip_serializing_if = "String::is_empty")]
+    pub static_text: String,
+    /// Text regions drawn only while this case is active.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub slots: Vec<String>,
+    /// Runtime sprite regions drawn only while this case is active.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sprite_slots: Vec<String>,
 }
 
 /// Surface description.
