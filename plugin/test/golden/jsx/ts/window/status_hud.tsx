@@ -1,9 +1,4 @@
-/**
- * @jsxRuntime classic
- * @jsx h
- * @jsxFrag Fragment
- */
-import { Fragment, Hud, Row, Sprite, Text, h } from "#plugins/window";
+import { Hud, Row, Sprite, Text } from "#plugins/window";
 import type { TextProps } from "#plugins/window";
 
 const text: TextProps = { shadow: true, smallCaps: true, color: "#ffffff" };

@@ -4,6 +4,7 @@
   "rpp": ">=0.1.0-alpha.0",
   "entry": "src/plugin.ts",
   "config": "src/config.ts",
+  "jsx": true,
   "components": {
     "compiler": "window.wasm"
   },

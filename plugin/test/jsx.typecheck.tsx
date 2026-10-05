@@ -1,24 +1,4 @@
-/**
- * @jsxRuntime classic
- * @jsx h
- * @jsxFrag Fragment
- */
-import {
-    Box,
-    Case,
-    Container,
-    Fragment,
-    Hud,
-    Row,
-    Show,
-    Sprite,
-    Switch,
-    Tab,
-    Tabs,
-    Text,
-    Window,
-    h,
-} from "../src/authoring/jsx.ts";
+import { Box, Case, Container, Hud, Row, Show, Sprite, Switch, Tab, Tabs, Text, Window } from "../src/authoring/jsx.ts";
 
 export default (
     <>

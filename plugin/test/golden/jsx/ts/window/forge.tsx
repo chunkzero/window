@@ -1,8 +1,3 @@
-/**
- * @jsxRuntime classic
- * @jsx h
- * @jsxFrag Fragment
- */
 import {
     Button,
     Case,
@@ -25,8 +20,6 @@ import {
     Text,
     Toggle,
     Window,
-    Fragment,
-    h,
 } from "#plugins/window";
 
 const text = { color: "#ffffff", shadow: true, smallCaps: true };

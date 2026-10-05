@@ -314,19 +314,31 @@ interface TabNode {
     children: Element[];
 }
 
-/** The classic JSX factory. Set `@jsx h` and `@jsxFrag Fragment` on separate pragma lines. */
+/** The automatic JSX runtime, which rpp uses for `.tsx` sources. */
+export function jsx<P>(type: Component<P>, props: P): JsxNode {
+    return type(props);
+}
+
+export const jsxs: typeof jsx = jsx;
+
+/** The classic JSX factory, for sources that set `@jsx h` and `@jsxFrag Fragment` pragmas. */
 export function h<P>(type: Component<P>, props: P | null, ...children: Child[]): JsxNode {
     return type({ ...(props ?? ({} as P)), ...(children.length === 0 ? {} : { children }) } as P);
 }
 
-export declare namespace h {
-    namespace JSX {
-        type Element = JsxNode;
-        interface ElementChildrenAttribute {
-            children: unknown;
-        }
-        interface IntrinsicElements {}
+export const createElement: typeof h = h;
+
+declare namespace WindowJsx {
+    type Element = JsxNode;
+    interface ElementChildrenAttribute {
+        children: unknown;
     }
+    interface IntrinsicElements {}
+}
+export type { WindowJsx as JSX };
+
+export declare namespace h {
+    export import JSX = WindowJsx;
 }
 
 export function Fragment(props: { children?: Child }): RenderNode[] {

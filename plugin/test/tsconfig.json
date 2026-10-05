@@ -2,13 +2,15 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "types": ["node"],
-    "jsx": "react",
+    "jsx": "react-jsx",
+    "jsxImportSource": "#plugins/window",
     "isolatedDeclarations": false,
     "declaration": false,
     "paths": {
       "#rpp": ["../.rpp/sdk/index.ts"],
       "#rpp/config": ["../.rpp/sdk/config.ts"],
-      "#plugins/window": ["../src/config.ts"]
+      "#plugins/window": ["../src/config.ts"],
+      "#plugins/window/jsx-runtime": ["../src/config.ts"]
     }
   },
   "include": ["**/*.ts", "jsx.typecheck.tsx", "../src/**/*.ts"]

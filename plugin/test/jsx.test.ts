@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Box, Button, Case, Collection, Fragment, Show, Switch, Tab, Tabs, Text, h } from "../src/authoring/jsx.ts";
+import {
+    Box,
+    Button,
+    Case,
+    Collection,
+    Fragment,
+    Show,
+    Switch,
+    Tab,
+    Tabs,
+    Text,
+    h,
+    jsx,
+} from "../src/authoring/jsx.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
     const child = Box({ children: Text({ children: "Hello" }) });
@@ -55,10 +68,11 @@ test("explicit collection spans override the full-width default", () => {
     });
 });
 
-test("the JSX factory preserves a children prop without positional children", () => {
+test("the JSX factories preserve a children prop without positional children", () => {
     const props = { children: "Hello" };
     assert.deepEqual(h(Text, props), Text(props));
     assert.deepEqual(h(Text, props, "Other"), Text({ children: "Other" }));
+    assert.deepEqual(jsx(Text, { children: "Other" }), Text({ children: "Other" }));
 });
 
 test("button text defaults respect the button's explicit alignment", () => {

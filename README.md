@@ -40,12 +40,7 @@ Or as JSX, laid out automatically with flexbox and slot grids:
 
 ```tsx
 // src/window/confirm.tsx
-/**
- * @jsxRuntime classic
- * @jsx h
- * @jsxFrag Fragment
- */
-import { Button, Container, Text, Window, h } from "#plugins/window";
+import { Button, Container, Text, Window } from "#plugins/window";
 
 export default (
   <Window name="confirm" container="generic_9x3">

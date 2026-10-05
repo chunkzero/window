@@ -64,7 +64,10 @@ export {
     Text,
     Toggle,
     Window,
+    createElement,
     h,
+    jsx,
+    jsxs,
 } from "./jsx.ts";
 export type {
     BoxProps,
@@ -79,6 +82,7 @@ export type {
     IconProps,
     ItemProps,
     ItemSlotProps,
+    JSX,
     JsxNode,
     RepeaterProps,
     SectionProps,
