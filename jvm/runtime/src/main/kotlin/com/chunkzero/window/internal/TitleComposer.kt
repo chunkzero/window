@@ -106,6 +106,12 @@ internal class TitleComposer(
         )
     }
 
+    /** Renders baked net-zero art, such as a switch case's, in the main font. */
+    fun renderStatic(
+        semanticId: String,
+        static: String,
+    ): RenderedSegment = RenderedSegment(Component.text(static).style(spacerStyle), staticTrace(semanticId, static))
+
     /**
      * Composes the full title: the static component followed by each already-rendered net-zero slot
      * segment, in the iteration order of [slotSegments].
@@ -116,24 +122,30 @@ internal class TitleComposer(
     ): ComposedRender {
         var title = staticComponent
         for (segment in slotSegments.values) title = title.append(segment.component)
-        val surfaceSize = window.surface.size
-        val staticTrace =
-            RenderLayerTrace(
-                semanticId = "window/$windowName/static",
-                kind = RenderLayerKind.STATIC_CHROME,
-                content = window.static,
-                font = font,
-                style = RenderStyleTrace(color = "#ffffff", shadow = false),
-                expectedBounds = RenderBounds(0, 0, surfaceSize[0], surfaceSize[1]),
-                cursorStart = originX,
-                contentCursorStart = originX,
-                contentCursorEnd = originX,
-                cursorEnd = originX,
-                advance = 0,
-                visualWidth = surfaceSize[0],
-                netCursorDelta = 0,
-            )
+        val staticTrace = staticTrace("window/$windowName/static", window.static)
         return ComposedRender(title, listOf(staticTrace) + slotSegments.values.map { it.trace })
+    }
+
+    private fun staticTrace(
+        semanticId: String,
+        content: String,
+    ): RenderLayerTrace {
+        val surfaceSize = window.surface.size
+        return RenderLayerTrace(
+            semanticId = semanticId,
+            kind = RenderLayerKind.STATIC_CHROME,
+            content = content,
+            font = font,
+            style = RenderStyleTrace(color = "#ffffff", shadow = false),
+            expectedBounds = RenderBounds(0, 0, surfaceSize[0], surfaceSize[1]),
+            cursorStart = originX,
+            contentCursorStart = originX,
+            contentCursorEnd = originX,
+            cursorEnd = originX,
+            advance = 0,
+            visualWidth = surfaceSize[0],
+            netCursorDelta = 0,
+        )
     }
 
     private fun netZeroSegment(

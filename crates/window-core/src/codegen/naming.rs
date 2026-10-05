@@ -13,7 +13,7 @@ pub(super) fn check_member(
             "{source} maps to invalid Kotlin identifier `{member}` (class {class_name})"
         )));
     }
-    if RESERVED_MEMBERS.contains(&member) {
+    if RESERVED_MEMBERS.contains(&member) || RESERVED_TYPES.contains(&member) {
         return Err(Error::Validation(format!(
             "{source} collides with reserved WindowView member `{member}` (class {class_name})"
         )));
@@ -37,6 +37,11 @@ pub(super) fn class_name(window: &str) -> String {
 
 pub(super) fn hud_class_name(hud: &str) -> String {
     format!("{}Hud", pascal(hud))
+}
+
+/// The nested Kotlin type name for `name`.
+pub(super) fn type_name(name: &str) -> String {
+    pascal(name)
 }
 
 pub(super) fn slot_member(slot: &str) -> String {
@@ -98,6 +103,22 @@ const RESERVED_MEMBERS: &[&str] = &[
     "onShow",
     "onHide",
     "hide",
+];
+
+/// Types generated views reference by simple name, which a nested type must not shadow.
+const RESERVED_TYPES: &[&str] = &[
+    "Boolean",
+    "Click",
+    "Component",
+    "HudScope",
+    "HudView",
+    "IndexedClick",
+    "Int",
+    "ItemStack",
+    "String",
+    "Unit",
+    "WindowScope",
+    "WindowView",
 ];
 
 const HARD_KEYWORDS: &[&str] = &[

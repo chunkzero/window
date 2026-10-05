@@ -1,12 +1,14 @@
 //! `WindowDefinitions` and `WindowHudDefinitions` objects holding every compiled UI entry.
 
-use crate::manifest::{HudEntry, Manifest, WindowEntry};
+use std::collections::BTreeMap;
+
+use crate::manifest::{HudEntry, Manifest, SwitchEntry, WindowEntry};
 use crate::pipeline::OutputFile;
 
 use super::entries::{
     anvil_input_entry_expr, button_entry_expr, collection_entry_expr, hud_surface_entry_expr, item_entry_expr,
     optional_hud_shader_entry_expr, repeat_group_entry_expr, slot_entry_expr, slot_rect_entry_expr,
-    sprite_slot_entry_expr, surface_entry_expr,
+    sprite_slot_entry_expr, surface_entry_expr, switch_entry_expr,
 };
 use super::literals::{kt_string, string_map};
 use super::writer::{Call, KotlinWriter, indent, multiline_call};
@@ -60,6 +62,8 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (has_slot_refs, "SlotRefEntry"),
         (has_sprite_slots, "SpriteSlotEntry"),
         (true, "SurfaceEntry"),
+        (any(&|w| !w.switches.is_empty()), "SwitchCaseEntry"),
+        (any(&|w| !w.switches.is_empty()), "SwitchEntry"),
         (true, "WindowEntry"),
     ]
     .into_iter()
@@ -69,7 +73,7 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
 
 fn window_entry_expr(window: &WindowEntry, level: usize) -> String {
     let inner = level + 1;
-    Call::new("WindowEntry", level)
+    let call = Call::new("WindowEntry", level)
         .arg("surface", surface_entry_expr(&window.surface, inner))
         .arg("static", kt_string(&window.static_text))
         .arg("slots", string_map(&window.slots, inner, slot_entry_expr))
@@ -79,13 +83,28 @@ fn window_entry_expr(window: &WindowEntry, level: usize) -> String {
         .arg("collections", string_map(&window.collections, inner, collection_entry_expr))
         .arg("inputs", string_map(&window.inputs, inner, anvil_input_entry_expr))
         .arg("slotRects", string_map(&window.slot_rects, inner, slot_rect_entry_expr))
-        .arg("groups", string_map(&window.groups, inner, repeat_group_entry_expr))
-        .finish()
+        .arg("groups", string_map(&window.groups, inner, repeat_group_entry_expr));
+    with_switches(call, &window.switches, inner).finish()
+}
+
+/// Adds the `switches` argument when there are any, so surfaces without switches render unchanged.
+fn with_switches(call: Call, switches: &BTreeMap<String, SwitchEntry>, level: usize) -> Call {
+    if switches.is_empty() { call } else { call.arg("switches", string_map(switches, level, switch_entry_expr)) }
 }
 
 pub(super) fn generate_hud_definitions(manifest: &Manifest, package_name: &str) -> OutputFile {
-    let imports = ["Align", "HudEntry", "HudShaderEntry", "HudSurfaceEntry", "SlotEntry"];
-    let mut w = KotlinWriter::file(package_name, imports.map(|name| format!("{MANIFEST_PACKAGE}.{name}")));
+    let switches = manifest.huds.values().any(|hud| !hud.switches.is_empty());
+    let imports = [
+        (true, "Align"),
+        (true, "HudEntry"),
+        (true, "HudShaderEntry"),
+        (true, "HudSurfaceEntry"),
+        (true, "SlotEntry"),
+        (switches, "SwitchCaseEntry"),
+        (switches, "SwitchEntry"),
+    ];
+    let imports = imports.into_iter().filter(|(used, _)| *used).map(|(_, name)| format!("{MANIFEST_PACKAGE}.{name}"));
+    let mut w = KotlinWriter::file(package_name, imports);
     w.doc("Generated HUD definitions for this Window pack.");
     w.open("public object WindowHudDefinitions {");
     w.property("val all: Map<String, HudEntry>", string_map(&manifest.huds, 2, hud_entry_expr));
@@ -95,10 +114,10 @@ pub(super) fn generate_hud_definitions(manifest: &Manifest, package_name: &str) 
 
 fn hud_entry_expr(hud: &HudEntry, level: usize) -> String {
     let inner = level + 1;
-    Call::new("HudEntry", level)
+    let call = Call::new("HudEntry", level)
         .arg("surface", hud_surface_entry_expr(&hud.surface, inner))
         .arg("static", kt_string(&hud.static_text))
         .arg("slots", string_map(&hud.slots, inner, slot_entry_expr))
-        .arg("shader", optional_hud_shader_entry_expr(hud.shader.as_ref(), inner))
-        .finish()
+        .arg("shader", optional_hud_shader_entry_expr(hud.shader.as_ref(), inner));
+    with_switches(call, &hud.switches, inner).finish()
 }

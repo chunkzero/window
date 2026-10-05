@@ -32,6 +32,7 @@ pub(super) fn generate_hud(name: &str, hud: &HudEntry, package_name: &str) -> Re
             members.value(ValueKind::Slot, slot)?;
         }
     }
+    members.switches(&hud.switches)?;
     Ok(OutputFile {
         path: format!("{class_name}.kt"),
         contents: class::render(package_name, &HUD, name, &class_name, &members.finish()).into_bytes(),

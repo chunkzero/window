@@ -3,6 +3,7 @@ mod draws;
 mod flex;
 mod flow;
 mod patterns;
+mod switch;
 mod text;
 
 use std::collections::{BTreeMap, HashMap};

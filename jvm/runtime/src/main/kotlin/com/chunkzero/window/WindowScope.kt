@@ -97,6 +97,19 @@ public interface WindowScope {
     )
 
     /**
+     * Binds a switch to a [render] lambda returning the value of the case to draw. Only the active
+     * case's art, text, and sprite slots are drawn; the lambda is re-invoked whenever a reactive
+     * state it reads changes.
+     *
+     * @throws IllegalArgumentException if [name] is not a switch of the window, or when rendering
+     *   returns a value that is not one of its cases.
+     */
+    public fun switch(
+        name: String,
+        render: () -> String,
+    )
+
+    /**
      * Binds a native anvil rename field. The handler receives each value the player types. With
      * experimental anvil updates, the text the client sends back after a reopen is not passed on.
      */

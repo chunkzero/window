@@ -47,6 +47,7 @@ fn bare_window(name: &str, kind: ContainerKind, draws: Vec<Draw>) -> LaidOutWind
         collections: vec![],
         inputs: vec![],
         slot_rects: vec![],
+        switches: vec![],
         warnings: vec![],
     }
 }

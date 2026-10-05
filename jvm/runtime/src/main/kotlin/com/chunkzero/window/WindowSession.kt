@@ -13,6 +13,7 @@ import com.chunkzero.window.internal.RenderKey
 import com.chunkzero.window.internal.RenderScheduler
 import com.chunkzero.window.internal.SessionFrames
 import com.chunkzero.window.internal.SlotRoutes
+import com.chunkzero.window.internal.Switches
 import com.chunkzero.window.internal.WindowBindings
 import com.chunkzero.window.internal.WindowInventoryWriter
 import com.chunkzero.window.internal.WindowTitle
@@ -68,7 +69,12 @@ public open class WindowSession
         internal val entry = definition.entry
         private val reactivity = Reactivity(scheduler) { dirty -> flush(dirty) }
 
-        internal val bindings = WindowBindings(definition, definition.titleSlots(reactivity))
+        internal val bindings =
+            WindowBindings(
+                definition,
+                definition.titleSlots(reactivity),
+                Switches("window", definition.name, entry.switches, reactivity),
+            )
         private val title = WindowTitle(definition, bindings, reactivity)
         internal val writer = WindowInventoryWriter(definition, bindings, handle, reactivity)
         private val routes = SlotRoutes(entry, bindings, player, ::close)
@@ -124,10 +130,12 @@ public open class WindowSession
         }
 
         /**
-         * Renders button state sprites first so they draw beneath sprite and text slots. Buttons whose
-         * state is set later keep this position, since title segments compose in insertion order.
+         * Renders switch case art first, then button state sprites, so both draw beneath sprite and
+         * text slots. Segments updated later keep this position, since title segments compose in
+         * insertion order.
          */
         private fun seedTitle() {
+            for (name in entry.switches.keys) title.updateSwitch(name)
             for (name in entry.buttons.keys) {
                 val state = writer.initialButtonState(name)
                 if (state != null) title.setButtonVisual(name, state) else title.reserveButtonVisual(name)
@@ -147,6 +155,7 @@ public open class WindowSession
                     is RenderKey.Item -> writer.writeItem(key.name)
                     is RenderKey.CollectionCell -> writer.writeCollectionCell(key.name, key.index)
                     is RenderKey.CollectionSelection -> title.updateCollectionSelection(key.name)
+                    is RenderKey.Switch -> title.updateSwitch(key.name)
                 }
             }
             sendTitle()

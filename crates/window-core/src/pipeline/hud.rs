@@ -9,18 +9,27 @@ use crate::ir::{HudShader, LaidOutHud, Rgb};
 use crate::manifest::{HudEntry, HudShaderEntry, HudSurfaceEntry};
 use crate::{Result, bake};
 
-use super::glyphs::hud_static_key;
+use super::glyphs::{Layers, hud_key_prefix, hud_static_key};
 use super::window::slot_entry;
 use super::{CompileContext, OutputFile};
 
 pub(super) fn compile_hud(
     ctx: &mut CompileContext<'_>,
     h: &LaidOutHud,
-    comp: &Composite,
+    layers: &Layers,
     markers: &SegmentMarkers,
 ) -> Result<HudEntry> {
     ctx.warnings.extend(h.warnings.iter().cloned());
-    let static_text = bake_static(ctx, h, comp)?;
+    let static_text = bake_static(ctx, h, &layers.base)?;
+    let file_base = format!("hud_{}", h.name);
+    let switches = ctx.switch_entries(
+        &h.name,
+        &hud_key_prefix(&h.name),
+        &file_base,
+        &h.switches,
+        &layers.cases,
+        Point::new(0, 0),
+    )?;
 
     let mut slots = BTreeMap::new();
     for slot in &h.slots {
@@ -39,6 +48,7 @@ pub(super) fn compile_hud(
         static_text,
         slots,
         shader: h.shader.map(|shader| shader_entry(shader, markers.static_marker(&h.name))),
+        switches,
     })
 }
 

@@ -58,8 +58,8 @@ public abstract class ShopView : WindowView("shop") {
     /** Render the `favorites_lamp` runtime sprite id. */
     protected abstract fun favoritesLampSprite(): String?
 
-    /** Render the `price_coin` runtime sprite id. */
-    protected abstract fun priceCoinSprite(): String?
+    /** Whether the `has_price` switch draws its `true` case. */
+    protected abstract fun hasPrice(): Boolean
 
     /** Handle a click on the `affordable` button. */
     protected abstract fun onAffordable(click: Click)
@@ -129,7 +129,7 @@ public abstract class ShopView : WindowView("shop") {
         slot("status") { status() }
         sprite("affordable_lamp") { affordableLampSprite() }
         sprite("favorites_lamp") { favoritesLampSprite() }
-        sprite("price_coin") { priceCoinSprite() }
+        switch("has_price") { hasPrice().toString() }
         button("affordable", ::onAffordable)
         button("buy", ::onBuy)
         button("category_all", ::onCategoryAll)

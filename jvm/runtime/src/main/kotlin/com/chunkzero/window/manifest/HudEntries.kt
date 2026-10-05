@@ -14,6 +14,8 @@ public data class HudEntry(
     val slots: Map<String, SlotEntry> = emptyMap(),
     /** Optional generated core-shader relocation metadata. */
     val shader: HudShaderEntry? = null,
+    /** Runtime-selected visual cases keyed by binding name. */
+    val switches: Map<String, SwitchEntry> = emptyMap(),
 )
 
 /** HUD fallback channel and fixed canvas size. */

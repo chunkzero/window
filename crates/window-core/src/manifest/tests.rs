@@ -40,6 +40,7 @@ fn sample_window() -> WindowEntry {
         inputs: BTreeMap::new(),
         slot_rects: BTreeMap::new(),
         groups: BTreeMap::new(),
+        switches: BTreeMap::new(),
     }
 }
 

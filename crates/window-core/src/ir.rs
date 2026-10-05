@@ -335,6 +335,28 @@ pub struct RepeatBindingIr {
     pub index: u32,
 }
 
+/// A runtime-selected group of visual cases.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SwitchIr {
+    /// Binding name of the active case value.
+    pub name: String,
+    /// Cases in authoring order.
+    pub cases: Vec<SwitchCaseIr>,
+}
+
+/// One case of a [`SwitchIr`]: the art and text regions drawn only while it is active.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SwitchCaseIr {
+    /// Case value.
+    pub value: String,
+    /// Static draws of this case in paint order, kept out of the surface's static layer.
+    pub draws: Vec<Draw>,
+    /// Names of the text regions (labels and dynamic slots) inside this case.
+    pub slots: Vec<String>,
+    /// Names of the runtime sprite regions inside this case.
+    pub sprite_slots: Vec<String>,
+}
+
 /// A fully laid-out window, ready for the backend.
 #[derive(Clone, Debug)]
 pub struct LaidOutWindow {
@@ -358,6 +380,8 @@ pub struct LaidOutWindow {
     pub inputs: Vec<AnvilInputIr>,
     /// Drawn slot-rectangle primitives with optional non-binding slot claims.
     pub slot_rects: Vec<SlotRectIr>,
+    /// Runtime-selected visual cases, document order.
+    pub switches: Vec<SwitchIr>,
     /// Non-fatal findings to surface to the user (e.g. overlay overflow).
     pub warnings: Vec<String>,
 }
@@ -381,6 +405,8 @@ pub struct LaidOutHud {
     pub draws: Vec<Draw>,
     /// Text regions (dynamic slots and static labels), document order.
     pub slots: Vec<SlotIr>,
+    /// Runtime-selected visual cases, document order.
+    pub switches: Vec<SwitchIr>,
     /// Non-fatal findings to surface to the user.
     pub warnings: Vec<String>,
 }

@@ -10,6 +10,7 @@ use crate::surface::ContainerKind;
 use crate::{Error, Result};
 
 use super::OutputFile;
+use super::glyphs::Layers;
 use super::sprites::RuntimeSpriteAsset;
 
 const TEXT_FIELD: Rect = ContainerKind::ANVIL_TEXT_FIELD;
@@ -72,7 +73,8 @@ pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut 
     let updates = slots
         .chain(sprites)
         .chain(buttons.map(|button| &button.name))
-        .chain(collections.map(|collection| &collection.name));
+        .chain(collections.map(|collection| &collection.name))
+        .chain(w.switches.iter().map(|switch| &switch.name));
     for name in updates {
         if !experimental {
             return Err(Error::Validation(format!(
@@ -90,9 +92,9 @@ pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut 
     Ok(())
 }
 
-/// Clears the text field from `w`'s static art when it has an anvil input, and warns about
-/// slots that would still draw over the native rename box.
-pub(super) fn open_field(w: &LaidOutWindow, comp: &mut Composite, warnings: &mut Vec<String>) {
+/// Clears the text field from `w`'s static and switch case art when it has an anvil input, and warns
+/// about slots that would still draw over the native rename box.
+pub(super) fn open_field(w: &LaidOutWindow, layers: &mut Layers, warnings: &mut Vec<String>) {
     if w.inputs.is_empty() {
         return;
     }
@@ -103,6 +105,11 @@ pub(super) fn open_field(w: &LaidOutWindow, comp: &mut Composite, warnings: &mut
             warnings.push(format!("window `{}`: `{name}` draws over the native anvil text field", w.name));
         }
     }
+    clear_field(&mut layers.base);
+    layers.cases.iter_mut().flatten().for_each(clear_field);
+}
+
+fn clear_field(comp: &mut Composite) {
     if !comp.has_content {
         return;
     }

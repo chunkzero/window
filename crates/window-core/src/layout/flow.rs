@@ -99,6 +99,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 };
                 continue;
             }
+            if let Element::Switch(switch) = authored_child {
+                match switch.pos {
+                    None => self.place_switch(switch, content.origin(), Some(content.size()))?,
+                    Some(pos) => self.place_switch(switch, Point::new(content.x + pos.x, content.y + pos.y), None)?,
+                };
+                continue;
+            }
             let auto_center = pos_of(authored_child).is_none();
             let child = resolve_button_child(authored_child, content.width, auto_center);
             let child_size = self.measure(&child)?;

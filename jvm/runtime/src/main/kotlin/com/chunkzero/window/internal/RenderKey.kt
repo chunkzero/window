@@ -37,4 +37,9 @@ internal sealed interface RenderKey {
     data class CollectionSelection(
         val name: String,
     ) : RenderKey
+
+    /** The active case of a switch in the title or HUD. */
+    data class Switch(
+        val name: String,
+    ) : RenderKey
 }

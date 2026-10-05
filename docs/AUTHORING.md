@@ -321,6 +321,7 @@ also accept `"auto"`.
 | `<Repeater name cell={[w, h]} columns rows>`                         | `repeater`                   | `<Item cellSlot>` children stay in the cell; others are centered in a column             |
 | `<Slots name span frame? claim?>`                                    | `slotRects`                  |                                                                                          |
 | `<AnvilInput name>`                                                  | `anvilInput`                 |                                                                                          |
+| `<Switch bind><Case value>…</Case></Switch>` / `<Show when>`         | `switch`                     | runtime conditionals; see below                                                          |
 
 `text={{ ... }}` on a window, HUD, section, box, button, tabs, or repeater sets default text style (`color`, `shadow`,
 `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `smallCaps`, `align`) for the text inside it; the
@@ -331,6 +332,38 @@ nearest setting wins. Button content defaults to centered text.
 `{ x, y }`. The same point of the HUD is placed on that screen point, and `offset={[x, y]}` nudges it in GUI pixels.
 
 Generated Kotlin is the same as for the function API: binding names come from `name` and `bind`.
+
+### Conditionals
+
+`<Switch bind>` draws one of its `<Case value>` children, chosen at runtime by a server-provided binding. `<Show when>`
+is a switch with a `true` case holding its children and an empty `false` case.
+
+```tsx
+<Switch bind="mode">
+  <Case value="buy">
+    <Row frame="recess"><Text>Buy</Text><Text bind="price" /></Row>
+  </Case>
+  <Case value="sell">
+    <Row frame="button_accent"><Text>Sell</Text><Text bind="payout" /></Row>
+  </Case>
+</Switch>
+<Show when="on_sale">
+  <Sprite name="sale_badge" />
+</Show>
+```
+
+- Every case is laid out in the same box, which takes the largest case's size, and each case box fills it. The space is
+  always reserved, like CSS `visibility: hidden`, so siblings never move at runtime.
+- A `<Case>` is a column box: it takes box props such as `frame`, `justify`, and `align`. `<Show>` passes its box props
+  to its shown case and its item props (`grow`, `span`, `x`/`y`, …) to the switch.
+- Cases are visual: sprites, frames, labels, and `<Text bind>`/`<Icon bind>` bindings. Slot-bound controls, nested
+  switches, and switches inside repeaters are build errors. Bindings inside cases keep their own window-wide names.
+- Each case's art becomes its own layer. Windows redraw the title and HUDs their line when the case changes; case art
+  draws above the static chrome and below the text and icon slots.
+- Generated Kotlin returns the active case: an enum of the case values (`protected abstract fun mode(): Mode` with
+  `enum class Mode { BUY, SELL }`), or `Boolean` when the cases are exactly `true` and `false`
+  (`protected abstract fun onSale(): Boolean`). Views without generated bindings use
+  `WindowScope.switch(name) { value }` or `HudScope.switch`.
 
 ## Elements
 

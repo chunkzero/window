@@ -231,6 +231,17 @@ characters inside JSON strings, except in `spacers` where they are integers for 
           "buttons": ["entry_0", "entry_1"],
         },
       },
+
+      // Runtime-selected visual cases by binding name. Only the active case's
+      // net-zero `static` art and its `slots`/`sprite_slots` are drawn.
+      "switches": {
+        "mode": {
+          "cases": [
+            { "value": "buy", "static": "󰀀…", "slots": ["price"] },
+            { "value": "sell", "static": "󰀀…", "slots": ["label_3", "payout"] },
+          ],
+        },
+      },
     },
   },
 
@@ -309,6 +320,10 @@ Notes:
   exactly one input owns container slot `0`, whose item name drives the vanilla edit field.
 - `slot_rects` entries are runtime fills only. The visual frames are already in the baked static layer.
 - `groups` is optional metadata for codegen. Runtime routing does not depend on it.
+- `switches` is optional on windows and HUDs. Each case's `static` is net-zero: window cases start and end at
+  `title_origin.x`, HUD cases at the HUD's left edge. Runtimes draw the active case's `static` after the surface's
+  `static` and leave out the slots and sprite slots of every inactive case. Codegen binds a `Boolean` when the case
+  values are exactly `true` and `false`, otherwise an enum of the values.
 - `tooltip` may be absent, or an object with `title` and optional `lines`. Authoring accepts a string shorthand, but the
   compiled definition always uses the object form.
 - `states` maps author-chosen names to runtime-selectable inventory item states. `item_model` is optional; when omitted,

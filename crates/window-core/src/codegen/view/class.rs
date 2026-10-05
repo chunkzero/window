@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use crate::codegen::literals::kt_string;
 use crate::codegen::writer::KotlinWriter;
 
 use super::members::{Member, ValueKind};
@@ -92,6 +93,25 @@ fn declare(w: &mut KotlinWriter, member: &Member) {
             format_args!("Handle a value change from the native `{source}` anvil input."),
             format_args!("{member}(value: String)"),
         ),
+        Member::Switch { source, member, cases: None } => abstract_fun(
+            w,
+            format_args!("Whether the `{source}` switch draws its `true` case."),
+            format_args!("{member}(): Boolean"),
+        ),
+        Member::Switch { source, member, cases: Some(cases) } => {
+            w.doc(format_args!("The cases of the `{source}` switch."));
+            w.open(format_args!("public enum class {}(public val value: String) {{", cases.name));
+            for (constant, value) in &cases.constants {
+                w.line(format_args!("{constant}({}),", kt_string(value)));
+            }
+            w.close("}");
+            w.blank();
+            abstract_fun(
+                w,
+                format_args!("The case the `{source}` switch draws."),
+                format_args!("{member}(): {}", cases.name),
+            );
+        }
         Member::Collection { source, item_member, handler, selection } => {
             abstract_fun(
                 w,
@@ -150,5 +170,9 @@ fn bind(w: &mut KotlinWriter, member: &Member) {
             }
         }
         Member::AnvilInput { source, member } => w.line(format_args!("anvilInput(\"{source}\", ::{member})")),
+        Member::Switch { source, member, cases } => {
+            let value = if cases.is_some() { "value" } else { "toString()" };
+            w.line(format_args!("switch(\"{source}\") {{ {member}().{value} }}"));
+        }
     }
 }

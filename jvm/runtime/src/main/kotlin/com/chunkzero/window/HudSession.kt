@@ -15,6 +15,7 @@ import com.chunkzero.window.internal.RenderKey
 import com.chunkzero.window.internal.RenderScheduler
 import com.chunkzero.window.internal.RenderedSegment
 import com.chunkzero.window.internal.SessionFrames
+import com.chunkzero.window.internal.Switches
 import com.chunkzero.window.internal.emptySegment
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
@@ -43,6 +44,8 @@ public class HudSession
         private val actionbarId = ActionbarMultiplexer.nextId()
         private val reactivity = Reactivity(scheduler) { dirty -> flush(dirty) }
         private val segments = LinkedHashMap<String, RenderedSegment>()
+        private val switches = Switches("hud", definition.name, entry.switches, reactivity)
+        private val caseArt = LinkedHashMap<String, String>()
 
         private val slots =
             DynamicSlots("hud", definition.name, entry.slots, reactivity, composer::renderSlot) { id, slot ->
@@ -98,11 +101,18 @@ public class HudSession
                         name: String,
                         render: () -> Component,
                     ) = slots.bind(name, render)
+
+                    override fun switch(
+                        name: String,
+                        render: () -> String,
+                    ) = switches.bind(name, render)
                 },
             )
             slots.validate()
+            switches.validate()
+            for (name in switches.names) updateSwitch(name)
             slots.seed { name, segment -> segments[name] = segment }
-            return composer.compose(definition.name, segments)
+            return compose()
         }
 
         private fun flush(dirty: Set<RenderKey>) {
@@ -110,11 +120,23 @@ public class HudSession
             for (key in dirty) {
                 if (key is RenderKey.Slot && slots.isBound(key.name)) {
                     segments[key.name] = slots.render(key.name)
+                } else if (key is RenderKey.Switch) {
+                    updateSwitch(key.name)
                 }
             }
-            val render = composer.compose(definition.name, segments)
+            val render = compose()
             send(render.component)
             frames.observe(render, RenderFrameReason.REACTIVE_UPDATE)
+        }
+
+        private fun updateSwitch(name: String) {
+            caseArt[switches.semanticId(name)] = switches.render(name).static
+        }
+
+        /** Composes the HUD without the slots of inactive switch cases. */
+        private fun compose(): ComposedRender {
+            val hiddenSlots = switches.hiddenSlots()
+            return composer.compose(definition.name, segments.filterKeys { it !in hiddenSlots }, caseArt)
         }
 
         private fun send(component: Component) {
@@ -180,7 +202,7 @@ public class HudSession
 
         /** Forces all dynamic slots to re-render on the next scheduler tick. */
         public fun refresh() {
-            reactivity.markAllDirty(slots.names.map(RenderKey::Slot))
+            reactivity.markAllDirty(slots.names.map(RenderKey::Slot) + switches.names.map(RenderKey::Switch))
         }
 
         private companion object {

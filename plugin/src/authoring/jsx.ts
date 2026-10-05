@@ -2,6 +2,7 @@ import { hud, ui } from "./elements.ts";
 import type {
     AutoLength,
     ButtonDefault,
+    CaseElement,
     ContainerKind,
     Edges,
     Element,
@@ -183,6 +184,31 @@ export interface TabProps {
     children?: Child;
 }
 
+type CaseBoxProps = Omit<BoxProps, keyof ItemProps | "x" | "y">;
+
+/** A case box; its children lay out as a column by default. */
+export interface CaseProps extends CaseBoxProps {
+    /** Value the switch binding returns to draw this case. */
+    value: string;
+}
+
+export interface SwitchProps extends ItemProps {
+    /** Binding name of the active case value. */
+    bind: string;
+    x?: number;
+    y?: number;
+    text?: TextProps;
+    children?: Child;
+}
+
+/** Box props apply to the shown case; item props place the switch. */
+export interface ShowProps extends ItemProps, CaseBoxProps {
+    /** Boolean binding name. */
+    when: string;
+    x?: number;
+    y?: number;
+}
+
 export interface HotspotProps extends ItemProps, SlotSource {
     name: string;
     tooltip?: string | Tooltip;
@@ -278,7 +304,7 @@ export interface HudProps extends Omit<BoxProps, keyof ItemProps | "x" | "y" | "
 }
 
 type Component<P> = (props: P) => JsxNode;
-type RenderNode = Element | { windows: WindowDef[] } | { huds: HudDef[] } | TabNode;
+type RenderNode = Element | { windows: WindowDef[] } | { huds: HudDef[] } | TabNode | CaseElement;
 export type JsxNode = RenderNode | readonly JsxNode[];
 
 interface TabNode {
@@ -341,8 +367,10 @@ function renderNodes(children: Child): RenderNode[] {
 
 function nodes(children: Child): Element[] {
     return renderNodes(children).map((node) => {
-        if (!("type" in node) || node.type === "tab") {
-            throw new Error("Window/Hud roots belong in fragments; <Tab> belongs inside <Tabs>");
+        if (!("type" in node) || node.type === "tab" || node.type === "case") {
+            throw new Error(
+                "Window/Hud roots belong in fragments; <Tab> belongs inside <Tabs> and <Case> inside <Switch>",
+            );
         }
         return node;
     });
@@ -436,6 +464,25 @@ function line(at: number | undefined, span: number | undefined): GridLine | unde
     }
     return span === undefined ? undefined : { span };
 }
+
+const ITEM_KEYS: readonly string[] = [
+    "grow",
+    "shrink",
+    "basis",
+    "alignSelf",
+    "justifySelf",
+    "margin",
+    "absolute",
+    "top",
+    "right",
+    "bottom",
+    "left",
+    "span",
+    "at",
+    "col",
+    "row",
+    "translate",
+] satisfies (keyof ItemProps)[];
 
 function layout(props: ItemProps): Fields {
     const [columns, rows] = spanOf(props.span);
@@ -666,6 +713,53 @@ export function Tabs(props: TabsProps): Element[] {
             unselected: clean({ ...base, sprite: props.sprite }),
             children: t.children,
         });
+    });
+}
+
+/** One case of a `<Switch>`. */
+export function Case(props: CaseProps): CaseElement {
+    requireName(props.value, "Case value");
+    const { value, ...box } = props;
+    const node = Box({ direction: "column", ...box });
+    if (node.type !== "flex") {
+        throw new Error("<Case> must render a box");
+    }
+    return clean({
+        type: "case",
+        value,
+        frame: node.frame,
+        style: node.style,
+        children: node.children ?? [],
+    }) as CaseElement;
+}
+
+/**
+ * Stacks its `<Case>` children in one box sized to the largest case; the runtime draws only the case `bind` names.
+ * Cases are visual: art, text, and icons, but no slot-bound controls.
+ */
+export function Switch(props: SwitchProps): Element {
+    requireName(props.bind, "Switch bind");
+    const cases = renderNodes(props.children).map((node) => {
+        if (!("type" in node) || node.type !== "case") {
+            throw new Error("<Switch> children must be <Case> elements");
+        }
+        return node;
+    });
+    const node = clean({ type: "switch", name: props.bind, x: props.x, y: props.y, children: cases, ...layout(props) });
+    return cascade(node as Element, props.text);
+}
+
+/** Draws its children only while the Boolean binding `when` is true; their space is always reserved. */
+export function Show(props: ShowProps): Element {
+    requireName(props.when, "Show when");
+    const box = Object.fromEntries(
+        Object.entries(props).filter(([key]) => !ITEM_KEYS.includes(key) && !["when", "x", "y"].includes(key)),
+    ) as CaseBoxProps;
+    const { text: _text, children: _children, ...placement } = props;
+    return Switch({
+        ...placement,
+        bind: props.when,
+        children: [Case({ ...box, value: "true" }), Case({ value: "false" })],
     });
 }
 

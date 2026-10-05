@@ -1,7 +1,8 @@
 use super::{ElementDto, convert_children, convert_layout_children};
 use crate::authoring::flex::parse_auto_flow;
+use crate::authoring::parse::validate_name;
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
-use crate::model::{Element, FlexBox, SlotSection};
+use crate::model::{Element, FlexBox, SlotSection, Switch, SwitchCase};
 use crate::{Error, Result};
 
 impl ElementDto {
@@ -24,6 +25,8 @@ impl ElementDto {
             "slot" => self.build_slot(),
             "flex" => self.build_flex(),
             "section" => self.build_section(),
+            "switch" => self.build_switch(),
+            "case" => Err(Error::Validation("case element is only valid as a direct child of a switch".into())),
             other => Err(Error::Validation(format!("unknown element type `{other}`"))),
         }
     }
@@ -195,5 +198,40 @@ impl ElementDto {
             flow: self.flow.as_deref().map(parse_auto_flow).transpose()?.unwrap_or_default(),
             children: convert_layout_children(self.children)?,
         })))
+    }
+
+    fn build_switch(self) -> Result<Element> {
+        let name = self.required("name")?;
+        validate_name(&name, "switch")?;
+        let pos = self.pos()?;
+        let mut cases: Vec<SwitchCase> = Vec::with_capacity(self.children.len());
+        for case in self.children {
+            if case.kind != "case" {
+                return Err(Error::Validation(format!(
+                    "switch `{name}` children must be case elements, found {}",
+                    case.kind
+                )));
+            }
+            case.validate_fields()?;
+            if case.layout.is_some() {
+                return Err(Error::Validation(format!("switch `{name}` case sets `layout`; set it on the switch")));
+            }
+            let value = case.required("value")?;
+            validate_name(&value, &format!("switch `{name}` case"))?;
+            if cases.iter().any(|c| c.value == value) {
+                return Err(Error::Validation(format!("switch `{name}` has duplicate case `{value}`")));
+            }
+            let body = FlexBox {
+                pos: None,
+                frame: case.frame.clone(),
+                style: case.style.clone().unwrap_or_default().into_style()?,
+                children: convert_layout_children(case.children)?,
+            };
+            cases.push(SwitchCase { value, body });
+        }
+        if cases.is_empty() {
+            return Err(Error::Validation(format!("switch `{name}` requires at least one case")));
+        }
+        Ok(Element::Switch(Box::new(Switch { name, pos, cases })))
     }
 }

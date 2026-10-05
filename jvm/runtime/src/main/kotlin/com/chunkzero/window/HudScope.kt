@@ -19,4 +19,14 @@ public interface HudScope {
         name: String,
         render: () -> Component,
     )
+
+    /**
+     * Binds a switch to a [render] lambda returning the value of the case to draw. Only the active
+     * case's art and text are drawn; the lambda is re-invoked whenever a reactive state it reads
+     * changes.
+     */
+    public fun switch(
+        name: String,
+        render: () -> String,
+    )
 }

@@ -14,6 +14,8 @@ import com.chunkzero.window.manifest.SlotRectEntry
 import com.chunkzero.window.manifest.SlotRefEntry
 import com.chunkzero.window.manifest.SpriteSlotEntry
 import com.chunkzero.window.manifest.SurfaceEntry
+import com.chunkzero.window.manifest.SwitchCaseEntry
+import com.chunkzero.window.manifest.SwitchEntry
 import com.chunkzero.window.manifest.WindowEntry
 
 /** Generated window definitions for this Window pack. */
@@ -635,15 +637,6 @@ public object WindowDefinitions {
                             height = 4,
                             align = Align.LEFT,
                             font = "window:sprite_y157",
-                            sprite = null,
-                        ),
-                        "price_coin" to SpriteSlotEntry(
-                            x = 157,
-                            y = 112,
-                            width = 8,
-                            height = 8,
-                            align = Align.LEFT,
-                            font = "window:sprite_y106",
                             sprite = null,
                         ),
                     ),
@@ -1680,6 +1673,24 @@ public object WindowDefinitions {
                         ),
                     ),
                     groups = emptyMap(),
+                    switches = mapOf(
+                        "has_price" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "true",
+                                    static = "\uDB80\uDC12\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0B\uEF4A\uDB80\uDC03\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC09",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "false",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                ),
+                            ),
+                        ),
+                    ),
                 ),
         )
 }

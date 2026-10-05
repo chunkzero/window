@@ -28,6 +28,31 @@ public data class WindowEntry(
     @SerialName("slot_rects") val slotRects: Map<String, SlotRectEntry> = emptyMap(),
     /** Group metadata for flattened repeater controls. */
     val groups: Map<String, RepeatGroupEntry> = emptyMap(),
+    /** Runtime-selected visual cases keyed by binding name. */
+    val switches: Map<String, SwitchEntry> = emptyMap(),
+)
+
+/** Visual cases of which the runtime draws only the one its binding selects. */
+@Serializable
+public data class SwitchEntry(
+    /** Cases in authoring order. */
+    val cases: List<SwitchCaseEntry>,
+)
+
+/** One case of a [SwitchEntry]. */
+@Serializable
+public data class SwitchCaseEntry(
+    /** Value the switch binding returns to select this case. */
+    val value: String,
+    /**
+     * Net-zero baked art of this case, sent in [WindowManifest.font] after the static segment. Window
+     * cases start and end at the title origin; HUD cases at the HUD's left edge.
+     */
+    @SerialName("static") val static: String = "",
+    /** Text slots, including static labels, drawn only while this case is active. */
+    val slots: List<String> = emptyList(),
+    /** Sprite slots drawn only while this case is active. */
+    @SerialName("sprite_slots") val spriteSlots: List<String> = emptyList(),
 )
 
 /** Surface metadata: the container kind, GUI size, and title cursor origin. */

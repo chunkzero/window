@@ -20,6 +20,7 @@ import com.chunkzero.window.manifest.SlotRefEntry
 import com.chunkzero.window.manifest.SpriteEntry
 import com.chunkzero.window.manifest.SpriteSlotEntry
 import com.chunkzero.window.manifest.SurfaceEntry
+import com.chunkzero.window.manifest.SwitchEntry
 import com.chunkzero.window.manifest.WindowEntry
 import com.chunkzero.window.manifest.WindowManifest
 
@@ -170,6 +171,7 @@ object TestManifests {
         huds: Map<String, HudEntry> = emptyMap(),
         sprites: Map<String, SpriteEntry> = emptyMap(),
         fontMetrics: Map<String, FontMetricsEntry> = fontMetricEntries(),
+        switches: Map<String, SwitchEntry> = emptyMap(),
     ): WindowManifest =
         WindowManifest(
             version = 5,
@@ -200,6 +202,7 @@ object TestManifests {
                             inputs = inputs,
                             slotRects = slotRects,
                             groups = groups,
+                            switches = switches,
                         ),
                 ),
             huds = huds,
@@ -214,6 +217,7 @@ object TestManifests {
         slots: Map<String, SlotEntry> = emptyMap(),
         shader: HudShaderEntry? = null,
         fontMetrics: Map<String, FontMetricsEntry> = fontMetricEntries(),
+        switches: Map<String, SwitchEntry> = emptyMap(),
     ): WindowManifest =
         WindowManifest(
             version = 5,
@@ -238,6 +242,7 @@ object TestManifests {
                             static = static,
                             slots = slots,
                             shader = shader,
+                            switches = switches,
                         ),
                 ),
         )
