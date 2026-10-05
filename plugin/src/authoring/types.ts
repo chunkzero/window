@@ -289,7 +289,13 @@ export interface TextStyleOptions {
     small_caps?: boolean;
 }
 
-export interface PanelOptions {
+/** Options of elements that can be children of a flex or section element. */
+export interface FlexItemOptions {
+    /** Item layout inside a `flex`, `grid`, `section`, or switch case parent; rejected elsewhere. */
+    layout?: ItemLayout;
+}
+
+export interface PanelOptions extends FlexItemOptions {
     frame: string;
     width: number;
     height: number;
@@ -299,7 +305,7 @@ export interface PanelOptions {
     children?: Element[];
 }
 
-export interface LayoutOptions {
+export interface LayoutOptions extends FlexItemOptions {
     x?: number;
     y?: number;
     gap?: number;
@@ -310,12 +316,12 @@ export interface LayoutOptions {
 export type RowOptions = LayoutOptions;
 export type ColumnOptions = LayoutOptions;
 
-export interface SpriteOptions {
+export interface SpriteOptions extends FlexItemOptions {
     x?: number;
     y?: number;
 }
 
-export interface SpriteSlotOptions {
+export interface SpriteSlotOptions extends FlexItemOptions {
     x?: number;
     y?: number;
     width: number;
@@ -325,11 +331,11 @@ export interface SpriteSlotOptions {
     sprite?: string;
 }
 
-export interface ButtonOptions {
+export interface ButtonOptions extends FlexItemOptions {
     frame?: string;
-    /** Required unless `pattern` or `transform` is set. */
+    /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
     width?: number;
-    /** Required unless `pattern` or `transform` is set. */
+    /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
     height?: number;
     x?: number;
     y?: number;
@@ -357,10 +363,10 @@ export interface ChoiceOptions extends ButtonOptions {
     states: Record<string, ButtonState> & { selected: ButtonState; unselected: ButtonState };
 }
 
-export interface HotspotOptions {
-    /** Required unless `pattern` or `transform` is set. */
+export interface HotspotOptions extends FlexItemOptions {
+    /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
     width?: number;
-    /** Required unless `pattern` or `transform` is set. */
+    /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
     height?: number;
     x?: number;
     y?: number;
@@ -376,7 +382,7 @@ export interface HotspotOptions {
     states?: Record<string, ButtonState>;
 }
 
-export interface ItemOptions {
+export interface ItemOptions extends FlexItemOptions {
     /** Backing inventory slots populated by this item. Integers mean container slots. */
     slots?: SlotList;
     /** Slot-space pattern for backing slots. */
@@ -387,7 +393,7 @@ export interface ItemOptions {
     cell_slot?: number;
 }
 
-export interface CollectionOptions {
+export interface CollectionOptions extends FlexItemOptions {
     /** Optional frame drawn once around every collection cell. */
     frame?: string;
     /** Optional theme sprite drawn over the 18x18 box of the cell the runtime marks selected. */
@@ -409,7 +415,7 @@ export interface AnvilInputOptions {
     item_model?: string;
 }
 
-export interface SlotRectsOptions {
+export interface SlotRectsOptions extends FlexItemOptions {
     /** Optional frame to draw once per slot. Omit for claim-only slot rects. */
     frame?: string;
     /** Slot-space pattern to draw and optionally claim. */
@@ -420,7 +426,7 @@ export interface SlotRectsOptions {
     claim?: SlotRectClaim;
 }
 
-export interface RepeaterOptions {
+export interface RepeaterOptions extends FlexItemOptions {
     /** Optional frame drawn once per repeated cell group. */
     frame?: string;
     /** Slot-space pattern whose cells are repeated. */
@@ -432,7 +438,7 @@ export interface RepeaterOptions {
     children?: Element[];
 }
 
-export interface TextOptions extends TextStyleOptions {
+export interface TextOptions extends TextStyleOptions, FlexItemOptions {
     /** Required for dynamic slots except direct, unpositioned button children, which fill the button content width. */
     width?: number;
     x?: number;
@@ -553,8 +559,8 @@ export interface ItemLayout {
     translate?: [number, number];
 }
 
-export interface FlexElement {
-    type: "flex";
+export interface FlexOptions extends FlexItemOptions {
+    /** Explicit pixel position; inside another flex box this positions the box absolutely. */
     x?: number;
     y?: number;
     frame?: string;
@@ -562,15 +568,23 @@ export interface FlexElement {
     children?: Element[];
 }
 
-export interface SectionElement {
-    type: "section";
-    section: SlotSection;
+export interface FlexElement extends FlexOptions {
+    type: "flex";
+}
+
+export interface SectionOptions {
     frame?: string;
+    /** How far the frame extends past the slot boxes. `section()` defaults it to 3 when a frame is set. */
     outset?: Insets;
     /** Claim for section slots no child owns. Defaults to "unowned". */
     claim?: SlotRectClaim;
     flow?: GridFlow;
     children?: Element[];
+}
+
+export interface SectionElement extends SectionOptions {
+    type: "section";
+    section: SlotSection;
 }
 
 /** A case of `switchOn`, or the shown case of `show`: a flex box that stretches to the switch unless sized. */
@@ -581,7 +595,7 @@ export interface CaseOptions {
     children?: Element[];
 }
 
-export interface SwitchOptions {
+export interface SwitchOptions extends FlexItemOptions {
     x?: number;
     y?: number;
 }
@@ -602,12 +616,10 @@ export interface CaseElement {
  * Visual cases stacked in one box sized to the largest case. The runtime draws only the case its binding names.
  * Cases hold static art and text/icon bindings, not slot-bound controls.
  */
-export interface SwitchElement {
+export interface SwitchElement extends SwitchOptions {
     type: "switch";
     /** Binding name. Kotlin gets a Boolean for exactly `true`/`false` cases, otherwise an enum of the case values. */
     name: string;
-    x?: number;
-    y?: number;
     children: CaseElement[];
 }
 
