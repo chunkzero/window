@@ -8,7 +8,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 interface Case {
-    packFormat?: number;
+    packFormat: number;
     hudShaders?: boolean;
     anvilFieldSprite?: string;
     kotlinPackage?: string;
@@ -58,7 +58,7 @@ function tsProject(caseDir: string, dir: string, options: Case): void {
 import window from "#plugins/window";
 
 export default defineConfig({
-    pack: { name: "golden"${options.packFormat === undefined ? "" : `, packFormat: ${options.packFormat}`} },
+    pack: { name: "golden", format: ${options.packFormat} },
     build: { workers: 1, squash: { enabled: false } },
     plugins: [window({ ${windowOptions.join(", ")} })],
 });

@@ -29,7 +29,7 @@ fi
 if command -v rpp >/dev/null 2>&1; then
     rpp --version
 else
-    echo "Optional: install rpp to build the example pack."
+    echo "Optional: run mise install to get the pinned rpp for the example pack."
 fi
 if [ -n "${MC_VALIDATION_ROOT:-}" ]; then
     if [ ! -x "$MC_VALIDATION_ROOT/mc-validation" ]; then

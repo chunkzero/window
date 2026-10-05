@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { hud, theme, ui } from "../src/authoring/index.ts";
 import type { WindowDocument } from "../src/authoring/types.ts";
-import { buildProject, collectInputs, detectPackFormat, generate, resourceTexturePath } from "../src/project.ts";
+import { buildProject, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
 import type { CompileOutput, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
 
 const encoder = new TextEncoder();
@@ -20,19 +20,18 @@ function fake(
     modules: Record<string, unknown>,
     sources: Record<string, string> = {},
     options: WindowOptions = {},
-    format?: number,
+    format: WindowContext["pack"]["format"] = { min: 84, max: 84 },
 ): Fake {
     const emitted = new Map<string, Uint8Array>();
     const outputs: [string, string][] = [];
     const removed: string[] = [];
     const ctx: WindowContext = {
         options,
-        pack: format === undefined ? {} : { format },
+        pack: { format },
         discovered: () => Object.entries(modules).map(([path, doc]) => ({ path, module: { default: doc } })),
         sourceFiles: () => Object.keys(sources).filter((path) => path.startsWith("window/")),
         read: (path) => emitted.get(path),
         readSource: (path) => (sources[path] === undefined ? undefined : bytes(sources[path])),
-        readSourceText: (path) => sources[path],
         remove: (path) => removed.push(path),
         emit: (path, contents) => emitted.set(path, contents),
         emitOutput: (root, path) => outputs.push([root, path]),
@@ -46,7 +45,7 @@ const status = hud({ name: "status", width: 10, height: 10 });
 test("documents are collected in path order", () => {
     const { ctx } = fake({ "window/b.ts": status, "window/a.ts": shop });
     const { documents } = collectInputs(ctx);
-    assert.deepEqual(buildProject(documents, {}, undefined).windows, shop.windows);
+    assert.deepEqual(buildProject(documents, {}, 84).windows, shop.windows);
     assert.equal(documents[0], shop);
     assert.equal(documents[1], status);
 });
@@ -56,24 +55,12 @@ test("a discovered module without a default document fails naming its path", () 
     assert.throws(() => collectInputs(ctx), /window\/a\.ts must export default/);
 });
 
-test("pack format prefers the context, then mcmeta fields", () => {
-    const mcmeta = (pack: unknown): string => JSON.stringify({ pack });
-    assert.equal(detectPackFormat({ format: 7 }, mcmeta({ pack_format: 84 })), 7);
-    assert.equal(detectPackFormat({}, mcmeta({ pack_format: 84, min_format: 1 })), 84);
-    assert.equal(detectPackFormat({}, mcmeta({ supported_formats: { min_inclusive: 3, max_inclusive: 9 } })), 9);
-    assert.equal(detectPackFormat({}, mcmeta({ supported_formats: [4, 8] })), 8);
-    assert.equal(detectPackFormat({}, mcmeta({ min_format: 5 })), 5);
-    assert.equal(detectPackFormat({}, mcmeta({ min_format: [88, 0], max_format: [88, 1] })), 88);
-    assert.equal(detectPackFormat({}, "not json"), undefined);
-    assert.equal(detectPackFormat({}, undefined), undefined);
-});
-
-test("project JSON omits empty themes and an unknown pack format", () => {
-    assert.deepEqual(JSON.parse(JSON.stringify(buildProject([shop], {}, undefined))), {
+test("project JSON omits empty themes", () => {
+    assert.deepEqual(JSON.parse(JSON.stringify(buildProject([shop], {}, 88))), {
         windows: shop.windows,
         huds: [],
         options: { hud_shaders: false },
-        target: {},
+        target: { pack_format: 88 },
     });
     const themed: WindowDocument = theme({ sprites: { badge: { kind: "badge", width: 1, height: 1 } } });
     const project = buildProject([themed, { ...status, window: shop.windows[0]! }], { hudShaders: true }, 84);
@@ -105,12 +92,31 @@ test("referenced resource textures are added once", () => {
 });
 
 test("window files are compiler inputs and leave the pack", () => {
-    const { ctx, removed } = fake({ "window/a.ts": shop }, { "window/badge.png": "png", "pack.mcmeta": "{}" });
+    const { ctx, removed } = fake(
+        { "window/a.ts": shop },
+        { "window/badge.png": "png", "assets/minecraft/lang/en_us.json": "{}" },
+    );
     assert.deepEqual(
         collectInputs(ctx).files.map((file) => file.path),
         ["window/badge.png"],
     );
     assert.deepEqual(removed, ["window/badge.png"]);
+});
+
+test("the newest format of the pack's range is the compile target", () => {
+    const { ctx } = fake({ "window/a.ts": shop }, {}, {}, { min: 61, max: 88 });
+    generate(ctx, (_namespace, json) => {
+        assert.deepEqual(JSON.parse(json).target, { pack_format: 88 });
+        return { files: [], kotlinFiles: [], warnings: [] };
+    });
+});
+
+test("an rpp without pack format ranges is rejected", () => {
+    const { ctx } = fake({ "window/a.ts": shop }, {}, {}, 84 as never);
+    assert.throws(
+        () => generate(ctx, () => assert.fail("compile must not run")),
+        /requires rpp 0\.1\.0-nightly\.20261004/,
+    );
 });
 
 test("compilation is skipped without definitions", () => {
