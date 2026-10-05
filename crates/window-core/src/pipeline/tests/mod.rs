@@ -5,6 +5,7 @@ use crate::geometry::{Insets, Rect};
 use crate::ir::{Align, ButtonDefault, ButtonIr, ButtonState, ButtonTooltip, Draw, Rgb, SlotIr, TextureKey};
 use crate::surface::{ContainerKind, Surface};
 
+mod huds;
 mod sprites;
 mod windows;
 
