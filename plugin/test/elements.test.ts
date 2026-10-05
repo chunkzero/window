@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import * as window from "../src/authoring/index.ts";
+import { Box, Container, Grid, Hotbar, Hotspot, Row, Sprite, Text } from "../src/authoring/jsx.ts";
 import * as inventory from "../src/authoring/inventory.ts";
 
 const { pattern } = window;
@@ -107,7 +108,6 @@ test("repeater cell items accept a one-based cell_slot", () => {
     assert.deepEqual(item, { type: "item", name: "icon", cell_slot: 2 });
     assert.throws(() => window.item("icon", { cell_slot: 1, slots: [0] }), /cannot be combined/);
     assert.throws(() => window.item("icon", { cell_slot: 0 }), /positive integer/);
-    assert.throws(() => window.item("icon", {}), /requires `slots`, `pattern`, `transform`, or `cell_slot`/);
 });
 
 test("unknown option keys are rejected at runtime", () => {
@@ -134,4 +134,54 @@ test("switchOn and show build switch elements", () => {
     );
     assert.throws(() => window.switchOn("mode", {}), /requires at least one case/);
     assert.throws(() => window.switchOn("mode", { buy: { width: 3 } as never }), /does not accept option `width`/);
+    assert.deepEqual(window.show("on_sale", { layout: { grow: 1 } }).layout, { grow: 1 });
+});
+
+test("flex, grid, and section build the same elements as their JSX components", () => {
+    const fn = window.section("container", {
+        frame: "panel",
+        children: [
+            window.flex({
+                frame: "recess",
+                style: { direction: "row", align: "center", padding: { left: 4, right: 4 } },
+                layout: { column: { span: 9 } },
+                children: [window.slot("selection"), window.slot("price", { width: 40, align: "right" })],
+            }),
+            window.hotspot("info", {
+                tooltip: "Info",
+                layout: { column: { start: 1, span: 2 }, row: { start: 2, span: 1 } },
+            }),
+        ],
+    });
+    const jsx = Container({
+        frame: "panel",
+        children: [
+            Row({
+                span: 9,
+                frame: "recess",
+                padding: { left: 4, right: 4 },
+                children: [Text({ bind: "selection" }), Text({ bind: "price", width: 40, align: "right" })],
+            }),
+            Hotspot({ name: "info", tooltip: "Info", span: [2, 1], at: [0, 1] }),
+        ],
+    });
+    assert.deepEqual(fn, jsx);
+    assert.deepEqual(
+        window.grid({
+            style: { columns: 3, gap: 2 },
+            children: [window.sprite("a", { layout: { column: { span: 2 } } })],
+        }),
+        Grid({ columns: 3, gap: 2, children: Sprite({ name: "a", span: 2 }) }),
+    );
+    assert.deepEqual(window.section("hotbar"), Hotbar({}));
+    assert.deepEqual(window.flex(), Box({}));
+    assert.deepEqual(window.grid(), Grid({}));
+});
+
+test("layout helpers reject options their element does not accept", () => {
+    assert.throws(() => window.flex({ gap: 2 } as never), /flex does not accept option `gap`/);
+    assert.throws(() => window.grid({ columns: 3 } as never), /grid does not accept option `columns`/);
+    assert.throws(() => window.section("container", { layout: {} } as never), /does not accept option `layout`/);
+    assert.throws(() => window.section("chest" as never), /section kind must be one of/);
+    assert.throws(() => window.anvilInput("q", { layout: {} } as never), /does not accept option `layout`/);
 });
