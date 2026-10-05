@@ -226,8 +226,9 @@ contract.
 lays them out with [taffy](https://github.com/DioxusLabs/taffy) (CSS flexbox and grid), so most UIs need no coordinates.
 Both styles can be mixed in one pack.
 
-rpp compiles `.tsx` sources with Window's JSX runtime, and `rpp codegen` configures type checking for them; packs only
-need `**/*.tsx` in their `tsconfig.json` `include`.
+rpp compiles `.tsx` sources with its own JSX runtime, `#rpp/jsx`: each tag calls the component with its props, and
+`<>...</>` is an array of its children. `rpp codegen` configures type checking for it; packs only need `**/*.tsx` in
+their `tsconfig.json` `include`. Sources import only Window's components, never a JSX factory.
 
 ```tsx
 import { Button, Collection, Container, Header, Hotbar, Row, Tab, Tabs, Text, Window } from "#plugins/window";
