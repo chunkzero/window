@@ -7,8 +7,8 @@ sidecars. `release.json` records the full source commit.
 
 ## Publish
 
-RPP must already have the release pinned by `RPP_VERSION` in the release workflow. The organization secrets `RPP_APP_ID`
-and `RPP_APP_PRIVATE_KEY` grant the publishing job access to `chunkzero/rpp-registry`; no PR job has release write
+RPP must already have the release pinned by `RPP_VERSION` in the release workflow. The organization secrets `REGISTRY_APP_ID`
+and `REGISTRY_APP_PRIVATE_KEY` grant the publishing job access to `chunkzero/rpp-registry`; no PR job has release write
 credentials. The repository secret `MAVEN_R2_TOKEN` authorizes publication of the matching JVM libraries to
 `https://maven.chunkzero.com` through Maven R2.
 
@@ -36,7 +36,7 @@ rpp build
 
 Commit `rpp.json` and `rpp.lock`. Use the exact published version, including the commit suffix. The JVM runtime must use
 the same version. Configure Gradle with `maven("https://maven.chunkzero.com")` and Maven Central, then depend on
-`dev.oglass.window:window-runtime:<version>`. Each release publishes the runtime and its Window dependencies together.
+`com.chunkzero.window:window-runtime:<version>`. Each release publishes the runtime and its Window dependencies together.
 
 For an offline mirror, download `window-<version>-maven.tar.gz` and its `.sha256` from that tag, verify the checksum,
 and extract it. Point a Gradle Maven repository at `window-<version>-maven`; Maven Central supplies third-party

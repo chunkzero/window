@@ -38,7 +38,7 @@ plugins { kotlin("jvm") version "2.3.10" }
 repositories { maven { url = uri("../window-$RELEASE_VERSION-maven") }; mavenCentral() }
 kotlin { jvmToolchain(25) }
 dependencies {
-    implementation("dev.oglass.window:window-runtime:$RELEASE_VERSION")
+    implementation("com.chunkzero.window:window-runtime:$RELEASE_VERSION")
     implementation(libs.minestom)
 }
 KTS

@@ -6,7 +6,7 @@
   "description": "Inspects Window resource packs through Minecraft's real client renderer.",
   "environment": "client",
   "entrypoints": {
-    "client": ["dev.oglass.window.inspector.WindowInspector"]
+    "client": ["com.chunkzero.window.inspector.WindowInspector"]
   },
   "mixins": ["window-inspector.mixins.json"],
   "depends": {

@@ -73,7 +73,7 @@ export default defineConfig({
 });
 ```
 
-The server uses the Kotlin runtime in [`jvm/runtime`](jvm/runtime) (`dev.oglass.window:window-runtime`). Pin the same
+The server uses the Kotlin runtime in [`jvm/runtime`](jvm/runtime) (`com.chunkzero.window:window-runtime`). Pin the same
 version as the plugin:
 
 ```kotlin
@@ -81,7 +81,7 @@ repositories {
     maven("https://maven.chunkzero.com")
     mavenCentral()
 }
-dependencies { implementation("dev.oglass.window:window-runtime:0.1.0-alpha.0") }
+dependencies { implementation("com.chunkzero.window:window-runtime:0.1.0-alpha.0") }
 ```
 
 The [example](example/README.md) is a complete project: a shop with a paged catalog, filters and anvil search, and a set

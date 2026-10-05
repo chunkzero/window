@@ -112,7 +112,7 @@ mod tests {
             "window".into(),
             project.into(),
             Vec::new(),
-            Some("dev.oglass.window.example.generated".into()),
+            Some("com.chunkzero.window.example.generated".into()),
         )
         .unwrap();
         assert!(output.kotlin_files.iter().any(|file| file.path == "WindowPack.kt"));

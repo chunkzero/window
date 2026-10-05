@@ -147,7 +147,7 @@ fn shop_window() -> WindowEntry {
 fn generates_typed_view() {
     let manifest = manifest(BTreeMap::from([("shop".into(), shop_window())]), BTreeMap::new());
 
-    let files = generate_kotlin(&manifest, "dev.oglass.window.example.generated").unwrap();
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.example.generated").unwrap();
     assert_eq!(files.len(), 7);
     assert!(files.iter().any(|file| file.path == "WindowPack.kt"));
     assert!(files.iter().any(|file| file.path == "WindowFonts.kt"));
@@ -188,10 +188,10 @@ fn collection_selections_alone_import_sprite_slot_types() {
     window.collections = BTreeMap::from([("entries".into(), selected)]);
     let manifest = manifest(BTreeMap::from([("shop".into(), window)]), BTreeMap::new());
 
-    let files = generate_kotlin(&manifest, "dev.oglass.window.example.generated").unwrap();
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.example.generated").unwrap();
     let content = file_contents(&files, "WindowDefinitions.kt");
-    assert!(content.contains("import dev.oglass.window.manifest.SpriteSlotEntry"));
-    assert!(content.contains("import dev.oglass.window.manifest.Align"));
+    assert!(content.contains("import com.chunkzero.window.manifest.SpriteSlotEntry"));
+    assert!(content.contains("import com.chunkzero.window.manifest.Align"));
 }
 
 #[test]
@@ -203,7 +203,7 @@ fn generates_typed_anvil_input_binding() {
     )]);
     let manifest = manifest(BTreeMap::from([("search".into(), search)]), BTreeMap::new());
 
-    let files = generate_kotlin(&manifest, "dev.oglass.window.generated").unwrap();
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.generated").unwrap();
     let content = file_contents(&files, "SearchView.kt");
     assert!(content.contains("protected abstract fun onQueryChanged(value: String)"));
     assert!(content.contains("anvilInput(\"query\", ::onQueryChanged)"));
@@ -219,7 +219,7 @@ fn hud_lifecycle_members_are_reserved() {
     };
     let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
 
-    let err = generate_kotlin(&manifest, "dev.oglass.window.generated").unwrap_err();
+    let err = generate_kotlin(&manifest, "com.chunkzero.window.generated").unwrap_err();
     assert!(err.to_string().contains("reserved WindowView member `onShow`"), "{err}");
 }
 
@@ -236,7 +236,7 @@ fn fonts_with_identical_metrics_share_one_table() {
         ("window:small_caps/y9".into(), small_caps),
     ]);
 
-    let files = generate_kotlin(&manifest, "dev.oglass.window.example.generated").unwrap();
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.example.generated").unwrap();
     let content = file_contents(&files, "WindowFonts.kt");
     assert_eq!(content.matches("private val fontMetrics").count(), 1);
     assert!(content.contains("\"window:small_caps/y0\" to fontMetrics0"));

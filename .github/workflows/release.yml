@@ -135,15 +135,15 @@ jobs:
           maven-r2 publish --repository default/releases -- \
             python3 scripts/publish-maven.py "$RUNNER_TEMP/window-$RELEASE_VERSION-maven" "$RELEASE_VERSION"
           curl --fail --retry 5 --retry-all-errors --retry-delay 2 \
-            "https://maven.chunkzero.com/dev/oglass/window/window-runtime/$RELEASE_VERSION/window-runtime-$RELEASE_VERSION.pom" \
+            "https://maven.chunkzero.com/com/chunkzero/window/window-runtime/$RELEASE_VERSION/window-runtime-$RELEASE_VERSION.pom" \
             -o "$RUNNER_TEMP/published.pom"
-          cmp "$RUNNER_TEMP/published.pom" "$RUNNER_TEMP/window-$RELEASE_VERSION-maven/dev/oglass/window/window-runtime/$RELEASE_VERSION/window-runtime-$RELEASE_VERSION.pom"
+          cmp "$RUNNER_TEMP/published.pom" "$RUNNER_TEMP/window-$RELEASE_VERSION-maven/com/chunkzero/window/window-runtime/$RELEASE_VERSION/window-runtime-$RELEASE_VERSION.pom"
           python3 scripts/release.py publish
       - id: registry-token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.RPP_APP_ID }}
-          private-key: ${{ secrets.RPP_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.REGISTRY_APP_ID }}
+          private-key: ${{ secrets.REGISTRY_APP_PRIVATE_KEY }}
           owner: chunkzero
           repositories: rpp-registry
       - name: Open registry publication PR

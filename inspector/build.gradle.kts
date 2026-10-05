@@ -6,7 +6,7 @@ plugins {
     id("net.fabricmc.fabric-loom") version "1.17.13"
 }
 
-group = "dev.oglass.window"
+group = "com.chunkzero.window"
 
 version = "0.1.0-alpha.0"
 
@@ -53,7 +53,7 @@ tasks.processResources {
             val metadata = destinationDir.resolve("fabric.mod.json")
             val descriptor = JsonSlurper().parse(metadata) as Map<*, *>
             val entrypoints = descriptor["entrypoints"] as Map<*, *>
-            val validation = listOf("dev.oglass.window.inspector.WindowValidationExtension")
+            val validation = listOf("com.chunkzero.window.inspector.WindowValidationExtension")
             val updated =
                 descriptor + ("entrypoints" to (entrypoints + ("mc-validation" to validation)))
             metadata.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(updated)) + "\n")

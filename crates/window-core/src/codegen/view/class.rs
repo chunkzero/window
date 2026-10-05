@@ -42,13 +42,13 @@ fn imports(prefix: &str, members: &[Member]) -> Vec<String> {
             .any(|m| matches!(m, Member::Value { kind: k, .. } | Member::GroupValue { kind: k, .. } if *k == kind))
     };
     [
-        (any(|m| matches!(m, Member::Button { .. })), "dev.oglass.window.Click".to_string()),
+        (any(|m| matches!(m, Member::Button { .. })), "com.chunkzero.window.Click".to_string()),
         (
             any(|m| matches!(m, Member::Collection { handler: Some(_), .. } | Member::GroupButton { .. })),
-            "dev.oglass.window.IndexedClick".to_string(),
+            "com.chunkzero.window.IndexedClick".to_string(),
         ),
-        (true, format!("dev.oglass.window.{prefix}Scope")),
-        (true, format!("dev.oglass.window.{prefix}View")),
+        (true, format!("com.chunkzero.window.{prefix}Scope")),
+        (true, format!("com.chunkzero.window.{prefix}View")),
         (has_value(ValueKind::Slot), "net.kyori.adventure.text.Component".to_string()),
         (
             has_value(ValueKind::Item) || any(|m| matches!(m, Member::Collection { .. })),
