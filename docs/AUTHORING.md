@@ -515,12 +515,15 @@ switchOn("mode", {
 show("on_sale", { children: [sprite("sale_badge")] });
 ```
 
-- Every case is laid out in the same box, which takes the largest case's size, and each case box fills it. The space is
-  always reserved, like CSS `visibility: hidden`, so siblings never move at runtime.
+- Every case is laid out in the same box. On its own the box takes the largest case's size; an unpositioned switch
+  directly inside a panel, button, or box fills that parent's content instead. Auto-sized cases stretch to fill the box,
+  while cases with an explicit `width`/`height` keep it. The space is always reserved, like CSS `visibility: hidden`, so
+  siblings never move at runtime.
 - A case is a column box. `<Case>` takes box props such as `frame`, `justify`, and `align`, and `<Show>` passes its box
   props to its shown case and its item props (`grow`, `span`, `x`/`y`, …) to the switch. `switchOn` cases take `frame`,
-  `style` (flex style; `direction` defaults to `"column"`), and `children`; `switchOn` and `show` take `x`/`y`, and
-  `show` also takes the case options for its shown case.
+  `style` (flex style; `direction` defaults to `"column"`), and `children`; `switchOn` and `show` take `x`/`y` (set
+  both), and `show` also takes the case options for its shown case. The JSX `text` prop, which cascades text styling to
+  descendants, has no function-style equivalent; style labels and slots directly.
 - Cases are visual: sprites, frames, labels, and `<Text bind>`/`<Icon bind>` bindings. Slot-bound controls, nested
   switches, and switches inside repeaters are build errors. Bindings inside cases keep their own window-wide names.
 - Each case's art becomes its own layer. Windows redraw the title and HUDs their line when the case changes; case art
