@@ -1,0 +1,55 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { Box, Button, Collection, Fragment, Tab, Tabs, Text, h } from "../src/authoring/jsx.ts";
+
+test("JSX text defaults do not mutate reusable children", () => {
+    const child = Box({ children: Text({ children: "Hello" }) });
+    const red = Box({ text: { color: "#ff0000" }, children: child });
+    const blue = Box({ text: { color: "#0000ff" }, children: child });
+    const label = (node: typeof child) => {
+        assert.equal(node.type, "flex");
+        const nested = node.children?.[0];
+        assert.equal(nested?.type, "flex");
+        const text = nested.children?.[0];
+        assert.equal(text?.type, "label");
+        return text;
+    };
+    assert.equal(label(red).color, "#ff0000");
+    assert.equal(label(blue).color, "#0000ff");
+    assert.equal(label(Box({ children: child })).color, undefined);
+});
+
+test("JSX fragments preserve tabs and ignore conditional booleans", () => {
+    const tabs = Tabs({
+        name: "kind",
+        children: Fragment({ children: [true, false, null, Tab({ value: "all", children: "All" })] }),
+    });
+    assert.equal(tabs.length, 1);
+    assert.equal(tabs[0]?.type, "button");
+    assert.equal(tabs[0]?.name, "kind_all");
+    assert.throws(() => Box({ children: Tab({ value: "bad" }) }), /inside <Tabs>/);
+});
+
+test("explicit collection spans override the full-width default", () => {
+    assert.deepEqual(Collection({ name: "items", span: [3, 2] }).layout, {
+        column: { span: 3 },
+        row: { span: 2 },
+    });
+});
+
+test("the JSX factory preserves a children prop without positional children", () => {
+    const props = { children: "Hello" };
+    assert.deepEqual(h(Text, props), Text(props));
+    assert.deepEqual(h(Text, props, "Other"), Text({ children: "Other" }));
+});
+
+test("button text defaults respect the button's explicit alignment", () => {
+    const button = Button({ name: "go", text: { align: "right" }, children: "Go" });
+    assert.equal(button.type, "button");
+    const row = button.children?.[0];
+    assert.equal(row?.type, "flex");
+    const label = row.children?.[0];
+    assert.equal(label?.type, "label");
+    assert.equal(label.align, "right");
+});

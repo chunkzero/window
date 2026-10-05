@@ -7,6 +7,7 @@
 
 mod button;
 mod element;
+mod flex;
 mod hud;
 mod insets;
 mod parse;

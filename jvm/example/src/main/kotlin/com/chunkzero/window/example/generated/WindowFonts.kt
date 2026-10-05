@@ -838,5 +838,6 @@ public object WindowFonts {
             "window:small_caps/y3" to fontMetrics0,
             "window:small_caps/y4" to fontMetrics0,
             "window:small_caps/y88" to fontMetrics0,
+            "window:small_caps/ym1" to fontMetrics0,
         )
 }

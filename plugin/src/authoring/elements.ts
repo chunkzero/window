@@ -132,10 +132,11 @@ export function ui(def: Window): { windows: Window[] } {
 
 export function hud(def: Hud): { huds: Hud[] } {
     requireObject(def, "hud definition");
-    for (const key of ["name", "width", "height"] as const) {
-        if (def[key] === undefined) {
-            throw new Error(`hud requires field \`${key}\``);
-        }
+    if (def.name === undefined) {
+        throw new Error("hud requires field `name`");
+    }
+    if ((def.width === undefined) !== (def.height === undefined)) {
+        throw new Error("hud requires both `width` and `height`, or neither");
     }
     return { huds: [def] };
 }

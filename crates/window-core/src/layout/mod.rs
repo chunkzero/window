@@ -19,6 +19,7 @@
 
 mod checks;
 mod controls;
+mod flex;
 mod flow;
 mod measure;
 mod slots;
@@ -92,9 +93,12 @@ fn solve_window(
     };
     let mut solver = Solver::new(project, texture_size, fonts, target);
 
+    if let Some(frame) = &window.frame {
+        solver.emit_frame(frame, expanded(gui_rect, window.bleed), &format!("window frame `{frame}`"))?;
+    }
     // The window's children are laid out like a panel's content box: the full
     // GUI rect at origin (0, 0), padding 0.
-    solver.layout_container_children(&window.children, Point::new(0, 0), Insets::default())?;
+    solver.layout_container_children(&window.children, gui_rect, Insets::default())?;
     let Solved { draws, slots, sprite_slots, buttons, items, collections, inputs, slot_rects, warnings } =
         solver.finish();
 
@@ -119,21 +123,29 @@ fn solve_hud(
     texture_size: &dyn Fn(&str) -> Option<Size>,
     fonts: &TextFonts,
 ) -> Result<LaidOutHud> {
-    let target = HudTarget {
+    let target = |size: Size| HudTarget {
         name: &hud.name,
-        bounds: Rect::new(0, 0, hud.size.width, hud.size.height),
-        visual_bounds: expanded(Rect::new(0, 0, hud.size.width, hud.size.height), hud.bleed),
+        bounds: Rect::from_parts(Point::new(0, 0), size),
+        visual_bounds: expanded(Rect::from_parts(Point::new(0, 0), size), hud.bleed),
     };
-    let mut solver = Solver::new(project, texture_size, fonts, target);
-
-    solver.layout_container_children(&hud.children, Point::new(0, 0), Insets::default())?;
+    let mut solver = Solver::new(project, texture_size, fonts, target(hud.size.unwrap_or_default()));
+    let size = match hud.size {
+        Some(size) => size,
+        None => solver.children_extent(&hud.children)?,
+    };
+    solver.target = target(size);
+    let rect = Rect::from_parts(Point::new(0, 0), size);
+    if let Some(frame) = &hud.frame {
+        solver.emit_frame(frame, expanded(rect, hud.bleed), &format!("hud frame `{frame}`"))?;
+    }
+    solver.layout_container_children(&hud.children, rect, Insets::default())?;
     let Solved { draws, slots, sprite_slots: _, slot_rects: _, warnings, .. } = solver.finish();
 
     Ok(LaidOutHud {
         name: hud.name.clone(),
         channel: hud.channel,
-        width: hud.size.width,
-        height: hud.size.height,
+        width: size.width,
+        height: size.height,
         shader: hud.shader,
         draws,
         slots,
@@ -159,11 +171,13 @@ fn pos_of(el: &Element) -> Option<Point> {
         | Element::Hotspot { pos, .. }
         | Element::Label { pos, .. }
         | Element::Slot { pos, .. } => *pos,
+        Element::Flex(node) => node.pos,
         Element::Item { .. }
         | Element::Collection { .. }
         | Element::AnvilInput { .. }
         | Element::SlotRects { .. }
-        | Element::Repeater { .. } => None,
+        | Element::Repeater { .. }
+        | Element::Section(_) => None,
     }
 }
 
@@ -266,18 +280,30 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
         }
     }
 
-    /// Lay out children within a content box whose top-left is `content_origin`
-    /// and padding `pad`.
-    fn layout_container_children(&mut self, children: &[Element], box_origin: Point, pad: Insets) -> Result<()> {
-        let content_origin = Point::new(box_origin.x + pad.left as i32, box_origin.y + pad.top as i32);
+    /// Lay out children within `outer` shrunk by padding `pad`.
+    fn layout_container_children(&mut self, children: &[Element], outer: Rect, pad: Insets) -> Result<()> {
+        let content = Rect::new(
+            outer.x + pad.left as i32,
+            outer.y + pad.top as i32,
+            outer.width.saturating_sub(pad.left + pad.right),
+            outer.height.saturating_sub(pad.top + pad.bottom),
+        );
         for child in children {
-            let origin = match pos_of(child) {
-                Some(p) => Point::new(content_origin.x + p.x, content_origin.y + p.y),
-                None => content_origin,
-            };
-            self.place(child, origin)?;
+            self.place_in_box(child, content)?;
         }
         Ok(())
+    }
+
+    /// The bottom-right extent of `children` placed from the origin.
+    fn children_extent(&self, children: &[Element]) -> Result<Size> {
+        let mut extent = Size::new(0, 0);
+        for child in children {
+            let pos = pos_of(child).unwrap_or_default();
+            let size = self.measure(child)?;
+            extent.width = extent.width.max((pos.x + size.width as i32).max(0) as u32);
+            extent.height = extent.height.max((pos.y + size.height as i32).max(0) as u32);
+        }
+        Ok(extent)
     }
 
     /// Place `el` with its box top-left at `origin`, emitting IR for it and its subtree.
@@ -328,6 +354,8 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             Element::Column { gap, padding, align, children, .. } => {
                 self.place_flow(origin, *gap, *padding, *align, children, Axis::Column)
             }
+            Element::Flex(node) => self.place_flex(node, origin, None),
+            Element::Section(section) => self.place_section(section),
         }
     }
 }

@@ -264,7 +264,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             slots: cell.slots.clone(),
             yielded: Vec::new(),
         });
-        self.layout_container_children(children, cell.rect.origin(), Insets::uniform(padding))?;
+        self.layout_container_children(children, cell.rect, Insets::uniform(padding))?;
         let finished = std::mem::replace(&mut self.active_repeat, previous);
         if let Some(finished) = finished {
             self.buttons[button_index].yielded_slots = finished.yielded;

@@ -6,10 +6,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::Deserialize;
 
 use super::button::{ButtonStateDto, TooltipDto};
+use super::flex::{FlexStyleDto, ItemLayoutDto};
+use super::insets::InsetsDto;
 use super::parse::json_object_fields;
 use super::patterns::{SlotPatternDto, SlotRectPatternDto, SlotRefDto};
-use crate::Result;
-use crate::model::Element;
+use crate::model::{Element, LayoutChild};
+use crate::{Error, Result};
 
 #[derive(Debug)]
 pub(super) struct ElementDto {
@@ -47,6 +49,11 @@ pub(super) struct ElementDto {
     obfuscated: bool,
     font: Option<String>,
     small_caps: bool,
+    style: Option<FlexStyleDto>,
+    layout: Option<ItemLayoutDto>,
+    section: Option<String>,
+    outset: Option<InsetsDto>,
+    flow: Option<String>,
     children: Vec<ElementDto>,
 }
 
@@ -98,6 +105,11 @@ struct ElementShapeDto {
     font: Option<String>,
     #[serde(default)]
     small_caps: bool,
+    style: Option<FlexStyleDto>,
+    layout: Option<ItemLayoutDto>,
+    section: Option<String>,
+    outset: Option<InsetsDto>,
+    flow: Option<String>,
     #[serde(default)]
     children: Vec<ElementDto>,
 }
@@ -151,11 +163,37 @@ impl ElementDto {
             obfuscated: shape.obfuscated,
             font: shape.font,
             small_caps: shape.small_caps,
+            style: shape.style,
+            layout: shape.layout,
+            section: shape.section,
+            outset: shape.outset,
+            flow: shape.flow,
             children: shape.children,
         }
     }
 }
 
-fn convert_children(children: Vec<ElementDto>) -> Result<Vec<Element>> {
-    children.into_iter().map(ElementDto::into_element).collect()
+pub(super) fn convert_children(children: Vec<ElementDto>) -> Result<Vec<Element>> {
+    children
+        .into_iter()
+        .map(|child| {
+            if child.layout.is_some() {
+                return Err(Error::Validation(format!(
+                    "{} element sets `layout`, which only applies inside a flex or section element",
+                    child.kind
+                )));
+            }
+            child.into_element()
+        })
+        .collect()
+}
+
+fn convert_layout_children(children: Vec<ElementDto>) -> Result<Vec<LayoutChild>> {
+    children
+        .into_iter()
+        .map(|mut child| {
+            let layout = child.layout.take().map(ItemLayoutDto::into_layout).transpose()?.unwrap_or_default();
+            Ok(LayoutChild { layout, element: child.into_element()? })
+        })
+        .collect()
 }

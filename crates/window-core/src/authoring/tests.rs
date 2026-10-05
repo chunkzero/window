@@ -347,11 +347,31 @@ fn parses_hud_project_json() {
     assert_eq!(project.target.pack_format, Some(84));
     assert_eq!(project.huds[0].name, "status");
     assert_eq!(project.huds[0].channel, HudChannel::ActionBar);
-    assert_eq!(project.huds[0].size, Size::new(120, 16));
+    assert_eq!(project.huds[0].size, Some(Size::new(120, 16)));
     let shader = project.huds[0].shader.unwrap();
     assert_eq!(shader.origin_x, 0.5);
     assert_eq!(shader.origin_y, 0.08);
     assert_eq!(shader.anchor_x, 0.5);
     assert_eq!(shader.anchor_y, 0.0);
     assert_eq!(shader.offset_y, 0);
+}
+
+#[test]
+fn rejects_invalid_flex_numeric_styles() {
+    for fields in [
+        serde_json::json!({ "style": { "columns": ["NaNfr"] } }),
+        serde_json::json!({ "style": { "columns": ["-1fr"] } }),
+        serde_json::json!({ "style": { "aspect_ratio": 0 } }),
+        serde_json::json!({ "style": { "aspect_ratio": -1 } }),
+        serde_json::json!({ "children": [{ "type": "label", "text": "Hi", "layout": { "grow": -1 } }] }),
+        serde_json::json!({ "children": [{ "type": "label", "text": "Hi", "layout": { "shrink": -1 } }] }),
+    ] {
+        let mut element = fields;
+        element["type"] = serde_json::json!("flex");
+        let json = serde_json::json!({
+            "windows": [{ "name": "test", "container": "generic_9x1", "children": [element] }],
+        });
+        let err = project_from_json(json.to_string().as_bytes()).unwrap_err();
+        assert!(err.to_string().contains("must be"), "{err}");
+    }
 }

@@ -56,6 +56,8 @@ const LABEL_FIELDS: &[&str] = &[
     "font",
     "small_caps",
 ];
+const FLEX_FIELDS: &[&str] = &["type", "x", "y", "frame", "style", "children"];
+const SECTION_FIELDS: &[&str] = &["type", "section", "frame", "outset", "claim", "flow", "children"];
 const SLOT_FIELDS: &[&str] = &[
     "type",
     "name",
@@ -89,6 +91,8 @@ fn allowed_fields(kind: &str) -> Option<&'static [&'static str]> {
         "repeater" => REPEATER_FIELDS,
         "label" => LABEL_FIELDS,
         "slot" => SLOT_FIELDS,
+        "flex" => FLEX_FIELDS,
+        "section" => SECTION_FIELDS,
         _ => return None,
     })
 }
@@ -98,7 +102,9 @@ impl ElementDto {
         let Some(allowed) = allowed_fields(&self.kind) else {
             return Ok(());
         };
-        reject_unexpected_fields(&self.fields, allowed, &format!("{} element", self.kind))
+        let mut fields = self.fields.clone();
+        fields.remove("layout");
+        reject_unexpected_fields(&fields, allowed, &format!("{} element", self.kind))
     }
 
     pub(super) fn required(&self, field: &str) -> Result<String> {

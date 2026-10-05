@@ -286,7 +286,7 @@ public object WindowDefinitions {
                     static = "\uDB80\uDC07\uDB80\uDC08\uF0C9\uDB80\uDC03\uDB80\uDC05\uDB80\uDC07\uDB80\uDC08\uDB80\uDC0A",
                     slots = mapOf(
                         "balance" to SlotEntry(
-                            x = 104,
+                            x = 105,
                             y = 179,
                             width = 48,
                             align = Align.RIGHT,
@@ -371,11 +371,11 @@ public object WindowDefinitions {
                             shaderColor = null,
                         ),
                         "label_0" to SlotEntry(
-                            x = 0,
-                            y = 6,
-                            width = 176,
-                            align = Align.CENTER,
-                            font = "window:small_caps/y0",
+                            x = 49,
+                            y = 5,
+                            width = 79,
+                            align = Align.LEFT,
+                            font = "window:small_caps/ym1",
                             color = "#ffffff",
                             shadow = true,
                             bold = false,
@@ -388,9 +388,9 @@ public object WindowDefinitions {
                             shaderColor = null,
                         ),
                         "label_1" to SlotEntry(
-                            x = 20,
+                            x = 27,
                             y = 161,
-                            width = 36,
+                            width = 20,
                             align = Align.CENTER,
                             font = "window:small_caps/y155",
                             color = "#ffffff",
@@ -405,9 +405,9 @@ public object WindowDefinitions {
                             shaderColor = null,
                         ),
                         "label_2" to SlotEntry(
-                            x = 74,
+                            x = 77,
                             y = 161,
-                            width = 36,
+                            width = 29,
                             align = Align.CENTER,
                             font = "window:small_caps/y155",
                             color = "#ffffff",
@@ -439,7 +439,7 @@ public object WindowDefinitions {
                             shaderColor = null,
                         ),
                         "label_4" to SlotEntry(
-                            x = 132,
+                            x = 133,
                             y = 201,
                             width = 19,
                             align = Align.CENTER,
@@ -473,9 +473,9 @@ public object WindowDefinitions {
                             shaderColor = null,
                         ),
                         "page" to SlotEntry(
-                            x = 62,
+                            x = 61,
                             y = 94,
-                            width = 52,
+                            width = 54,
                             align = Align.CENTER,
                             font = "window:small_caps/y88",
                             color = "#ffffff",
@@ -507,7 +507,7 @@ public object WindowDefinitions {
                             shaderColor = null,
                         ),
                         "price" to SlotEntry(
-                            x = 112,
+                            x = 113,
                             y = 112,
                             width = 40,
                             align = Align.RIGHT,
@@ -526,7 +526,7 @@ public object WindowDefinitions {
                         "selection" to SlotEntry(
                             x = 12,
                             y = 112,
-                            width = 100,
+                            width = 97,
                             align = Align.LEFT,
                             font = "window:small_caps/y106",
                             color = "#ffb20b",
@@ -594,7 +594,7 @@ public object WindowDefinitions {
                         "status" to SlotEntry(
                             x = 12,
                             y = 179,
-                            width = 92,
+                            width = 89,
                             align = Align.LEFT,
                             font = "window:small_caps/y173",
                             color = "#bceeff",
@@ -611,7 +611,7 @@ public object WindowDefinitions {
                     ),
                     spriteSlots = mapOf(
                         "affordable_lamp" to SpriteSlotEntry(
-                            x = 67,
+                            x = 71,
                             y = 163,
                             width = 4,
                             height = 4,
@@ -629,7 +629,7 @@ public object WindowDefinitions {
                             sprite = "icon_clear",
                         ),
                         "favorites_lamp" to SpriteSlotEntry(
-                            x = 13,
+                            x = 21,
                             y = 163,
                             width = 4,
                             height = 4,
@@ -638,7 +638,7 @@ public object WindowDefinitions {
                             sprite = null,
                         ),
                         "price_coin" to SpriteSlotEntry(
-                            x = 156,
+                            x = 157,
                             y = 112,
                             width = 8,
                             height = 8,
@@ -673,7 +673,7 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "off" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = null,
                                     tooltip = ButtonTooltip(
                                         title = "Affordable only off",
@@ -681,7 +681,7 @@ public object WindowDefinitions {
                                     ),
                                 ),
                                 "on" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = null,
                                     tooltip = ButtonTooltip(
                                         title = "Affordable only on",
@@ -728,7 +728,7 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "disabled" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "buy_disabled",
                                     tooltip = ButtonTooltip(
                                         title = "Buy selected item unavailable",
@@ -736,7 +736,7 @@ public object WindowDefinitions {
                                     ),
                                 ),
                                 "enabled" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "buy",
                                     tooltip = ButtonTooltip(
                                         title = "Buy selected item",
@@ -771,18 +771,18 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "selected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab_selected",
                                     tooltip = ButtonTooltip(
-                                        title = "All items selected",
+                                        title = "All items",
                                         lines = emptyList(),
                                     ),
                                 ),
                                 "unselected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab",
                                     tooltip = ButtonTooltip(
-                                        title = "Select All items",
+                                        title = "All items",
                                         lines = emptyList(),
                                     ),
                                 ),
@@ -814,18 +814,18 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "selected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab_selected",
                                     tooltip = ButtonTooltip(
-                                        title = "Gear selected",
+                                        title = "Gear",
                                         lines = emptyList(),
                                     ),
                                 ),
                                 "unselected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab",
                                     tooltip = ButtonTooltip(
-                                        title = "Select Gear",
+                                        title = "Gear",
                                         lines = emptyList(),
                                     ),
                                 ),
@@ -857,18 +857,18 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "selected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab_selected",
                                     tooltip = ButtonTooltip(
-                                        title = "Magic selected",
+                                        title = "Magic",
                                         lines = emptyList(),
                                     ),
                                 ),
                                 "unselected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab",
                                     tooltip = ButtonTooltip(
-                                        title = "Select Magic",
+                                        title = "Magic",
                                         lines = emptyList(),
                                     ),
                                 ),
@@ -892,7 +892,7 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "disabled" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "clear_search_disabled",
                                     tooltip = ButtonTooltip(
                                         title = "Clear search unavailable",
@@ -900,7 +900,7 @@ public object WindowDefinitions {
                                     ),
                                 ),
                                 "enabled" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "clear_search",
                                     tooltip = ButtonTooltip(
                                         title = "Clear search",
@@ -964,7 +964,7 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "off" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = null,
                                     tooltip = ButtonTooltip(
                                         title = "Favorites only off",
@@ -972,7 +972,7 @@ public object WindowDefinitions {
                                     ),
                                 ),
                                 "on" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = null,
                                     tooltip = ButtonTooltip(
                                         title = "Favorites only on",
@@ -1007,7 +1007,7 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "disabled" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "action_disabled",
                                     tooltip = ButtonTooltip(
                                         title = "Next page unavailable",
@@ -1015,7 +1015,7 @@ public object WindowDefinitions {
                                     ),
                                 ),
                                 "enabled" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "action",
                                     tooltip = ButtonTooltip(
                                         title = "Next page",
@@ -1050,7 +1050,7 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "disabled" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "action_disabled",
                                     tooltip = ButtonTooltip(
                                         title = "Previous page unavailable",
@@ -1058,7 +1058,7 @@ public object WindowDefinitions {
                                     ),
                                 ),
                                 "enabled" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "action",
                                     tooltip = ButtonTooltip(
                                         title = "Previous page",
@@ -1118,18 +1118,18 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "selected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab_selected",
                                     tooltip = ButtonTooltip(
-                                        title = "Top picks first selected",
+                                        title = "Top picks first",
                                         lines = emptyList(),
                                     ),
                                 ),
                                 "unselected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab",
                                     tooltip = ButtonTooltip(
-                                        title = "Select Top picks first",
+                                        title = "Top picks first",
                                         lines = emptyList(),
                                     ),
                                 ),
@@ -1161,18 +1161,18 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "selected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab_selected",
                                     tooltip = ButtonTooltip(
-                                        title = "Name sort selected",
+                                        title = "Name sort",
                                         lines = emptyList(),
                                     ),
                                 ),
                                 "unselected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab",
                                     tooltip = ButtonTooltip(
-                                        title = "Select Name sort",
+                                        title = "Name sort",
                                         lines = emptyList(),
                                     ),
                                 ),
@@ -1204,18 +1204,18 @@ public object WindowDefinitions {
                             tooltip = null,
                             states = mapOf(
                                 "selected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab_selected",
                                     tooltip = ButtonTooltip(
-                                        title = "Price sort selected",
+                                        title = "Price sort",
                                         lines = emptyList(),
                                     ),
                                 ),
                                 "unselected" to ButtonState(
-                                    itemModel = "window:gui/hitbox",
+                                    itemModel = null,
                                     sprite = "tab",
                                     tooltip = ButtonTooltip(
-                                        title = "Select Price sort",
+                                        title = "Price sort",
                                         lines = emptyList(),
                                     ),
                                 ),
@@ -1586,7 +1586,7 @@ public object WindowDefinitions {
                     ),
                     inputs = emptyMap(),
                     slotRects = mapOf(
-                        "container_fill" to SlotRectEntry(
+                        "container_section" to SlotRectEntry(
                             slots = listOf(
                                 SlotRefEntry(
                                     area = SlotAreaEntry.CONTAINER,
@@ -1638,7 +1638,7 @@ public object WindowDefinitions {
                                 ),
                             ),
                         ),
-                        "player_fill" to SlotRectEntry(
+                        "player_section" to SlotRectEntry(
                             slots = listOf(
                                 SlotRefEntry(
                                     area = SlotAreaEntry.PLAYER,

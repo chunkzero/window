@@ -36,6 +36,29 @@ export default ui({
 });
 ```
 
+Or as JSX, laid out automatically with flexbox and slot grids:
+
+```tsx
+// src/window/confirm.tsx
+/**
+ * @jsxRuntime classic
+ * @jsx h
+ * @jsxFrag Fragment
+ */
+import { Button, Container, Text, Window, h } from "#plugins/window";
+
+export default (
+  <Window name="confirm" container="generic_9x3">
+    <Container>
+      <Text bind="question" span={9} />
+      <Button name="accept" at={[3, 1]} tooltip="Confirm">
+        <Text bold>YES</Text>
+      </Button>
+    </Container>
+  </Window>
+);
+```
+
 `rpp build` produces the resource pack and a Kotlin base class, which you extend on the server:
 
 ```kotlin

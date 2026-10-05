@@ -56,6 +56,7 @@ export interface WindowContext {
 }
 
 const DEFINITIONS = "definitions";
+const JSX_DEFINITIONS = "jsx";
 const TEXTURE_REFERENCE = /^([\w.-]+):(.+)$/s;
 
 type Fields = Record<string, unknown>;
@@ -111,12 +112,14 @@ export function buildProject(
     };
 }
 
-function defaultExport(path: string, module: Record<string, unknown>): WindowDocument {
-    const doc = module["default"];
-    if (!isFields(doc)) {
+/** The module's default-exported document, or each document of a default-exported array (a JSX fragment). */
+function defaultExport(path: string, module: Record<string, unknown>): WindowDocument[] {
+    const value = module["default"];
+    const docs = Array.isArray(value) ? value : [value];
+    if (docs.length === 0 || !docs.every(isFields)) {
         throw new Error(`${path} must export default a Window document`);
     }
-    return doc as WindowDocument;
+    return docs as WindowDocument[];
 }
 
 /**
@@ -124,8 +127,10 @@ function defaultExport(path: string, module: Record<string, unknown>): WindowDoc
  * under `window/` plus every texture the themes reference. Everything under `window/` leaves the pack.
  */
 export function collectInputs(ctx: WindowContext): { documents: WindowDocument[]; files: SourceFile[] } {
-    const modules = [...ctx.discovered(DEFINITIONS)].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-    const documents = modules.map(({ path, module }) => defaultExport(path, module));
+    const modules = [...ctx.discovered(DEFINITIONS), ...ctx.discovered(JSX_DEFINITIONS)].sort((a, b) =>
+        a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
+    );
+    const documents = modules.flatMap(({ path, module }) => defaultExport(path, module));
     const files: SourceFile[] = [];
     const seen = new Set<string>();
     const addOnce = (path: string): void => {

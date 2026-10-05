@@ -3,7 +3,7 @@ use std::iter;
 
 use serde::Deserialize;
 
-use super::element::ElementDto;
+use super::element::{ElementDto, convert_children};
 use super::hud::HudDto;
 use super::insets::InsetsDto;
 use super::parse::validate_name;
@@ -54,6 +54,7 @@ struct WindowDto {
     container: String,
     #[serde(default)]
     bleed: InsetsDto,
+    frame: Option<String>,
     #[serde(default)]
     children: Vec<ElementDto>,
 }
@@ -116,10 +117,7 @@ impl WindowDto {
                 valid.join(", ")
             ))
         })?;
-        let mut children = Vec::with_capacity(self.children.len());
-        for child in self.children {
-            children.push(child.into_element()?);
-        }
-        Ok(Window { name: self.name, container, bleed: self.bleed.into_insets(), children })
+        let children = convert_children(self.children)?;
+        Ok(Window { name: self.name, container, bleed: self.bleed.into_insets(), frame: self.frame, children })
     }
 }

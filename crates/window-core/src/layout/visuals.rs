@@ -8,7 +8,7 @@ use crate::model::{Element, Frame, SpriteDef, TextStyle};
 impl<T: LayoutTarget> Solver<'_, T> {
     pub(super) fn place_panel(&mut self, frame: &str, rect: Rect, padding: u32, children: &[Element]) -> Result<Size> {
         self.emit_frame(frame, rect, &format!("panel frame `{frame}`"))?;
-        self.layout_container_children(children, rect.origin(), Insets::uniform(padding))?;
+        self.layout_container_children(children, rect, Insets::uniform(padding))?;
         Ok(rect.size())
     }
 
