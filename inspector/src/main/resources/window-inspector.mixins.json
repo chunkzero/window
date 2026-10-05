@@ -1,6 +1,6 @@
 {
   "required": true,
-  "package": "dev.oglass.window.inspector.mixin",
+  "package": "com.chunkzero.window.inspector.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": ["GuiGraphicsExtractorMixin"],
   "injectors": {

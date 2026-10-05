@@ -41,7 +41,7 @@ def publish(repository, version, url, username, password):
             continue
         if (
             not path.is_file()
-            or not key.startswith("dev/oglass/window/")
+            or not key.startswith("com/chunkzero/window/")
             or path.parent.name != version
             or not all(
                 re.fullmatch(r"[A-Za-z0-9_+.-]+", part)

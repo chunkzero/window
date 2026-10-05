@@ -19,8 +19,8 @@ export default defineConfig({
             hudShaders: true,
             anvilFieldSprite: "search_field",
             kotlin: {
-                package: "dev.oglass.window.example.generated",
-                output: "../../jvm/example/src/main/kotlin/dev/oglass/window/example/generated",
+                package: "com.chunkzero.window.example.generated",
+                output: "../../jvm/example/src/main/kotlin/com/chunkzero/window/example/generated",
             },
         }),
     ],

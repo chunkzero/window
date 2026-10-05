@@ -4,7 +4,7 @@ plugins {
     application
 }
 
-application { mainClass = "dev.oglass.window.validationserver.MainKt" }
+application { mainClass = "com.chunkzero.window.validationserver.MainKt" }
 
 dependencies {
     implementation(libs.minestom)

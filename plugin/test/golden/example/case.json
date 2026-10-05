@@ -2,5 +2,5 @@
   "packFormat": 84,
   "hudShaders": true,
   "anvilFieldSprite": "search_field",
-  "kotlinPackage": "dev.oglass.window.example.generated"
+  "kotlinPackage": "com.chunkzero.window.example.generated"
 }

@@ -56,9 +56,9 @@ Add the optional `window-minestom-diagnostics` artifact in addition to the norma
 adapter and supply it as Window's narrow diagnostics observer:
 
 ```kotlin
-import dev.oglass.window.Windows
-import dev.oglass.window.diagnostics.PackFingerprint
-import dev.oglass.window.diagnostics.minestom.MinestomDiagnostics
+import com.chunkzero.window.Windows
+import com.chunkzero.window.diagnostics.PackFingerprint
+import com.chunkzero.window.diagnostics.minestom.MinestomDiagnostics
 import your.generated.WindowPack
 
 val diagnostics =
