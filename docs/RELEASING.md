@@ -25,7 +25,7 @@ checks the artifacts. It publishes the Maven libraries first, then the GitHub re
 `chunkzero/rpp-registry`. Prereleases are never marked latest.
 
 It uses the organization secrets `MAVEN_R2_TOKEN` for Maven and `REGISTRY_APP_ID`/`REGISTRY_APP_PRIVATE_KEY` for the
-registry. `RPP_VERSION` in the workflow pins the rpp release used to pack and check the plugin.
+registry. The workflow packs and checks the plugin with the rpp pinned in `mise.toml`; its `RPP_VERSION` must match.
 
 Before publishing, the workflow unpacks the packed plugin, builds an authored UI with it, and compiles the generated
 Kotlin against the packaged Maven repository.
