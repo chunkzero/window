@@ -114,3 +114,23 @@ test("unknown option keys are rejected at runtime", () => {
     assert.throws(() => window.row({ bogus: 1 } as never), /row does not accept option `bogus`/);
     assert.throws(() => window.panel({ frame: "p", width: 1 } as never), /panel requires option `height`/);
 });
+
+test("switchOn and show build switch elements", () => {
+    const buy = window.label("Buy");
+    assert.deepEqual(window.switchOn("mode", { buy: { frame: "recess", children: [buy] }, sell: {} }, { x: 4 }), {
+        type: "switch",
+        name: "mode",
+        x: 4,
+        children: [
+            { type: "case", value: "buy", frame: "recess", style: { direction: "column" }, children: [buy] },
+            { type: "case", value: "sell", style: { direction: "column" }, children: [] },
+        ],
+    });
+    const badge = window.sprite("badge");
+    assert.deepEqual(
+        window.show("on_sale", { y: 2, children: [badge] }),
+        window.switchOn("on_sale", { true: { children: [badge] }, false: {} }, { y: 2 }),
+    );
+    assert.throws(() => window.switchOn("mode", {}), /requires at least one case/);
+    assert.throws(() => window.switchOn("mode", { buy: { width: 3 } as never }), /does not accept option `width`/);
+});

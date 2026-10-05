@@ -68,3 +68,37 @@ fn slot_bound_controls_inside_a_case_are_rejected() {
     let err = solve(&project, &sizes(&[])).unwrap_err();
     assert!(err.to_string().contains("button `buy` cannot be inside switch `mode`"), "{err}");
 }
+
+#[test]
+fn switch_in_a_flow_row_takes_its_largest_case() {
+    let laid = solve_one(
+        themed(
+            json!({ "frames": { "f": { "kind": "panel" } } }),
+            json!([{
+                "type": "row",
+                "x": 10,
+                "y": 20,
+                "gap": 2,
+                "children": [
+                    {
+                        "type": "switch",
+                        "name": "mode",
+                        "children": [
+                            { "type": "case", "value": "buy", "children": [boxed(30, 10)] },
+                            { "type": "case", "value": "sell", "frame": "f", "children": [boxed(20, 10)] },
+                        ],
+                    },
+                    { "type": "flex", "frame": "f", "style": { "width": 5, "height": 5 } },
+                ],
+            }]),
+        ),
+        &sizes(&[]),
+    );
+
+    // The sibling follows the 30px-wide buy case after the gap.
+    let statics: Vec<Rect> = laid.draws.iter().map(|d| *d.dest()).collect();
+    assert_eq!(statics, vec![Rect::new(42, 20, 5, 5)]);
+    let [switch] = laid.switches.as_slice() else { panic!("one switch") };
+    let sell_art: Vec<Rect> = switch.cases[1].draws.iter().map(|d| *d.dest()).collect();
+    assert_eq!(sell_art, vec![Rect::new(10, 20, 30, 10)]);
+}

@@ -573,6 +573,21 @@ export interface SectionElement {
     children?: Element[];
 }
 
+/** A case of `switchOn`, or the shown case of `show`: a flex box that fills the switch. */
+export interface CaseOptions {
+    frame?: string;
+    /** Box layout; `direction` defaults to `"column"`. */
+    style?: FlexStyle;
+    children?: Element[];
+}
+
+export interface SwitchOptions {
+    x?: number;
+    y?: number;
+}
+
+export type ShowOptions = CaseOptions & SwitchOptions;
+
 /** One case of a switch: a flex box that fills the switch. */
 export interface CaseElement {
     type: "case";
