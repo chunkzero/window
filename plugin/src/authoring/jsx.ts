@@ -1,3 +1,5 @@
+import type { Child as JsxChild } from "#rpp/jsx";
+
 import { hud, ui } from "./elements.ts";
 import type {
     AutoLength,
@@ -32,7 +34,7 @@ export type Hud = HudDef;
 type Fields = Record<string, unknown>;
 
 /** Anything JSX can render as a child. Strings become labels; arrays and fragments flatten. */
-export type Child = JsxNode | string | number | boolean | null | undefined | readonly Child[];
+export type Child = JsxChild;
 
 /** Text styling. Containers pass it down through `text`; the nearest setting wins. */
 export interface TextProps {
@@ -303,34 +305,13 @@ export interface HudProps extends Omit<BoxProps, keyof ItemProps | "x" | "y" | "
     sourceBottom?: number;
 }
 
-type Component<P> = (props: P) => JsxNode;
 type RenderNode = Element | { windows: WindowDef[] } | { huds: HudDef[] } | TabNode | CaseElement;
-export type JsxNode = RenderNode | readonly JsxNode[];
 
 interface TabNode {
     type: "tab";
     value: string;
     tooltip: string | Tooltip | undefined;
     children: Element[];
-}
-
-/** The classic JSX factory. Set `@jsx h` and `@jsxFrag Fragment` on separate pragma lines. */
-export function h<P>(type: Component<P>, props: P | null, ...children: Child[]): JsxNode {
-    return type({ ...(props ?? ({} as P)), ...(children.length === 0 ? {} : { children }) } as P);
-}
-
-export declare namespace h {
-    namespace JSX {
-        type Element = JsxNode;
-        interface ElementChildrenAttribute {
-            children: unknown;
-        }
-        interface IntrinsicElements {}
-    }
-}
-
-export function Fragment(props: { children?: Child }): RenderNode[] {
-    return renderNodes(props.children);
 }
 
 function flatten(child: Child, out: (RenderNode | string)[]): void {

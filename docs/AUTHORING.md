@@ -226,16 +226,12 @@ contract.
 lays them out with [taffy](https://github.com/DioxusLabs/taffy) (CSS flexbox and grid), so most UIs need no coordinates.
 Both styles can be mixed in one pack.
 
-rpp compiles JSX with the classic runtime, so each `.tsx` file starts with a pragma and imports `h` (and `Fragment` when
-it uses `<>...</>`). For type checking, set `"jsx": "react"` and include `**/*.tsx` in the pack's `tsconfig.json`.
+rpp compiles `.tsx` sources with its own JSX runtime, `#rpp/jsx`: each tag calls the component with its props, and
+`<>...</>` is an array of its children. `rpp codegen` configures type checking for it; packs only need `**/*.tsx` in
+their `tsconfig.json` `include`. Sources import only Window's components, never a JSX factory.
 
 ```tsx
-/**
- * @jsxRuntime classic
- * @jsx h
- * @jsxFrag Fragment
- */
-import { Button, Collection, Container, Header, Hotbar, Row, Tab, Tabs, Text, Window, h } from "#plugins/window";
+import { Button, Collection, Container, Header, Hotbar, Row, Tab, Tabs, Text, Window } from "#plugins/window";
 
 export default (
   <Window name="shop" container="generic_9x6" frame="shell" text={{ color: "#ffffff", shadow: true, smallCaps: true }}>

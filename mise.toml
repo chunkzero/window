@@ -13,4 +13,4 @@ ktlint = "1.8.0"
 node = "24.21.0"
 pnpm = "10.33.0"
 "github:google/google-java-format" = { version = "1.36.1", bin = "google-java-format" }
-"chunkzero:rpp-nightly" = "0.1.0-nightly.20261005044045.g335e6702930a"
+"chunkzero:rpp-nightly" = "0.1.0-nightly.20261005182523.g09faa791490c"

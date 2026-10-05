@@ -1,6 +1,5 @@
 {
   "extends": "./.rpp/tsconfig.json",
-  "compilerOptions": { "jsx": "react" },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts", ".rpp/sdk/*.d.ts", ".rpp/generated/*.d.ts"],
   "exclude": ["dist", ".rpp/cache"]
 }

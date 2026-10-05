@@ -1,8 +1,3 @@
-/**
- * @jsxRuntime classic
- * @jsx h
- * @jsxFrag Fragment
- */
 import {
     Box,
     Button,
@@ -20,7 +15,6 @@ import {
     Text,
     Toggle,
     Window,
-    h,
 } from "#plugins/window";
 import type { StateProps } from "#plugins/window";
 
