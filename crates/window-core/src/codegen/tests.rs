@@ -83,7 +83,7 @@ fn button(x: i32, y: i32, width: u32, height: u32, slots: Vec<SlotRefEntry>) -> 
 
 fn file_contents<'a>(files: &'a [OutputFile], path: &str) -> &'a str {
     let file = files.iter().find(|file| file.path == path).unwrap_or_else(|| panic!("{path} should be generated"));
-    std::str::from_utf8(&file.contents).unwrap()
+    std::str::from_utf8(file.contents.as_bytes()).unwrap()
 }
 
 fn shop_window() -> WindowEntry {
@@ -249,7 +249,7 @@ fn only_views_huds_and_definitions_are_public() {
         manifest(BTreeMap::from([("shop".into(), shop_window())]), BTreeMap::from([("status".into(), status_hud())]));
     let files = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
     for file in &files {
-        let contents = std::str::from_utf8(&file.contents).unwrap();
+        let contents = std::str::from_utf8(file.contents.as_bytes()).unwrap();
         let public = ["View.kt", "Hud.kt", "Definitions.kt"].iter().any(|suffix| file.path.ends_with(suffix));
         assert_eq!(contents.contains("public "), public, "{}", file.path);
     }

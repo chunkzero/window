@@ -6,9 +6,15 @@ world window-compiler {
         contents: list<u8>,
     }
 
+    /// Generated text (JSON, Kotlin, shaders) crosses as a string; images as bytes.
+    variant file-contents {
+        text(string),
+        binary(list<u8>),
+    }
+
     record output-file {
         path: string,
-        contents: list<u8>,
+        contents: file-contents,
     }
 
     /// Server API the generated Kotlin views and HUDs bind to.

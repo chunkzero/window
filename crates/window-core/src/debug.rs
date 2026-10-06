@@ -40,7 +40,7 @@ impl DebugDescriptor {
         let mut generated: Vec<&OutputFile> = files.iter().filter(|file| file.path != descriptor_path).collect();
         generated.sort_by(|left, right| left.path.cmp(&right.path));
         let file_map: BTreeMap<&str, &[u8]> =
-            generated.iter().map(|file| (file.path.as_str(), file.contents.as_slice())).collect();
+            generated.iter().map(|file| (file.path.as_str(), file.contents.as_bytes())).collect();
         let bitmap_glyphs = main_bitmap_glyphs(manifest, &file_map)?;
         let referenced = referenced_bitmap_resources(&generated)?;
         let glyph_resources = bitmap_resources_by_glyph(&generated)?;
@@ -69,10 +69,10 @@ impl DebugDescriptor {
     }
 
     /// Serialize deterministically as compact JSON with a trailing newline.
-    pub fn to_json_bytes(&self) -> Result<Vec<u8>> {
-        let mut bytes = serde_json::to_vec(self).map_err(|error| Error::Manifest(error.to_string()))?;
-        bytes.push(b'\n');
-        Ok(bytes)
+    pub fn to_json(&self) -> Result<String> {
+        let mut json = serde_json::to_string(self).map_err(|error| Error::Manifest(error.to_string()))?;
+        json.push('\n');
+        Ok(json)
     }
 
     /// Parse and version-check an active-pack descriptor.

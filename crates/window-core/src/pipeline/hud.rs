@@ -86,9 +86,7 @@ pub(super) fn emit_shader_files(
     huds: &[&LaidOutHud],
 ) -> Result<()> {
     let output = crate::hud::emit(pack_format, huds)?;
-    ctx.files.extend(
-        output.files.into_iter().map(|file| OutputFile { path: file.path, contents: file.contents.into_bytes() }),
-    );
+    ctx.files.extend(output.files.into_iter().map(|file| OutputFile::text(file.path, file.contents)));
     ctx.warnings.extend(output.warnings);
     Ok(())
 }

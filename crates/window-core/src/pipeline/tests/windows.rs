@@ -30,7 +30,8 @@ fn bitmap_provider_ascent_math() {
     // Glyph top at y=0, title y=6 → ascent 13, height 16.
     let (w, textures) = sample_window();
     let out = compile_windows(&[w], &textures, "window").unwrap();
-    let ui: serde_json::Value = serde_json::from_slice(&find(&out, "assets/window/font/ui.json").contents).unwrap();
+    let ui: serde_json::Value =
+        serde_json::from_slice(find(&out, "assets/window/font/ui.json").contents.as_bytes()).unwrap();
     let providers = ui["providers"].as_array().unwrap();
     // [0] = space, [1] = shop bitmap glyph.
     assert_eq!(providers[0]["type"], "space");
@@ -60,11 +61,12 @@ fn negative_visual_top_pads_bitmap_provider_height() {
     let w = bare_window("overhang", ContainerKind::Generic9x3, vec![draw]);
 
     let out = compile_windows(&[w], &textures, "window").unwrap();
-    let ui: serde_json::Value = serde_json::from_slice(&find(&out, "assets/window/font/ui.json").contents).unwrap();
+    let ui: serde_json::Value =
+        serde_json::from_slice(find(&out, "assets/window/font/ui.json").contents.as_bytes()).unwrap();
     let bm = &ui["providers"].as_array().unwrap()[1];
     assert_eq!(bm["height"], 33);
     assert_eq!(bm["ascent"], 33);
-    let png = &find(&out, "assets/window/textures/font/overhang.png").contents;
+    let png = find(&out, "assets/window/textures/font/overhang.png").contents.as_bytes();
     let texture = Texture::decode_png(png).unwrap();
     assert_eq!(texture.height, 33);
     assert_eq!(&texture.rgba[0..4], &[255, 128, 0, 255]);
@@ -78,7 +80,7 @@ fn text_font_slots_draw_with_their_sheet_at_the_slot_offset() {
     assert_eq!(out.manifest.windows["shop"].slots["buy_label"].font, "window:small_caps/y24");
     assert_eq!(out.manifest.font_metrics["window:small_caps/y24"].advances[&'a'], 5);
     let font: serde_json::Value =
-        serde_json::from_slice(&find(&out, "assets/window/font/small_caps/y24.json").contents).unwrap();
+        serde_json::from_slice(find(&out, "assets/window/font/small_caps/y24.json").contents.as_bytes()).unwrap();
     assert_eq!(font["providers"][0]["file"], "window:font/text/small_caps.png");
     assert_eq!(font["providers"][0]["ascent"], 7 - 24);
     find(&out, "assets/window/textures/font/text/small_caps.png");
@@ -203,7 +205,8 @@ fn empty_draws_produce_empty_static_and_no_png() {
     assert!(!out.files.iter().any(|f| f.path == "assets/window/textures/font/bare.png"));
     assert_eq!(out.manifest.windows["bare"].static_text, "");
     // ui.json has only the space provider (no bitmap).
-    let ui: serde_json::Value = serde_json::from_slice(&find(&out, "assets/window/font/ui.json").contents).unwrap();
+    let ui: serde_json::Value =
+        serde_json::from_slice(find(&out, "assets/window/font/ui.json").contents.as_bytes()).unwrap();
     assert_eq!(ui["providers"].as_array().unwrap().len(), 1);
 }
 
@@ -244,7 +247,7 @@ fn compile_anvil_search(child: &str, options: &str) -> crate::Result<CompileOutp
 }
 
 fn search_art_alpha(out: &CompileOutput, x: u32, y: u32) -> u8 {
-    let art = Texture::decode_png(&find(out, "assets/window/textures/font/search.png").contents).unwrap();
+    let art = Texture::decode_png(find(out, "assets/window/textures/font/search.png").contents.as_bytes()).unwrap();
     art.rgba[((y * art.width + x) * 4 + 3) as usize]
 }
 
@@ -256,7 +259,7 @@ fn anvil_inputs_open_the_art_over_the_native_field_and_can_restyle_it() {
         "assets/minecraft/textures/gui/sprites/container/anvil/text_field.png",
         "assets/minecraft/textures/gui/sprites/container/anvil/text_field_disabled.png",
     ] {
-        let field = Texture::decode_png(&find(&out, path).contents).unwrap();
+        let field = Texture::decode_png(find(&out, path).contents.as_bytes()).unwrap();
         assert_eq!((field.width, field.height), (110, 16));
     }
     assert_eq!((search_art_alpha(&out, 59, 20), search_art_alpha(&out, 168, 35)), (0, 0));
@@ -272,7 +275,7 @@ fn anvil_inputs_hide_vanilla_anvil_art_and_share_their_slot_with_a_button() {
         "assets/minecraft/textures/gui/container/anvil.png",
         "assets/minecraft/textures/gui/sprites/container/anvil/error.png",
     ] {
-        let art = Texture::decode_png(&find(&out, path).contents).unwrap();
+        let art = Texture::decode_png(find(&out, path).contents.as_bytes()).unwrap();
         assert!(art.rgba.chunks(4).all(|pixel| pixel[3] == 0), "{path}");
     }
     let back = &out.manifest.windows["search"].buttons["back"];

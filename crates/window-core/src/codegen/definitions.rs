@@ -51,7 +51,7 @@ fn typed_definitions<'a>(
         w.line(format_args!("public val {member}: {class} = {class}(WindowPackData.manifest, {})", kt_string(name)));
     }
     w.close("}");
-    Ok(OutputFile { path: format!("{object}.kt"), contents: w.finish().into_bytes() })
+    Ok(OutputFile::text(format!("{object}.kt"), w.finish()))
 }
 
 pub(super) fn generate_window_entries(manifest: &Manifest, package_name: &str) -> OutputFile {
@@ -65,7 +65,7 @@ pub(super) fn generate_window_entries(manifest: &Manifest, package_name: &str) -
         .map(|(name, window)| format!("{} to\n{}{}", kt_string(name), indent(4), window_entry_expr(window, 4)));
     w.property("val all: Map<String, WindowEntry>", multiline_call("mapOf", "emptyMap()", windows, 2));
     w.close("}");
-    OutputFile { path: "WindowEntries.kt".into(), contents: w.finish().into_bytes() }
+    OutputFile::text("WindowEntries.kt", w.finish())
 }
 
 /// Manifest classes referenced by the window entries, in import order.
@@ -148,7 +148,7 @@ pub(super) fn generate_hud_entries(manifest: &Manifest, package_name: &str) -> O
     w.open("internal object WindowHudEntries {");
     w.property("val all: Map<String, HudEntry>", string_map(&manifest.huds, 2, hud_entry_expr));
     w.close("}");
-    OutputFile { path: "WindowHudEntries.kt".into(), contents: w.finish().into_bytes() }
+    OutputFile::text("WindowHudEntries.kt", w.finish())
 }
 
 fn hud_entry_expr(hud: &HudEntry, level: usize) -> String {

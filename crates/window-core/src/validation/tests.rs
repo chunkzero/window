@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use super::*;
 use crate::manifest::{SlotAreaEntry, SlotRefEntry};
-use crate::pipeline::{CompileInput, compile_project_json};
+use crate::pipeline::{CompileInput, FileContents, compile_project_json};
 
 fn compile(project: &str) -> CompileOutput {
     compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap()
@@ -67,7 +67,7 @@ fn reports_all_duplicate_and_unsorted_paths() {
 fn catches_corrupt_font_json_without_panicking() {
     let mut output = compile(project());
     let main = output.files.iter_mut().find(|file| file.path.ends_with("/font/ui.json")).unwrap();
-    main.contents = b"not json".to_vec();
+    main.contents = FileContents::Text("not json".into());
     let report = validate_compile_output(&output);
     assert!(report.issues.iter().any(|issue| issue.code == "artifact.json.invalid"));
 }
@@ -86,7 +86,7 @@ fn catches_debug_descriptor_drift_from_compiled_definition() {
 fn catches_debug_descriptor_drift_from_generated_asset_bytes() {
     let mut output = compile(project());
     let model = output.files.iter_mut().find(|file| file.path.ends_with("/models/gui/hitbox.json")).unwrap();
-    model.contents.push(b'\n');
+    model.contents = FileContents::Text(format!("{}\n", std::str::from_utf8(model.contents.as_bytes()).unwrap()));
 
     let report = validate_compile_output(&output);
 
@@ -97,9 +97,9 @@ fn catches_debug_descriptor_drift_from_generated_asset_bytes() {
 fn catches_invalid_debug_descriptor_schema() {
     let mut output = compile(project());
     let descriptor = output.files.iter_mut().find(|file| file.path.ends_with("/window/debug.json")).unwrap();
-    let mut document: Value = serde_json::from_slice(&descriptor.contents).unwrap();
+    let mut document: Value = serde_json::from_slice(descriptor.contents.as_bytes()).unwrap();
     document["schema_version"] = Value::from(999);
-    descriptor.contents = serde_json::to_vec(&document).unwrap();
+    descriptor.contents = FileContents::Text(serde_json::to_string(&document).unwrap());
 
     let report = validate_compile_output(&output);
 
@@ -111,11 +111,11 @@ fn catches_invalid_debug_descriptor_schema() {
 fn catches_actual_minecraft_cursor_drift() {
     let mut output = compile(project());
     let main = output.files.iter_mut().find(|file| file.path.ends_with("/font/ui.json")).unwrap();
-    let mut document: Value = serde_json::from_slice(&main.contents).unwrap();
+    let mut document: Value = serde_json::from_slice(main.contents.as_bytes()).unwrap();
     let advances = document["providers"][0]["advances"].as_object_mut().unwrap();
     let key = advances.keys().next().unwrap().clone();
     *advances.get_mut(&key).unwrap() = Value::from(-999);
-    main.contents = serde_json::to_vec(&document).unwrap();
+    main.contents = FileContents::Text(serde_json::to_string(&document).unwrap());
     let report = validate_compile_output(&output);
     assert!(
         report
@@ -129,9 +129,9 @@ fn catches_actual_minecraft_cursor_drift() {
 fn catches_shifted_font_ascent_drift() {
     let mut output = compile(project());
     let shifted = output.files.iter_mut().find(|file| file.path.contains("/font/ym1.json")).unwrap();
-    let mut document: Value = serde_json::from_slice(&shifted.contents).unwrap();
+    let mut document: Value = serde_json::from_slice(shifted.contents.as_bytes()).unwrap();
     document["providers"][1]["ascent"] = Value::from(0);
-    shifted.contents = serde_json::to_vec(&document).unwrap();
+    shifted.contents = FileContents::Text(serde_json::to_string(&document).unwrap());
     let report = validate_compile_output(&output);
     assert!(report.issues.iter().any(|issue| issue.code == "font.shifted.ascent_mismatch"));
 }
@@ -140,9 +140,9 @@ fn catches_shifted_font_ascent_drift() {
 fn catches_shifted_font_provider_metric_drift() {
     let mut output = compile(project());
     let shifted = output.files.iter_mut().find(|file| file.path.contains("/font/ym1.json")).unwrap();
-    let mut document: Value = serde_json::from_slice(&shifted.contents).unwrap();
+    let mut document: Value = serde_json::from_slice(shifted.contents.as_bytes()).unwrap();
     document["providers"][2]["chars"][56] = Value::from("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
-    shifted.contents = serde_json::to_vec(&document).unwrap();
+    shifted.contents = FileContents::Text(serde_json::to_string(&document).unwrap());
     let report = validate_compile_output(&output);
     assert!(
         report

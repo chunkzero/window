@@ -91,7 +91,11 @@ fn to_wit_compile_output(output: PluginCompileOutput) -> CompileOutput {
 
 #[cfg(target_family = "wasm")]
 fn to_wit_output_file(file: CoreOutputFile) -> OutputFile {
-    OutputFile { path: file.path, contents: file.contents }
+    let contents = match file.contents {
+        window_core::pipeline::FileContents::Text(text) => FileContents::Text(text),
+        window_core::pipeline::FileContents::Binary(bytes) => FileContents::Binary(bytes),
+    };
+    OutputFile { path: file.path, contents }
 }
 
 #[cfg(target_family = "wasm")]
