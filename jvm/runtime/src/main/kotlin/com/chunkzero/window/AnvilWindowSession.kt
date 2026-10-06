@@ -1,23 +1,18 @@
 package com.chunkzero.window
 
+import com.chunkzero.window.host.WindowHost
 import com.chunkzero.window.internal.AnvilReopenGate
-import com.chunkzero.window.internal.InventoryHandle
-import com.chunkzero.window.internal.RenderScheduler
 import com.chunkzero.window.internal.requireEntry
-import net.minestom.server.entity.Player
 
 /**
  * A window with a static title and one anvil input. The anvil never reopens, so the player's edits
  * go straight to the input's handler.
  */
-internal open class AnvilWindowSession(
+internal open class AnvilWindowSession<I : Any>(
     definition: WindowDefinition,
-    view: WindowView,
-    player: Player,
-    scheduler: RenderScheduler,
-    handle: InventoryHandle,
-    diagnosticsObserver: RenderDiagnosticsObserver,
-) : WindowSession(definition, view, player, scheduler, handle, diagnosticsObserver) {
+    view: WindowView<I>,
+    host: WindowHost<I>,
+) : ContainerWindowSession<I>(definition, view, host) {
     private val name = entry.inputs.keys.single()
     protected val input = entry.inputs.getValue(name)
     private lateinit var handler: (String) -> Unit

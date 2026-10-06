@@ -5,7 +5,6 @@ import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.ButtonDefault
 import com.chunkzero.window.manifest.ButtonEntry
 import com.chunkzero.window.manifest.ButtonState
-import com.chunkzero.window.manifest.ButtonTooltip
 import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.FontMetricsEntry
 import com.chunkzero.window.manifest.HudEntry
@@ -21,6 +20,7 @@ import com.chunkzero.window.manifest.SpriteEntry
 import com.chunkzero.window.manifest.SpriteSlotEntry
 import com.chunkzero.window.manifest.SurfaceEntry
 import com.chunkzero.window.manifest.SwitchEntry
+import com.chunkzero.window.manifest.TooltipEntry
 import com.chunkzero.window.manifest.WindowEntry
 import com.chunkzero.window.manifest.WindowManifest
 
@@ -316,7 +316,7 @@ object TestManifests {
         height: Int = 18,
         default: ButtonDefault? = null,
         action: Boolean = true,
-        tooltip: ButtonTooltip? = null,
+        tooltip: TooltipEntry? = null,
         states: Map<String, ButtonState> = emptyMap(),
         spriteFont: String? = null,
     ): ButtonEntry =
@@ -341,7 +341,7 @@ object TestManifests {
         height: Int = 18,
         default: ButtonDefault? = null,
         action: Boolean = true,
-        tooltip: ButtonTooltip? = null,
+        tooltip: TooltipEntry? = null,
         states: Map<String, ButtonState> = emptyMap(),
         spriteFont: String? = null,
     ): ButtonEntry =

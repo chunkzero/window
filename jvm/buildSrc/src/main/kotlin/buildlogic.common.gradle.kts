@@ -4,7 +4,12 @@ group = "com.chunkzero.window"
 
 version = providers.gradleProperty("windowVersion").orElse("0.1.0-alpha.0").get()
 
-repositories { mavenCentral() }
+repositories {
+    mavenCentral()
+    maven("https://maven.chunkzero.com/nightlies") {
+        mavenContent { includeGroupAndSubgroups("com.chunkzero.multistom") }
+    }
+}
 
 java { toolchain { languageVersion.set(JavaLanguageVersion.of(25)) } }
 

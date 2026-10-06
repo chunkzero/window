@@ -1,48 +1,60 @@
 package com.chunkzero.window
 
+import com.chunkzero.window.host.WindowHost
 import com.chunkzero.window.internal.LazyState
 import com.chunkzero.window.internal.Reactivity
-import net.minestom.server.entity.Player
-import net.minestom.server.item.ItemStack
 import kotlin.properties.ReadWriteProperty
 
 /**
  * A user-defined view over a window: declares slot renders and button handlers, holds reactive
  * state, and reacts to lifecycle events.
  *
- * A view instance is single-use — it is bound to exactly one [WindowSession] when opened.
- * Subclasses implement [bind] (and optionally [onOpen]/[onClose]). Reactive [state] cells read
- * inside slot render lambdas drive automatic re-rendering when written.
+ * A view shows [definition] to the player of [host] and is single-use: [open] it once. Subclasses
+ * implement [bind] (and optionally [onOpen]/[onClose]). Reactive [state] cells read inside render
+ * lambdas drive automatic re-rendering when written.
  *
- * @param windowName the manifest window this view targets.
+ * @param I the host's native item type.
  */
-public abstract class WindowView(
-    public val windowName: String,
+public abstract class WindowView<I : Any>(
+    private val definition: WindowDefinition,
+    /** The host showing this view to its player. */
+    protected val host: WindowHost<I>,
 ) {
-    /** The player this view is attached to. Assigned before [onOpen]; valid for the view's life. */
-    protected lateinit var player: Player
-        private set
+    private var opened = false
 
     /** Backing reactivity engine, attached at open. `null` until then. */
     private var reactivity: Reactivity? = null
 
     /** The owning session, attached at open. `null` until then. */
-    private var session: WindowSession? = null
+    private var session: ContainerWindowSession<I>? = null
+
+    /**
+     * Opens this view: runs [bind], opens the container with the composed title, and calls [onOpen].
+     *
+     * @throws IllegalStateException if this view was already opened, or a dynamic slot is unbound or
+     *   a button lacks both a handler and a default.
+     * @throws IllegalArgumentException for unknown names referenced in [bind].
+     */
+    public fun open(): WindowSession {
+        check(!opened) { "Window view '${definition.name}' was already opened; views are single-use" }
+        opened = true
+        return windowSession(definition, this, host).also { it.open() }
+    }
 
     /**
      * Creates a reactive state delegate with the given [initial] value.
      *
-     * Reads during a slot render register that slot as a dependent; writes mark dependents dirty
-     * and schedule a single batched re-render. State created or read outside rendering is inert (it
-     * simply triggers no re-render). May be called at construction time (before attachment) or
-     * later; the delegate captures the engine lazily on first use after attachment.
+     * Reads during a render register that target as a dependent; writes mark dependents dirty and
+     * schedule a single batched re-render. State read outside rendering is inert. May be called at
+     * construction time (before opening) or later. Write state only on the thread that serves the
+     * host's player.
      */
     protected fun <T> state(initial: T): ReadWriteProperty<Any?, T> = LazyState(initial) { reactivity }
 
     /** Declares the slot renders and button handlers for this view. */
-    protected abstract fun WindowScope.bind()
+    protected abstract fun WindowScope<I>.bind()
 
-    /** Invoked after the inventory is built and the view attached, before it is shown. */
+    /** Invoked after the container is opened and seeded. */
     protected open fun onOpen() {}
 
     /**
@@ -54,33 +66,33 @@ public abstract class WindowView(
     /**
      * Closes this window.
      *
-     * @throws IllegalStateException if the view is not attached to a session.
+     * @throws IllegalStateException if the view is not open.
      */
     protected fun close() {
         requireSession().close()
     }
 
     /**
-     * Forces all slots to re-render on the next scheduler tick.
+     * Forces all render targets to re-render on the next tick.
      *
-     * @throws IllegalStateException if the view is not attached to a session.
+     * @throws IllegalStateException if the view is not open.
      */
     protected fun refresh() {
         requireSession().refreshAll()
     }
 
-    /** Sets or clears the inventory item backing a button/hotspot hover region. */
+    /** Sets or clears the item backing a button/hotspot hover region. */
     protected fun buttonItem(
         name: String,
-        item: ItemStack?,
+        item: I?,
     ) {
         requireSession().setButtonItem(name, item)
     }
 
-    /** Sets or clears the stack in a dynamic item region, including a repeater cell item. */
+    /** Sets or clears the item in a dynamic item region, including a repeater cell item. */
     protected fun item(
         name: String,
-        item: ItemStack?,
+        item: I?,
     ) {
         requireSession().setItem(name, item)
     }
@@ -112,19 +124,15 @@ public abstract class WindowView(
         requireSession().setTooltip(name, tooltip)
     }
 
-    // --- internal wiring used by WindowSession ---
-
     internal fun attach(
-        player: Player,
-        session: WindowSession,
+        session: ContainerWindowSession<I>,
         reactivity: Reactivity,
     ) {
-        this.player = player
         this.session = session
         this.reactivity = reactivity
     }
 
-    internal fun invokeBind(scope: WindowScope) {
+    internal fun invokeBind(scope: WindowScope<I>) {
         with(scope) { bind() }
     }
 
@@ -136,5 +144,5 @@ public abstract class WindowView(
         onClose()
     }
 
-    private fun requireSession(): WindowSession = session ?: error("WindowView is not attached to a session")
+    private fun requireSession(): ContainerWindowSession<I> = checkNotNull(session) { "Window view is not open" }
 }

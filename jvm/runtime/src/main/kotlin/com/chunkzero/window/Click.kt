@@ -1,7 +1,5 @@
 package com.chunkzero.window
 
-import net.minestom.server.entity.Player
-
 /** Which backing inventory a window control slot belongs to. */
 public enum class SlotArea {
     /** Slot in the opened container inventory. */
@@ -20,13 +18,11 @@ public data class SlotRef(
 /**
  * A click on a window button.
  *
- * @property player the clicking player.
  * @property slot the typed backing slot that was clicked.
  * @property shift whether the shift modifier was held.
  * @property right whether the click was a right click (otherwise treated as left).
  */
 public data class Click(
-    val player: Player,
     val slot: SlotRef,
     val shift: Boolean,
     val right: Boolean,
@@ -46,7 +42,6 @@ public data class Click(
  * @property index the collection cell index, matching the authored slot order.
  */
 public data class IndexedClick(
-    val player: Player,
     val slot: SlotRef,
     val index: Int,
     val shift: Boolean,

@@ -2,29 +2,30 @@ package com.chunkzero.window.internal
 
 import com.chunkzero.window.ButtonTooltip
 import com.chunkzero.window.WindowDefinition
-import com.chunkzero.window.WindowItems
+import com.chunkzero.window.host.OpenContainer
+import com.chunkzero.window.host.WindowHost
+import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.ButtonEntry
 import com.chunkzero.window.manifest.ButtonState
-import net.kyori.adventure.nbt.CompoundBinaryTag
+import com.chunkzero.window.manifest.SlotAreaEntry
+import com.chunkzero.window.manifest.TooltipEntry
+import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
-import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.text.minimessage.MiniMessage
-import net.minestom.server.component.DataComponents
-import net.minestom.server.item.ItemStack
-import net.minestom.server.item.component.CustomData
-import com.chunkzero.window.manifest.ButtonTooltip as ManifestTooltip
 
 /**
  * Writes a window's inventory items: button and hotspot hitboxes, named button states, item
  * regions, collection cells, and anvil input seeds.
  */
-internal class WindowInventoryWriter(
+internal class WindowInventoryWriter<I : Any>(
     private val definition: WindowDefinition,
-    private val bindings: WindowBindings,
-    private val handle: InventoryHandle,
+    private val bindings: WindowBindings<I>,
+    private val host: WindowHost<I>,
+    /** The open container; only called once the window is open. */
+    private val container: () -> OpenContainer<I>,
     private val reactivity: Reactivity,
 ) {
     private val entry = definition.entry
@@ -33,7 +34,7 @@ internal class WindowInventoryWriter(
     private val buttonStateValues = HashMap<String, String>()
 
     /** Parsed manifest tooltips; components are immutable, so they are shared across renders. */
-    private val tooltips = HashMap<ManifestTooltip, ButtonTooltip>()
+    private val tooltips = HashMap<TooltipEntry, ButtonTooltip>()
 
     private var inputRevisions = 0
 
@@ -52,10 +53,10 @@ internal class WindowInventoryWriter(
     /** Seeds every manifest-owned inventory slot after the inventory exists. */
     fun seed() {
         for (slotRect in entry.slotRects.values) {
-            for (slot in slotRect.slots) handle.setItem(slot.toApi(), ItemStack.AIR)
+            for (slot in slotRect.slots) container().setItem(slot.toApi(), null)
         }
         for ((name, button) in entry.buttons) {
-            applyButtonItem(button, seedButtonItem(name, button) ?: ItemStack.AIR)
+            applyButtonItem(button, seedButtonItem(name, button))
         }
         for (name in entry.items.keys) writeItem(name)
         for ((name, collection) in entry.collections) {
@@ -67,7 +68,7 @@ internal class WindowInventoryWriter(
     private fun seedButtonItem(
         name: String,
         button: ButtonEntry,
-    ): ItemStack? {
+    ): I? {
         val state = buttonStateValues[name]
         return when {
             state != null -> itemForState(button, definition.requireButtonState(name, state))
@@ -93,15 +94,15 @@ internal class WindowInventoryWriter(
     }
 
     fun writeButtonItem(name: String) {
-        applyButtonItem(entry.buttons.getValue(name), renderButtonItem(name) ?: ItemStack.AIR)
+        applyButtonItem(entry.buttons.getValue(name), renderButtonItem(name))
     }
 
     fun setButtonItem(
         name: String,
-        item: ItemStack?,
+        item: I?,
     ) {
         val button = definition.requireEntry(entry.buttons, name, "button or hotspot")
-        applyButtonItem(button, item ?: ItemStack.AIR)
+        applyButtonItem(button, item)
     }
 
     fun writeItem(name: String) {
@@ -112,10 +113,10 @@ internal class WindowInventoryWriter(
 
     fun setItem(
         name: String,
-        stack: ItemStack?,
+        stack: I?,
     ) {
         val item = definition.requireEntry(entry.items, name, "item", known = "items")
-        for (slot in item.slots) handle.setItem(slot.toApi(), stack ?: ItemStack.AIR)
+        for (slot in item.slots) container().setItem(slot.toApi(), stack)
     }
 
     fun writeCollectionCell(
@@ -129,7 +130,7 @@ internal class WindowInventoryWriter(
                 .getOrNull(index) ?: return
         val render = bindings.collectionItems.getValue(name)
         val item = reactivity.withRendering(RenderKey.CollectionCell(name, index)) { render(index) }
-        handle.setItem(slot.toApi(), item ?: ItemStack.AIR)
+        container().setItem(slot.toApi(), item)
     }
 
     /**
@@ -140,9 +141,7 @@ internal class WindowInventoryWriter(
         input: AnvilInputEntry,
         value: String,
     ) {
-        val revision = CompoundBinaryTag.builder().putInt(INPUT_REVISION, ++inputRevisions).build()
-        val seed = inputSeed(input, value).with(DataComponents.CUSTOM_DATA, CustomData(revision))
-        handle.setItem(input.slot.toApi(), seed)
+        container().setItem(input.slot.toApi(), host.item(inputSeed(input, value, ++inputRevisions)))
     }
 
     /** Renames the input seed to [value] without sending it, so the next reopen restores [value]. */
@@ -150,7 +149,8 @@ internal class WindowInventoryWriter(
         input: AnvilInputEntry,
         value: String,
     ) {
-        handle.stageItem(input.slot.toApi(), inputSeed(input, value))
+        check(input.slot.area == SlotAreaEntry.CONTAINER) { "Anvil inputs must use container slots" }
+        container().stageItem(input.slot.index, host.item(inputSeed(input, value)))
     }
 
     /** Button [name]'s current named state, if it has one. */
@@ -159,9 +159,11 @@ internal class WindowInventoryWriter(
     private fun inputSeed(
         input: AnvilInputEntry,
         value: String,
-    ): ItemStack = WindowItems.anvilInput(value, input.itemModel ?: definition.hitboxModel)
+        revision: Int = 0,
+    ): WindowItem.AnvilSeed =
+        WindowItem.AnvilSeed(input.itemModel?.let(Key::key) ?: definition.hitboxModel, value, revision)
 
-    private fun renderButtonItem(name: String): ItemStack? {
+    private fun renderButtonItem(name: String): I? {
         val render = bindings.buttonItems.getValue(name)
         return reactivity.withRendering(RenderKey.ButtonItem(name)) { render() }
     }
@@ -174,28 +176,28 @@ internal class WindowInventoryWriter(
      */
     private fun applyButtonItem(
         button: ButtonEntry,
-        item: ItemStack,
+        item: I?,
     ) {
-        for (slot in button.filledSlots) handle.setItem(slot.toApi(), item)
+        for (slot in button.filledSlots) container().setItem(slot.toApi(), item)
     }
 
-    private fun defaultButtonItem(button: ButtonEntry): ItemStack? {
+    private fun defaultButtonItem(button: ButtonEntry): I? {
         val defaultState = button.states["default"]
         if (defaultState != null) return itemForState(button, defaultState)
         val tooltip = button.tooltip?.let(::tooltip) ?: return null
-        return WindowItems.hitbox(tooltip, definition.hitboxModel)
+        return host.item(WindowItem.Hitbox(definition.hitboxModel, tooltip))
     }
 
     private fun itemForState(
         button: ButtonEntry,
         state: ButtonState,
-    ): ItemStack {
+    ): I {
         val tooltip = (state.tooltip ?: button.tooltip)?.let(::tooltip)
-        val model = state.itemModel ?: definition.hitboxModel
-        return WindowItems.hitbox(tooltip ?: ButtonTooltip(Component.empty()), model)
+        val model = state.itemModel?.let(Key::key) ?: definition.hitboxModel
+        return host.item(WindowItem.Hitbox(model, tooltip))
     }
 
-    private fun tooltip(source: ManifestTooltip): ButtonTooltip =
+    private fun tooltip(source: TooltipEntry): ButtonTooltip =
         tooltips.getOrPut(source) {
             ButtonTooltip(
                 parseTooltipLine(source.title, NamedTextColor.WHITE),
@@ -206,15 +208,9 @@ internal class WindowInventoryWriter(
     private fun parseTooltipLine(
         template: String,
         defaultColor: TextColor,
-    ): Component =
-        Component
-            .empty()
-            .color(defaultColor)
-            .decoration(TextDecoration.ITALIC, false)
-            .append(MINI_MESSAGE.deserialize(template))
+    ): Component = Component.empty().withDefaults(defaultColor).append(MINI_MESSAGE.deserialize(template))
 
     private companion object {
         val MINI_MESSAGE: MiniMessage = MiniMessage.miniMessage()
-        const val INPUT_REVISION = "window_input_revision"
     }
 }

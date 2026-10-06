@@ -8,7 +8,6 @@ import com.chunkzero.window.manifest.ButtonDefault
 import com.chunkzero.window.manifest.SlotAreaEntry
 import com.chunkzero.window.manifest.SlotRefEntry
 import com.chunkzero.window.manifest.WindowEntry
-import net.minestom.server.entity.Player
 
 /**
  * Routes clicks on typed backing slots to the button or collection cell that receives them.
@@ -17,8 +16,7 @@ import net.minestom.server.entity.Player
  */
 internal class SlotRoutes(
     private val entry: WindowEntry,
-    private val bindings: WindowBindings,
-    private val player: Player,
+    private val bindings: WindowBindings<*>,
     /** Applies a `close` button default. */
     private val close: () -> Unit,
 ) {
@@ -35,15 +33,15 @@ internal class SlotRoutes(
             }
         }
 
-    fun dispatch(info: ClickInfo) {
-        when (val route = routes[info.slot] ?: return) {
+    fun dispatch(click: Click) {
+        when (val route = routes[click.slot] ?: return) {
             is Route.Button -> {
-                clickButton(route.name, info)
+                clickButton(route.name, click)
             }
 
             is Route.Collection -> {
                 val handler = bindings.collectionHandlers[route.name] ?: return
-                handler(IndexedClick(player, info.slot, route.index, info.shift, info.right))
+                handler(IndexedClick(click.slot, route.index, click.shift, click.right))
             }
         }
     }
@@ -51,11 +49,11 @@ internal class SlotRoutes(
     /** Invokes the bound handler, or applies the manifest default when none is bound. */
     private fun clickButton(
         name: String,
-        info: ClickInfo,
+        click: Click,
     ) {
         val handler = bindings.buttonHandlers[name]
         if (handler != null) {
-            handler(Click(player, info.slot, info.shift, info.right))
+            handler(click)
         } else if (entry.buttons.getValue(name).default == ButtonDefault.CLOSE) {
             close()
         }

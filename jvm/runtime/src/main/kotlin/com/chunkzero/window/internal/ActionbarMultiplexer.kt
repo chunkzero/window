@@ -1,48 +1,55 @@
 package com.chunkzero.window.internal
 
+import com.chunkzero.window.host.HudChannel
+import com.chunkzero.window.host.HudDescriptor
+import com.chunkzero.window.host.HudOutput
+import com.chunkzero.window.host.WindowHost
 import net.kyori.adventure.text.Component
-import net.minestom.server.entity.Player
 import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-/** Combines multiple live actionbar HUDs into one packet per player. */
+/** Combines every live action-bar HUD of one host into a single action-bar output. */
 internal object ActionbarMultiplexer {
     private val ids = AtomicLong()
-    private val components = WeakHashMap<Player, LinkedHashMap<Long, Component>>()
+    private val bars = WeakHashMap<WindowHost<*>, Bar>()
 
     fun nextId(): Long = ids.incrementAndGet()
 
     @Synchronized
     fun send(
-        player: Player,
+        host: WindowHost<*>,
         id: Long,
         component: Component,
     ) {
-        val playerComponents = components.getOrPut(player) { linkedMapOf() }
-        playerComponents[id] = component
-        player.sendActionBar(combine(playerComponents.values))
+        val bar = bars[host]
+        if (bar == null) {
+            val components = linkedMapOf(id to component)
+            bars[host] = Bar(host.showHud(HudDescriptor(HudChannel.ACTION_BAR, combine(components.values))), components)
+        } else {
+            bar.components[id] = component
+            bar.output.update(combine(bar.components.values))
+        }
     }
 
     @Synchronized
     fun hide(
-        player: Player,
+        host: WindowHost<*>,
         id: Long,
     ) {
-        val playerComponents = components[player] ?: return
-        playerComponents.remove(id)
-        if (playerComponents.isEmpty()) {
-            components.remove(player)
-            player.sendActionBar(Component.empty())
+        val bar = bars[host] ?: return
+        if (bar.components.remove(id) == null) return
+        if (bar.components.isEmpty()) {
+            bars.remove(host)
+            bar.output.hide()
         } else {
-            player.sendActionBar(combine(playerComponents.values))
+            bar.output.update(combine(bar.components.values))
         }
     }
 
-    private fun combine(values: Collection<Component>): Component {
-        var out = Component.empty()
-        for (component in values) {
-            out = out.append(component)
-        }
-        return out
-    }
+    private fun combine(values: Collection<Component>): Component = values.fold(Component.empty(), Component::append)
+
+    private class Bar(
+        val output: HudOutput,
+        val components: LinkedHashMap<Long, Component>,
+    )
 }

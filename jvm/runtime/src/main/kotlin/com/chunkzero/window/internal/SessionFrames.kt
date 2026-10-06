@@ -1,6 +1,7 @@
 package com.chunkzero.window.internal
 
 import com.chunkzero.window.RenderDiagnosticsObserver
+import com.chunkzero.window.WindowDiagnostics
 import com.chunkzero.window.diagnostics.RenderBounds
 import com.chunkzero.window.diagnostics.RenderCorrelation
 import com.chunkzero.window.diagnostics.RenderCursorConvention
@@ -9,8 +10,8 @@ import com.chunkzero.window.diagnostics.RenderFrameReason
 import com.chunkzero.window.diagnostics.RenderLayerKind
 import com.chunkzero.window.diagnostics.RenderLayerTrace
 import com.chunkzero.window.diagnostics.RenderStyleTrace
+import com.chunkzero.window.host.WindowHost
 import net.kyori.adventure.text.Component
-import net.minestom.server.entity.Player
 import org.slf4j.Logger
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
@@ -23,12 +24,11 @@ internal data class FrameCursor(
 )
 
 /**
- * Numbers a session's composed frames and reports them to its diagnostics observer, isolating
+ * Numbers a session's composed frames and reports them to [WindowDiagnostics.observer], isolating
  * observer failures from normal rendering.
  */
 internal class SessionFrames(
-    private val player: Player,
-    private val observer: RenderDiagnosticsObserver,
+    private val host: WindowHost<*>,
     private val cursor: FrameCursor,
     private val logger: Logger,
     private val failureMessage: String,
@@ -41,6 +41,8 @@ internal class SessionFrames(
         render: ComposedRender,
         reason: RenderFrameReason,
     ) {
+        val observer = WindowDiagnostics.observer
+        if (observer === RenderDiagnosticsObserver.NONE) return
         val frame =
             RenderFrame(
                 frameId = nextFrameId.getAndIncrement(),
@@ -53,7 +55,7 @@ internal class SessionFrames(
                 layers = render.layers,
             )
         try {
-            observer.observe(player, frame)
+            observer.observe(host, frame)
         } catch (error: RuntimeException) {
             logger.warn(failureMessage, error)
         }

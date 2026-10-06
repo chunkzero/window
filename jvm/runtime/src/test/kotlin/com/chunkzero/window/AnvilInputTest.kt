@@ -1,5 +1,6 @@
 package com.chunkzero.window
 
+import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.internal.AnvilReopenGate
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.AnvilInputEntry
@@ -7,7 +8,6 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import net.kyori.adventure.text.Component
-import net.minestom.server.component.DataComponents
 
 class AnvilInputTest :
     StringSpec({
@@ -19,11 +19,19 @@ class AnvilInputTest :
                 inputs = mapOf("query" to AnvilInputEntry(slot = TestManifests.containerSlot(0))),
             )
 
-        class SearchView : WindowView("w") {
+        val static =
+            TestManifests.manifest(
+                container = "anvil",
+                inputs = mapOf("query" to AnvilInputEntry(slot = TestManifests.containerSlot(0))),
+            )
+
+        class SearchView(
+            host: FakeHost,
+        ) : TestView(manifest, host) {
             val edits = mutableListOf<String>()
             var query by state("")
 
-            override fun WindowScope.bind() {
+            override fun WindowScope<Any>.bind() {
                 slot("query_text") { Component.text(query) }
                 anvilInput("query") {
                     edits += it
@@ -34,43 +42,41 @@ class AnvilInputTest :
             fun clear() = input("query", "")
         }
 
-        fun FakeInventoryHandle.seedName() =
-            items.getValue(SlotRef(SlotArea.CONTAINER, 0)).get(DataComponents.CUSTOM_NAME)
+        fun FakeContainer.seed() = items.getValue(SlotRef(SlotArea.CONTAINER, 0)) as WindowItem.AnvilSeed
+
+        fun FakeContainer.seedName() = seed().text
 
         "static anvils deliver edits without reopening and set the edit box in place" {
             val edits = mutableListOf<String>()
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
-                    override fun WindowScope.bind() {
+                object : TestView(static, host) {
+                    override fun WindowScope<Any>.bind() {
                         anvilInput("query") { edits += it }
                     }
 
                     fun clear() = input("query", "")
                 }
-            val handle = FakeInventoryHandle()
-            val static =
-                TestManifests.manifest(
-                    container = "anvil",
-                    inputs = mapOf("query" to AnvilInputEntry(slot = TestManifests.containerSlot(0))),
-                )
-            testSession(static, "w", view, ManualScheduler(), handle).open()
+            val handle = host.container
+            view.open()
             handle.input("")
             handle.input("a")
             handle.input("as")
-            handle.seedName() shouldBe Component.text("as")
+            handle.seedName() shouldBe "as"
             view.clear()
             handle.input("")
 
             edits shouldBe listOf("a", "as", "")
-            handle.seedName() shouldBe Component.text("")
+            handle.seedName() shouldBe ""
             handle.titles.size shouldBe 1
         }
 
         "setting a static input resends a changed seed, capped at vanilla's name length" {
             val edits = mutableListOf<String>()
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
-                    override fun WindowScope.bind() {
+                object : TestView(static, host) {
+                    override fun WindowScope<Any>.bind() {
                         anvilInput("query") {
                             edits += it
                             input("query", it.trim())
@@ -79,28 +85,24 @@ class AnvilInputTest :
 
                     fun set(value: String) = input("query", value)
                 }
-            val handle = FakeInventoryHandle()
-            val static =
-                TestManifests.manifest(
-                    container = "anvil",
-                    inputs = mapOf("query" to AnvilInputEntry(slot = TestManifests.containerSlot(0))),
-                )
-            testSession(static, "w", view, ManualScheduler(), handle).open()
+            val handle = host.container
+            view.open()
             val opened = handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0))
             handle.input(" a ")
             view.set("")
             handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0)) shouldNotBe opened
-            handle.seedName() shouldBe Component.text("")
+            handle.seedName() shouldBe ""
 
             view.set("x".repeat(60))
             edits shouldBe listOf(" a ", "a", "", "x".repeat(50))
         }
 
         "setting the input of a reopening anvil delivers it and reopens with it" {
-            val view = SearchView()
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, scheduler, handle).open()
+            val host = FakeHost()
+            val view = SearchView(host)
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
             handle.input("")
             handle.pong()
 
@@ -112,14 +114,15 @@ class AnvilInputTest :
 
             view.edits shouldBe listOf("ab", "")
             handle.titles.size shouldBe 3
-            handle.seedName() shouldBe Component.text("")
+            handle.seedName() shouldBe ""
         }
 
         "a binding that normalizes a reopening anvil's input settles" {
             val edits = mutableListOf<String>()
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
-                    override fun WindowScope.bind() {
+                object : TestView(manifest, host) {
+                    override fun WindowScope<Any>.bind() {
                         slot("query_text") { Component.empty() }
                         anvilInput("query") {
                             edits += it
@@ -127,21 +130,22 @@ class AnvilInputTest :
                         }
                     }
                 }
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, ManualScheduler(), handle).open()
+            val handle = host.container
+            view.open()
             handle.input("")
             handle.pong()
             handle.input(" a ")
 
             edits shouldBe listOf(" a ", "a")
-            handle.seedName() shouldBe Component.text("a")
+            handle.seedName() shouldBe "a"
         }
 
         "title changes wait until the player pauses typing" {
-            val view = SearchView()
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, scheduler, handle).open()
+            val host = FakeHost()
+            val view = SearchView(host)
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
             handle.input("")
             handle.pong()
 
@@ -156,14 +160,15 @@ class AnvilInputTest :
             scheduler.runAll()
             handle.titles.size shouldBe 2
             view.edits shouldBe listOf("d", "di", "din")
-            handle.seedName() shouldBe Component.text("din")
+            handle.seedName() shouldBe "din"
         }
 
         "reopen echoes are not edits, and edits typed on a rewound edit box are rebased" {
-            val view = SearchView()
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, scheduler, handle).open()
+            val host = FakeHost()
+            val view = SearchView(host)
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
             handle.input("")
             handle.pong()
 
@@ -185,14 +190,15 @@ class AnvilInputTest :
             scheduler.runAll()
             handle.titles.size shouldBe 3
             view.edits shouldBe listOf("a", "as", "asd")
-            handle.seedName() shouldBe Component.text("asd")
+            handle.seedName() shouldBe "asd"
         }
 
         "an edit equal to the in-flight seed is delivered, and the trailing echo is dropped" {
-            val view = SearchView()
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, scheduler, handle).open()
+            val host = FakeHost()
+            val view = SearchView(host)
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
             handle.input("")
             handle.pong()
 
@@ -205,7 +211,7 @@ class AnvilInputTest :
             scheduler.runAll()
 
             view.edits shouldBe listOf("d", "di", "d")
-            handle.seedName() shouldBe Component.text("d")
+            handle.seedName() shouldBe "d"
         }
 
         "stale edits rebase onto the latest input around the text the edit box lost" {
@@ -218,10 +224,11 @@ class AnvilInputTest :
         }
 
         "edits held for a pending reopen reach the view before a close" {
-            val view = SearchView()
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, scheduler, handle).open()
+            val host = FakeHost()
+            val view = SearchView(host)
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
             handle.input("")
             handle.pong()
 
@@ -235,9 +242,10 @@ class AnvilInputTest :
 
         "a held edit that closes the window ends the client close" {
             var closes = 0
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
-                    override fun WindowScope.bind() {
+                object : TestView(manifest, host) {
+                    override fun WindowScope<Any>.bind() {
                         slot("query_text") { Component.empty() }
                         anvilInput("query") { if (it == "x") close() }
                     }
@@ -246,9 +254,9 @@ class AnvilInputTest :
                         closes++
                     }
                 }
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, scheduler, handle).open()
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
             handle.input("x")
             handle.clientClose()
 

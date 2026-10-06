@@ -31,18 +31,19 @@ class SwitchBindingTest :
                         ),
                     switches = mapOf("mode" to modeSwitch),
                 )
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
+                object : TestView(manifest, host) {
                     var mode by state("buy")
 
-                    override fun WindowScope.bind() {
+                    override fun WindowScope<Any>.bind() {
                         slot("price") { Component.text("Ten") }
                         switch("mode") { mode }
                     }
                 }
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, scheduler, handle).open()
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
 
             val opened = plain(handle.titles.last())
             opened shouldContain "BUYART"
@@ -72,23 +73,18 @@ class SwitchBindingTest :
                     slots = mapOf("sale" to TestManifests.slot(10, 40, Align.LEFT, text = "Sale")),
                     switches = mapOf("on_sale" to show),
                 )
+            val host = FakeHost()
             val view =
-                object : HudView("h") {
+                object : TestHud(manifest, host) {
                     var onSale by state(false)
 
                     override fun HudScope.bind() {
                         switch("on_sale") { onSale.toString() }
                     }
                 }
-            val sent = mutableListOf<Component>()
-            val scheduler = ManualScheduler()
-            HudSession(
-                HudDefinition("h", manifest, manifest.huds.getValue("h")),
-                view,
-                stubPlayer,
-                scheduler,
-                componentSender = sent::add,
-            ).show()
+            val scheduler = host.scheduler
+            view.show()
+            val sent = host.huds.single().contents
 
             plain(sent.last()) shouldNotContain "BADGE"
             plain(sent.last()) shouldNotContain "Sale"

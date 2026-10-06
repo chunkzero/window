@@ -1,7 +1,6 @@
 package com.chunkzero.window
 
 import net.kyori.adventure.text.Component
-import net.minestom.server.item.ItemStack
 
 /**
  * The binding surface available inside [WindowView.bind].
@@ -10,8 +9,10 @@ import net.minestom.server.item.ItemStack
  * the compiled definition must be bound exactly once; static labels (definition slots carrying
  * `text`) render automatically and must not be bound. Every button must either be bound here or
  * carry a definition `default`.
+ *
+ * @param I the host's native item type.
  */
-public interface WindowScope {
+public interface WindowScope<I : Any> {
     /**
      * Binds a dynamic slot to a [render] lambda producing its current [Component].
      *
@@ -54,7 +55,7 @@ public interface WindowScope {
      */
     public fun buttonItem(
         name: String,
-        render: () -> ItemStack?,
+        render: () -> I?,
     )
 
     /**
@@ -64,7 +65,7 @@ public interface WindowScope {
      */
     public fun item(
         name: String,
-        render: () -> ItemStack?,
+        render: () -> I?,
     )
 
     /**
@@ -75,14 +76,14 @@ public interface WindowScope {
      */
     public fun collection(
         name: String,
-        render: (Int) -> ItemStack?,
+        render: (Int) -> I?,
         handler: (IndexedClick) -> Unit,
     )
 
     /** Binds a display-only repeated inventory item collection. */
     public fun collectionItem(
         name: String,
-        render: (Int) -> ItemStack?,
+        render: (Int) -> I?,
     )
 
     /**
@@ -121,7 +122,7 @@ public interface WindowScope {
     /** Places a fixed inventory [item] on a button or hotspot. */
     public fun buttonItem(
         name: String,
-        item: ItemStack?,
+        item: I?,
     ) {
         buttonItem(name) { item }
     }
@@ -129,7 +130,7 @@ public interface WindowScope {
     /** Places a fixed inventory [item] on a dynamic item region. */
     public fun item(
         name: String,
-        item: ItemStack?,
+        item: I?,
     ) {
         item(name) { item }
     }
@@ -156,13 +157,14 @@ public interface WindowScope {
         buttonState(name) { state }
     }
 
-    /** Sets a fixed tooltip on the invisible hitbox item for a button or hotspot. */
+    /**
+     * Sets a fixed tooltip on the invisible hitbox item for a button or hotspot. The title defaults
+     * to white and the lines to gray, neither italic.
+     */
     public fun tooltip(
         name: String,
         tooltip: ButtonTooltip?,
-    ) {
-        buttonItem(name, tooltip?.let { WindowItems.hitbox(it) })
-    }
+    )
 
     /**
      * Binds a two-state toggle using states named [onState] and [offState], then registers

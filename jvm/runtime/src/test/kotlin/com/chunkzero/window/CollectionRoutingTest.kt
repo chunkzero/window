@@ -5,8 +5,6 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-import net.minestom.server.item.ItemStack
-import net.minestom.server.item.Material
 
 class CollectionRoutingTest :
     StringSpec({
@@ -28,29 +26,27 @@ class CollectionRoutingTest :
                         ),
                 )
             val clicks = mutableListOf<IndexedClick>()
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
+                object : TestView(manifest, host) {
                     var selected by state(0)
 
-                    override fun WindowScope.bind() {
+                    override fun WindowScope<Any>.bind() {
                         collection(
                             "pets",
                             render = { index ->
-                                val material =
-                                    if (index == selected) Material.DIAMOND else Material.PAPER
-                                ItemStack.of(material)
+                                if (index == selected) "diamond" else "paper"
                             },
                             handler = { clicks += it },
                         )
                     }
                 }
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, scheduler, handle).open()
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
 
-            handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0)).material() shouldBe
-                Material.DIAMOND
-            handle.items.getValue(SlotRef(SlotArea.PLAYER, 9)).material() shouldBe Material.PAPER
+            handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0)) shouldBe "diamond"
+            handle.items.getValue(SlotRef(SlotArea.PLAYER, 9)) shouldBe "paper"
 
             handle.click(SlotRef(SlotArea.PLAYER, 9), right = true)
             clicks.single().index shouldBe 1
@@ -59,8 +55,8 @@ class CollectionRoutingTest :
 
             view.selected = 1
             scheduler.runAll()
-            handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0)).material() shouldBe Material.PAPER
-            handle.items.getValue(SlotRef(SlotArea.PLAYER, 9)).material() shouldBe Material.DIAMOND
+            handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0)) shouldBe "paper"
+            handle.items.getValue(SlotRef(SlotArea.PLAYER, 9)) shouldBe "diamond"
         }
 
         "collection selection draws its sprite over the selected cell only" {
@@ -94,18 +90,19 @@ class CollectionRoutingTest :
                         ),
                     sprites = mapOf("box" to TestManifests.sprite(width = 18, height = 18, glyph = "\uE100")),
                 )
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
+                object : TestView(manifest, host) {
                     var selected: Int? by state(null)
 
-                    override fun WindowScope.bind() {
+                    override fun WindowScope<Any>.bind() {
                         collectionItem("pets") { null }
                         collectionSelection("pets") { selected }
                     }
                 }
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(manifest, "w", view, scheduler, handle).open()
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
             val plain = PlainTextComponentSerializer.plainText()
             val boxes = { plain.serialize(handle.titles.last()).count { it == '\uE100' } }
 

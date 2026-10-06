@@ -1,5 +1,6 @@
 package com.chunkzero.window.internal
 
+import com.chunkzero.window.host.OpenContainer
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 internal class AnvilReopenGate(
     private val scheduler: RenderScheduler,
-    private val handle: InventoryHandle,
+    private val container: () -> OpenContainer<*>,
     initial: String,
     private val deliver: (String) -> Unit,
     private val reopen: () -> Unit,
@@ -45,13 +46,14 @@ internal class AnvilReopenGate(
             deferred = true
             return false
         }
-        handle.bundle {
+        val container = container()
+        container.batch {
             action()
             restored = seed
             deferred = false
             val id = PINGS.getAndIncrement()
             awaiting = id
-            handle.ping(id)
+            container.ping(id)
         }
         return true
     }

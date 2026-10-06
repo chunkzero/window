@@ -14,6 +14,8 @@ import net.kyori.adventure.text.Component
 
 class RenderDiagnosticsTest :
     StringSpec({
+        afterTest { WindowDiagnostics.observer = RenderDiagnosticsObserver.NONE }
+
         "window session observes the same open and reactive composition passes" {
             val manifest =
                 TestManifests.manifest(
@@ -23,25 +25,24 @@ class RenderDiagnosticsTest :
                             "count" to TestManifests.slot(60, 40, Align.RIGHT),
                         ),
                 )
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
+                object : TestView(manifest, host) {
                     var count by state(1)
 
-                    override fun WindowScope.bind() {
+                    override fun WindowScope<Any>.bind() {
                         slot("count") { Component.text(count.toString()) }
                     }
                 }
             val frames = mutableListOf<RenderFrame>()
-            val observer = RenderDiagnosticsObserver { _, frame -> frames += frame }
-            val scheduler = ManualScheduler()
-            testSession(
-                manifest,
-                "w",
-                view,
-                scheduler,
-                FakeInventoryHandle(),
-                diagnosticsObserver = observer,
-            ).open()
+            val observed = mutableListOf<Any>()
+            WindowDiagnostics.observer =
+                RenderDiagnosticsObserver { source, frame ->
+                    observed += source
+                    frames += frame
+                }
+            val scheduler = host.scheduler
+            view.open()
 
             view.count = 2
             scheduler.runAll()
@@ -51,7 +52,7 @@ class RenderDiagnosticsTest :
                 listOf(RenderFrameReason.OPEN, RenderFrameReason.REACTIVE_UPDATE)
             frames.first().correlation.surfaceKind shouldBe RenderSurfaceKind.WINDOW
             frames.first().correlation.semanticId shouldBe "w"
-            frames.first().correlation.containerId shouldBe 7
+            observed.distinct() shouldContainExactly listOf(host)
             frames.first().correlation.renderSessionId shouldBe
                 frames.last().correlation.renderSessionId
             frames.first().layers.map { it.semanticId } shouldContainExactly
@@ -81,22 +82,17 @@ class RenderDiagnosticsTest :
                         ),
                     sprites = mapOf("coin" to TestManifests.sprite(width = 12, advance = 13)),
                 )
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
-                    override fun WindowScope.bind() {
+                object : TestView(manifest, host) {
+                    override fun WindowScope<Any>.bind() {
                         slot("title") { Component.text("Hi") }
                         sprite("icon") { "coin" }
                     }
                 }
             var frame: RenderFrame? = null
-            testSession(
-                manifest,
-                "w",
-                view,
-                ManualScheduler(),
-                FakeInventoryHandle(),
-                diagnosticsObserver = RenderDiagnosticsObserver { _, value -> frame = value },
-            ).open()
+            WindowDiagnostics.observer = RenderDiagnosticsObserver { _, value -> frame = value }
+            view.open()
 
             val layers = frame!!.layers.filter { it.kind != RenderLayerKind.STATIC_CHROME }
             layers.map { it.kind } shouldContainExactly
@@ -111,19 +107,14 @@ class RenderDiagnosticsTest :
 
         "observer failures never change normal title delivery" {
             val manifest = TestManifests.manifest()
-            val handle = FakeInventoryHandle()
+            val host = FakeHost()
+            val handle = host.container
             val view =
-                object : WindowView("w") {
-                    override fun WindowScope.bind() = Unit
+                object : TestView(manifest, host) {
+                    override fun WindowScope<Any>.bind() = Unit
                 }
-            testSession(
-                manifest,
-                "w",
-                view,
-                ManualScheduler(),
-                handle,
-                diagnosticsObserver = RenderDiagnosticsObserver { _, _ -> error("boom") },
-            ).open()
+            WindowDiagnostics.observer = RenderDiagnosticsObserver { _, _ -> error("boom") }
+            view.open()
 
             handle.opened shouldBe true
             handle.titles.size shouldBe 1
@@ -135,8 +126,9 @@ class RenderDiagnosticsTest :
                     width = 100,
                     slots = mapOf("coins" to TestManifests.slot(10, 30, Align.LEFT, y = 2)),
                 )
+            val host = FakeHost()
             val view =
-                object : HudView("h") {
+                object : TestHud(manifest, host) {
                     var coins by state(1)
 
                     override fun HudScope.bind() {
@@ -144,16 +136,10 @@ class RenderDiagnosticsTest :
                     }
                 }
             val frames = mutableListOf<RenderFrame>()
-            val sent = mutableListOf<Component>()
-            val scheduler = ManualScheduler()
-            HudSession(
-                HudDefinition("h", manifest, manifest.huds.getValue("h")),
-                view,
-                stubPlayer,
-                scheduler,
-                RenderDiagnosticsObserver { _, frame -> frames += frame },
-                sent::add,
-            ).show()
+            WindowDiagnostics.observer = RenderDiagnosticsObserver { _, frame -> frames += frame }
+            val scheduler = host.scheduler
+            view.show()
+            val sent = host.huds.single().contents
 
             view.coins = 2
             scheduler.runAll()
@@ -201,21 +187,16 @@ class RenderDiagnosticsTest :
                         ),
                     shader = HudShaderEntry(staticMarker = "#010002", sourceBottom = 59),
                 )
+            val host = FakeHost()
             val view =
-                object : HudView("h") {
+                object : TestHud(manifest, host) {
                     override fun HudScope.bind() {
                         slot("coins") { Component.text("Hi") }
                     }
                 }
             var frame: RenderFrame? = null
-            HudSession(
-                HudDefinition("h", manifest, manifest.huds.getValue("h")),
-                view,
-                stubPlayer,
-                ManualScheduler(),
-                RenderDiagnosticsObserver { _, value -> frame = value },
-                {},
-            ).show()
+            WindowDiagnostics.observer = RenderDiagnosticsObserver { _, value -> frame = value }
+            view.show()
 
             val observed = frame!!
             observed.cursorConvention shouldBe RenderCursorConvention.FIXED_WIDTH_COMPOSITION
