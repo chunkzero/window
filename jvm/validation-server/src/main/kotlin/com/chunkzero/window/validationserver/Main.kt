@@ -65,7 +65,7 @@ private fun installDiagnostics(config: Config): MinestomDiagnostics {
                 hud: HudView,
                 frame: RenderFrame,
             ) {
-                if (hud is ProbeHudView) diagnostics.observe(MinestomHost.of(hud.player), frame)
+                if (hud is ProbeHudView) diagnostics.observe(MinestomHost(hud.player), frame)
             }
         }
     return diagnostics

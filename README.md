@@ -111,11 +111,11 @@ The Kotlin runtime (`window-runtime`) does not depend on any server. A host conn
 containers, builds items, and schedules work for one player. Pick the host for your server and set the plugin's
 `kotlin.target` to match:
 
-| Server                           | Artifact                                | Host                       | `target`      |
-| -------------------------------- | --------------------------------------- | -------------------------- | ------------- |
-| [Minestom](https://minestom.net) | `com.chunkzero.window:window-minestom`  | `MinestomHost.of(player)`  | `"minestom"`  |
-| Multistom                        | `com.chunkzero.window:window-multistom` | `MultistomHost.of(player)` | `"multistom"` |
-| Anything else                    | `com.chunkzero.window:window-runtime`   | your own `WindowHost`      | `"agnostic"`  |
+| Server                           | Artifact                                | Host                    | `target`      |
+| -------------------------------- | --------------------------------------- | ----------------------- | ------------- |
+| [Minestom](https://minestom.net) | `com.chunkzero.window:window-minestom`  | `MinestomHost(player)`  | `"minestom"`  |
+| Multistom                        | `com.chunkzero.window:window-multistom` | `MultistomHost(player)` | `"multistom"` |
+| Anything else                    | `com.chunkzero.window:window-runtime`   | your own `WindowHost`   | `"agnostic"`  |
 
 With `minestom` or `multistom`, generated window views take a `Player`, use that player's host, and expose the player to
 subclasses as `player`. With `agnostic`, window views take a `WindowHost<I>` and are generic over the server's item
@@ -128,7 +128,7 @@ class Confirm<I : Any>(host: WindowHost<I>, private val onYes: () -> Unit) : Con
     override fun onAccept(click: Click) = onYes()
 }
 
-Confirm(MyHost.of(player)) { buySword(player) }.open()
+Confirm(MyHost(player)) { buySword(player) }.open()
 ```
 
 To write a host, see [Hosts](docs/ARCHITECTURE.md#hosts).

@@ -40,7 +40,7 @@ internal class MultistomFixture : HostFixture<ItemStack> {
     private val connection = RecordingConnection(process)
     val player = Player(connection, GameProfile(UUID.randomUUID(), "WindowTest"))
 
-    override val host: MultistomHost = MultistomHost.of(player)
+    override val host: MultistomHost = MultistomHost(player)
     private val playerNodes = mutableListOf<EventNode<PlayerEvent>>()
     private val redirectTarget = Inventory(process, InventoryType.CHEST_1_ROW, "redirect")
     private val globalNodes = mutableListOf<EventNode<PlayerEvent>>()

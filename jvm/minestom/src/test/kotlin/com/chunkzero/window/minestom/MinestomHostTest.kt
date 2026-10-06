@@ -9,8 +9,7 @@ import com.chunkzero.window.host.ContainerListener
 import com.chunkzero.window.host.WindowItem
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeSameInstanceAs
-import io.kotest.matchers.types.shouldNotBeSameInstanceAs
+import io.kotest.matchers.shouldNotBe
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
@@ -23,11 +22,12 @@ import net.minestom.server.inventory.click.Click as MinestomClick
 
 class MinestomHostTest :
     StringSpec({
-        "every view of a player shares one host" {
+        "hosts are equal when they share a player" {
             val player = MinestomFixture().player
 
-            MinestomHost.of(player) shouldBeSameInstanceAs MinestomHost.of(player)
-            MinestomHost.of(MinestomFixture().player) shouldNotBeSameInstanceAs MinestomHost.of(player)
+            MinestomHost(player) shouldBe MinestomHost(player)
+            MinestomHost(player).hashCode() shouldBe MinestomHost(player).hashCode()
+            MinestomHost(MinestomFixture().player) shouldNotBe MinestomHost(player)
         }
 
         "pre-clicks on the player region of the opened inventory are normalised by container size" {
