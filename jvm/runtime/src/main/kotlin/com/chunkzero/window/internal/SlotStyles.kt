@@ -2,6 +2,7 @@ package com.chunkzero.window.internal
 
 import com.chunkzero.window.manifest.SlotEntry
 import net.kyori.adventure.key.Key
+import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.Style
 import net.kyori.adventure.text.format.TextColor
@@ -55,3 +56,12 @@ internal fun Style.Builder.applyShadow(
 
 internal fun requireColor(hex: String): TextColor =
     requireNotNull(TextColor.fromHexString(hex)) { "Invalid manifest text color $hex" }
+
+/**
+ * This component with [parts] appended in order, like repeated [Component.append] calls but copying
+ * the child list once. Like `append`, skips [Component.empty].
+ */
+internal fun Component.appendAll(parts: List<Component>): Component {
+    val added = parts.filter { it !== Component.empty() }
+    return if (added.isEmpty()) this else children(children() + added)
+}

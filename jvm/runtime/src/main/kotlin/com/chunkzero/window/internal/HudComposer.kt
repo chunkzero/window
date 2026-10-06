@@ -74,59 +74,58 @@ internal class HudComposer(
         caseArt: Map<String, String> = emptyMap(),
     ): ComposedRender {
         val ordered = orderedRenderedSegments(slotSegments)
-        val base = arrayListOf(staticTrace("hud/$hudName/static", hud.static, originX))
-        caseArt.mapTo(base) { (id, art) -> staticTrace(id, art, 0) }
-        val static = withCaseArt(caseArt.values)
-        return if (shaderHud) composeShader(static, base, ordered) else composeFixedWidth(static, base, ordered)
+        val traces = arrayListOf(staticTrace("hud/$hudName/static", hud.static, originX))
+        caseArt.mapTo(traces) { (id, art) -> staticTrace(id, art, 0) }
+        val parts = ArrayList<Component>()
+        addCaseArt(caseArt.values, parts)
+        if (shaderHud) addShaderSegments(ordered, parts, traces) else addFixedWidthSegments(ordered, parts, traces)
+        return ComposedRender(staticComponent.appendAll(parts), traces)
     }
 
-    /** The static component followed by each net-zero [art] segment, ending where the static ends. */
-    private fun withCaseArt(art: Collection<String>): Component {
-        if (art.isEmpty()) return staticComponent
+    /** Adds each net-zero [art] segment, ending where the static ends. */
+    private fun addCaseArt(
+        art: Collection<String>,
+        parts: MutableList<Component>,
+    ) {
+        if (art.isEmpty()) return
         val end = if (shaderHud) 0 else originX
-        var component = staticComponent.appendSpacer(-end)
-        for (text in art) component = component.append(Component.text(text).style(spacerStyle))
-        return component.appendSpacer(end)
+        parts.addSpacer(-end)
+        for (text in art) parts += Component.text(text).style(spacerStyle)
+        parts.addSpacer(end)
     }
 
     /** Each segment is positioned from the HUD origin and returns to it independently. */
-    private fun composeShader(
-        static: Component,
-        base: List<RenderLayerTrace>,
+    private fun addShaderSegments(
         ordered: List<Map.Entry<String, RenderedSegment>>,
-    ): ComposedRender {
-        var component = static
-        val traces = ArrayList(base)
+        parts: MutableList<Component>,
+        traces: MutableList<RenderLayerTrace>,
+    ) {
         for ((_, rendered) in ordered) {
             val trace = rendered.trace
             val xStart = trace.expectedBounds.x
-            component =
-                component
-                    .appendSpacer(xStart)
-                    .append(rendered.component)
-                    .appendSpacer(-(xStart + trace.advance))
+            parts.addSpacer(xStart)
+            parts += rendered.component
+            parts.addSpacer(-(xStart + trace.advance))
             traces += trace.copy(cursorStart = 0, cursorEnd = 0, netCursorDelta = 0)
         }
-        return ComposedRender(component, traces)
     }
 
     /** Segments chain left to right from the HUD right edge, which the cursor returns to at the end. */
-    private fun composeFixedWidth(
-        static: Component,
-        base: List<RenderLayerTrace>,
+    private fun addFixedWidthSegments(
         ordered: List<Map.Entry<String, RenderedSegment>>,
-    ): ComposedRender {
-        var component = static
+        parts: MutableList<Component>,
+        traces: MutableList<RenderLayerTrace>,
+    ) {
         var cursor = originX
-        val traces = ArrayList(base)
         for ((_, rendered) in ordered) {
             val trace = rendered.trace
             val start = cursor
-            component = component.appendSpacer(trace.expectedBounds.x - cursor).append(rendered.component)
+            parts.addSpacer(trace.expectedBounds.x - cursor)
+            parts += rendered.component
             cursor = trace.expectedBounds.x + trace.advance
             traces += trace.copy(cursorStart = start, cursorEnd = cursor, netCursorDelta = cursor - start)
         }
-        return ComposedRender(component.appendSpacer(originX - cursor), traces)
+        parts.addSpacer(originX - cursor)
     }
 
     /** A static layer starting at the HUD's left edge whose cursor ends at [end]. */
@@ -160,10 +159,9 @@ internal class HudComposer(
                 .thenBy { it.key },
         )
 
-    private fun Component.appendSpacer(offset: Int): Component {
+    private fun MutableList<Component>.addSpacer(offset: Int) {
         val text = spacers.compose(offset)
-        if (text.isEmpty()) return this
-        return append(Component.text(text).style(spacerStyle))
+        if (text.isNotEmpty()) add(Component.text(text).style(spacerStyle))
     }
 
     private fun forceColor(
