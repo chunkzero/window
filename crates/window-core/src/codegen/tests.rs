@@ -208,7 +208,7 @@ fn views_follow_the_target_and_huds_do_not() {
     let player_view = |host: &str| {
         format!(
             "public abstract class ShopView(protected val player: Player) : \
-             WindowView<ItemStack>(WindowDefinitions.shop, {host}.of(player)) {{"
+             WindowView<ItemStack>(WindowDefinitions.shop, {host}(player)) {{"
         )
     };
     let cases = [

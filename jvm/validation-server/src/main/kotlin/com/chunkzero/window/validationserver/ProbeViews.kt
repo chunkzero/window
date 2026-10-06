@@ -19,7 +19,7 @@ internal class ProbeView(
     private val player: Player,
     private val report: RuntimeReport,
     private val openSearch: (Player) -> Unit,
-) : WindowView<ItemStack>(WindowDefinition(manifest, "probe"), MinestomHost.of(player)) {
+) : WindowView<ItemStack>(WindowDefinition(manifest, "probe"), MinestomHost(player)) {
     private var text by state("III×")
     private var searchOpened = false
 
@@ -91,7 +91,7 @@ internal class SearchProbeView(
     private val player: Player,
     private val report: RuntimeReport,
     private val showHud: (Player) -> Unit,
-) : WindowView<ItemStack>(WindowDefinition(manifest, "search_probe"), MinestomHost.of(player)) {
+) : WindowView<ItemStack>(WindowDefinition(manifest, "search_probe"), MinestomHost(player)) {
     private var hudRequested = false
 
     override fun WindowScope<ItemStack>.bind() {

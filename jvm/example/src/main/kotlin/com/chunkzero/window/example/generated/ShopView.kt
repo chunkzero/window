@@ -11,7 +11,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 
 /** Typed view for the `shop` window. Implement the abstract members. */
-public abstract class ShopView(protected val player: Player) : WindowView<ItemStack>(WindowDefinitions.shop, MinestomHost.of(player)) {
+public abstract class ShopView(protected val player: Player) : WindowView<ItemStack>(WindowDefinitions.shop, MinestomHost(player)) {
     /** Render the `balance` slot. */
     protected abstract fun balance(): Component
 

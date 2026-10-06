@@ -34,7 +34,7 @@ pub(super) fn render(
         _ if !base.hosted => ("", String::new(), String::new()),
         Some(host) => {
             let simple = host.rsplit('.').next().unwrap_or(host);
-            ("", "(protected val player: Player)".to_string(), format!(", {simple}.of(player)"))
+            ("", "(protected val player: Player)".to_string(), format!(", {simple}(player)"))
         }
         None => ("<I : Any>", "(host: WindowHost<I>)".to_string(), ", host".to_string()),
     };

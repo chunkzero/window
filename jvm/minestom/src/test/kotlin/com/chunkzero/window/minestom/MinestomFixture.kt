@@ -41,7 +41,7 @@ internal class MinestomFixture : HostFixture<ItemStack> {
     private val connection = RecordingConnection()
     val player = Player(connection, GameProfile(UUID.randomUUID(), "WindowTest"))
 
-    override val host: MinestomHost = MinestomHost.of(player)
+    override val host: MinestomHost = MinestomHost(player)
     private val playerNodes = mutableListOf<EventNode<PlayerEvent>>()
     private val redirectTarget = Inventory(InventoryType.CHEST_1_ROW, "redirect")
     private val globalNodes = mutableListOf<EventNode<PlayerEvent>>()

@@ -9,7 +9,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 
 /** Typed view for the `catalog_search` window. Implement the abstract members. */
-public abstract class CatalogSearchView(protected val player: Player) : WindowView<ItemStack>(WindowDefinitions.catalogSearch, MinestomHost.of(player)) {
+public abstract class CatalogSearchView(protected val player: Player) : WindowView<ItemStack>(WindowDefinitions.catalogSearch, MinestomHost(player)) {
     /** Handle a click on the `back` button. */
     protected abstract fun onBack(click: Click)
 

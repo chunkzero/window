@@ -56,8 +56,8 @@ Opening a container the server refuses to show (cancelled or redirected) throws 
 `WindowHost.open` with nothing registered (a redirect has already replaced the current container, which reported
 `onClose`), and the failed `WindowView.open()` still consumes the view.
 
-Hosts hold no runtime state. `MinestomHost.of(player)` and `MultistomHost.of(player)` keep one host per player in a
-player tag. Hosts duplicate their code rather than share it; each compiles against exactly one server.
+Hosts hold no runtime state. `MinestomHost(player)` and `MultistomHost(player)` are cheap wrappers that compare equal
+for the same player. Hosts duplicate their code rather than share it; each compiles against exactly one server.
 
 `window-host-testkit` holds the shared behaviour tests. Implement `HostFixture<I>` for a fresh player on a headless
 server and a simulated client, then extend `HostConformance`:
