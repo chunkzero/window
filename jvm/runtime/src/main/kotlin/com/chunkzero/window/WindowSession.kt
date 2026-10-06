@@ -7,20 +7,21 @@ import com.chunkzero.window.diagnostics.RenderSurfaceKind
 import com.chunkzero.window.host.ContainerListener
 import com.chunkzero.window.host.OpenContainer
 import com.chunkzero.window.host.WindowHost
+import com.chunkzero.window.internal.ComposedRender
 import com.chunkzero.window.internal.FrameCursor
 import com.chunkzero.window.internal.Reactivity
 import com.chunkzero.window.internal.RenderKey
 import com.chunkzero.window.internal.RenderScheduler
 import com.chunkzero.window.internal.SessionFrames
 import com.chunkzero.window.internal.SlotRoutes
+import com.chunkzero.window.internal.SlotWrites
 import com.chunkzero.window.internal.Switches
 import com.chunkzero.window.internal.WindowBindings
-import com.chunkzero.window.internal.WindowInventoryWriter
-import com.chunkzero.window.internal.WindowTitle
+import com.chunkzero.window.internal.WindowFrame
+import com.chunkzero.window.internal.WindowRenderer
 import com.chunkzero.window.internal.hasStaticTitle
 import com.chunkzero.window.internal.requireEntry
 import com.chunkzero.window.internal.titleSlots
-import com.chunkzero.window.internal.tooltipHitbox
 import net.kyori.adventure.text.Component
 import org.slf4j.LoggerFactory
 
@@ -49,29 +50,31 @@ internal fun <I : Any> windowSession(
         else -> ReopeningAnvilWindowSession(definition, view, host)
     }
 
-/** A window session over a container opened through [host]. */
+/**
+ * A window session over a container opened through [host]: turns container input into view calls, and delivers what
+ * its [WindowRenderer] renders.
+ */
 internal open class ContainerWindowSession<I : Any>(
-    internal val definition: WindowDefinition,
+    protected val definition: WindowDefinition,
     override val view: WindowView<I>,
     private val host: WindowHost<I>,
 ) : WindowSession() {
-    internal val entry = definition.entry
-    internal val scheduler = RenderScheduler(host::scheduleNextTick)
+    protected val entry = definition.entry
+    protected val scheduler = RenderScheduler(host::scheduleNextTick)
     private val reactivity = Reactivity(scheduler) { dirty -> flush(dirty) }
 
-    internal val bindings =
+    protected val bindings =
         WindowBindings(
             definition,
-            host,
+            host::item,
             definition.titleSlots(reactivity),
             Switches("window", definition.name, entry.switches, reactivity),
         )
-    private val title = WindowTitle(definition, bindings, reactivity)
+    protected val renderer = WindowRenderer(definition, bindings, reactivity, host::item)
 
     /** The open container; set when the window opens. */
-    internal lateinit var container: OpenContainer<I>
+    protected lateinit var container: OpenContainer<I>
         private set
-    internal val writer = WindowInventoryWriter(definition, bindings, host, { container }, reactivity)
     private val routes = SlotRoutes(entry, bindings, ::close)
     private var sentTitle: Component? = null
 
@@ -111,7 +114,7 @@ internal open class ContainerWindowSession<I : Any>(
         }
 
     private var closing = false
-    internal var closed = false
+    protected var closed = false
         private set
 
     internal fun open() {
@@ -119,84 +122,67 @@ internal open class ContainerWindowSession<I : Any>(
         view.invokeBind(bindings)
         bindings.validate()
         bindInput()
-        seedTitle()
 
-        val render = title.compose()
+        val title = renderer.seedTitle()
         container =
             try {
-                host.open(definition.kind, render.component, listener)
+                host.open(definition.kind, title.component, listener)
             } catch (failure: Throwable) {
                 closed = true
                 throw failure
             }
-        send { writer.seed() }
-        sentTitle = render.component
-        frames.observe(render, RenderFrameReason.OPEN)
+        send { deliver(renderer.seedItems()) }
+        sentTitle = title.component
+        frames.observe(title, RenderFrameReason.OPEN)
         view.invokeOnOpen()
     }
 
-    /**
-     * Renders switch case art first, then button state sprites, so both draw beneath sprite and
-     * text slots. Segments updated later keep this position, since title segments compose in
-     * insertion order.
-     */
-    private fun seedTitle() {
-        for (name in entry.switches.keys) title.updateSwitch(name)
-        for (name in entry.buttons.keys) {
-            val state = writer.initialButtonState(name)
-            if (state != null) title.setButtonVisual(name, state) else title.reserveButtonVisual(name)
-        }
-        title.seedContent()
-    }
-
-    /** Re-renders the dirty keys, then rebuilds and sends the title. */
     private fun flush(dirty: Set<RenderKey>) {
-        if (closed) return
-        for (key in dirty) {
-            when (key) {
-                is RenderKey.Slot -> title.updateSlot(key.name)
-                is RenderKey.Sprite -> title.updateSprite(key.name)
-                is RenderKey.ButtonItem -> writer.writeButtonItem(key.name)
-                is RenderKey.ButtonState -> applyButtonState(key.name, writer.renderButtonState(key.name))
-                is RenderKey.Item -> writer.writeItem(key.name)
-                is RenderKey.CollectionCell -> writer.writeCollectionCell(key.name, key.index)
-                is RenderKey.CollectionSelection -> title.updateCollectionSelection(key.name)
-                is RenderKey.Switch -> title.updateSwitch(key.name)
-            }
-        }
-        sendTitle()
+        if (!closed) deliver(renderer.render(dirty))
     }
 
-    /** Sends the title when it changed, or when [reopen] asks to restore an anvil's edit box. */
-    internal fun sendTitle(reopen: Boolean = false) {
+    private fun deliver(frame: WindowFrame<I>) {
+        deliver(frame.writes)
+        sendTitle(frame.title)
+    }
+
+    protected fun deliver(writes: SlotWrites<I>) {
+        for ((slot, item) in writes.items) container.setItem(slot, item)
+        for ((slot, item) in writes.staged) container.stageItem(slot, item)
+    }
+
+    /** Sends [title] when it changed, or when [reopen] asks to restore an anvil's edit box. */
+    protected fun sendTitle(
+        title: ComposedRender,
+        reopen: Boolean = false,
+    ) {
         if (closed) return
-        val render = title.compose()
-        if (!reopen && render.component == sentTitle) return
-        if (!send { container.setTitle(render.component) }) return
-        sentTitle = render.component
-        frames.observe(render, RenderFrameReason.REACTIVE_UPDATE)
+        if (!reopen && title.component == sentTitle) return
+        if (!send { container.setTitle(title.component) }) return
+        sentTitle = title.component
+        frames.observe(title, RenderFrameReason.REACTIVE_UPDATE)
     }
 
     /**
      * Runs [action], which seeds the opened container or changes its title; false when it was
      * deferred.
      */
-    internal open fun send(action: () -> Unit): Boolean {
+    protected open fun send(action: () -> Unit): Boolean {
         action()
         return true
     }
 
     /** Binds the window's anvil input, after the view's bindings are validated. */
-    internal open fun bindInput() {}
+    protected open fun bindInput() {}
 
     /** Handles the client's anvil edit-box [value]. */
-    internal open fun onInput(value: String) {}
+    protected open fun onInput(value: String) {}
 
     /** Handles the client's answer to ping [id]. */
-    internal open fun onPong(id: Int) {}
+    protected open fun onPong(id: Int) {}
 
     /** Runs before a client click or close is handled. */
-    internal open fun onClientPacket() {}
+    protected open fun onClientPacket() {}
 
     /** Replaces the text of anvil input [name]; backs `WindowView.input`. */
     internal open fun setInput(
@@ -206,43 +192,27 @@ internal open class ContainerWindowSession<I : Any>(
         definition.requireEntry(entry.inputs, name, "anvil input", known = "inputs")
     }
 
-    private fun applyButtonState(
-        name: String,
-        state: String,
-    ) {
-        writer.applyButtonState(name, state)
-        title.setButtonVisual(name, state)
-    }
-
     internal fun setButtonItem(
         name: String,
         item: I?,
-    ) {
-        writer.setButtonItem(name, item)
-    }
+    ) = deliver(renderer.setButtonItem(name, item))
 
     internal fun setItem(
         name: String,
         item: I?,
-    ) {
-        writer.setItem(name, item)
-    }
+    ) = deliver(renderer.setItem(name, item))
 
     internal fun setButtonState(
         name: String,
         state: String,
     ) {
-        if (writer.buttonState(name) == state) return
-        applyButtonState(name, state)
-        if (!closed) sendTitle()
+        deliver(renderer.setButtonState(name, state) ?: return)
     }
 
     internal fun setTooltip(
         name: String,
         tooltip: ButtonTooltip?,
-    ) {
-        setButtonItem(name, tooltip?.let { host.item(definition.tooltipHitbox(it)) })
-    }
+    ) = deliver(renderer.setTooltip(name, tooltip))
 
     private fun handleClick(click: Click) {
         if (closed) return

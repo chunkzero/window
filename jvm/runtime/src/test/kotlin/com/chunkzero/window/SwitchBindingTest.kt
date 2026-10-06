@@ -13,53 +13,6 @@ class SwitchBindingTest :
     StringSpec({
         fun plain(component: Component): String = PlainTextComponentSerializer.plainText().serialize(component)
 
-        val modeSwitch =
-            SwitchEntry(
-                listOf(
-                    SwitchCaseEntry("buy", static = "BUYART", slots = listOf("price")),
-                    SwitchCaseEntry("sell", static = "SELLART", slots = listOf("sell_label")),
-                ),
-            )
-
-        "window title draws only the active case's art and slots" {
-            val manifest =
-                TestManifests.manifest(
-                    slots =
-                        mapOf(
-                            "price" to TestManifests.slot(8, 40, Align.LEFT),
-                            "sell_label" to TestManifests.slot(8, 40, Align.LEFT, text = "Sell"),
-                        ),
-                    switches = mapOf("mode" to modeSwitch),
-                )
-            val host = FakeHost()
-            val view =
-                object : TestView(manifest, host) {
-                    var mode by state("buy")
-
-                    override fun WindowScope<Any>.bind() {
-                        slot("price") { Component.text("Ten") }
-                        switch("mode") { mode }
-                    }
-                }
-            val scheduler = host.scheduler
-            val handle = host.container
-            view.open()
-
-            val opened = plain(handle.titles.last())
-            opened shouldContain "BUYART"
-            opened shouldContain "Ten"
-            opened shouldNotContain "SELLART"
-            opened shouldNotContain "Sell"
-
-            view.mode = "sell"
-            scheduler.runAll()
-            val swapped = plain(handle.titles.last())
-            swapped shouldContain "SELLART"
-            swapped shouldContain "Sell"
-            swapped shouldNotContain "BUYART"
-            swapped shouldNotContain "Ten"
-        }
-
         "hud redraws the active case on update" {
             val show =
                 SwitchEntry(

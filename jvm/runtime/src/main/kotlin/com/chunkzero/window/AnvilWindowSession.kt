@@ -28,9 +28,9 @@ internal open class AnvilWindowSession<I : Any>(
      * Stages [value] as the seed's name, since reopens and resyncs reset the edit box to it, then
      * passes it to the handler.
      */
-    protected fun deliver(value: String) {
+    protected fun submit(value: String) {
         if (closed) return
-        writer.stageInput(input, value)
+        deliver(renderer.stageInput(input, value))
         handler(value)
     }
 
@@ -38,7 +38,7 @@ internal open class AnvilWindowSession<I : Any>(
         // Drops the client's echo of a seed name it was sent.
         if (value == this.value) return
         this.value = value
-        deliver(value)
+        submit(value)
     }
 
     override fun setInput(
@@ -51,7 +51,7 @@ internal open class AnvilWindowSession<I : Any>(
         if (text == this.value) return
         this.value = text
         // Sending the renamed seed sets the client's edit box in place.
-        writer.applyInput(input, text)
-        deliver(text)
+        deliver(renderer.applyInput(input, text))
+        submit(text)
     }
 }

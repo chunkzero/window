@@ -1,9 +1,8 @@
 package com.chunkzero.window.internal
 
 import com.chunkzero.window.ButtonTooltip
+import com.chunkzero.window.SlotRef
 import com.chunkzero.window.WindowDefinition
-import com.chunkzero.window.host.OpenContainer
-import com.chunkzero.window.host.WindowHost
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.ButtonEntry
@@ -17,16 +16,14 @@ import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.minimessage.MiniMessage
 
 /**
- * Writes a window's inventory items: button and hotspot hitboxes, named button states, item
- * regions, collection cells, and anvil input seeds.
+ * Renders a window's inventory items: button and hotspot hitboxes, named button states, item
+ * regions, collection cells, and anvil input seeds. Rendered items collect until [drain] takes them.
  */
-internal class WindowInventoryWriter<I : Any>(
+internal class WindowInventory<I : Any>(
     private val definition: WindowDefinition,
     private val bindings: WindowBindings<I>,
-    private val host: WindowHost<I>,
-    /** The open container; only called once the window is open. */
-    private val container: () -> OpenContainer<I>,
     private val reactivity: Reactivity,
+    private val buildItem: (WindowItem) -> I,
 ) {
     private val entry = definition.entry
 
@@ -37,6 +34,16 @@ internal class WindowInventoryWriter<I : Any>(
     private val tooltips = HashMap<TooltipEntry, ButtonTooltip>()
 
     private var inputRevisions = 0
+    private val items = LinkedHashMap<SlotRef, I?>()
+    private val staged = LinkedHashMap<Int, I?>()
+
+    /** Returns the items rendered since the last drain, and forgets them. */
+    fun drain(): SlotWrites<I> {
+        val writes = SlotWrites(LinkedHashMap(items), LinkedHashMap(staged))
+        items.clear()
+        staged.clear()
+        return writes
+    }
 
     /** Resolves and records button [name]'s initial named state, if it has one. */
     fun initialButtonState(name: String): String? {
@@ -50,10 +57,10 @@ internal class WindowInventoryWriter<I : Any>(
         return state
     }
 
-    /** Seeds every manifest-owned inventory slot after the inventory exists. */
+    /** Renders every manifest-owned inventory slot. */
     fun seed() {
         for (slotRect in entry.slotRects.values) {
-            for (slot in slotRect.slots) container().setItem(slot.toApi(), null)
+            for (slot in slotRect.slots) items[slot.toApi()] = null
         }
         for ((name, button) in entry.buttons) {
             applyButtonItem(button, seedButtonItem(name, button))
@@ -82,7 +89,7 @@ internal class WindowInventoryWriter<I : Any>(
         return reactivity.withRendering(RenderKey.ButtonState(name)) { render() }
     }
 
-    /** Records [state] as button [name]'s current state and writes its item. */
+    /** Records [state] as button [name]'s current state and renders its item. */
     fun applyButtonState(
         name: String,
         state: String,
@@ -116,7 +123,7 @@ internal class WindowInventoryWriter<I : Any>(
         stack: I?,
     ) {
         val item = definition.requireEntry(entry.items, name, "item", known = "items")
-        for (slot in item.slots) container().setItem(slot.toApi(), stack)
+        for (slot in item.slots) items[slot.toApi()] = stack
     }
 
     fun writeCollectionCell(
@@ -129,28 +136,27 @@ internal class WindowInventoryWriter<I : Any>(
                 .slots
                 .getOrNull(index) ?: return
         val render = bindings.collectionItems.getValue(name)
-        val item = reactivity.withRendering(RenderKey.CollectionCell(name, index)) { render(index) }
-        container().setItem(slot.toApi(), item)
+        items[slot.toApi()] = reactivity.withRendering(RenderKey.CollectionCell(name, index)) { render(index) }
     }
 
     /**
-     * Sends the input seed renamed to [value]. Each send carries a new revision, since the client only
-     * resets its edit box to the seed's name when the item changes.
+     * Renders the input seed renamed to [value]. Each render carries a new revision, since the client
+     * only resets its edit box to the seed's name when the item changes.
      */
     fun applyInput(
         input: AnvilInputEntry,
         value: String,
     ) {
-        container().setItem(input.slot.toApi(), host.item(inputSeed(input, value, ++inputRevisions)))
+        items[input.slot.toApi()] = buildItem(inputSeed(input, value, ++inputRevisions))
     }
 
-    /** Renames the input seed to [value] without sending it, so the next reopen restores [value]. */
+    /** Stages the input seed renamed to [value], so the next reopen restores [value]. */
     fun stageInput(
         input: AnvilInputEntry,
         value: String,
     ) {
         check(input.slot.area == SlotAreaEntry.CONTAINER) { "Anvil inputs must use container slots" }
-        container().stageItem(input.slot.index, host.item(inputSeed(input, value)))
+        staged[input.slot.index] = buildItem(inputSeed(input, value))
     }
 
     /** Button [name]'s current named state, if it has one. */
@@ -169,7 +175,7 @@ internal class WindowInventoryWriter<I : Any>(
     }
 
     /**
-     * Writes [item] into the slots this button fills.
+     * Renders [item] into the slots this button fills.
      *
      * Click routing covers every slot in [ButtonEntry.slots], but a repeater cell yields the slots
      * owned by its item children, so their real stacks are never overwritten by the cell's hitbox.
@@ -178,14 +184,14 @@ internal class WindowInventoryWriter<I : Any>(
         button: ButtonEntry,
         item: I?,
     ) {
-        for (slot in button.filledSlots) container().setItem(slot.toApi(), item)
+        for (slot in button.filledSlots) items[slot.toApi()] = item
     }
 
     private fun defaultButtonItem(button: ButtonEntry): I? {
         val defaultState = button.states["default"]
         if (defaultState != null) return itemForState(button, defaultState)
         val tooltip = button.tooltip?.let(::tooltip) ?: return null
-        return host.item(WindowItem.Hitbox(definition.hitboxModel, tooltip))
+        return buildItem(WindowItem.Hitbox(definition.hitboxModel, tooltip))
     }
 
     private fun itemForState(
@@ -194,7 +200,7 @@ internal class WindowInventoryWriter<I : Any>(
     ): I {
         val tooltip = (state.tooltip ?: button.tooltip)?.let(::tooltip)
         val model = state.itemModel?.let(Key::key) ?: definition.hitboxModel
-        return host.item(WindowItem.Hitbox(model, tooltip))
+        return buildItem(WindowItem.Hitbox(model, tooltip))
     }
 
     private fun tooltip(source: TooltipEntry): ButtonTooltip =

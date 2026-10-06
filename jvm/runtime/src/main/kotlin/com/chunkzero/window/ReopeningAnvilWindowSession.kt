@@ -13,7 +13,13 @@ internal class ReopeningAnvilWindowSession<I : Any>(
     view: WindowView<I>,
     host: WindowHost<I>,
 ) : AnvilWindowSession<I>(definition, view, host) {
-    private val gate = AnvilReopenGate(scheduler, { container }, input.initial, ::deliver) { sendTitle(reopen = true) }
+    private val gate =
+        AnvilReopenGate(
+            scheduler,
+            { container },
+            input.initial,
+            ::submit,
+        ) { sendTitle(renderer.title(), reopen = true) }
 
     override fun send(action: () -> Unit): Boolean = gate.send(action)
 

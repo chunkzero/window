@@ -5,7 +5,7 @@ import com.chunkzero.window.Click
 import com.chunkzero.window.IndexedClick
 import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.WindowScope
-import com.chunkzero.window.host.WindowHost
+import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.ButtonState
 import net.kyori.adventure.text.Component
 
@@ -15,7 +15,7 @@ import net.kyori.adventure.text.Component
  */
 internal class WindowBindings<I : Any>(
     private val definition: WindowDefinition,
-    private val host: WindowHost<I>,
+    private val buildItem: (WindowItem) -> I,
     val slots: DynamicSlots,
     val switches: Switches,
 ) : WindowScope<I> {
@@ -131,7 +131,7 @@ internal class WindowBindings<I : Any>(
         name: String,
         tooltip: ButtonTooltip?,
     ) {
-        val item = tooltip?.let { host.item(definition.tooltipHitbox(it)) }
+        val item = tooltip?.let { buildItem(definition.tooltipHitbox(it)) }
         buttonItem(name) { item }
     }
 

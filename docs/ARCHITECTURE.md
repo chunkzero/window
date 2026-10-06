@@ -135,6 +135,9 @@ to them. The host cancels inventory interactions (its containers also refuse nat
 cannot re-enable item movement), normalises their slots, and leases the player-inventory slots temporarily claimed by
 the UI. Closing restores those slots and releases the session's listeners.
 
+A window session owns the host's container: it turns container input into view calls and delivers what its renderer
+produces. The renderer evaluates the view's bindings into the title and slot items without touching the host.
+
 Reactive window state records which bindings read it. Writes mark those bindings dirty and schedule a batched update on
 the host's next tick. Sessions are not thread-safe: state writes must happen on the thread that serves the host's
 player. Text, sprites, and item state updates share the current compiled definition.
