@@ -18,12 +18,12 @@ import window from "#plugins/window";
 export default defineConfig({
     pack: { name: "release-consumer", description: "Window release consumer", format: 88 },
     build: { source: "src", output: "dist" },
-    plugins: [window({ namespace: "window", kotlin: { package: "consumer.ui", output: "../jvm/src/main/kotlin/consumer/ui" } })],
+    plugins: [window({ namespace: "window", kotlin: { package: "consumer.ui", output: "../jvm/src/main/kotlin/consumer/ui", target: "minestom" } })],
 });
 TS
 (cd "$consumer/pack" && rpp codegen && rpp check && rpp build)
 test -f "$consumer/pack/dist/assets/window/font/default.json" || find "$consumer/pack/dist/assets/window/font" -name '*.json' | grep -q .
-test -f "$consumer/jvm/src/main/kotlin/consumer/ui/WindowPack.kt"
+test -f "$consumer/jvm/src/main/kotlin/consumer/ui/WalletView.kt"
 cp jvm/gradle/libs.versions.toml "$consumer/libs.versions.toml"
 cat > "$consumer/jvm/settings.gradle.kts" <<'KTS'
 pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
@@ -38,7 +38,7 @@ plugins { kotlin("jvm") version "2.3.10" }
 repositories { maven { url = uri("../window-$RELEASE_VERSION-maven") }; mavenCentral() }
 kotlin { jvmToolchain(25) }
 dependencies {
-    implementation("com.chunkzero.window:window-runtime:$RELEASE_VERSION")
+    implementation("com.chunkzero.window:window-minestom:$RELEASE_VERSION")
     implementation(libs.minestom)
 }
 KTS

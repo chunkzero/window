@@ -1,11 +1,13 @@
 package com.chunkzero.window.diagnostics.minestom
 
 import com.chunkzero.window.RenderDiagnosticsObserver
+import com.chunkzero.window.WindowDiagnostics
 import com.chunkzero.window.diagnostics.DiagnosticsProtocol
 import com.chunkzero.window.diagnostics.PackFingerprint
 import com.chunkzero.window.diagnostics.RenderFrame
+import com.chunkzero.window.host.WindowHost
+import com.chunkzero.window.minestom.MinestomHost
 import net.minestom.server.MinecraftServer
-import net.minestom.server.entity.Player
 import net.minestom.server.event.Event
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
@@ -22,6 +24,8 @@ import java.util.concurrent.TimeoutException
  * Installation only registers a custom-payload listener. A player receives no acknowledgement or
  * render data until its mod explicitly sends a valid v1 capability hello. Malformed, oversized, and
  * unnegotiated traffic is ignored; encoded frames are bounded by both peers' advertised limits.
+ *
+ * [install] registers the adapter as [WindowDiagnostics.observer]; [close] unregisters it.
  */
 public class MinestomDiagnostics
     private constructor(
@@ -42,12 +46,15 @@ public class MinestomDiagnostics
                 fabricNegotiation.remove(event.player.uuid)
             }
             eventRoot.addChild(eventNode)
+            WindowDiagnostics.observer = this
         }
 
+        /** Sends [frame] to a negotiated [MinestomHost] player; frames from other hosts are ignored. */
         override fun observe(
-            player: Player,
+            host: WindowHost<*>,
             frame: RenderFrame,
         ) {
+            val player = (host as? MinestomHost)?.player ?: return
             val payload =
                 negotiation.encodeFrame(
                     player.uuid,
@@ -111,8 +118,9 @@ public class MinestomDiagnostics
             }
         }
 
-        /** Removes this adapter's listeners and negotiated client state. */
+        /** Unregisters this adapter and removes its listeners and negotiated client state. */
         override fun close() {
+            if (WindowDiagnostics.observer === this) WindowDiagnostics.observer = RenderDiagnosticsObserver.NONE
             eventRoot.removeChild(eventNode)
             negotiation.clear()
             fabricNegotiation.clear()
@@ -126,7 +134,7 @@ public class MinestomDiagnostics
             private const val FABRIC_NEGOTIATION_BARRIER = "window:diagnostics_barrier"
             private const val FABRIC_NEGOTIATION_TIMEOUT_SECONDS = 2L
 
-            /** Installs diagnostics on Minestom's global event graph. */
+            /** Installs diagnostics on Minestom's global event graph and registers them with [WindowDiagnostics]. */
             @JvmStatic
             @JvmOverloads
             public fun install(
@@ -139,7 +147,7 @@ public class MinestomDiagnostics
                     maxPayloadBytes,
                 )
 
-            /** Installs diagnostics under an explicit event root. */
+            /** Installs diagnostics under an explicit event root and registers them with [WindowDiagnostics]. */
             @JvmStatic
             @JvmOverloads
             public fun install(

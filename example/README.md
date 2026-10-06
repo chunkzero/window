@@ -18,10 +18,11 @@ example/
 └── (server lives in ../jvm/example)
 ```
 
-The Minestom server is the Gradle module `jvm/example`: `Main.kt` boots the server, `Market.kt` is a throwaway domain
-model, and `MyShop.kt` implements the **generated** `ShopView`. `MyStatusHud.kt` implements the **generated** HUD views,
-and `Main.kt` loads the generated `WindowPack` object (under `generated/`, produced by the rpp plugin — committed, do
-not hand-edit).
+The Minestom server is the Gradle module `jvm/example`, which depends on `window-minestom`. `Main.kt` boots the server,
+`Market.kt` is a throwaway domain model, and `MyShop.kt` implements the **generated** `ShopView`. `MyStatusHud.kt`
+implements the **generated** HUD views. The pack uses `target: "minestom"`, so each view takes the `Player` it is shown
+to: `Main.kt` opens the shop with `MyShop(player, market).open()` and shows each HUD with `show()`. The bindings live
+under `generated/`, produced by the rpp plugin — committed, do not hand-edit.
 
 ## Run it
 
@@ -38,8 +39,7 @@ a static anvil screen with the native rename field and back and search buttons; 
 filtered by the query, which the catalog's clear button resets and reopening search restores.
 
 The actionbar-backed HUD demo is disabled by default so the inventory examples stay visually focused. Enable it with
-`-Dwindow.hud.enabled=true`; use `-Dwindow.hud.spriteDebug=true` or `-Dwindow.hud.flowDebug=true` for the chat
-diagnostics.
+`-Dwindow.hud.enabled=true`; use `-Dwindow.hud.spriteDebug=true` to print each HUD's static art to chat.
 
 Override the port with `-Dwindow.port=…`. The server also serves `dist/window-example.zip` as a required resource pack
 at `http://127.0.0.1:25567/pack.zip`; override with `-Dwindow.pack=…`, `-Dwindow.pack.port=…`, or `-Dwindow.pack.url=…`
@@ -47,6 +47,7 @@ when testing from another machine.
 
 ## The typed contract
 
-The rpp plugin emits `WindowPack`, `WindowFonts`, `WindowSpacers`, `WindowDefinitions`, `WindowHudDefinitions`, and one
-abstract class for each window/HUD. `MyShop` must implement `balance()`, `status()`, and `onBuy(...)`; `MyStatusHud`
-must implement each authored HUD slot. Omit one, rebuild, and the breakage surfaces at compile time.
+The rpp plugin emits `internal` pack data (`WindowPackData`, `WindowFonts`, `WindowSpacers`, `WindowDefinitions`,
+`WindowHudDefinitions`, and friends) and one public abstract class for each window/HUD. `MyShop` must implement
+`balance()`, `status()`, and `onBuy(...)`; `MyStatusHud` must implement each authored HUD slot. Omit one, rebuild, and
+the breakage surfaces at compile time.

@@ -1,6 +1,6 @@
 # Validation
 
-Window validates the same contract at three boundaries: pure compiler tests, headless Minestom/runtime tests, and a real
+Window validates the same contract at three boundaries: pure compiler tests, headless runtime and host tests, and a real
 Minecraft client. A test at only one boundary is insufficient because resource activation, protocol input, glyph
 geometry, and shaders exist only in the client.
 
@@ -23,8 +23,9 @@ window_core::validation::validate_compile_output(&output).assert_valid();
 
 Rust tests additionally cover layout, rasterization, alpha compositing, codepoint allocation, authoring validation,
 codegen, HUD shaders, and the end-to-end shop fixture. Kotlin tests cover title/HUD composition, measurement,
-reactivity, bindings, click routing, slot normalization, paging, and real Minestom inventory packets through a recording
-connection.
+reactivity, bindings, click routing, and paging against an in-memory host. Each host runs `window-host-testkit`'s
+conformance suite (slot normalization, player-slot leases, anvil reopens, ping ordering, HUD channels) against its real
+server through a recording connection.
 
 ## Real Minecraft validation
 

@@ -458,10 +458,10 @@ Fixed sprite slots require no generated Kotlin binding. Window composes button-s
 selections, then fixed/runtime sprite slots, then text, so icons and labels remain visible above an opaque selected
 background.
 
-The Minestom runtime provides `toggle`, typed `choice`, `enabledButton`, and `pager` helpers. `pager` binds
-previous/next buttons to `WindowPager`, updates their `enabled`/`disabled` states, suppresses disabled clicks, and
-reports the new item offset. These primitives cover segmented sorting tabs, mutually exclusive difficulty controls,
-locked actions, and paginated inventory grids.
+The runtime provides `toggle`, typed `choice`, `enabledButton`, and `pager` helpers. `pager` binds previous/next buttons
+to `WindowPager`, updates their `enabled`/`disabled` states, suppresses disabled clicks, and reports the new item
+offset. These primitives cover segmented sorting tabs, mutually exclusive difficulty controls, locked actions, and
+paginated inventory grids.
 
 Runtime sprite slots:
 
@@ -562,7 +562,7 @@ show("on_sale", { children: [sprite("sale_badge")] });
 ## Native anvil search
 
 Use the `anvil` surface when a UI needs real keyboard input. Window seeds the first anvil slot, keeps it owned by the
-input, listens to Minestom's `PlayerAnvilInputEvent`, and exposes a typed `anvilInput` binding.
+input, receives the text box contents from the host, and exposes a typed `anvilInput` binding.
 
 A pack with an `anvilInput` hands every anvil screen to Window: it replaces vanilla's anvil background and
 missing-result icon with transparent textures, so only Window art shows, and vanilla anvils no longer draw their own

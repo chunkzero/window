@@ -1,6 +1,5 @@
 package com.chunkzero.window.validationserver
 
-import com.chunkzero.window.Windows
 import com.chunkzero.window.diagnostics.PackFingerprint
 import com.chunkzero.window.diagnostics.minestom.MinestomDiagnostics
 import com.chunkzero.window.manifest.WindowManifest
@@ -29,9 +28,9 @@ fun main(args: Array<String>) {
     val server = MinecraftServer.init()
     val instance = createInstance()
     val diagnostics = installDiagnostics(config)
-    val windows = Windows.load(WindowManifest.parse(Files.readString(config.manifest)), diagnostics)
+    val manifest = WindowManifest.parse(Files.readString(config.manifest))
     installValidationRoutes(report)
-    installListeners(instance, windows, report)
+    installListeners(instance, manifest, report)
     installShutdownHook(diagnostics, report)
     server.start("127.0.0.1", config.port)
     report.record("server.ready", mapOf("port" to config.port.toString()))
@@ -70,7 +69,7 @@ private fun installValidationRoutes(report: RuntimeReport) {
 
 private fun installListeners(
     instance: Instance,
-    windows: Windows,
+    manifest: WindowManifest,
     report: RuntimeReport,
 ) {
     val openedPlayers = ConcurrentHashMap.newKeySet<UUID>()
@@ -82,7 +81,7 @@ private fun installListeners(
         addListener(PlayerLoadedEvent::class.java) { event ->
             if (!openedPlayers.add(event.player.uuid)) return@addListener
             report.record("player.loaded", mapOf("player" to event.player.username))
-            openProbeFlow(windows, event.player, report)
+            openProbeFlow(manifest, event.player, report)
         }
         addListener(PlayerDisconnectEvent::class.java) { event ->
             openedPlayers.remove(event.player.uuid)
@@ -92,29 +91,23 @@ private fun installListeners(
 }
 
 private fun openProbeFlow(
-    windows: Windows,
+    manifest: WindowManifest,
     player: Player,
     report: RuntimeReport,
 ) {
-    windows.open(
-        player,
-        ProbeView(report) { probePlayer ->
-            MinecraftServer.getSchedulerManager().scheduleNextTick {
-                if (probePlayer.isOnline) {
-                    windows.open(
-                        probePlayer,
-                        SearchProbeView(report) { searchPlayer ->
-                            MinecraftServer.getSchedulerManager().scheduleNextTick {
-                                if (searchPlayer.isOnline) {
-                                    windows.show(searchPlayer, ProbeHudView(report))
-                                }
-                            }
-                        },
-                    )
-                }
+    ProbeView(manifest, player, report) { probePlayer ->
+        probePlayer.scheduler().scheduleNextTick {
+            if (probePlayer.isOnline) {
+                SearchProbeView(manifest, probePlayer, report) { searchPlayer ->
+                    searchPlayer.scheduler().scheduleNextTick {
+                        if (searchPlayer.isOnline) {
+                            ProbeHudView(manifest, searchPlayer, report).show()
+                        }
+                    }
+                }.open()
             }
-        },
-    )
+        }
+    }.open()
 }
 
 private fun installShutdownHook(

@@ -1,8 +1,6 @@
 package com.chunkzero.window.example
 
 import com.chunkzero.window.HudView
-import com.chunkzero.window.Windows
-import com.chunkzero.window.example.generated.WindowPack
 import net.kyori.adventure.resource.ResourcePackCallback
 import net.kyori.adventure.resource.ResourcePackRequest
 import net.kyori.adventure.text.Component
@@ -37,7 +35,6 @@ import java.nio.file.Path
 fun main() {
     val server = MinecraftServer.init()
     val instance = createInstance()
-    val windows = WindowPack.windows()
     val market = Market()
     val serverPort = System.getProperty("window.port")?.toInt() ?: 25565
     val packPort = System.getProperty("window.pack.port")?.toInt() ?: 25567
@@ -45,8 +42,8 @@ fun main() {
     val packServer = PackServer(resolvePackZip(), packPort, packUrl).also(PackServer::start)
     Runtime.getRuntime().addShutdownHook(Thread { packServer.stop() })
 
-    registerPlayerEvents(instance, createPackRequest(packServer, windows, market))
-    registerShopAccess(windows, market)
+    registerPlayerEvents(instance, createPackRequest(packServer, market))
+    registerShopAccess(market)
 
     server.start("0.0.0.0", serverPort)
     println("Window example server listening on $serverPort — pack served at $packUrl.")
@@ -60,7 +57,6 @@ private fun createInstance(): InstanceContainer =
 
 private fun createPackRequest(
     packServer: PackServer,
-    windows: Windows,
     market: Market,
 ): ResourcePackRequest =
     packServer.request(
@@ -71,7 +67,7 @@ private fun createPackRequest(
                 if (player != null) {
                     MinecraftServer.getSchedulerManager().scheduleNextTick {
                         if (player.isOnline) {
-                            openExampleUi(player, windows, market)
+                            openExampleUi(player, market)
                         }
                     }
                 }
@@ -114,58 +110,41 @@ private val SHOP_ITEM by lazy {
 }
 
 /** Reopens the shop from `/shop` or by using the hotbar emerald handed out on first spawn. */
-private fun registerShopAccess(
-    windows: Windows,
-    market: Market,
-) {
+private fun registerShopAccess(market: Market) {
     val command = Command("shop")
-    command.setDefaultExecutor { sender, _ -> (sender as? Player)?.let { openShop(it, windows, market) } }
+    command.setDefaultExecutor { sender, _ -> (sender as? Player)?.let { openShop(it, market) } }
     MinecraftServer.getCommandManager().register(command)
     MinecraftServer.getGlobalEventHandler().addListener(PlayerUseItemEvent::class.java) { event ->
-        if (event.itemStack.getTag(SHOP_ITEM_TAG) == true) openShop(event.player, windows, market)
+        if (event.itemStack.getTag(SHOP_ITEM_TAG) == true) openShop(event.player, market)
     }
 }
 
 // A fresh view per open: each carries its own reactive state.
 private fun openShop(
     player: Player,
-    windows: Windows,
     market: Market,
-) = windows.open(player, MyShop(windows, market))
+) = MyShop(player, market).open()
 
 private fun openExampleUi(
     player: Player,
-    windows: Windows,
     market: Market,
 ) {
     if (flag("window.hud.spriteDebug")) {
-        sendHudSpriteDebug(player, windows)
+        sendHudSpriteDebug(player)
     }
 
-    openShop(player, windows, market)
-    val startedAt = System.currentTimeMillis()
-    val hudEnabled = flag("window.hud.enabled", default = false)
-    val flowDebug = flag("window.hud.flowDebug")
-    if (!hudEnabled && !flowDebug) {
-        return
-    }
-
-    val huds = createStatusHuds(market, startedAt)
-    if (flowDebug) {
-        sendHudFlowDebug(player, windows, huds)
-    }
-    if (hudEnabled) {
-        showHuds(player, windows, huds)
+    openShop(player, market)
+    if (flag("window.hud.enabled")) {
+        showHuds(player, createStatusHuds(player, market, System.currentTimeMillis()))
     }
 }
 
 private fun showHuds(
     player: Player,
-    windows: Windows,
     huds: List<HudView>,
 ) {
-    val sessions = huds.map { hud -> windows.show(player, hud) }
-    MinecraftServer.getSchedulerManager().submitTask {
+    val sessions = huds.map(HudView::show)
+    player.scheduler().submitTask {
         if (!player.isOnline) {
             sessions.forEach { session -> session.hide() }
             return@submitTask TaskSchedule.stop()
@@ -181,16 +160,17 @@ private fun flag(
 ): Boolean = System.getProperty(name)?.toBooleanStrictOrNull() ?: default
 
 private fun createStatusHuds(
+    player: Player,
     market: Market,
     startedAt: Long,
 ): List<HudView> =
     listOf(
-        MyStatusTopLeftHud(market),
-        MyStatusTopCenterHud(startedAt),
-        MyStatusTopRightHud(startedAt),
-        MyStatusLeftSideHud(),
-        MyStatusRightSideHud(market),
-        MyStatusBottomCenterHud(startedAt),
+        MyStatusTopLeftHud(player, market),
+        MyStatusTopCenterHud(player, startedAt),
+        MyStatusTopRightHud(player, startedAt),
+        MyStatusLeftSideHud(player),
+        MyStatusRightSideHud(player, market),
+        MyStatusBottomCenterHud(player, startedAt),
     )
 
 /** Locate the built resource-pack zip, or use `-Dwindow.pack=/path/to/window-example.zip`. */

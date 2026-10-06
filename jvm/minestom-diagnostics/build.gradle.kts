@@ -2,7 +2,7 @@ plugins { id("buildlogic.library") }
 
 dependencies {
     api(project(":diagnostics-protocol"))
-    api(project(":runtime"))
+    api(project(":minestom"))
     compileOnly(libs.minestom)
     compileOnly(libs.slf4j.api)
 

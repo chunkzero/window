@@ -1,6 +1,6 @@
 # Window
 
-Custom Minecraft UIs for [Minestom](https://minestom.net) servers, with no client mods.
+Custom Minecraft UIs for [Minestom](https://minestom.net)-based servers, with no client mods.
 
 You describe a UI in TypeScript. Window compiles it into resource-pack fonts and shaders that vanilla clients draw
 through the inventory title and HUD, and generates a typed Kotlin view for each window. You implement the view on the
@@ -57,15 +57,16 @@ export default (
 `rpp build` produces the resource pack and a Kotlin base class, which you extend on the server:
 
 ```kotlin
-class Confirm(private val question: String, private val onYes: () -> Unit) : ConfirmView() {
+class Confirm(player: Player, private val question: String, private val onYes: () -> Unit) : ConfirmView(player) {
     override fun question(): Component = Component.text(question)
 
     override fun onAccept(click: Click) = onYes()
 }
 
-val windows = WindowPack.windows()
-windows.open(player, Confirm("Buy this sword?") { buySword(player) })
+Confirm(player, "Buy this sword?") { buySword(player) }.open()
 ```
+
+Views and HUDs are single-use: create a new one each time you `open()` a window or `show()` a HUD.
 
 ## Getting started
 
@@ -85,24 +86,54 @@ export default defineConfig({
   plugins: [
     window({
       namespace: "window",
-      kotlin: { package: "com.example.ui", output: "../server/src/main/kotlin/com/example/ui" },
+      kotlin: { package: "com.example.ui", output: "../server/src/main/kotlin/com/example/ui", target: "minestom" },
     }),
   ],
 });
 ```
 
-The server uses the Kotlin runtime in [`jvm/runtime`](jvm/runtime) (`com.chunkzero.window:window-runtime`). Pin the same
-version as the plugin:
+The server depends on the host for its server (see [Servers](#servers)), which brings the runtime. Pin the same version
+as the plugin, and keep your own Minestom dependency; hosts compile against it but do not bring it:
 
 ```kotlin
 repositories {
     maven("https://maven.chunkzero.com")
     mavenCentral()
 }
-dependencies { implementation("com.chunkzero.window:window-runtime:0.1.0-alpha.0") }
+dependencies { implementation("com.chunkzero.window:window-minestom:0.1.0-alpha.0") }
 ```
 
 Nightly versions come from `https://maven.chunkzero.com/nightlies`; see [Releasing](docs/RELEASING.md).
+
+## Servers
+
+The Kotlin runtime (`window-runtime`) does not depend on any server. A host connects it to one: it opens containers,
+shows HUDs, builds items, and schedules work for one player. Pick the host for your server and set the plugin's
+`kotlin.target` to match:
+
+| Server                           | Artifact                                | Host                       | `target`      |
+| -------------------------------- | --------------------------------------- | -------------------------- | ------------- |
+| [Minestom](https://minestom.net) | `com.chunkzero.window:window-minestom`  | `MinestomHost.of(player)`  | `"minestom"`  |
+| Multistom                        | `com.chunkzero.window:window-multistom` | `MultistomHost.of(player)` | `"multistom"` |
+| Anything else                    | `com.chunkzero.window:window-runtime`   | your own `WindowHost`      | `"agnostic"`  |
+
+With `minestom` or `multistom`, generated views take a `Player`, use that player's shared host, and expose the player to
+subclasses as `player`. With `agnostic`, views take a `WindowHost<I>` and are generic over the server's item type:
+
+```kotlin
+class Confirm<I : Any>(host: WindowHost<I>, private val onYes: () -> Unit) : ConfirmView<I>(host) {
+    override fun question(): Component = Component.text("Buy this sword?")
+
+    override fun onAccept(click: Click) = onYes()
+}
+
+Confirm(MyHost.of(player)) { buySword(player) }.open()
+```
+
+A host must be shared by every view and HUD of a player. To write one, see [Hosts](docs/ARCHITECTURE.md#hosts).
+
+Window is not thread-safe. Open views and write view `state` only on the thread that serves the player, such as
+Minestom's event handlers and `player.scheduler()`; Window schedules its re-renders on that thread too.
 
 The [example](example/README.md) is a complete project: a shop with a paged catalog, filters and anvil search, and a set
 of shader HUDs, running on a Minestom server. To try it:
@@ -116,13 +147,13 @@ Then connect with a Minecraft 26.2 client.
 
 ## Supported versions
 
-Window targets Minecraft 26.2 (resource pack format 88). The Kotlin runtime and example server use a Minestom build for
-26.2, and Minestom serves a single protocol version, so they accept only 26.2 clients. The
-[inspector](docs/INSPECTOR.md) also targets 26.2.
+Window targets Minecraft 26.2 (resource pack format 88). The hosts and example server use Minestom builds for 26.2, and
+Minestom serves a single protocol version, so they accept only 26.2 clients. The [inspector](docs/INSPECTOR.md) also
+targets 26.2.
 
 The compiler still emits packs for 26.1.x (pack format 84): its glyph metrics are shared with 26.2, and `hudShaders`
 selects the core text shaders for the configured `pack.format`. Serving 26.1.x clients requires a server that speaks
-their protocol; Window's runtime does not.
+their protocol; the Minestom and Multistom hosts do not.
 
 ## Documentation
 
