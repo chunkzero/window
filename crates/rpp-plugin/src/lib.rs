@@ -23,6 +23,13 @@ pub struct SourceFileInput {
     pub contents: Vec<u8>,
 }
 
+/// Where and for which server API to generate Kotlin bindings.
+#[derive(Clone, Debug)]
+pub struct KotlinBindings {
+    pub package_name: String,
+    pub target: window_core::codegen::KotlinTarget,
+}
+
 /// Pack and optional Kotlin artifacts produced by one compiler pass.
 #[derive(Clone, Debug)]
 pub struct PluginCompileOutput {
@@ -37,14 +44,14 @@ pub fn compile_project(
     namespace: String,
     project_json: String,
     files: Vec<SourceFileInput>,
-    kotlin_package: Option<String>,
+    kotlin: Option<KotlinBindings>,
 ) -> Result<PluginCompileOutput, String> {
     let files = files.into_iter().map(|file| (file.path, file.contents)).collect::<BTreeMap<_, _>>();
     let input = CompileInput { namespace, files };
     let core = window_core::pipeline::compile_project_json(project_json.as_bytes(), &input)
         .map_err(|error| error.to_string())?;
-    let kotlin_files = kotlin_package
-        .map(|package_name| window_core::codegen::generate_kotlin(&core.manifest, &package_name))
+    let kotlin_files = kotlin
+        .map(|kotlin| window_core::codegen::generate_kotlin(&core.manifest, &kotlin.package_name, kotlin.target))
         .transpose()
         .map_err(|error| error.to_string())?
         .unwrap_or_default();
@@ -57,11 +64,19 @@ impl Guest for Component {
         namespace: String,
         project_json: String,
         files: Vec<SourceFile>,
-        kotlin_package: Option<String>,
+        kotlin: Option<KotlinOptions>,
     ) -> Result<CompileOutput, String> {
         let files =
             files.into_iter().map(|file| SourceFileInput { path: file.path, contents: file.contents }).collect();
-        compile_project(namespace, project_json, files, kotlin_package).map(to_wit_compile_output)
+        let kotlin = kotlin.map(|kotlin| KotlinBindings {
+            package_name: kotlin.package_name,
+            target: match kotlin.target {
+                KotlinTarget::Agnostic => window_core::codegen::KotlinTarget::Agnostic,
+                KotlinTarget::Minestom => window_core::codegen::KotlinTarget::Minestom,
+                KotlinTarget::Multistom => window_core::codegen::KotlinTarget::Multistom,
+            },
+        });
+        compile_project(namespace, project_json, files, kotlin).map(to_wit_compile_output)
     }
 }
 
@@ -84,6 +99,8 @@ export!(Component);
 
 #[cfg(test)]
 mod tests {
+    use window_core::codegen::KotlinTarget;
+
     use super::*;
 
     #[test]
@@ -112,10 +129,13 @@ mod tests {
             "window".into(),
             project.into(),
             Vec::new(),
-            Some("com.chunkzero.window.example.generated".into()),
+            Some(KotlinBindings {
+                package_name: "com.chunkzero.window.example.generated".into(),
+                target: KotlinTarget::Minestom,
+            }),
         )
         .unwrap();
-        assert!(output.kotlin_files.iter().any(|file| file.path == "WindowPack.kt"));
+        assert!(output.kotlin_files.iter().any(|file| file.path == "WindowPackData.kt"));
         assert!(output.kotlin_files.iter().any(|file| file.path == "WindowFonts.kt"));
         assert!(output.kotlin_files.iter().any(|file| file.path == "ShopView.kt"));
     }

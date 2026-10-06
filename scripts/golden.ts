@@ -12,6 +12,8 @@ interface Case {
     hudShaders?: boolean;
     anvilFieldSprite?: string;
     kotlinPackage?: string;
+    /** Required with `kotlinPackage`. */
+    kotlinTarget?: "agnostic" | "minestom" | "multistom";
 }
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -50,7 +52,9 @@ function tsProject(caseDir: string, dir: string, options: Case): void {
             : [`anvilFieldSprite: ${JSON.stringify(options.anvilFieldSprite)}`]),
         ...(options.kotlinPackage === undefined
             ? []
-            : [`kotlin: { package: ${JSON.stringify(options.kotlinPackage)}, output: ${JSON.stringify(kotlinDir)} }`]),
+            : [
+                  `kotlin: { package: ${JSON.stringify(options.kotlinPackage)}, output: ${JSON.stringify(kotlinDir)}, target: ${JSON.stringify(options.kotlinTarget)} }`,
+              ]),
     ];
     write(
         join(dir, "rpp.config.ts"),

@@ -44,6 +44,11 @@ pub(super) fn type_name(name: &str) -> String {
     pascal(name)
 }
 
+/// The typed definition property for the window or HUD `name`.
+pub(super) fn definition_member(name: &str) -> String {
+    camel(name)
+}
+
 pub(super) fn slot_member(slot: &str) -> String {
     camel(slot)
 }
@@ -76,7 +81,7 @@ fn capitalize(part: &str) -> String {
     }
 }
 
-fn is_valid_identifier(name: &str) -> bool {
+pub(super) fn is_valid_identifier(name: &str) -> bool {
     let mut chars = name.chars();
     let Some(first) = chars.next() else {
         return false;
@@ -92,6 +97,9 @@ fn is_valid_identifier(name: &str) -> bool {
 
 const RESERVED_MEMBERS: &[&str] = &[
     "player",
+    "host",
+    "open",
+    "show",
     "state",
     "bind",
     "onOpen",
@@ -112,11 +120,18 @@ const RESERVED_TYPES: &[&str] = &[
     "Component",
     "HudScope",
     "HudView",
+    "I",
     "IndexedClick",
     "Int",
     "ItemStack",
+    "MinestomHost",
+    "MultistomHost",
+    "Player",
     "String",
     "Unit",
+    "WindowDefinitions",
+    "WindowHost",
+    "WindowHudDefinitions",
     "WindowScope",
     "WindowView",
 ];

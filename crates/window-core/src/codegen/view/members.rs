@@ -39,11 +39,12 @@ impl ValueKind {
         }
     }
 
-    pub(super) fn return_type(self) -> &'static str {
+    /// The Kotlin return type of this kind's member, given the view's item type.
+    pub(super) fn return_type(self, item: &str) -> String {
         match self {
-            Self::Slot => "Component",
-            Self::Sprite => "String?",
-            Self::Item => "ItemStack?",
+            Self::Slot => "Component".into(),
+            Self::Sprite => "String?".into(),
+            Self::Item => format!("{item}?"),
         }
     }
 

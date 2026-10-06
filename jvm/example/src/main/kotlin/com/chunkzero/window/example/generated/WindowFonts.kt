@@ -4,7 +4,7 @@ package com.chunkzero.window.example.generated
 import com.chunkzero.window.manifest.FontMetricsEntry
 
 /** Generated font metrics used for runtime text measurement. */
-public object WindowFonts {
+internal object WindowFonts {
     val advances: Map<String, Int> =
         mapOf(
             " " to 4,

@@ -21,6 +21,7 @@ export default defineConfig({
             kotlin: {
                 package: "com.chunkzero.window.example.generated",
                 output: "../../jvm/example/src/main/kotlin/com/chunkzero/window/example/generated",
+                target: "minestom",
             },
         }),
     ],

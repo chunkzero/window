@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
+use crate::codegen::KotlinTarget;
 use crate::codegen::literals::kt_string;
+use crate::codegen::naming;
 use crate::codegen::writer::KotlinWriter;
 
 use super::members::{Member, ValueKind};
@@ -11,21 +13,46 @@ pub(super) struct ViewBase {
     pub(super) prefix: &'static str,
     /// Noun used in the class documentation.
     pub(super) noun: &'static str,
+    /// Generated object holding the typed definitions.
+    pub(super) definitions: &'static str,
+    /// Whether the `View` and `Scope` classes take the host's item type argument.
+    pub(super) item_typed: bool,
 }
 
-pub(super) fn render(package_name: &str, base: &ViewBase, name: &str, class_name: &str, members: &[Member]) -> String {
+pub(super) fn render(
+    package_name: &str,
+    base: &ViewBase,
+    target: KotlinTarget,
+    name: &str,
+    class_name: &str,
+    members: &[Member],
+) -> String {
     let prefix = base.prefix;
-    let mut w = KotlinWriter::file(package_name, imports(prefix, members));
+    let item = target.item_type();
+    let type_args = if base.item_typed { format!("<{item}>") } else { String::new() };
+    let (type_params, params, host) = match target.player_host() {
+        Some(host) => {
+            let simple = host.rsplit('.').next().unwrap_or(host);
+            ("", "protected val player: Player".to_string(), format!("{simple}.of(player)"))
+        }
+        None if base.item_typed => ("<I : Any>", "host: WindowHost<I>".to_string(), "host".to_string()),
+        None => ("", "host: WindowHost<*>".to_string(), "host".to_string()),
+    };
+    let definition = format!("{}.{}", base.definitions, naming::definition_member(name));
+
+    let mut w = KotlinWriter::file(package_name, imports(base, target, members));
     w.doc(format_args!("Typed view for the `{name}` {}. Implement the abstract members.", base.noun));
     let keyword = if members.is_empty() { "open" } else { "abstract" };
-    w.open(format_args!("public {keyword} class {class_name} : {prefix}View(\"{name}\") {{"));
+    w.open(format_args!(
+        "public {keyword} class {class_name}{type_params}({params}) : {prefix}View{type_args}({definition}, {host}) {{"
+    ));
     for member in members {
-        declare(&mut w, member);
+        declare(&mut w, member, item);
     }
     if members.is_empty() {
-        w.line(format_args!("final override fun {prefix}Scope.bind() {{}}"));
+        w.line(format_args!("final override fun {prefix}Scope{type_args}.bind() {{}}"));
     } else {
-        w.open(format_args!("final override fun {prefix}Scope.bind() {{"));
+        w.open(format_args!("final override fun {prefix}Scope{type_args}.bind() {{"));
         for member in members {
             bind(&mut w, member);
         }
@@ -35,43 +62,44 @@ pub(super) fn render(package_name: &str, base: &ViewBase, name: &str, class_name
     w.finish()
 }
 
-fn imports(prefix: &str, members: &[Member]) -> Vec<String> {
+fn imports(base: &ViewBase, target: KotlinTarget, members: &[Member]) -> Vec<String> {
+    let prefix = base.prefix;
     let any = |test: fn(&Member) -> bool| members.iter().any(test);
-    let has_value = |kind: ValueKind| {
-        members
-            .iter()
-            .any(|m| matches!(m, Member::Value { kind: k, .. } | Member::GroupValue { kind: k, .. } if *k == kind))
-    };
-    [
-        (any(|m| matches!(m, Member::Button { .. })), "com.chunkzero.window.Click".to_string()),
+    let has_slot = any(|m| {
+        matches!(m, Member::Value { kind: ValueKind::Slot, .. } | Member::GroupValue { kind: ValueKind::Slot, .. })
+    });
+    let host = target.player_host();
+    let mut imports: Vec<String> = [
+        (any(|m| matches!(m, Member::Button { .. })), "com.chunkzero.window.Click"),
         (
             any(|m| matches!(m, Member::Collection { handler: Some(_), .. } | Member::GroupButton { .. })),
-            "com.chunkzero.window.IndexedClick".to_string(),
+            "com.chunkzero.window.IndexedClick",
         ),
-        (true, format!("com.chunkzero.window.{prefix}Scope")),
-        (true, format!("com.chunkzero.window.{prefix}View")),
-        (has_value(ValueKind::Slot), "net.kyori.adventure.text.Component".to_string()),
-        (
-            has_value(ValueKind::Item) || any(|m| matches!(m, Member::Collection { .. })),
-            "net.minestom.server.item.ItemStack".to_string(),
-        ),
+        (host.is_none(), "com.chunkzero.window.host.WindowHost"),
+        (has_slot, "net.kyori.adventure.text.Component"),
+        (host.is_some(), "net.minestom.server.entity.Player"),
+        (host.is_some() && base.item_typed, "net.minestom.server.item.ItemStack"),
     ]
     .into_iter()
-    .filter_map(|(used, import)| used.then_some(import))
-    .collect()
+    .filter_map(|(used, import)| used.then_some(import.to_string()))
+    .chain([format!("com.chunkzero.window.{prefix}Scope"), format!("com.chunkzero.window.{prefix}View")])
+    .chain(host.map(str::to_string))
+    .collect();
+    imports.sort();
+    imports
 }
 
-fn declare(w: &mut KotlinWriter, member: &Member) {
+fn declare(w: &mut KotlinWriter, member: &Member, item: &str) {
     match member {
         Member::Value { kind, source, member } => abstract_fun(
             w,
             format_args!("Render the `{source}` {}.", kind.noun()),
-            format_args!("{member}(): {}", kind.return_type()),
+            format_args!("{member}(): {}", kind.return_type(item)),
         ),
         Member::GroupValue { kind, group, field, member, .. } => abstract_fun(
             w,
             format_args!("Render one `{field}` {} in the `{group}` repeater.", kind.noun()),
-            format_args!("{member}(index: Int): {}", kind.return_type()),
+            format_args!("{member}(index: Int): {}", kind.return_type(item)),
         ),
         Member::GroupButton { group, member, .. } => abstract_fun(
             w,
@@ -116,7 +144,7 @@ fn declare(w: &mut KotlinWriter, member: &Member) {
             abstract_fun(
                 w,
                 format_args!("Render one cell in the `{source}` collection."),
-                format_args!("{item_member}(index: Int): ItemStack?"),
+                format_args!("{item_member}(index: Int): {item}?"),
             );
             if let Some(handler) = handler {
                 abstract_fun(
@@ -154,7 +182,7 @@ fn bind(w: &mut KotlinWriter, member: &Member) {
             for (index, source) in sources.iter().enumerate() {
                 w.open(format_args!("button(\"{source}\") {{ click ->"));
                 w.open(format_args!("{member}("));
-                w.line(format_args!("IndexedClick(click.player, click.slot, {index}, click.shift, click.right)"));
+                w.line(format_args!("IndexedClick(click.slot, {index}, click.shift, click.right)"));
                 w.close(")");
                 w.close("}");
             }

@@ -5,11 +5,13 @@ import com.chunkzero.window.Click
 import com.chunkzero.window.IndexedClick
 import com.chunkzero.window.WindowScope
 import com.chunkzero.window.WindowView
+import com.chunkzero.window.minestom.MinestomHost
 import net.kyori.adventure.text.Component
+import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 
 /** Typed view for the `shop` window. Implement the abstract members. */
-public abstract class ShopView : WindowView("shop") {
+public abstract class ShopView(protected val player: Player) : WindowView<ItemStack>(WindowDefinitions.shop, MinestomHost.of(player)) {
     /** Render the `balance` slot. */
     protected abstract fun balance(): Component
 
@@ -112,7 +114,7 @@ public abstract class ShopView : WindowView("shop") {
     /** The selected cell index in the `products` collection, or `null` for none. */
     protected open fun productsSelected(): Int? = null
 
-    final override fun WindowScope.bind() {
+    final override fun WindowScope<ItemStack>.bind() {
         slot("balance") { balance() }
         slot("buy_label") { buyLabel() }
         slot("category_all_label") { categoryAllLabel() }

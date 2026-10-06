@@ -11,6 +11,18 @@ world window-compiler {
         contents: list<u8>,
     }
 
+    /// Server API the generated Kotlin views and HUDs bind to.
+    enum kotlin-target {
+        agnostic,
+        minestom,
+        multistom,
+    }
+
+    record kotlin-options {
+        package-name: string,
+        target: kotlin-target,
+    }
+
     record compile-output {
         files: list<output-file>,
         kotlin-files: list<output-file>,
@@ -21,6 +33,6 @@ world window-compiler {
         namespace: string,
         project-json: string,
         files: list<source-file>,
-        kotlin-package: option<string>
+        kotlin: option<kotlin-options>
     ) -> result<compile-output, string>;
 }

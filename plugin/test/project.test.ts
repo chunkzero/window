@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { hud, theme, ui } from "../src/authoring/index.ts";
 import type { WindowDocument } from "../src/authoring/types.ts";
 import { buildProject, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
-import type { CompileOutput, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
+import type { CompileOutput, KotlinOptions, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
 
 const encoder = new TextEncoder();
 const bytes = (text: string): Uint8Array => encoder.encode(text);
@@ -128,15 +128,15 @@ test("compilation is skipped without definitions", () => {
     assert.deepEqual(removed, ["window/badge.png"]);
 });
 
-test("Kotlin files are emitted only with a package", () => {
+test("Kotlin files are emitted only when configured", () => {
     const output: CompileOutput = {
         files: [{ path: "assets/window/a.json", contents: bytes("{}") }],
         kotlinFiles: [{ path: "A.kt", contents: bytes("class A") }],
         warnings: [],
     };
-    const calls: (string | undefined)[] = [];
-    const compile = (_namespace: string, _json: string, _files: SourceFile[], kotlinPackage: string | undefined) => {
-        calls.push(kotlinPackage);
+    const calls: (KotlinOptions | undefined)[] = [];
+    const compile = (_namespace: string, _json: string, _files: SourceFile[], kotlin: KotlinOptions | undefined) => {
+        calls.push(kotlin);
         return output;
     };
 
@@ -145,8 +145,23 @@ test("Kotlin files are emitted only with a package", () => {
     assert.deepEqual([...without.emitted.keys()], ["assets/window/a.json"]);
     assert.deepEqual(without.outputs, []);
 
-    const withPackage = fake({ "window/a.ts": shop }, {}, { kotlinPackage: "dev.example" });
-    generate(withPackage.ctx, compile);
-    assert.deepEqual(withPackage.outputs, [["kotlin", "A.kt"]]);
-    assert.deepEqual(calls, [undefined, "dev.example"]);
+    const kotlin: KotlinOptions = { packageName: "dev.example", target: "multistom" };
+    const withKotlin = fake({ "window/a.ts": shop }, {}, { kotlin });
+    generate(withKotlin.ctx, compile);
+    assert.deepEqual(withKotlin.outputs, [["kotlin", "A.kt"]]);
+    assert.deepEqual(calls, [undefined, kotlin]);
+});
+
+test("a missing or unknown Kotlin target is rejected", () => {
+    for (const [target, got] of [
+        [undefined, "it is missing"],
+        ["paper", 'got "paper"'],
+    ] as const) {
+        const kotlin = { packageName: "dev.example", target } as unknown as KotlinOptions;
+        const { ctx } = fake({ "window/a.ts": shop }, {}, { kotlin });
+        assert.throws(
+            () => generate(ctx, () => assert.fail("compile must not run")),
+            new RegExp(`kotlin\\.target must be one of "agnostic", "minestom", "multistom"; ${got}`),
+        );
+    }
 });

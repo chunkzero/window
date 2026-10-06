@@ -12,8 +12,31 @@ export interface WindowOptions {
      * which can flicker and drop keystrokes while the player types.
      */
     experimentalAnvilUpdates?: boolean;
+    /** Generate Kotlin bindings. */
+    kotlin?: KotlinOptions;
+}
+
+/** Server API the generated Kotlin views and HUDs bind to. */
+export type KotlinTarget = "agnostic" | "minestom" | "multistom";
+
+const kotlinTargets: readonly KotlinTarget[] = ["agnostic", "minestom", "multistom"];
+
+export interface KotlinOptions {
     /** Kotlin package of the generated bindings. */
-    kotlinPackage?: string;
+    packageName: string;
+    target: KotlinTarget;
+}
+
+/** Returns `target` if it is a known Kotlin target, otherwise throws naming the accepted values. */
+export function kotlinTarget(target: unknown): KotlinTarget {
+    const known = kotlinTargets.find((value) => value === target);
+    if (known === undefined) {
+        const got = target === undefined ? "it is missing" : `got ${JSON.stringify(target)}`;
+        throw new Error(
+            `Window kotlin.target must be one of ${kotlinTargets.map((value) => `"${value}"`).join(", ")}; ${got}.`,
+        );
+    }
+    return known;
 }
 
 export interface SourceFile {
@@ -31,7 +54,7 @@ export type Compile = (
     namespace: string,
     projectJson: string,
     files: SourceFile[],
-    kotlinPackage: string | undefined,
+    kotlin: KotlinOptions | undefined,
 ) => CompileOutput;
 
 export interface ProjectJson {
@@ -175,15 +198,19 @@ export function generate(ctx: WindowContext, compile: Compile): void {
         return;
     }
     const { options } = ctx;
+    const kotlin =
+        options.kotlin === undefined
+            ? undefined
+            : { packageName: options.kotlin.packageName, target: kotlinTarget(options.kotlin.target) };
     const project = buildProject(documents, options, packFormat(ctx.pack.format));
-    const output = compile(options.namespace ?? "window", JSON.stringify(project), files, options.kotlinPackage);
+    const output = compile(options.namespace ?? "window", JSON.stringify(project), files, kotlin);
     for (const file of output.files) {
         ctx.emit(file.path, file.contents);
     }
     for (const warning of output.warnings) {
         console.warn(warning);
     }
-    if (options.kotlinPackage !== undefined) {
+    if (kotlin !== undefined) {
         for (const file of output.kotlinFiles) {
             ctx.emitOutput("kotlin", file.path, file.contents);
         }

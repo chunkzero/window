@@ -8,7 +8,7 @@ use crate::manifest::{
 };
 use crate::pipeline::OutputFile;
 
-use super::generate_kotlin;
+use super::{KotlinTarget, generate_kotlin};
 
 fn manifest(windows: BTreeMap<String, WindowEntry>, huds: BTreeMap<String, HudEntry>) -> Manifest {
     Manifest {
@@ -149,14 +149,22 @@ fn shop_window() -> WindowEntry {
 fn generates_typed_view() {
     let manifest = manifest(BTreeMap::from([("shop".into(), shop_window())]), BTreeMap::new());
 
-    let files = generate_kotlin(&manifest, "com.chunkzero.window.example.generated").unwrap();
-    assert_eq!(files.len(), 7);
-    assert!(files.iter().any(|file| file.path == "WindowPack.kt"));
-    assert!(files.iter().any(|file| file.path == "WindowFonts.kt"));
-    assert!(files.iter().any(|file| file.path == "WindowSprites.kt"));
-    assert!(files.iter().any(|file| file.path == "WindowSpacers.kt"));
-    assert!(files.iter().any(|file| file.path == "WindowDefinitions.kt"));
-    assert!(files.iter().any(|file| file.path == "WindowHudDefinitions.kt"));
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.example.generated", KotlinTarget::Minestom).unwrap();
+    let paths: Vec<&str> = files.iter().map(|file| file.path.as_str()).collect();
+    assert_eq!(
+        paths,
+        [
+            "ShopView.kt",
+            "WindowDefinitions.kt",
+            "WindowEntries.kt",
+            "WindowFonts.kt",
+            "WindowHudDefinitions.kt",
+            "WindowHudEntries.kt",
+            "WindowPackData.kt",
+            "WindowSpacers.kt",
+            "WindowSprites.kt",
+        ]
+    );
     let content = file_contents(&files, "ShopView.kt");
     assert!(content.contains("protected abstract fun balance(): Component"));
     assert!(content.contains("protected open fun onExit(click: Click): Unit = close()"));
@@ -168,7 +176,7 @@ fn generates_typed_view() {
     assert!(content.contains("slot(\"balance\") { balance() }"));
     assert!(content.contains("slot(\"entry_price_0\") { entryPrice(0) }"));
     assert!(content.contains("button(\"entry_0\") { click ->"));
-    assert!(content.contains("IndexedClick(click.player, click.slot, 0, click.shift, click.right)"));
+    assert!(content.contains("IndexedClick(click.slot, 0, click.shift, click.right)"));
     assert!(content.contains("item(\"egg_info\") { eggInfoItem() }"));
     // A repeater cell item is exposed as one grouped indexed member, not as
     // per-cell members, and the flattened per-cell names are bound for it.
@@ -183,6 +191,94 @@ fn generates_typed_view() {
     assert!(!content.contains("label_0(): Component"));
 }
 
+fn status_hud() -> HudEntry {
+    HudEntry {
+        surface: HudSurfaceEntry { kind: "hud".into(), channel: "actionbar".into(), width: 120, height: 16 },
+        static_text: String::new(),
+        slots: BTreeMap::from([("coins".into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
+        shader: None,
+        switches: BTreeMap::new(),
+    }
+}
+
+#[test]
+fn view_and_hud_headers_follow_the_target() {
+    let manifest =
+        manifest(BTreeMap::from([("shop".into(), shop_window())]), BTreeMap::from([("status".into(), status_hud())]));
+    let player_view = |host: &str| {
+        format!(
+            "public abstract class ShopView(protected val player: Player) : \
+             WindowView<ItemStack>(WindowDefinitions.shop, {host}.of(player)) {{"
+        )
+    };
+    let player_hud = |host: &str| {
+        format!(
+            "public abstract class StatusHud(protected val player: Player) : \
+             HudView(WindowHudDefinitions.status, {host}.of(player)) {{"
+        )
+    };
+    let cases = [
+        (KotlinTarget::Minestom, "com.chunkzero.window.minestom.MinestomHost", "MinestomHost"),
+        (KotlinTarget::Multistom, "com.chunkzero.window.multistom.MultistomHost", "MultistomHost"),
+    ];
+    for (target, import, host) in cases {
+        let files = generate_kotlin(&manifest, "golden", target).unwrap();
+        let view = file_contents(&files, "ShopView.kt");
+        assert!(view.contains(&player_view(host)), "{view}");
+        assert!(view.contains(&format!("import {import}\n")));
+        assert!(view.contains("import net.minestom.server.entity.Player\n"));
+        assert!(view.contains("import net.minestom.server.item.ItemStack\n"));
+        assert!(view.contains("final override fun WindowScope<ItemStack>.bind() {"));
+        assert!(view.contains("protected abstract fun eggInfoItem(): ItemStack?"));
+        let hud = file_contents(&files, "StatusHud.kt");
+        assert!(hud.contains(&player_hud(host)), "{hud}");
+        assert!(hud.contains(&format!("import {import}\n")));
+        assert!(!hud.contains("ItemStack"));
+        assert!(hud.contains("final override fun HudScope.bind() {"));
+    }
+
+    let files = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
+    let view = file_contents(&files, "ShopView.kt");
+    assert!(view.contains(
+        "public abstract class ShopView<I : Any>(host: WindowHost<I>) : WindowView<I>(WindowDefinitions.shop, host) {"
+    ));
+    assert!(view.contains("final override fun WindowScope<I>.bind() {"));
+    assert!(view.contains("protected abstract fun eggInfoItem(): I?"));
+    assert!(view.contains("protected abstract fun entriesItem(index: Int): I?"));
+    let hud = file_contents(&files, "StatusHud.kt");
+    assert!(hud.contains(
+        "public abstract class StatusHud(host: WindowHost<*>) : HudView(WindowHudDefinitions.status, host) {"
+    ));
+    for file in [view, hud] {
+        assert!(file.contains("import com.chunkzero.window.host.WindowHost\n"));
+        assert!(!file.contains("minestom") && !file.contains("multistom"), "{file}");
+    }
+}
+
+#[test]
+fn only_views_and_huds_are_public() {
+    let manifest =
+        manifest(BTreeMap::from([("shop".into(), shop_window())]), BTreeMap::from([("status".into(), status_hud())]));
+    let files = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
+    for file in &files {
+        let contents = std::str::from_utf8(&file.contents).unwrap();
+        let public = file.path.ends_with("View.kt") || file.path.ends_with("Hud.kt");
+        assert_eq!(contents.contains("public "), public, "{}", file.path);
+    }
+    let windows = file_contents(&files, "WindowDefinitions.kt");
+    assert!(windows.contains("internal object WindowDefinitions {"));
+    assert!(windows.contains("val shop: WindowDefinition = WindowDefinition(WindowPackData.manifest, \"shop\")"));
+    let huds = file_contents(&files, "WindowHudDefinitions.kt");
+    assert!(huds.contains("val status: HudDefinition = HudDefinition(WindowPackData.manifest, \"status\")"));
+}
+
+#[test]
+fn colliding_definition_names_are_rejected() {
+    let windows = BTreeMap::from([("a_b".into(), shop_window()), ("a__b".into(), shop_window())]);
+    let err = generate_kotlin(&manifest(windows, BTreeMap::new()), "golden", KotlinTarget::Agnostic).unwrap_err();
+    assert!(err.to_string().contains("both map to `WindowDefinitions.aB`"), "{err}");
+}
+
 #[test]
 fn collection_selections_alone_import_sprite_slot_types() {
     let mut window = window("generic_9x3", [176, 166], [8, 6]);
@@ -190,8 +286,8 @@ fn collection_selections_alone_import_sprite_slot_types() {
     window.collections = BTreeMap::from([("entries".into(), selected)]);
     let manifest = manifest(BTreeMap::from([("shop".into(), window)]), BTreeMap::new());
 
-    let files = generate_kotlin(&manifest, "com.chunkzero.window.example.generated").unwrap();
-    let content = file_contents(&files, "WindowDefinitions.kt");
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.example.generated", KotlinTarget::Minestom).unwrap();
+    let content = file_contents(&files, "WindowEntries.kt");
     assert!(content.contains("import com.chunkzero.window.manifest.SpriteSlotEntry"));
     assert!(content.contains("import com.chunkzero.window.manifest.Align"));
 }
@@ -214,7 +310,7 @@ fn switches_bind_typed_enums_and_booleans() {
         BTreeMap::from([("mode".into(), switch(&["buy", "sell"])), ("on_sale".into(), switch(&["true", "false"]))]);
     let manifest = manifest(BTreeMap::from([("shop".into(), shop)]), BTreeMap::new());
 
-    let files = generate_kotlin(&manifest, "com.chunkzero.window.generated").unwrap();
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.generated", KotlinTarget::Minestom).unwrap();
     let view = file_contents(&files, "ShopView.kt");
     assert!(view.contains(
         "public enum class Mode(public val value: String) {\n        BUY(\"buy\"),\n        SELL(\"sell\"),"
@@ -223,7 +319,7 @@ fn switches_bind_typed_enums_and_booleans() {
     assert!(view.contains("switch(\"mode\") { mode().value }"));
     assert!(view.contains("protected abstract fun onSale(): Boolean"));
     assert!(view.contains("switch(\"on_sale\") { onSale().toString() }"));
-    let definitions = file_contents(&files, "WindowDefinitions.kt");
+    let definitions = file_contents(&files, "WindowEntries.kt");
     assert!(definitions.contains("import com.chunkzero.window.manifest.SwitchCaseEntry"));
     assert!(definitions.contains("SwitchCaseEntry(\n"));
 }
@@ -237,7 +333,7 @@ fn generates_typed_anvil_input_binding() {
     )]);
     let manifest = manifest(BTreeMap::from([("search".into(), search)]), BTreeMap::new());
 
-    let files = generate_kotlin(&manifest, "com.chunkzero.window.generated").unwrap();
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.generated", KotlinTarget::Minestom).unwrap();
     let content = file_contents(&files, "SearchView.kt");
     assert!(content.contains("protected abstract fun onQueryChanged(value: String)"));
     assert!(content.contains("anvilInput(\"query\", ::onQueryChanged)"));
@@ -254,7 +350,7 @@ fn hud_lifecycle_members_are_reserved() {
     };
     let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
 
-    let err = generate_kotlin(&manifest, "com.chunkzero.window.generated").unwrap_err();
+    let err = generate_kotlin(&manifest, "com.chunkzero.window.generated", KotlinTarget::Minestom).unwrap_err();
     assert!(err.to_string().contains("reserved WindowView member `onShow`"), "{err}");
 }
 
@@ -271,7 +367,7 @@ fn fonts_with_identical_metrics_share_one_table() {
         ("window:small_caps/y9".into(), small_caps),
     ]);
 
-    let files = generate_kotlin(&manifest, "com.chunkzero.window.example.generated").unwrap();
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.example.generated", KotlinTarget::Minestom).unwrap();
     let content = file_contents(&files, "WindowFonts.kt");
     assert_eq!(content.matches("private val fontMetrics").count(), 1);
     assert!(content.contains("\"window:small_caps/y0\" to fontMetrics0"));

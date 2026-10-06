@@ -3,10 +3,12 @@ package com.chunkzero.window.example.generated
 
 import com.chunkzero.window.HudScope
 import com.chunkzero.window.HudView
+import com.chunkzero.window.minestom.MinestomHost
 import net.kyori.adventure.text.Component
+import net.minestom.server.entity.Player
 
 /** Typed view for the `status_top_left` HUD. Implement the abstract members. */
-public abstract class StatusTopLeftHud : HudView("status_top_left") {
+public abstract class StatusTopLeftHud(protected val player: Player) : HudView(WindowHudDefinitions.statusTopLeft, MinestomHost.of(player)) {
     /** Render the `coins` slot. */
     protected abstract fun coins(): Component
 
