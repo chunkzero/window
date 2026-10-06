@@ -1,5 +1,6 @@
 package com.chunkzero.window
 
+import com.chunkzero.window.internal.appendAll
 import net.kyori.adventure.text.Component
 
 /**
@@ -33,5 +34,5 @@ public class HudStack(
     }
 
     /** Renders every HUD in the stack and joins them in order; empty when the stack is empty. */
-    public fun render(): Component = members.fold(Component.empty()) { joined, hud -> joined.append(hud.render()) }
+    public fun render(): Component = Component.empty().appendAll(members.map { it.render() })
 }

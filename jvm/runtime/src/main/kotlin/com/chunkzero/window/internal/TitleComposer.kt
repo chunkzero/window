@@ -120,8 +120,7 @@ internal class TitleComposer(
         windowName: String,
         slotSegments: Map<String, RenderedSegment>,
     ): ComposedRender {
-        var title = staticComponent
-        for (segment in slotSegments.values) title = title.append(segment.component)
+        val title = staticComponent.appendAll(slotSegments.values.map { it.component })
         val staticTrace = staticTrace("window/$windowName/static", window.static)
         return ComposedRender(title, listOf(staticTrace) + slotSegments.values.map { it.trace })
     }
