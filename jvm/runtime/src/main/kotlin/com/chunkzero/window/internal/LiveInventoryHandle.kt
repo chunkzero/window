@@ -2,8 +2,8 @@ package com.chunkzero.window.internal
 
 import com.chunkzero.window.SlotArea
 import com.chunkzero.window.SlotRef
+import com.chunkzero.window.WindowPlatform
 import net.kyori.adventure.text.Component
-import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventFilter
 import net.minestom.server.event.EventListener
@@ -16,7 +16,6 @@ import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.trait.PlayerEvent
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
-import net.minestom.server.inventory.type.AnvilInventory
 import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.client.common.ClientPongPacket
 import net.minestom.server.network.packet.server.common.PingPacket
@@ -27,14 +26,16 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Live Minestom-backed [InventoryHandle].
  *
- * Builds a real [Inventory] of the given [type], wires a per-session [EventNode] filtered to the
- * player onto the global handler, normalises [InventoryPreClickEvent] clicks (always cancelled),
- * and updates the title via [Inventory.setTitle]. Opening any other inventory over this one ends the
- * session like a close, because Minestom replaces it without an [InventoryCloseEvent].
+ * Builds a real [Inventory] of the given [type] through the [platform], wires a per-session
+ * [EventNode] filtered to the player onto the platform's event root, normalises
+ * [InventoryPreClickEvent] clicks (always cancelled), and updates the title via
+ * [Inventory.setTitle]. Opening any other inventory over this one ends the session like a close,
+ * because Minestom replaces it without an [InventoryCloseEvent].
  */
 internal class LiveInventoryHandle(
     private val player: Player,
     private val type: InventoryType,
+    private val platform: WindowPlatform,
 ) : InventoryHandle {
     /** The backing inventory, valid after [open]. */
     lateinit var inventory: Inventory
@@ -48,12 +49,7 @@ internal class LiveInventoryHandle(
     private val clicks = ClickNormalizer(player) { inventory }
 
     override fun open(title: Component) {
-        inventory =
-            if (type == InventoryType.ANVIL) {
-                AnvilInventory(title)
-            } else {
-                Inventory(type, title)
-            }
+        inventory = platform.createInventory(player, type, title)
         player.openInventory(inventory)
     }
 
@@ -141,7 +137,7 @@ internal class LiveInventoryHandle(
             val packet = event.packet
             if (packet is ClientPongPacket) onPong(packet.id())
         }
-        MinecraftServer.getGlobalEventHandler().addChild(sessionNode)
+        platform.eventRoot(player).addChild(sessionNode)
         node = sessionNode
     }
 
@@ -152,7 +148,7 @@ internal class LiveInventoryHandle(
     }
 
     override fun teardownListeners() {
-        node?.let { MinecraftServer.getGlobalEventHandler().removeChild(it) }
+        node?.let { platform.eventRoot(player).removeChild(it) }
         node = null
     }
 

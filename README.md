@@ -63,7 +63,7 @@ class Confirm(private val question: String, private val onYes: () -> Unit) : Con
     override fun onAccept(click: Click) = onYes()
 }
 
-val windows = WindowPack.windows()
+val windows = WindowPack.windows(MinestomPlatform)
 windows.open(player, Confirm("Buy this sword?") { buySword(player) })
 ```
 
@@ -91,16 +91,24 @@ export default defineConfig({
 });
 ```
 
-The server uses the Kotlin runtime in [`jvm/runtime`](jvm/runtime) (`com.chunkzero.window:window-runtime`). Pin the same
-version as the plugin:
+The server uses the Kotlin runtime in [`jvm/runtime`](jvm/runtime) through a platform artifact for its server. Pin the
+same version as the plugin:
+
+| Server                     | Artifact                                | Platform            |
+| -------------------------- | --------------------------------------- | ------------------- |
+| A single Minestom server   | `com.chunkzero.window:window-minestom`  | `MinestomPlatform`  |
+| Multistom server processes | `com.chunkzero.window:window-multistom` | `MultistomPlatform` |
 
 ```kotlin
 repositories {
     maven("https://maven.chunkzero.com")
     mavenCentral()
 }
-dependencies { implementation("com.chunkzero.window:window-runtime:0.1.0-alpha.0") }
+dependencies { implementation("com.chunkzero.window:window-minestom:0.1.0-alpha.0") }
 ```
+
+Pass the platform when loading the pack, such as `WindowPack.windows(MinestomPlatform)`. Both artifacts expect the
+server library on the classpath.
 
 Nightly versions come from `https://maven.chunkzero.com/nightlies`; see [Releasing](docs/RELEASING.md).
 

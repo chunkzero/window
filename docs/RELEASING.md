@@ -39,8 +39,8 @@ rpp add window@0.1.0-nightly.20261005021334.g0123456789ab
 rpp build
 ```
 
-Commit `rpp.json` and `rpp.lock`. Depend on `com.chunkzero.window:window-runtime` at the same version, from the
-repository for its channel:
+Commit `rpp.json` and `rpp.lock`. Depend on `com.chunkzero.window:window-minestom` or `window-multistom` at the same
+version, from the repository for its channel:
 
 ```kotlin
 repositories {

@@ -8,7 +8,11 @@ use super::literals::{char_map, kt_string, string_map};
 use super::writer::{Call, KotlinWriter, map_of};
 
 pub(super) fn generate_pack(manifest: &Manifest, package_name: &str) -> OutputFile {
-    let imports = ["com.chunkzero.window.Windows", "com.chunkzero.window.manifest.WindowManifest"];
+    let imports = [
+        "com.chunkzero.window.WindowPlatform",
+        "com.chunkzero.window.Windows",
+        "com.chunkzero.window.manifest.WindowManifest",
+    ];
     let mut w = KotlinWriter::file(package_name, imports);
     w.doc("Compiled Window pack definition.");
     w.open("public object WindowPack {");
@@ -26,7 +30,7 @@ pub(super) fn generate_pack(manifest: &Manifest, package_name: &str) -> OutputFi
         .finish();
     w.property("public val definition: WindowManifest", definition);
     w.blank();
-    w.line("public fun windows(): Windows = Windows.load(definition)");
+    w.line("public fun windows(platform: WindowPlatform): Windows = Windows.load(definition, platform)");
     w.close("}");
     OutputFile { path: "WindowPack.kt".into(), contents: w.finish().into_bytes() }
 }

@@ -11,6 +11,7 @@ dependencies {
     implementation(libs.adventure.minimessage)
     implementation(libs.kotlinx.serialization.json)
 
+    testImplementation(project(":minestom"))
     testImplementation(libs.minestom)
     testImplementation(libs.adventure.minimessage)
     testImplementation(libs.bundles.test)
@@ -21,7 +22,8 @@ publishing {
         pom {
             name = "Window Runtime"
             description =
-                "Minestom runtime for rendering Window UIs from generated pack definitions."
+                "Runtime for rendering Window UIs from generated pack definitions. Pair it with " +
+                "window-minestom or window-multistom."
         }
     }
 }

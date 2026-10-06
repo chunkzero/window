@@ -2,6 +2,7 @@ package com.chunkzero.window
 
 import com.chunkzero.window.internal.LiveInventoryHandle
 import com.chunkzero.window.manifest.ButtonTooltip
+import com.chunkzero.window.minestom.MinestomPlatform
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -48,7 +49,7 @@ class LiveInventoryHandleTest :
                     }
                 }
 
-            val session = Windows.load(manifest).open(player, view)
+            val session = Windows.load(manifest, MinestomPlatform).open(player, view)
             try {
                 val packet =
                     ClientClickWindowPacket(
@@ -99,7 +100,7 @@ class LiveInventoryHandleTest :
                     }
                 }
 
-            val session = Windows.load(manifest).open(player, view)
+            val session = Windows.load(manifest, MinestomPlatform).open(player, view)
             try {
                 WindowListener.clickWindowListener(
                     clickPacket(session, session.inventory.size),
@@ -140,7 +141,7 @@ class LiveInventoryHandleTest :
                     }
                 }
 
-            val session = Windows.load(manifest).open(player, view)
+            val session = Windows.load(manifest, MinestomPlatform).open(player, view)
             try {
                 for (hotbarSlot in listOf(0, 4, 8)) {
                     WindowListener.clickWindowListener(
@@ -191,7 +192,7 @@ class LiveInventoryHandleTest :
                     }
                 }
 
-            val session = Windows.load(manifest).open(player, view)
+            val session = Windows.load(manifest, MinestomPlatform).open(player, view)
             try {
                 WindowListener.clickWindowListener(
                     clickPacket(session, session.inventory.size),
@@ -234,7 +235,7 @@ class LiveInventoryHandleTest :
                     }
                 }
 
-            val session = Windows.load(manifest).open(player, view)
+            val session = Windows.load(manifest, MinestomPlatform).open(player, view)
             try {
                 player.inventory.getItemStack(8) shouldBe ItemStack.AIR
                 player.inventory.getItemStack(35) shouldBe ItemStack.AIR
@@ -268,7 +269,7 @@ class LiveInventoryHandleTest :
                                 ),
                         ),
                 )
-            val windows = Windows.load(manifest)
+            val windows = Windows.load(manifest, MinestomPlatform)
             val events = mutableListOf<String>()
             lateinit var next: WindowSession
 
@@ -303,7 +304,7 @@ class LiveInventoryHandleTest :
 
         "opened-inventory player-region pre-clicks are normalised by container size" {
             val player = testPlayer()
-            val handle = LiveInventoryHandle(player, InventoryType.CHEST_3_ROW)
+            val handle = LiveInventoryHandle(player, InventoryType.CHEST_3_ROW, MinestomPlatform)
             val clicks = mutableListOf<com.chunkzero.window.internal.ClickInfo>()
             handle.open(Component.text("test"))
             handle.registerListeners({ clicks += it }, {}, {}, {})

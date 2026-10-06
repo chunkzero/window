@@ -1,6 +1,7 @@
 [versions]
 kotlin = "2.3.10"
 minestom = "2026.09.12-26.2"
+multistom = "0.1.0-nightly.20261005021334.g24a253a8ad29"
 adventure = "5.1.1"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = "1.10.0"
@@ -12,6 +13,7 @@ dokka = "2.1.0"
 
 [libraries]
 minestom = { group = "net.minestom", name = "minestom", version.ref = "minestom" }
+multistom = { group = "com.chunkzero.multistom", name = "multistom", version.ref = "multistom" }
 adventure-minimessage = { group = "net.kyori", name = "adventure-text-minimessage", version.ref = "adventure" }
 kotlinx-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-core", version.ref = "kotlinx-serialization" }

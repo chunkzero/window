@@ -19,4 +19,4 @@ if (mcValidationRoot.isPresent) {
     include("validation-server")
 }
 
-include("runtime", "diagnostics-protocol", "minestom-diagnostics", "example")
+include("runtime", "minestom", "multistom", "diagnostics-protocol", "minestom-diagnostics", "example")

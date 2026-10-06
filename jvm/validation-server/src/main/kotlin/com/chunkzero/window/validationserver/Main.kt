@@ -4,6 +4,7 @@ import com.chunkzero.window.Windows
 import com.chunkzero.window.diagnostics.PackFingerprint
 import com.chunkzero.window.diagnostics.minestom.MinestomDiagnostics
 import com.chunkzero.window.manifest.WindowManifest
+import com.chunkzero.window.minestom.MinestomPlatform
 import dev.rpp.mcvalidation.minestom.MinestomValidation
 import dev.rpp.mcvalidation.minestom.ValidationRoutes
 import kotlinx.serialization.json.Json
@@ -29,7 +30,7 @@ fun main(args: Array<String>) {
     val server = MinecraftServer.init()
     val instance = createInstance()
     val diagnostics = installDiagnostics(config)
-    val windows = Windows.load(WindowManifest.parse(Files.readString(config.manifest)), diagnostics)
+    val windows = Windows.load(WindowManifest.parse(Files.readString(config.manifest)), MinestomPlatform, diagnostics)
     installValidationRoutes(report)
     installListeners(instance, windows, report)
     installShutdownHook(diagnostics, report)

@@ -12,12 +12,13 @@ import java.nio.file.Path
 /**
  * Registry of windows loaded from a compiled Window pack definition.
  *
- * Load once at startup via [load], then [open] a [WindowView] for a player. Window definitions are
- * resolved by name with [get].
+ * Load once at startup via [load] with the [WindowPlatform] for your server, then [open] a
+ * [WindowView] for a player. Window definitions are resolved by name with [get].
  */
 public class Windows
     private constructor(
         private val manifest: WindowManifest,
+        private val platform: WindowPlatform,
         private val diagnosticsObserver: RenderDiagnosticsObserver,
     ) {
         private val definitions: Map<String, WindowDefinition> =
@@ -27,20 +28,33 @@ public class Windows
 
         public companion object {
             /** Loads a registry from a legacy JSON definition file at [path]. */
-            public fun load(path: Path): Windows = load(Files.readString(path))
+            @JvmStatic
+            public fun load(
+                path: Path,
+                platform: WindowPlatform,
+            ): Windows = load(Files.readString(path), platform)
 
             /** Loads a registry from a legacy JSON definition document. */
-            public fun load(json: String): Windows = Windows(WindowManifest.parse(json), RenderDiagnosticsObserver.NONE)
+            @JvmStatic
+            public fun load(
+                json: String,
+                platform: WindowPlatform,
+            ): Windows = load(WindowManifest.parse(json), platform)
 
             /** Loads a registry from a compiled Window pack definition. */
-            public fun load(manifest: WindowManifest): Windows = Windows(manifest, RenderDiagnosticsObserver.NONE)
+            @JvmStatic
+            public fun load(
+                manifest: WindowManifest,
+                platform: WindowPlatform,
+            ): Windows = load(manifest, platform, RenderDiagnosticsObserver.NONE)
 
             /** Loads a registry and enables immutable render-frame observation. */
             @JvmStatic
             public fun load(
                 manifest: WindowManifest,
+                platform: WindowPlatform,
                 diagnosticsObserver: RenderDiagnosticsObserver,
-            ): Windows = Windows(manifest, diagnosticsObserver)
+            ): Windows = Windows(manifest, platform, diagnosticsObserver)
         }
 
         /**
@@ -78,13 +92,13 @@ public class Windows
         ): WindowSession {
             val definition = get(view.windowName)
             val type = Containers.inventoryType(definition.surface.container)
-            val handle = LiveInventoryHandle(player, type)
+            val handle = LiveInventoryHandle(player, type, platform)
             val session =
                 windowSession(
                     definition,
                     view,
                     player,
-                    RenderScheduler.NEXT_TICK,
+                    RenderScheduler.nextTick(platform, player),
                     handle,
                     diagnosticsObserver,
                 )
@@ -104,7 +118,7 @@ public class Windows
         ): HudSession {
             val definition = hud(view.hudName)
             val session =
-                HudSession(definition, view, player, RenderScheduler.NEXT_TICK, diagnosticsObserver)
+                HudSession(definition, view, player, RenderScheduler.nextTick(platform, player), diagnosticsObserver)
             session.show()
             return session
         }
@@ -120,7 +134,7 @@ public class Windows
             view: HudView,
         ): Component {
             val definition = hud(view.hudName)
-            val session = HudSession(definition, view, player, RenderScheduler.NEXT_TICK)
+            val session = HudSession(definition, view, player, RenderScheduler.nextTick(platform, player))
             return session.composeInitial()
         }
     }

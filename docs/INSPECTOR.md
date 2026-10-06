@@ -59,13 +59,14 @@ adapter and supply it as Window's narrow diagnostics observer:
 import com.chunkzero.window.Windows
 import com.chunkzero.window.diagnostics.PackFingerprint
 import com.chunkzero.window.diagnostics.minestom.MinestomDiagnostics
+import com.chunkzero.window.minestom.MinestomPlatform
 import your.generated.WindowPack
 
 val diagnostics =
     MinestomDiagnostics.install(
         PackFingerprint("sha256", descriptorPackFingerprint),
     )
-val windows = Windows.load(WindowPack.definition, diagnostics)
+val windows = Windows.load(WindowPack.definition, MinestomPlatform, diagnostics)
 
 Runtime.getRuntime().addShutdownHook(Thread(diagnostics::close))
 ```

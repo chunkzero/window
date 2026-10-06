@@ -3,6 +3,7 @@ package com.chunkzero.window.example
 import com.chunkzero.window.HudView
 import com.chunkzero.window.Windows
 import com.chunkzero.window.example.generated.WindowPack
+import com.chunkzero.window.minestom.MinestomPlatform
 import net.kyori.adventure.resource.ResourcePackCallback
 import net.kyori.adventure.resource.ResourcePackRequest
 import net.kyori.adventure.text.Component
@@ -37,7 +38,7 @@ import java.nio.file.Path
 fun main() {
     val server = MinecraftServer.init()
     val instance = createInstance()
-    val windows = WindowPack.windows()
+    val windows = WindowPack.windows(MinestomPlatform)
     val market = Market()
     val serverPort = System.getProperty("window.port")?.toInt() ?: 25565
     val packPort = System.getProperty("window.pack.port")?.toInt() ?: 25567

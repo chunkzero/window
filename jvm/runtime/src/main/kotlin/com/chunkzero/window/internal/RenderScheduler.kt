@@ -1,6 +1,7 @@
 package com.chunkzero.window.internal
 
-import net.minestom.server.MinecraftServer
+import com.chunkzero.window.WindowPlatform
+import net.minestom.server.entity.Player
 
 /**
  * Schedules a batched re-render task. Abstracted so tests can inject a manual scheduler instead of
@@ -11,10 +12,10 @@ internal fun interface RenderScheduler {
     fun schedule(task: Runnable)
 
     companion object {
-        /** Default scheduler: runs the task on the next Minestom server tick. */
-        val NEXT_TICK: RenderScheduler =
-            RenderScheduler { task ->
-                MinecraftServer.getSchedulerManager().scheduleNextTick(task)
-            }
+        /** Default scheduler: runs the task on the next tick of the server serving [player]. */
+        fun nextTick(
+            platform: WindowPlatform,
+            player: Player,
+        ): RenderScheduler = RenderScheduler { task -> platform.scheduleNextTick(player, task) }
     }
 }

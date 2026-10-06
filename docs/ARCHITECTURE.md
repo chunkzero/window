@@ -76,6 +76,11 @@ Inventory slots have separate ownership and click-routing assignments. Each slot
 one click target. A repeater cell routes clicks from all its slots while yielding selected slots to real item controls.
 `buttons.*.slots` records routing; `fill_slots` records the button's item ownership.
 
+The runtime reaches the server through a `WindowPlatform`: inventory construction, the event root, and next-tick
+scheduling. `jvm/minestom` implements it for a single Minestom server and `jvm/multistom` for Multistom's per-player
+server processes. Everything else in the runtime is shared, so the Multistom tests also guard the runtime's
+compatibility with Multistom.
+
 Generated views expose typed bindings. The runtime validates handwritten bindings when a session opens, cancels and
 routes inventory interactions, and manages the player-inventory slots temporarily claimed by the UI. Closing restores
 those slots and releases the session's listeners.
