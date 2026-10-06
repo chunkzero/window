@@ -88,7 +88,7 @@ pub fn compile_project(project: &ParsedProject, input: &CompileInput) -> Result<
 
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &text_fonts };
     let output = compile_layouts(&windows, &huds, &assets, &input.namespace, &project.target, &project.options)?;
-    let validation = crate::validation::validate_compile_output_with_pack(&output, &input.files);
+    let validation = crate::validation::validate_compiled(&output, &input.files);
     if !validation.is_valid() {
         return Err(Error::Validation(validation.to_string()));
     }

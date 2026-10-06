@@ -1,7 +1,9 @@
 use super::ValidationReport;
 use crate::pipeline::CompileOutput;
 
-pub(super) fn validate_debug_descriptor(output: &CompileOutput, report: &mut ValidationReport) {
+/// Checks that the descriptor exists and parses; with `rebuild`, also that it matches the descriptor rebuilt from
+/// the manifest and generated files.
+pub(super) fn validate_debug_descriptor(output: &CompileOutput, rebuild: bool, report: &mut ValidationReport) {
     let path = crate::debug::output_path(&output.manifest.namespace);
     let Some(emitted) = output.files.iter().find(|file| file.path == path) else {
         report.push("debug.descriptor.missing", path, "compiler output did not emit the active-pack debug descriptor");
@@ -10,6 +12,9 @@ pub(super) fn validate_debug_descriptor(output: &CompileOutput, report: &mut Val
 
     if let Err(error) = crate::debug::DebugDescriptor::from_json(&emitted.contents) {
         report.push("debug.descriptor.invalid", &emitted.path, error.to_string());
+    }
+    if !rebuild {
+        return;
     }
 
     let expected = match crate::debug::DebugDescriptor::build(&output.manifest, &output.files)

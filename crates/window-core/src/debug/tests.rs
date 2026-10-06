@@ -1,5 +1,5 @@
 use super::*;
-use crate::pipeline::{CompileInput, compile_project_json};
+use crate::pipeline::{CompileInput, OutputFile, compile_project_json};
 
 const PROJECT: &str = r##"{
   "theme":{"frames":{"panel":{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0}}},
@@ -85,4 +85,14 @@ fn hud_descriptor_distinguishes_shared_and_independent_fixed_width_overlays() {
     assert_eq!(shader.cursor_contract.independent_layer_net_advance, Some(0));
     assert_eq!(shader.cursor_contract.composed_advance, 48);
     assert_eq!(shader.layers[0].net_advance, Some(0));
+}
+
+#[test]
+fn descriptor_rejects_invalid_png_sharing_a_path_with_a_valid_one() {
+    let output = compile_project_json(PROJECT.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
+    let index = output.files.iter().position(|file| file.path.ends_with(".png")).unwrap();
+    let duplicate = OutputFile { path: output.files[index].path.clone(), contents: b"invalid PNG".to_vec() };
+    let mut files = output.files.clone();
+    files.insert(index, duplicate);
+    assert!(DebugDescriptor::build(&output.manifest, &files).is_err());
 }

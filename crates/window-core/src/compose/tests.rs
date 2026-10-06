@@ -174,3 +174,69 @@ fn png_round_trip_is_deterministic() {
     let decoded = Texture::decode_png(&a).unwrap();
     assert_eq!(decoded, t);
 }
+
+#[test]
+fn encode_png_rejects_buffers_smaller_than_dimensions() {
+    for texture in [
+        Texture { width: u32::MAX, height: u32::MAX, rgba: Vec::new() },
+        Texture { width: 2, height: 2, rgba: vec![0; 15] },
+    ] {
+        assert!(matches!(texture.encode_png(), Err(Error::Texture { .. })));
+    }
+}
+
+#[test]
+fn over_fast_paths_match_general_formula() {
+    fn general(src: [u8; 4], dst: [u8; 4]) -> [u8; 4] {
+        let (sa, da) = (src[3] as u32, dst[3] as u32);
+        let out_a = sa + (da * (255 - sa) + 127) / 255;
+        let mut out = [0, 0, 0, out_a as u8];
+        for c in 0..3 {
+            let num = (src[c] as u32) * sa * 255 + (dst[c] as u32) * da * (255 - sa);
+            out[c] = ((num + out_a * 255 / 2) / (out_a * 255)) as u8;
+        }
+        out
+    }
+    for a in 0..=255u8 {
+        for color in [0, 1, 127, 128, 254, 255] {
+            let opaque = [color, 255 - color, color / 2, 255];
+            let dst = [255 - color, color, 77, a];
+            assert_eq!(over(opaque, dst), general(opaque, dst));
+            if a != 0 {
+                let src = [color, 255 - color, color / 2, a];
+                assert_eq!(over(src, [0, 0, 0, 0]), general(src, [0, 0, 0, 0]));
+            }
+        }
+    }
+}
+
+#[test]
+fn repeated_generated_draws_match_individual_renders() {
+    use crate::model::{GeneratedKind, GeneratedStyle};
+    let draws: Vec<Draw> = [
+        (GeneratedKind::Panel, Rect::new(-4, -3, 30, 20)),
+        (GeneratedKind::Button, Rect::new(2, 5, 18, 18)),
+        (GeneratedKind::Button, Rect::new(12, 9, 18, 18)),
+        (GeneratedKind::Badge, Rect::new(20, 0, 9, 9)),
+        (GeneratedKind::Button, Rect::new(0, 20, 18, 18)),
+    ]
+    .into_iter()
+    .map(|(kind, dest)| Draw::Generated { style: GeneratedStyle::defaults(kind), dest })
+    .collect();
+
+    let composite = compose_draws(&draws, "w", &BTreeMap::new()).unwrap();
+
+    let bounds = composite.bounds;
+    let mut expected = Texture::transparent(bounds.width, bounds.height);
+    for draw in &draws {
+        let Draw::Generated { style, dest } = draw else { unreachable!() };
+        let texture = crate::raster::render(style, dest.size()).unwrap();
+        for y in 0..texture.height {
+            for x in 0..texture.width {
+                let (dx, dy) = (dest.x - bounds.x + x as i32, dest.y - bounds.y + y as i32);
+                expected.blend(dx as u32, dy as u32, texture.get(x, y));
+            }
+        }
+    }
+    assert_eq!(composite.texture, expected);
+}
