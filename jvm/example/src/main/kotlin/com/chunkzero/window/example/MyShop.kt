@@ -3,11 +3,11 @@ package com.chunkzero.window.example
 import com.chunkzero.window.Click
 import com.chunkzero.window.IndexedClick
 import com.chunkzero.window.WindowPager
-import com.chunkzero.window.Windows
 import com.chunkzero.window.example.generated.ShopView
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
+import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 
 private enum class CatalogCategory {
@@ -24,11 +24,11 @@ private enum class CatalogSort {
 
 /** Interactive catalog demonstrating collections, paging, choices, toggles, and live text. */
 class MyShop(
-    private val windows: Windows,
+    player: Player,
     private val market: Market,
     initialSelection: String? = null,
     initialQuery: String = "",
-) : ShopView() {
+) : ShopView(player) {
     private val pager = WindowPager(cellCount = 27)
 
     private var coins by state(0)
@@ -143,7 +143,7 @@ class MyShop(
     }
 
     override fun onSearch(click: Click) {
-        windows.open(player, CatalogSearch(windows, market, query))
+        CatalogSearch(player, market, query).open()
     }
 
     override fun onClearSearch(click: Click) {

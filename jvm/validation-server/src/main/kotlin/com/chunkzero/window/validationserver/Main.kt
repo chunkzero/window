@@ -1,9 +1,14 @@
 package com.chunkzero.window.validationserver
 
-import com.chunkzero.window.Windows
+import com.chunkzero.window.HudView
+import com.chunkzero.window.RenderDiagnosticsObserver
+import com.chunkzero.window.WindowDiagnostics
 import com.chunkzero.window.diagnostics.PackFingerprint
+import com.chunkzero.window.diagnostics.RenderFrame
 import com.chunkzero.window.diagnostics.minestom.MinestomDiagnostics
 import com.chunkzero.window.manifest.WindowManifest
+import com.chunkzero.window.minestom.MinestomHost
+import com.chunkzero.window.sendHud
 import dev.rpp.mcvalidation.minestom.MinestomValidation
 import dev.rpp.mcvalidation.minestom.ValidationRoutes
 import kotlinx.serialization.json.Json
@@ -29,9 +34,9 @@ fun main(args: Array<String>) {
     val server = MinecraftServer.init()
     val instance = createInstance()
     val diagnostics = installDiagnostics(config)
-    val windows = Windows.load(WindowManifest.parse(Files.readString(config.manifest)), diagnostics)
+    val manifest = WindowManifest.parse(Files.readString(config.manifest))
     installValidationRoutes(report)
-    installListeners(instance, windows, report)
+    installListeners(instance, manifest, report)
     installShutdownHook(diagnostics, report)
     server.start("127.0.0.1", config.port)
     report.record("server.ready", mapOf("port" to config.port.toString()))
@@ -46,12 +51,24 @@ private fun createInstance(): Instance =
 private fun installDiagnostics(config: Config): MinestomDiagnostics {
     val descriptor = Json.parseToJsonElement(Files.readString(config.descriptor)).jsonObject
     val fingerprint = descriptor.getValue("pack_fingerprint").jsonObject
-    return MinestomDiagnostics.install(
-        PackFingerprint(
-            fingerprint.getValue("algorithm").jsonPrimitive.content,
-            fingerprint.getValue("value").jsonPrimitive.content,
-        ),
-    )
+    val diagnostics =
+        MinestomDiagnostics.install(
+            PackFingerprint(
+                fingerprint.getValue("algorithm").jsonPrimitive.content,
+                fingerprint.getValue("value").jsonPrimitive.content,
+            ),
+        )
+    // HUD frames carry no player, so the probe HUD's frames are routed to the player it is shown to.
+    WindowDiagnostics.observer =
+        object : RenderDiagnosticsObserver by diagnostics {
+            override fun observeHud(
+                hud: HudView,
+                frame: RenderFrame,
+            ) {
+                if (hud is ProbeHudView) diagnostics.observe(MinestomHost.of(hud.player), frame)
+            }
+        }
+    return diagnostics
 }
 
 private fun installValidationRoutes(report: RuntimeReport) {
@@ -70,7 +87,7 @@ private fun installValidationRoutes(report: RuntimeReport) {
 
 private fun installListeners(
     instance: Instance,
-    windows: Windows,
+    manifest: WindowManifest,
     report: RuntimeReport,
 ) {
     val openedPlayers = ConcurrentHashMap.newKeySet<UUID>()
@@ -82,7 +99,7 @@ private fun installListeners(
         addListener(PlayerLoadedEvent::class.java) { event ->
             if (!openedPlayers.add(event.player.uuid)) return@addListener
             report.record("player.loaded", mapOf("player" to event.player.username))
-            openProbeFlow(windows, event.player, report)
+            openProbeFlow(manifest, event.player, report)
         }
         addListener(PlayerDisconnectEvent::class.java) { event ->
             openedPlayers.remove(event.player.uuid)
@@ -92,29 +109,24 @@ private fun installListeners(
 }
 
 private fun openProbeFlow(
-    windows: Windows,
+    manifest: WindowManifest,
     player: Player,
     report: RuntimeReport,
 ) {
-    windows.open(
-        player,
-        ProbeView(report) { probePlayer ->
-            MinecraftServer.getSchedulerManager().scheduleNextTick {
-                if (probePlayer.isOnline) {
-                    windows.open(
-                        probePlayer,
-                        SearchProbeView(report) { searchPlayer ->
-                            MinecraftServer.getSchedulerManager().scheduleNextTick {
-                                if (searchPlayer.isOnline) {
-                                    windows.show(searchPlayer, ProbeHudView(report))
-                                }
-                            }
-                        },
-                    )
-                }
+    ProbeView(manifest, player, report) { probePlayer ->
+        probePlayer.scheduler().scheduleNextTick {
+            if (probePlayer.isOnline) {
+                SearchProbeView(manifest, probePlayer, report) { searchPlayer ->
+                    searchPlayer.scheduler().scheduleNextTick {
+                        if (searchPlayer.isOnline) {
+                            searchPlayer.sendHud(ProbeHudView(manifest, searchPlayer))
+                            report.record("hud.shown", mapOf("hud" to "probe_hud"))
+                        }
+                    }
+                }.open()
             }
-        },
-    )
+        }
+    }.open()
 }
 
 private fun installShutdownHook(

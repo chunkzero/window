@@ -4,279 +4,256 @@ import com.chunkzero.window.diagnostics.RenderCorrelation
 import com.chunkzero.window.diagnostics.RenderCursorConvention
 import com.chunkzero.window.diagnostics.RenderFrameReason
 import com.chunkzero.window.diagnostics.RenderSurfaceKind
-import com.chunkzero.window.internal.ClickInfo
+import com.chunkzero.window.host.ContainerListener
+import com.chunkzero.window.host.OpenContainer
+import com.chunkzero.window.host.WindowHost
+import com.chunkzero.window.internal.ComposedRender
 import com.chunkzero.window.internal.FrameCursor
-import com.chunkzero.window.internal.InventoryHandle
-import com.chunkzero.window.internal.LiveInventoryHandle
 import com.chunkzero.window.internal.Reactivity
 import com.chunkzero.window.internal.RenderKey
 import com.chunkzero.window.internal.RenderScheduler
 import com.chunkzero.window.internal.SessionFrames
 import com.chunkzero.window.internal.SlotRoutes
+import com.chunkzero.window.internal.SlotWrites
 import com.chunkzero.window.internal.Switches
 import com.chunkzero.window.internal.WindowBindings
-import com.chunkzero.window.internal.WindowInventoryWriter
-import com.chunkzero.window.internal.WindowTitle
+import com.chunkzero.window.internal.WindowFrame
+import com.chunkzero.window.internal.WindowRenderer
 import com.chunkzero.window.internal.hasStaticTitle
-import com.chunkzero.window.internal.hitboxModel
 import com.chunkzero.window.internal.requireEntry
 import com.chunkzero.window.internal.titleSlots
 import net.kyori.adventure.text.Component
-import net.minestom.server.entity.Player
-import net.minestom.server.inventory.Inventory
-import net.minestom.server.item.ItemStack
 import org.slf4j.LoggerFactory
 
+/**
+ * A live window opened by [WindowView.open].
+ *
+ * Routes clicks to button handlers, drives reactive re-renders, and manages the window lifecycle.
+ */
+public sealed class WindowSession {
+    /** The view driving this session. */
+    public abstract val view: WindowView<*>
+
+    /** Closes this window: invokes [WindowView.onClose] and closes the container. */
+    public abstract fun close()
+}
+
 /** Creates the session for [definition]'s window, with an anvil session for an anvil input window. */
-internal fun windowSession(
+internal fun <I : Any> windowSession(
     definition: WindowDefinition,
-    view: WindowView,
-    player: Player,
-    scheduler: RenderScheduler,
-    handle: InventoryHandle,
-    diagnosticsObserver: RenderDiagnosticsObserver = RenderDiagnosticsObserver.NONE,
-): WindowSession =
+    view: WindowView<I>,
+    host: WindowHost<I>,
+): ContainerWindowSession<I> =
     when {
-        definition.entry.inputs.isEmpty() -> {
-            WindowSession(definition, view, player, scheduler, handle, diagnosticsObserver)
-        }
-
-        definition.entry.hasStaticTitle -> {
-            AnvilWindowSession(definition, view, player, scheduler, handle, diagnosticsObserver)
-        }
-
-        else -> {
-            ReopeningAnvilWindowSession(definition, view, player, scheduler, handle, diagnosticsObserver)
-        }
+        definition.entry.inputs.isEmpty() -> ContainerWindowSession(definition, view, host)
+        definition.entry.hasStaticTitle -> AnvilWindowSession(definition, view, host)
+        else -> ReopeningAnvilWindowSession(definition, view, host)
     }
 
 /**
- * A live window instance bound to a player.
- *
- * Owns the Minestom [inventory], routes clicks to button handlers, drives reactive slot re-renders,
- * and manages the window lifecycle. Created via [Windows.open]; not constructed directly.
+ * A window session over a container opened through [host]: turns container input into view calls, and delivers what
+ * its [WindowRenderer] renders.
  */
-public open class WindowSession
-    internal constructor(
-        internal val definition: WindowDefinition,
-        /** The view driving this session. */
-        public val view: WindowView,
-        private val player: Player,
-        internal val scheduler: RenderScheduler,
-        internal val handle: InventoryHandle,
-        diagnosticsObserver: RenderDiagnosticsObserver = RenderDiagnosticsObserver.NONE,
-    ) {
-        internal val entry = definition.entry
-        private val reactivity = Reactivity(scheduler) { dirty -> flush(dirty) }
+internal open class ContainerWindowSession<I : Any>(
+    protected val definition: WindowDefinition,
+    override val view: WindowView<I>,
+    private val host: WindowHost<I>,
+) : WindowSession() {
+    protected val entry = definition.entry
+    protected val scheduler = RenderScheduler(host::scheduleNextTick)
+    private val reactivity = Reactivity(scheduler) { dirty -> flush(dirty) }
 
-        internal val bindings =
-            WindowBindings(
-                definition,
-                definition.titleSlots(reactivity),
-                Switches("window", definition.name, entry.switches, reactivity),
+    protected val bindings =
+        WindowBindings(
+            definition,
+            host::item,
+            definition.titleSlots(reactivity),
+            Switches("window", definition.name, entry.switches, reactivity),
+        )
+    protected val renderer = WindowRenderer(definition, bindings, reactivity, host::item)
+
+    /** The open container; set when the window opens. */
+    protected lateinit var container: OpenContainer<I>
+        private set
+    private val routes = SlotRoutes(entry, bindings, ::close)
+    private var sentTitle: Component? = null
+
+    private val frames =
+        SessionFrames(
+            { observer, frame -> observer.observe(host, frame) },
+            entry.surface.titleOrigin[0].let {
+                FrameCursor(RenderCursorConvention.INDEPENDENT_NET_ZERO_SEGMENTS, it, it)
+            },
+            LOGGER,
+            "Window render diagnostics observer failed",
+        ) { renderSessionId ->
+            RenderCorrelation(
+                surfaceKind = RenderSurfaceKind.WINDOW,
+                semanticId = definition.name,
+                renderSessionId = renderSessionId,
             )
-        private val title = WindowTitle(definition, bindings, reactivity)
-        internal val writer = WindowInventoryWriter(definition, bindings, handle, reactivity)
-        private val routes = SlotRoutes(entry, bindings, player, ::close)
-        private var sentTitle: Component? = null
+        }
 
-        private val frames =
-            SessionFrames(
-                player,
-                diagnosticsObserver,
-                entry.surface.titleOrigin[0].let {
-                    FrameCursor(RenderCursorConvention.INDEPENDENT_NET_ZERO_SEGMENTS, it, it)
-                },
-                LOGGER,
-                "Window render diagnostics observer failed",
-            ) { renderSessionId ->
-                RenderCorrelation(
-                    surfaceKind = RenderSurfaceKind.WINDOW,
-                    semanticId = definition.name,
-                    renderSessionId = renderSessionId,
-                    containerId = handle.containerId,
-                )
+    private val listener =
+        object : ContainerListener {
+            override fun onClick(
+                slot: SlotRef,
+                shift: Boolean,
+                right: Boolean,
+            ) = handleClick(Click(slot, shift, right))
+
+            override fun onClose() = handleClientClose()
+
+            override fun onAnvilInput(text: String) {
+                if (!closed) onInput(text)
             }
 
-        private var opened = false
-        private var closing = false
-        internal var closed = false
-            private set
-
-        /** The Minestom inventory backing this window. */
-        public val inventory: Inventory
-            get() =
-                (handle as? LiveInventoryHandle)?.inventory
-                    ?: error("This session is not backed by a live inventory")
-
-        internal fun open() {
-            check(!opened) { "Session already opened" }
-            view.attach(player, this, reactivity)
-            view.invokeBind(bindings)
-            bindings.validate()
-            bindInput()
-            seedTitle()
-
-            val render = title.compose()
-            send {
-                handle.open(render.component)
-                handle.registerListeners(::handleClick, ::handleClientClose, ::handleInput, ::handlePong)
-                writer.seed()
+            override fun onPong(id: Int) {
+                if (!closed) this@ContainerWindowSession.onPong(id)
             }
-            sentTitle = render.component
-            frames.observe(render, RenderFrameReason.OPEN)
-            view.invokeOnOpen()
-            opened = true
         }
 
-        /**
-         * Renders switch case art first, then button state sprites, so both draw beneath sprite and
-         * text slots. Segments updated later keep this position, since title segments compose in
-         * insertion order.
-         */
-        private fun seedTitle() {
-            for (name in entry.switches.keys) title.updateSwitch(name)
-            for (name in entry.buttons.keys) {
-                val state = writer.initialButtonState(name)
-                if (state != null) title.setButtonVisual(name, state) else title.reserveButtonVisual(name)
+    private var closing = false
+    protected var closed = false
+        private set
+
+    internal fun open() {
+        view.attach(this, reactivity)
+        view.invokeBind(bindings)
+        bindings.validate()
+        bindInput()
+
+        val title = renderer.seedTitle()
+        container =
+            try {
+                host.open(definition.kind, title.component, listener)
+            } catch (failure: Throwable) {
+                closed = true
+                throw failure
             }
-            title.seedContent()
-        }
-
-        /** Re-renders the dirty keys, then rebuilds and sends the title. */
-        private fun flush(dirty: Set<RenderKey>) {
-            if (closed) return
-            for (key in dirty) {
-                when (key) {
-                    is RenderKey.Slot -> title.updateSlot(key.name)
-                    is RenderKey.Sprite -> title.updateSprite(key.name)
-                    is RenderKey.ButtonItem -> writer.writeButtonItem(key.name)
-                    is RenderKey.ButtonState -> applyButtonState(key.name, writer.renderButtonState(key.name))
-                    is RenderKey.Item -> writer.writeItem(key.name)
-                    is RenderKey.CollectionCell -> writer.writeCollectionCell(key.name, key.index)
-                    is RenderKey.CollectionSelection -> title.updateCollectionSelection(key.name)
-                    is RenderKey.Switch -> title.updateSwitch(key.name)
-                }
-            }
-            sendTitle()
-        }
-
-        /** Sends the title when it changed, or when [reopen] asks to restore an anvil's edit box. */
-        internal fun sendTitle(reopen: Boolean = false) {
-            if (closed) return
-            val render = title.compose()
-            if (!reopen && render.component == sentTitle) return
-            if (!send { handle.setTitle(render.component) }) return
-            sentTitle = render.component
-            frames.observe(render, RenderFrameReason.REACTIVE_UPDATE)
-        }
-
-        /** Runs [action], which opens the inventory or changes its title; false when it was deferred. */
-        internal open fun send(action: () -> Unit): Boolean {
-            action()
-            return true
-        }
-
-        /** Binds the window's anvil input, after the view's bindings are validated. */
-        internal open fun bindInput() {}
-
-        /** Handles the client's anvil edit-box [value]. */
-        internal open fun onInput(value: String) {}
-
-        /** Handles the client's answer to ping [id]. */
-        internal open fun onPong(id: Int) {}
-
-        /** Runs before a client click or close is handled. */
-        internal open fun onClientPacket() {}
-
-        /** Replaces the text of anvil input [name]; backs `WindowView.input`. */
-        internal open fun setInput(
-            name: String,
-            value: String,
-        ) {
-            definition.requireEntry(entry.inputs, name, "anvil input", known = "inputs")
-        }
-
-        private fun applyButtonState(
-            name: String,
-            state: String,
-        ) {
-            writer.applyButtonState(name, state)
-            title.setButtonVisual(name, state)
-        }
-
-        internal fun setButtonItem(
-            name: String,
-            item: ItemStack?,
-        ) {
-            writer.setButtonItem(name, item)
-        }
-
-        internal fun setItem(
-            name: String,
-            stack: ItemStack?,
-        ) {
-            writer.setItem(name, stack)
-        }
-
-        internal fun setButtonState(
-            name: String,
-            state: String,
-        ) {
-            if (writer.buttonState(name) == state) return
-            applyButtonState(name, state)
-            if (!closed) sendTitle()
-        }
-
-        internal fun setTooltip(
-            name: String,
-            tooltip: ButtonTooltip?,
-        ) {
-            setButtonItem(name, tooltip?.let { WindowItems.hitbox(it, definition.hitboxModel) })
-        }
-
-        private fun handleClick(info: ClickInfo) {
-            if (closed) return
-            onClientPacket()
-            if (closed) return
-            routes.dispatch(info)
-        }
-
-        private fun handleInput(value: String) {
-            if (!closed) onInput(value)
-        }
-
-        private fun handlePong(id: Int) {
-            if (!closed) onPong(id)
-        }
-
-        private fun handleClientClose() {
-            if (closed) return
-            onClientPacket()
-            if (closed) return
-            closed = true
-            view.invokeOnClose()
-            handle.teardownListeners()
-        }
-
-        /** Closes this window: invokes [WindowView.onClose], closes the inventory, and tears down. */
-        public fun close() {
-            if (closed || closing) return
-            closing = true
-            closed = true
-            view.invokeOnClose()
-            handle.close()
-        }
-
-        /**
-         * Marks all bound render targets dirty and schedules a single re-render. Backs
-         * `WindowView.refresh`.
-         */
-        internal fun refreshAll() {
-            reactivity.markAllDirty(bindings.renderKeys())
-        }
-
-        private companion object {
-            val LOGGER = LoggerFactory.getLogger(WindowSession::class.java)
-        }
+        send { deliver(renderer.seedItems()) }
+        sentTitle = title.component
+        frames.observe(title, RenderFrameReason.OPEN)
+        view.invokeOnOpen()
     }
+
+    private fun flush(dirty: Set<RenderKey>) {
+        if (closed) return
+        val frame =
+            try {
+                renderer.render(dirty)
+            } catch (failure: Throwable) {
+                deliver(renderer.drainWrites())
+                throw failure
+            }
+        deliver(frame)
+    }
+
+    private fun deliver(frame: WindowFrame<I>) {
+        deliver(frame.writes)
+        sendTitle(frame.title)
+    }
+
+    protected fun deliver(writes: SlotWrites<I>) {
+        for ((slot, item) in writes.items) container.setItem(slot, item)
+        for ((slot, item) in writes.staged) container.stageItem(slot, item)
+    }
+
+    /** Sends [title] when it changed, or when [reopen] asks to restore an anvil's edit box. */
+    protected fun sendTitle(
+        title: ComposedRender,
+        reopen: Boolean = false,
+    ) {
+        if (closed) return
+        if (!reopen && title.component == sentTitle) return
+        if (!send { container.setTitle(title.component) }) return
+        sentTitle = title.component
+        frames.observe(title, RenderFrameReason.REACTIVE_UPDATE)
+    }
+
+    /**
+     * Runs [action], which seeds the opened container or changes its title; false when it was
+     * deferred.
+     */
+    protected open fun send(action: () -> Unit): Boolean {
+        action()
+        return true
+    }
+
+    /** Binds the window's anvil input, after the view's bindings are validated. */
+    protected open fun bindInput() {}
+
+    /** Handles the client's anvil edit-box [value]. */
+    protected open fun onInput(value: String) {}
+
+    /** Handles the client's answer to ping [id]. */
+    protected open fun onPong(id: Int) {}
+
+    /** Runs before a client click or close is handled. */
+    protected open fun onClientPacket() {}
+
+    /** Replaces the text of anvil input [name]; backs `WindowView.input`. */
+    internal open fun setInput(
+        name: String,
+        value: String,
+    ) {
+        definition.requireEntry(entry.inputs, name, "anvil input", known = "inputs")
+    }
+
+    internal fun setButtonItem(
+        name: String,
+        item: I?,
+    ) = deliver(renderer.setButtonItem(name, item))
+
+    internal fun setItem(
+        name: String,
+        item: I?,
+    ) = deliver(renderer.setItem(name, item))
+
+    internal fun setButtonState(
+        name: String,
+        state: String,
+    ) {
+        deliver(renderer.setButtonState(name, state) ?: return)
+    }
+
+    internal fun setTooltip(
+        name: String,
+        tooltip: ButtonTooltip?,
+    ) = deliver(renderer.setTooltip(name, tooltip))
+
+    private fun handleClick(click: Click) {
+        if (closed) return
+        onClientPacket()
+        if (closed) return
+        routes.dispatch(click)
+    }
+
+    private fun handleClientClose() {
+        if (closed) return
+        onClientPacket()
+        if (closed) return
+        closed = true
+        view.invokeOnClose()
+    }
+
+    override fun close() {
+        if (closed || closing) return
+        closing = true
+        closed = true
+        view.invokeOnClose()
+        if (::container.isInitialized) container.close()
+    }
+
+    /**
+     * Marks all bound render targets dirty and schedules a single re-render. Backs
+     * `WindowView.refresh`.
+     */
+    internal fun refreshAll() {
+        reactivity.markAllDirty(bindings.renderKeys())
+    }
+
+    private companion object {
+        val LOGGER = LoggerFactory.getLogger(ContainerWindowSession::class.java)
+    }
+}

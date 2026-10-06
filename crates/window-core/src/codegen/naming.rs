@@ -6,6 +6,7 @@ pub(super) fn check_member(
     member: &str,
     source: &str,
     class_name: &str,
+    extra_reserved: &[&str],
     taken: &mut BTreeMap<String, String>,
 ) -> Result<()> {
     if !is_valid_identifier(member) {
@@ -13,7 +14,7 @@ pub(super) fn check_member(
             "{source} maps to invalid Kotlin identifier `{member}` (class {class_name})"
         )));
     }
-    if RESERVED_MEMBERS.contains(&member) || RESERVED_TYPES.contains(&member) {
+    if RESERVED_MEMBERS.contains(&member) || RESERVED_TYPES.contains(&member) || extra_reserved.contains(&member) {
         return Err(Error::Validation(format!(
             "{source} collides with reserved WindowView member `{member}` (class {class_name})"
         )));
@@ -42,6 +43,11 @@ pub(super) fn hud_class_name(hud: &str) -> String {
 /// The nested Kotlin type name for `name`.
 pub(super) fn type_name(name: &str) -> String {
     pascal(name)
+}
+
+/// The typed definition property for the window or HUD `name`.
+pub(super) fn definition_member(name: &str) -> String {
+    camel(name)
 }
 
 pub(super) fn slot_member(slot: &str) -> String {
@@ -76,7 +82,7 @@ fn capitalize(part: &str) -> String {
     }
 }
 
-fn is_valid_identifier(name: &str) -> bool {
+pub(super) fn is_valid_identifier(name: &str) -> bool {
     let mut chars = name.chars();
     let Some(first) = chars.next() else {
         return false;
@@ -90,8 +96,14 @@ fn is_valid_identifier(name: &str) -> bool {
     !HARD_KEYWORDS.contains(&name)
 }
 
+/// Members `HudView` declares beyond the shared set.
+pub(super) const HUD_RESERVED_MEMBERS: &[&str] = &["render", "channel"];
+
 const RESERVED_MEMBERS: &[&str] = &[
     "player",
+    "host",
+    "open",
+    "show",
     "state",
     "bind",
     "onOpen",
@@ -112,11 +124,18 @@ const RESERVED_TYPES: &[&str] = &[
     "Component",
     "HudScope",
     "HudView",
+    "I",
     "IndexedClick",
     "Int",
     "ItemStack",
+    "MinestomHost",
+    "MultistomHost",
+    "Player",
     "String",
     "Unit",
+    "WindowDefinitions",
+    "WindowHost",
+    "WindowHudDefinitions",
     "WindowScope",
     "WindowView",
 ];

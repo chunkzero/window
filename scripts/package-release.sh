@@ -18,7 +18,8 @@ repository=$(pwd)
 # Every published JVM library is staged with its POM and transitive Window dependencies.
 jvm/gradlew -p jvm --no-daemon \
   -PwindowVersion="$RELEASE_VERSION" \
-  :runtime:publish :diagnostics-protocol:publish :minestom-diagnostics:publish
+  :runtime:publish :minestom:publish :multistom:publish :host-testkit:publish \
+  :diagnostics-protocol:publish :minestom-diagnostics:publish
 find jvm/build/staging-deploy -name 'maven-metadata.xml*' -delete
 name="window-$RELEASE_VERSION-maven"
 mkdir -p "build/release/$name"

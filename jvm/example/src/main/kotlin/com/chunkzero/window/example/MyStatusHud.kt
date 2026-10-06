@@ -7,8 +7,10 @@ import com.chunkzero.window.example.generated.StatusTopCenterHud
 import com.chunkzero.window.example.generated.StatusTopLeftHud
 import com.chunkzero.window.example.generated.StatusTopRightHud
 import net.kyori.adventure.text.Component
+import net.minestom.server.entity.Player
 
 class MyStatusTopLeftHud(
+    private val player: Player,
     private val market: Market,
 ) : StatusTopLeftHud() {
     override fun coins(): Component = Component.text(market.balanceOf(player))
@@ -28,6 +30,7 @@ class MyStatusTopCenterHud(
 }
 
 class MyStatusTopRightHud(
+    private val player: Player,
     private val startedAt: Long,
 ) : StatusTopRightHud() {
     override fun wave(): Component = Component.text(1 + (System.currentTimeMillis() - startedAt) / WAVE_MILLIS)
@@ -37,7 +40,9 @@ class MyStatusTopRightHud(
     override fun latency(): Component = Component.text("${player.latency}ms")
 }
 
-class MyStatusLeftSideHud : StatusLeftSideHud() {
+class MyStatusLeftSideHud(
+    private val player: Player,
+) : StatusLeftSideHud() {
     override fun coords(): Component {
         val pos = player.position
         return Component.text("${pos.blockX()}, ${pos.blockZ()}")

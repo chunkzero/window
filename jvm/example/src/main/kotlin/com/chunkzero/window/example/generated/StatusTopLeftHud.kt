@@ -6,7 +6,7 @@ import com.chunkzero.window.HudView
 import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_top_left` HUD. Implement the abstract members. */
-public abstract class StatusTopLeftHud : HudView("status_top_left") {
+public abstract class StatusTopLeftHud : HudView(WindowHudDefinitions.statusTopLeft) {
     /** Render the `coins` slot. */
     protected abstract fun coins(): Component
 

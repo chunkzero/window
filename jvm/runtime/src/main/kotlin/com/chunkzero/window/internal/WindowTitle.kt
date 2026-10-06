@@ -14,7 +14,7 @@ import com.chunkzero.window.manifest.WindowEntry
  */
 internal class WindowTitle(
     private val definition: WindowDefinition,
-    private val bindings: WindowBindings,
+    private val bindings: WindowBindings<*>,
     private val reactivity: Reactivity,
 ) {
     private val entry = definition.entry

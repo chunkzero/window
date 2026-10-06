@@ -146,7 +146,7 @@ fn optional_tooltip_expr(tooltip: Option<&ButtonTooltip>, level: usize) -> Strin
     let Some(tooltip) = tooltip else {
         return "null".into();
     };
-    Call::new("ButtonTooltip", level)
+    Call::new("TooltipEntry", level)
         .arg("title", kt_string(&tooltip.title))
         .arg("lines", string_list_expr(&tooltip.lines))
         .finish()

@@ -1,1 +1,1 @@
-{ "packFormat": 61, "hudShaders": true, "kotlinPackage": "golden.format61" }
+{ "packFormat": 61, "hudShaders": true, "kotlinPackage": "golden.format61", "kotlinTarget": "multistom" }

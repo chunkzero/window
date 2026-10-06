@@ -6,7 +6,7 @@ import com.chunkzero.window.HudView
 import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_right_side` HUD. Implement the abstract members. */
-public abstract class StatusRightSideHud : HudView("status_right_side") {
+public abstract class StatusRightSideHud : HudView(WindowHudDefinitions.statusRightSide) {
     /** Render the `objective` slot. */
     protected abstract fun objective(): Component
 

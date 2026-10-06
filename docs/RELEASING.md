@@ -1,8 +1,9 @@
 # Releasing
 
-Window publishes its TypeScript/WASIp2 rpp plugin and a Maven repository archive of its JVM libraries (runtime,
-diagnostics protocol and Minestom diagnostics, with POMs, sources and Javadoc). Every artifact of a build uses the same
-version and has a SHA-256 sidecar; `release.json` records the full source commit.
+Window publishes its TypeScript/WASIp2 rpp plugin and a Maven repository archive of its JVM libraries (`window-runtime`,
+`window-minestom`, `window-multistom`, `window-host-testkit`, `window-diagnostics-protocol` and
+`window-minestom-diagnostics`, with POMs, sources and Javadoc). Every artifact of a build uses the same version and has
+a SHA-256 sidecar; `release.json` records the full source commit.
 
 ## Versions
 
@@ -39,8 +40,9 @@ rpp add window@0.1.0-nightly.20261005021334.g0123456789ab
 rpp build
 ```
 
-Commit `rpp.json` and `rpp.lock`. Depend on `com.chunkzero.window:window-runtime` at the same version, from the
-repository for its channel:
+Commit `rpp.json` and `rpp.lock`. Depend on the host for your server (for example
+`com.chunkzero.window:window-minestom`; see [Servers](../README.md#servers)) at the same version, from the repository
+for its channel:
 
 ```kotlin
 repositories {

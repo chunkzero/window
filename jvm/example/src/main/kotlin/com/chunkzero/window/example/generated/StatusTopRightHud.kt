@@ -6,7 +6,7 @@ import com.chunkzero.window.HudView
 import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_top_right` HUD. Implement the abstract members. */
-public abstract class StatusTopRightHud : HudView("status_top_right") {
+public abstract class StatusTopRightHud : HudView(WindowHudDefinitions.statusTopRight) {
     /** Render the `biome` slot. */
     protected abstract fun biome(): Component
 

@@ -6,7 +6,7 @@ import com.chunkzero.window.HudView
 import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_left_side` HUD. Implement the abstract members. */
-public abstract class StatusLeftSideHud : HudView("status_left_side") {
+public abstract class StatusLeftSideHud : HudView(WindowHudDefinitions.statusLeftSide) {
     /** Render the `altitude` slot. */
     protected abstract fun altitude(): Component
 

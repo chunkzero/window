@@ -1,9 +1,11 @@
-//! `WindowDefinitions` and `WindowHudDefinitions` objects holding every compiled UI entry.
+//! Compiled UI entries (`WindowEntries`, `WindowHudEntries`) and the typed definitions
+//! (`WindowDefinitions`, `WindowHudDefinitions`) views are constructed from.
 
 use std::collections::BTreeMap;
 
 use crate::manifest::{HudEntry, Manifest, SwitchEntry, WindowEntry};
 use crate::pipeline::OutputFile;
+use crate::{Error, Result};
 
 use super::entries::{
     anvil_input_entry_expr, button_entry_expr, collection_entry_expr, hud_surface_entry_expr, item_entry_expr,
@@ -11,22 +13,59 @@ use super::entries::{
     sprite_slot_entry_expr, surface_entry_expr, switch_entry_expr,
 };
 use super::literals::{kt_string, string_map};
+use super::naming;
 use super::writer::{Call, KotlinWriter, indent, multiline_call};
 
 const MANIFEST_PACKAGE: &str = "com.chunkzero.window.manifest";
 
-pub(super) fn generate_window_definitions(manifest: &Manifest, package_name: &str) -> OutputFile {
+pub(super) fn generate_window_definitions(manifest: &Manifest, package_name: &str) -> Result<OutputFile> {
+    typed_definitions(package_name, "WindowDefinitions", "WindowDefinition", "window", manifest.windows.keys())
+}
+
+pub(super) fn generate_hud_definitions(manifest: &Manifest, package_name: &str) -> Result<OutputFile> {
+    typed_definitions(package_name, "WindowHudDefinitions", "HudDefinition", "HUD", manifest.huds.keys())
+}
+
+/// An `object` with one `class` property per UI name, resolved against `WindowPackData.manifest`.
+fn typed_definitions<'a>(
+    package_name: &str,
+    object: &str,
+    class: &str,
+    noun: &str,
+    names: impl IntoIterator<Item = &'a String>,
+) -> Result<OutputFile> {
+    let mut w = KotlinWriter::file(package_name, [format!("com.chunkzero.window.{class}")]);
+    w.doc(format_args!("Typed {noun} definitions of this Window pack."));
+    w.open(format_args!("public object {object} {{"));
+    let mut taken = BTreeMap::new();
+    for name in names {
+        let member = naming::definition_member(name);
+        if !naming::is_valid_identifier(&member) {
+            return Err(Error::Validation(format!("{noun} `{name}` maps to invalid Kotlin identifier `{member}`")));
+        }
+        if let Some(existing) = taken.insert(member.clone(), name) {
+            return Err(Error::Validation(format!(
+                "{noun}s `{existing}` and `{name}` both map to `{object}.{member}`"
+            )));
+        }
+        w.line(format_args!("public val {member}: {class} = {class}(WindowPackData.manifest, {})", kt_string(name)));
+    }
+    w.close("}");
+    Ok(OutputFile { path: format!("{object}.kt"), contents: w.finish().into_bytes() })
+}
+
+pub(super) fn generate_window_entries(manifest: &Manifest, package_name: &str) -> OutputFile {
     let imports = window_imports(manifest).into_iter().map(|name| format!("{MANIFEST_PACKAGE}.{name}"));
     let mut w = KotlinWriter::file(package_name, imports);
-    w.doc("Generated window definitions for this Window pack.");
-    w.open("public object WindowDefinitions {");
+    w.doc("Compiled window entries of this Window pack.");
+    w.open("internal object WindowEntries {");
     let windows = manifest
         .windows
         .iter()
         .map(|(name, window)| format!("{} to\n{}{}", kt_string(name), indent(4), window_entry_expr(window, 4)));
     w.property("val all: Map<String, WindowEntry>", multiline_call("mapOf", "emptyMap()", windows, 2));
     w.close("}");
-    OutputFile { path: "WindowDefinitions.kt".into(), contents: w.finish().into_bytes() }
+    OutputFile { path: "WindowEntries.kt".into(), contents: w.finish().into_bytes() }
 }
 
 /// Manifest classes referenced by the window entries, in import order.
@@ -51,7 +90,6 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (any(&|w| w.buttons.values().any(|b| b.default.is_some())), "ButtonDefault"),
         (any(&|w| !w.buttons.is_empty()), "ButtonEntry"),
         (any(&|w| w.buttons.values().any(|b| !b.states.is_empty())), "ButtonState"),
-        (has_tooltip, "ButtonTooltip"),
         (any(&|w| !w.collections.is_empty()), "CollectionEntry"),
         (any(&|w| !w.inputs.is_empty()), "AnvilInputEntry"),
         (any(&|w| !w.items.is_empty()), "ItemEntry"),
@@ -64,6 +102,7 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (true, "SurfaceEntry"),
         (any(&|w| !w.switches.is_empty()), "SwitchCaseEntry"),
         (any(&|w| !w.switches.is_empty()), "SwitchEntry"),
+        (has_tooltip, "TooltipEntry"),
         (true, "WindowEntry"),
     ]
     .into_iter()
@@ -92,7 +131,7 @@ fn with_switches(call: Call, switches: &BTreeMap<String, SwitchEntry>, level: us
     if switches.is_empty() { call } else { call.arg("switches", string_map(switches, level, switch_entry_expr)) }
 }
 
-pub(super) fn generate_hud_definitions(manifest: &Manifest, package_name: &str) -> OutputFile {
+pub(super) fn generate_hud_entries(manifest: &Manifest, package_name: &str) -> OutputFile {
     let switches = manifest.huds.values().any(|hud| !hud.switches.is_empty());
     let imports = [
         (true, "Align"),
@@ -105,11 +144,11 @@ pub(super) fn generate_hud_definitions(manifest: &Manifest, package_name: &str) 
     ];
     let imports = imports.into_iter().filter(|(used, _)| *used).map(|(_, name)| format!("{MANIFEST_PACKAGE}.{name}"));
     let mut w = KotlinWriter::file(package_name, imports);
-    w.doc("Generated HUD definitions for this Window pack.");
-    w.open("public object WindowHudDefinitions {");
+    w.doc("Compiled HUD entries of this Window pack.");
+    w.open("internal object WindowHudEntries {");
     w.property("val all: Map<String, HudEntry>", string_map(&manifest.huds, 2, hud_entry_expr));
     w.close("}");
-    OutputFile { path: "WindowHudDefinitions.kt".into(), contents: w.finish().into_bytes() }
+    OutputFile { path: "WindowHudEntries.kt".into(), contents: w.finish().into_bytes() }
 }
 
 fn hud_entry_expr(hud: &HudEntry, level: usize) -> String {

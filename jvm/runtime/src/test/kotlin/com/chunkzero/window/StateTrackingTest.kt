@@ -1,6 +1,7 @@
 package com.chunkzero.window
 
 import com.chunkzero.window.manifest.Align
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import net.kyori.adventure.text.Component
@@ -21,12 +22,13 @@ class StateTrackingTest :
             var aRenders = 0
             var bRenders = 0
 
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
+                object : TestView(twoSlotManifest(), host) {
                     var countA by state(0)
                     var countB by state(0)
 
-                    override fun WindowScope.bind() {
+                    override fun WindowScope<Any>.bind() {
                         slot("a") {
                             aRenders++
                             Component.text("a$countA")
@@ -38,10 +40,9 @@ class StateTrackingTest :
                     }
                 }
 
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            val session = testSession(twoSlotManifest(), "w", view, scheduler, handle)
-            session.open()
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
 
             // Open seeds both slots once.
             aRenders shouldBe 1
@@ -62,20 +63,54 @@ class StateTrackingTest :
             handle.titles.size shouldBe 2 // open + one re-render
         }
 
-        "multiple writes in one burst coalesce into a single schedule" {
+        "a refused open fails without running lifecycle hooks, and later state writes do nothing" {
+            val host = FakeHost().apply { refuseOpen = true }
+            var opens = 0
+            var closes = 0
             val view =
-                object : WindowView("w") {
+                object : TestView(twoSlotManifest(), host) {
+                    var countA by state(0)
+
+                    override fun WindowScope<Any>.bind() {
+                        slot("a") { Component.text("a$countA") }
+                        slot("b") { Component.text("b") }
+                    }
+
+                    override fun onOpen() {
+                        opens++
+                    }
+
+                    override fun onClose() {
+                        closes++
+                    }
+
+                    fun stop() = close()
+                }
+
+            shouldThrow<IllegalStateException> { view.open() }
+            view.countA = 1
+            host.scheduler.runAll()
+            view.stop()
+
+            opens shouldBe 0
+            closes shouldBe 0
+            host.container.titles.size shouldBe 0
+            shouldThrow<IllegalStateException> { view.open() }
+        }
+
+        "multiple writes in one burst coalesce into a single schedule" {
+            val host = FakeHost()
+            val view =
+                object : TestView(twoSlotManifest(), host) {
                     var c by state(0)
 
-                    override fun WindowScope.bind() {
+                    override fun WindowScope<Any>.bind() {
                         slot("a") { Component.text("a$c") }
                         slot("b") { Component.text("b") }
                     }
                 }
-            val scheduler = ManualScheduler()
-            val session =
-                testSession(twoSlotManifest(), "w", view, scheduler, FakeInventoryHandle())
-            session.open()
+            val scheduler = host.scheduler
+            view.open()
 
             view.c = 1
             view.c = 2
@@ -85,18 +120,19 @@ class StateTrackingTest :
         }
 
         "a state never read by any slot triggers no re-render" {
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
+                object : TestView(twoSlotManifest(), host) {
                     var unused by state(0)
 
-                    override fun WindowScope.bind() {
+                    override fun WindowScope<Any>.bind() {
                         slot("a") { Component.text("a") }
                         slot("b") { Component.text("b") }
                     }
                 }
-            val scheduler = ManualScheduler()
-            val handle = FakeInventoryHandle()
-            testSession(twoSlotManifest(), "w", view, scheduler, handle).open()
+            val scheduler = host.scheduler
+            val handle = host.container
+            view.open()
 
             view.unused = 99
             scheduler.scheduleCount shouldBe 0
@@ -106,11 +142,12 @@ class StateTrackingTest :
         "refresh marks all slots dirty with a single schedule" {
             var aRenders = 0
             var bRenders = 0
+            val host = FakeHost()
             val view =
-                object : WindowView("w") {
+                object : TestView(twoSlotManifest(), host) {
                     fun forceRefresh() = refresh()
 
-                    override fun WindowScope.bind() {
+                    override fun WindowScope<Any>.bind() {
                         slot("a") {
                             aRenders++
                             Component.text("a")
@@ -121,8 +158,8 @@ class StateTrackingTest :
                         }
                     }
                 }
-            val scheduler = ManualScheduler()
-            testSession(twoSlotManifest(), "w", view, scheduler, FakeInventoryHandle()).open()
+            val scheduler = host.scheduler
+            view.open()
             aRenders shouldBe 1
             bRenders shouldBe 1
 

@@ -39,11 +39,12 @@ impl ValueKind {
         }
     }
 
-    pub(super) fn return_type(self) -> &'static str {
+    /// The Kotlin return type of this kind's member, given the view's item type.
+    pub(super) fn return_type(self, item: &str) -> String {
         match self {
-            Self::Slot => "Component",
-            Self::Sprite => "String?",
-            Self::Item => "ItemStack?",
+            Self::Slot => "Component".into(),
+            Self::Sprite => "String?".into(),
+            Self::Item => format!("{item}?"),
         }
     }
 
@@ -110,6 +111,7 @@ pub(super) struct SwitchEnum {
 /// Collects members in declaration order, rejecting invalid, reserved, or colliding names.
 pub(super) struct Members<'a> {
     class_name: &'a str,
+    reserved: &'a [&'a str],
     taken: BTreeMap<String, String>,
     members: Vec<Member>,
     grouped: BTreeSet<(ValueKind, String)>,
@@ -117,9 +119,10 @@ pub(super) struct Members<'a> {
 }
 
 impl<'a> Members<'a> {
-    pub(super) fn new(class_name: &'a str) -> Self {
+    pub(super) fn new(class_name: &'a str, reserved: &'a [&'a str]) -> Self {
         Self {
             class_name,
+            reserved,
             taken: BTreeMap::new(),
             members: Vec::new(),
             grouped: BTreeSet::new(),
@@ -130,7 +133,7 @@ impl<'a> Members<'a> {
     /// Window members: repeater groups first, then ungrouped slots, sprites, buttons, items,
     /// collections, and anvil inputs.
     pub(super) fn of_window(class_name: &'a str, window: &WindowEntry) -> Result<Vec<Member>> {
-        let mut members = Self::new(class_name);
+        let mut members = Self::new(class_name, &[]);
         for (name, group) in &window.groups {
             members.group(name, group)?;
         }
@@ -264,7 +267,7 @@ impl<'a> Members<'a> {
     }
 
     fn claim(&mut self, member: &str, source: String) -> Result<()> {
-        naming::check_member(member, &source, self.class_name, &mut self.taken)
+        naming::check_member(member, &source, self.class_name, self.reserved, &mut self.taken)
     }
 }
 

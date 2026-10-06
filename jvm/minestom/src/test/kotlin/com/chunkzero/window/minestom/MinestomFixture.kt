@@ -1,0 +1,229 @@
+package com.chunkzero.window.minestom
+
+import com.chunkzero.window.host.testkit.ClientUpdate
+import com.chunkzero.window.host.testkit.HostFixture
+import net.minestom.server.MinecraftServer
+import net.minestom.server.entity.Player
+import net.minestom.server.event.EventDispatcher
+import net.minestom.server.event.EventFilter
+import net.minestom.server.event.EventListener
+import net.minestom.server.event.EventNode
+import net.minestom.server.event.inventory.InventoryOpenEvent
+import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.item.ItemDropEvent
+import net.minestom.server.event.player.PlayerPacketEvent
+import net.minestom.server.event.trait.PlayerEvent
+import net.minestom.server.inventory.Inventory
+import net.minestom.server.inventory.InventoryType
+import net.minestom.server.item.ItemStack
+import net.minestom.server.listener.AnvilListener
+import net.minestom.server.listener.WindowListener
+import net.minestom.server.network.ConnectionState
+import net.minestom.server.network.packet.client.common.ClientPongPacket
+import net.minestom.server.network.packet.client.play.ClientClickWindowPacket
+import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket
+import net.minestom.server.network.packet.client.play.ClientNameItemPacket
+import net.minestom.server.network.packet.server.SendablePacket
+import net.minestom.server.network.packet.server.common.PingPacket
+import net.minestom.server.network.packet.server.play.BundlePacket
+import net.minestom.server.network.packet.server.play.CloseWindowPacket
+import net.minestom.server.network.packet.server.play.OpenWindowPacket
+import net.minestom.server.network.packet.server.play.SetSlotPacket
+import net.minestom.server.network.packet.server.play.WindowItemsPacket
+import net.minestom.server.network.player.GameProfile
+import net.minestom.server.network.player.PlayerConnection
+import java.net.InetSocketAddress
+import java.net.SocketAddress
+import java.util.UUID
+
+/** A headless Minestom player whose connection records what a client would show. */
+internal class MinestomFixture : HostFixture<ItemStack> {
+    private val connection = RecordingConnection()
+    val player = Player(connection, GameProfile(UUID.randomUUID(), "WindowTest"))
+
+    override val host: MinestomHost = MinestomHost.of(player)
+    private val playerNodes = mutableListOf<EventNode<PlayerEvent>>()
+    private val redirectTarget = Inventory(InventoryType.CHEST_1_ROW, "redirect")
+    private val globalNodes = mutableListOf<EventNode<PlayerEvent>>()
+
+    override val updates: List<ClientUpdate<ItemStack>>
+        get() = connection.updates
+
+    override fun click(
+        windowSlot: Int,
+        shift: Boolean,
+        right: Boolean,
+    ) {
+        receive(
+            ClientClickWindowPacket(
+                screen().windowId.toInt(),
+                0,
+                windowSlot.toShort(),
+                (if (right) 1 else 0).toByte(),
+                if (shift) ClientClickWindowPacket.ClickType.QUICK_MOVE else ClientClickWindowPacket.ClickType.PICKUP,
+                emptyMap(),
+                ItemStack.Hash.AIR,
+            ),
+        )
+    }
+
+    override fun clickPlayerWindow(windowSlot: Int) =
+        receive(
+            ClientClickWindowPacket(
+                0,
+                0,
+                windowSlot.toShort(),
+                0,
+                ClientClickWindowPacket.ClickType.PICKUP,
+                emptyMap(),
+                ItemStack.Hash.AIR,
+            ),
+        )
+
+    /** Delivers [packet] like the server's packet manager: the packet event first, then the listener. */
+    private fun receive(packet: ClientClickWindowPacket) {
+        val event = PlayerPacketEvent(player, packet)
+        EventDispatcher.call(event)
+        if (!event.isCancelled) WindowListener.clickWindowListener(packet, player)
+    }
+
+    override fun closeScreen() {
+        WindowListener.closeWindowListener(ClientCloseWindowPacket(screen().windowId.toInt()), player)
+        connection.closeScreen()
+    }
+
+    override fun disconnect() = player.remove()
+
+    override fun typeInAnvil(text: String) = AnvilListener.nameItemListener(ClientNameItemPacket(text), player)
+
+    override fun pong(id: Int) = EventDispatcher.call(PlayerPacketEvent(player, ClientPongPacket(id)))
+
+    override fun tick() = player.scheduler().processTick()
+
+    override fun guardPlayerInventory() {
+        val guard = EventNode.type("player-inventory-guard", EventFilter.PLAYER).setPriority(-100)
+        guard.addListener(InventoryPreClickEvent::class.java) { event ->
+            if (event.inventory === player.inventory) event.isCancelled = true
+        }
+        player.eventNode().addChild(guard)
+        playerNodes += guard
+    }
+
+    override fun allowClicksGlobally() {
+        val guard = EventNode.type("global-click-allow", EventFilter.PLAYER) { _, entity -> entity === player }
+        guard.addListener(
+            EventListener
+                .builder(InventoryPreClickEvent::class.java)
+                .ignoreCancelled(false)
+                .handler { it.isCancelled = false }
+                .build(),
+        )
+        install(guard)
+    }
+
+    override fun cancelOpensGlobally() {
+        val guard = EventNode.type("global-open-cancel", EventFilter.PLAYER) { _, entity -> entity === player }
+        guard.addListener(InventoryOpenEvent::class.java) { it.isCancelled = true }
+        install(guard)
+    }
+
+    override fun redirectOpensGlobally() {
+        val guard = EventNode.type("global-open-redirect", EventFilter.PLAYER) { _, entity -> entity === player }
+        guard.addListener(InventoryOpenEvent::class.java) { event ->
+            if (event.inventory !== redirectTarget) event.inventory = redirectTarget
+        }
+        install(guard)
+    }
+
+    override fun redirectTargetIsOpen() = player.openInventory === redirectTarget
+
+    override fun cancelDropsGlobally() {
+        val guard = EventNode.type("global-drop-cancel", EventFilter.PLAYER) { _, entity -> entity === player }
+        guard.addListener(ItemDropEvent::class.java) { it.isCancelled = true }
+        install(guard)
+    }
+
+    override fun setCursorItem(item: ItemStack?) = player.inventory.setCursorItem(item ?: ItemStack.AIR)
+
+    override fun cursorItem(): ItemStack? = player.inventory.cursorItem.takeUnless { it.isAir }
+
+    override fun close() {
+        playerNodes.forEach(player.eventNode()::removeChild)
+        globalNodes.forEach(MinecraftServer.getGlobalEventHandler()::removeChild)
+        playerNodes.clear()
+        globalNodes.clear()
+    }
+
+    private fun install(node: EventNode<PlayerEvent>) {
+        MinecraftServer.getGlobalEventHandler().addChild(node)
+        globalNodes += node
+    }
+
+    override fun setPlayerItem(
+        slot: Int,
+        item: ItemStack?,
+    ) = player.inventory.setItemStack(slot, item ?: ItemStack.AIR)
+
+    override fun playerItem(slot: Int): ItemStack? = player.inventory.getItemStack(slot).takeUnless { it.isAir }
+
+    private fun screen() = checkNotNull(player.openInventory) { "No screen is open" }
+
+    private companion object {
+        init {
+            MinecraftServer.init()
+        }
+    }
+}
+
+private class RecordingConnection : PlayerConnection() {
+    val updates = mutableListOf<ClientUpdate<ItemStack>>()
+    private var windowId: Int? = null
+
+    fun closeScreen() {
+        windowId = null
+        updates += ClientUpdate.CloseScreen
+    }
+
+    override fun sendPacket(packet: SendablePacket) {
+        when (val sent = SendablePacket.extractServerPacket(ConnectionState.PLAY, packet)) {
+            is OpenWindowPacket -> {
+                windowId = sent.windowId()
+                updates += ClientUpdate.OpenScreen(sent.title())
+            }
+
+            is CloseWindowPacket -> {
+                if (sent.windowId() == windowId) closeScreen()
+            }
+
+            is WindowItemsPacket -> {
+                if (sent.windowId() == windowId) {
+                    sent.items().forEachIndexed { slot, item -> updates += ClientUpdate.SetSlot(slot, item.visible()) }
+                }
+            }
+
+            is SetSlotPacket -> {
+                if (sent.windowId() ==
+                    windowId
+                ) {
+                    updates += ClientUpdate.SetSlot(sent.slot().toInt(), sent.itemStack().visible())
+                }
+            }
+
+            is BundlePacket -> {
+                updates += ClientUpdate.BundleDelimiter
+            }
+
+            is PingPacket -> {
+                updates += ClientUpdate.Ping(sent.id())
+            }
+
+            else -> {
+                Unit
+            }
+        }
+    }
+
+    override fun getRemoteAddress(): SocketAddress = InetSocketAddress("127.0.0.1", 25565)
+
+    private fun ItemStack.visible(): ItemStack? = takeUnless { it.isAir }
+}

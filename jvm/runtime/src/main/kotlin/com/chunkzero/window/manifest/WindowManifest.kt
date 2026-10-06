@@ -7,9 +7,8 @@ import kotlinx.serialization.json.Json
 /**
  * Compiled Window pack definition (schema v5).
  *
- * The rpp plugin generates Kotlin objects that instantiate these DTOs directly. JSON parsing
- * remains for compatibility with older tools and tests, but generated projects should load the
- * emitted `WindowPack` object instead of reading a file.
+ * The rpp plugin generates Kotlin that instantiates these DTOs directly. JSON parsing remains for
+ * older tools and tests; pass a parsed manifest to `WindowDefinition` or `HudDefinition`.
  *
  * All coordinates are GUI-space pixels (origin = container GUI top-left).
  */

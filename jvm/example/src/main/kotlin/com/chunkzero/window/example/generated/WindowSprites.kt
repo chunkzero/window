@@ -4,7 +4,7 @@ package com.chunkzero.window.example.generated
 import com.chunkzero.window.manifest.SpriteEntry
 
 /** Generated runtime sprite catalog for this Window pack. */
-public object WindowSprites {
+internal object WindowSprites {
     val all: Map<String, SpriteEntry> =
         mapOf(
             "action" to SpriteEntry(

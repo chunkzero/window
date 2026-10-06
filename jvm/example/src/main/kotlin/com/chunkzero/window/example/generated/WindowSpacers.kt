@@ -2,7 +2,7 @@
 package com.chunkzero.window.example.generated
 
 /** Generated spacer glyph advances for the Window pack font. */
-public object WindowSpacers {
+internal object WindowSpacers {
     val values: Map<Int, Int> =
         mapOf(
             983040 to -1024,

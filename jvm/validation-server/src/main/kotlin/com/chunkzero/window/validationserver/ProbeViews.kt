@@ -1,23 +1,29 @@
 package com.chunkzero.window.validationserver
 
 import com.chunkzero.window.Click
+import com.chunkzero.window.HudDefinition
 import com.chunkzero.window.HudScope
 import com.chunkzero.window.HudView
+import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.WindowScope
 import com.chunkzero.window.WindowView
+import com.chunkzero.window.manifest.WindowManifest
+import com.chunkzero.window.minestom.MinestomHost
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 
 internal class ProbeView(
+    manifest: WindowManifest,
+    private val player: Player,
     private val report: RuntimeReport,
     private val openSearch: (Player) -> Unit,
-) : WindowView("probe") {
+) : WindowView<ItemStack>(WindowDefinition(manifest, "probe"), MinestomHost.of(player)) {
     private var text by state("III×")
     private var searchOpened = false
 
-    override fun WindowScope.bind() {
+    override fun WindowScope<ItemStack>.bind() {
         slot("probe_text") { Component.text(text) }
         sprite("probe_sprite") { "probe_marker" }
         collectionItem("probe_collection") { null }
@@ -33,11 +39,11 @@ internal class ProbeView(
     }
 
     override fun onOpen() {
-        report.record("window.opened", mapOf("window" to windowName, "text" to text))
+        report.record("window.opened", mapOf("window" to "probe", "text" to text))
     }
 
     override fun onClose() {
-        report.record("window.closed", mapOf("window" to windowName))
+        report.record("window.closed", mapOf("window" to "probe"))
     }
 
     private fun receiveCard(
@@ -75,25 +81,27 @@ internal class ProbeView(
         if (control == "hotbar" && !searchOpened) {
             searchOpened = true
             report.record("search.requested", emptyMap())
-            openSearch(click.player)
+            openSearch(player)
         }
     }
 }
 
 internal class SearchProbeView(
+    manifest: WindowManifest,
+    private val player: Player,
     private val report: RuntimeReport,
     private val showHud: (Player) -> Unit,
-) : WindowView("search_probe") {
+) : WindowView<ItemStack>(WindowDefinition(manifest, "search_probe"), MinestomHost.of(player)) {
     private var hudRequested = false
 
-    override fun WindowScope.bind() {
+    override fun WindowScope<ItemStack>.bind() {
         anvilInput("query") { value ->
             report.record("input.changed", mapOf("input" to "query", "value" to value))
         }
     }
 
     override fun onOpen() {
-        report.record("search.opened", mapOf("window" to windowName))
+        report.record("search.opened", mapOf("window" to "search_probe"))
     }
 
     override fun onClose() {
@@ -104,12 +112,10 @@ internal class SearchProbeView(
     }
 }
 
+/** The probe HUD shown to [player]; its diagnostics frames are routed to that player. */
 internal class ProbeHudView(
-    private val report: RuntimeReport,
-) : HudView("probe_hud") {
+    manifest: WindowManifest,
+    val player: Player,
+) : HudView(HudDefinition(manifest, "probe_hud")) {
     override fun HudScope.bind() {}
-
-    override fun onShow() {
-        report.record("hud.shown", mapOf("hud" to hudName))
-    }
 }

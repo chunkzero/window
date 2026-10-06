@@ -1,1 +1,1 @@
-{ "packFormat": 84, "hudShaders": true, "kotlinPackage": "golden.hud" }
+{ "packFormat": 84, "hudShaders": true, "kotlinPackage": "golden.hud", "kotlinTarget": "minestom" }

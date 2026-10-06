@@ -6,7 +6,7 @@ import com.chunkzero.window.HudView
 import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_bottom_center` HUD. Implement the abstract members. */
-public abstract class StatusBottomCenterHud : HudView("status_bottom_center") {
+public abstract class StatusBottomCenterHud : HudView(WindowHudDefinitions.statusBottomCenter) {
     /** Render the `hint` slot. */
     protected abstract fun hint(): Component
 

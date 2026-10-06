@@ -51,28 +51,30 @@ active pack.
 
 ## Minestom setup
 
-Add the optional `window-minestom-diagnostics` artifact in addition to the normal Window runtime. Read
-`pack_fingerprint.value` from the compiler-emitted debug descriptor belonging to the pack you serve, then install the
-adapter and supply it as Window's narrow diagnostics observer:
+Add the optional `window-minestom-diagnostics` artifact next to `window-minestom`. Read `pack_fingerprint.value` from
+the compiler-emitted debug descriptor belonging to the pack you serve, then install the adapter. Installing registers it
+as the global `WindowDiagnostics.observer`; closing unregisters it:
 
 ```kotlin
-import com.chunkzero.window.Windows
 import com.chunkzero.window.diagnostics.PackFingerprint
 import com.chunkzero.window.diagnostics.minestom.MinestomDiagnostics
-import your.generated.WindowPack
 
 val diagnostics =
     MinestomDiagnostics.install(
         PackFingerprint("sha256", descriptorPackFingerprint),
     )
-val windows = Windows.load(WindowPack.definition, diagnostics)
 
 Runtime.getRuntime().addShutdownHook(Thread(diagnostics::close))
 ```
 
-Normal `Windows.open`, reactive title updates, and `Windows.show` now emit traces from the same composition result sent
-to the player. Observer failures are isolated from delivery. The adapter accepts at most 256 KiB per payload, negotiates
-the smaller client/server limit, bounds every field and collection, ignores malformed input, and drops oversized output.
+Every window `open()` and reactive title update then emits traces from the same composition result sent to the player;
+the adapter sends them only to `MinestomHost` players. HUDs are not tied to a player: `HudView.render()` reports the
+frames of new content to `RenderDiagnosticsObserver.observeHud`, which the adapter ignores. To trace a HUD, register an
+observer that delegates to the adapter and forwards each HUD frame with `observe(MinestomHost.of(player), frame)` for
+the player it is sent to, as the validation server does. Other observers can be registered by assigning
+`WindowDiagnostics.observer` directly. Observer failures are isolated from delivery. The adapter accepts at most 256 KiB
+per payload, negotiates the smaller client/server limit, bounds every field and collection, ignores malformed input, and
+drops oversized output.
 
 ## Reports and privacy
 

@@ -4,29 +4,29 @@ import com.chunkzero.window.ButtonTooltip
 import com.chunkzero.window.Click
 import com.chunkzero.window.IndexedClick
 import com.chunkzero.window.WindowDefinition
-import com.chunkzero.window.WindowItems
 import com.chunkzero.window.WindowScope
+import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.ButtonState
 import net.kyori.adventure.text.Component
-import net.minestom.server.item.ItemStack
 
 /**
  * Collects a window view's bindings: the [WindowScope] passed to `bind`, the resulting render and
  * handler tables, and the check that every manifest control requiring a binding received one.
  */
-internal class WindowBindings(
+internal class WindowBindings<I : Any>(
     private val definition: WindowDefinition,
+    private val buildItem: (WindowItem) -> I,
     val slots: DynamicSlots,
     val switches: Switches,
-) : WindowScope {
+) : WindowScope<I> {
     private val entry = definition.entry
 
     val sprites = HashMap<String, () -> String?>()
     val buttonHandlers = HashMap<String, (Click) -> Unit>()
-    val buttonItems = HashMap<String, () -> ItemStack?>()
+    val buttonItems = HashMap<String, () -> I?>()
     val buttonStates = HashMap<String, () -> String>()
-    val items = HashMap<String, () -> ItemStack?>()
-    val collectionItems = HashMap<String, (Int) -> ItemStack?>()
+    val items = HashMap<String, () -> I?>()
+    val collectionItems = HashMap<String, (Int) -> I?>()
     val collectionHandlers = HashMap<String, (IndexedClick) -> Unit>()
     val collectionSelections = HashMap<String, () -> Int?>()
     val inputHandlers = LinkedHashMap<String, (String) -> Unit>()
@@ -58,7 +58,7 @@ internal class WindowBindings(
 
     override fun buttonItem(
         name: String,
-        render: () -> ItemStack?,
+        render: () -> I?,
     ) {
         definition.requireEntry(entry.buttons, name, "button or hotspot", known = "buttons")
         require(name !in buttonStates) { "Button '$name' already has a named-state binding" }
@@ -67,7 +67,7 @@ internal class WindowBindings(
 
     override fun item(
         name: String,
-        render: () -> ItemStack?,
+        render: () -> I?,
     ) {
         definition.requireEntry(entry.items, name, "item", known = "items")
         bindOnce(items, name, render) { "Item '$name' bound more than once" }
@@ -75,7 +75,7 @@ internal class WindowBindings(
 
     override fun collection(
         name: String,
-        render: (Int) -> ItemStack?,
+        render: (Int) -> I?,
         handler: (IndexedClick) -> Unit,
     ) {
         val collection = definition.requireEntry(entry.collections, name, "collection", known = "collections")
@@ -88,7 +88,7 @@ internal class WindowBindings(
 
     override fun collectionItem(
         name: String,
-        render: (Int) -> ItemStack?,
+        render: (Int) -> I?,
     ) {
         definition.requireEntry(entry.collections, name, "collection", known = "collections")
         bindOnce(collectionItems, name, render) {
@@ -131,7 +131,8 @@ internal class WindowBindings(
         name: String,
         tooltip: ButtonTooltip?,
     ) {
-        buttonItem(name) { tooltip?.let { WindowItems.hitbox(it, definition.hitboxModel) } }
+        val item = tooltip?.let { buildItem(definition.tooltipHitbox(it)) }
+        buttonItem(name) { item }
     }
 
     /** Fails fast on unbound dynamic content and on actions lacking both a handler and a default. */
@@ -211,7 +212,3 @@ internal fun WindowDefinition.requireButtonState(
                 "known states: ${button.states.keys.sorted()}",
         )
 }
-
-/** The item model of this window's invisible hitbox items. */
-internal val WindowDefinition.hitboxModel: String
-    get() = "${manifest.namespace}:gui/hitbox"

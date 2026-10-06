@@ -48,7 +48,7 @@ public data class ButtonEntry(
     /** Whether this region should accept a generated/runtime click handler. */
     val action: Boolean = true,
     /** Default tooltip shown for this button or hotspot. */
-    val tooltip: ButtonTooltip? = null,
+    val tooltip: TooltipEntry? = null,
     /** Named item states for dynamic visual/tooltip toggles. */
     val states: Map<String, ButtonState> = emptyMap(),
     /** Generated sprite font used by state sprites, when present. */
@@ -113,12 +113,12 @@ public data class RepeatGroupEntry(
     val buttons: List<String> = emptyList(),
 )
 
-/** Plain manifest tooltip text. Runtime APIs can provide rich Adventure components. */
+/** Manifest tooltip text as MiniMessage templates; the runtime parses it into a `ButtonTooltip`. */
 @Serializable
-public data class ButtonTooltip(
-    /** Tooltip title/name. */
+public data class TooltipEntry(
+    /** Tooltip title/name template. */
     val title: String,
-    /** Additional lore lines. */
+    /** Additional lore line templates. */
     val lines: List<String> = emptyList(),
 )
 
@@ -130,7 +130,7 @@ public data class ButtonState(
     /** Optional Window sprite rendered over the button rect for this state. */
     val sprite: String? = null,
     /** Optional tooltip override for this state. */
-    val tooltip: ButtonTooltip? = null,
+    val tooltip: TooltipEntry? = null,
 )
 
 /** Built-in button behavior used when a manifest button has no user handler. */

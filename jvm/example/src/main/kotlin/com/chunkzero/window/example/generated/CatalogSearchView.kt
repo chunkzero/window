@@ -4,9 +4,12 @@ package com.chunkzero.window.example.generated
 import com.chunkzero.window.Click
 import com.chunkzero.window.WindowScope
 import com.chunkzero.window.WindowView
+import com.chunkzero.window.minestom.MinestomHost
+import net.minestom.server.entity.Player
+import net.minestom.server.item.ItemStack
 
 /** Typed view for the `catalog_search` window. Implement the abstract members. */
-public abstract class CatalogSearchView : WindowView("catalog_search") {
+public abstract class CatalogSearchView(protected val player: Player) : WindowView<ItemStack>(WindowDefinitions.catalogSearch, MinestomHost.of(player)) {
     /** Handle a click on the `back` button. */
     protected abstract fun onBack(click: Click)
 
@@ -16,7 +19,7 @@ public abstract class CatalogSearchView : WindowView("catalog_search") {
     /** Handle a value change from the native `query` anvil input. */
     protected abstract fun onQueryChanged(value: String)
 
-    final override fun WindowScope.bind() {
+    final override fun WindowScope<ItemStack>.bind() {
         button("back", ::onBack)
         button("confirm", ::onConfirm)
         anvilInput("query", ::onQueryChanged)

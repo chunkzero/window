@@ -1,17 +1,22 @@
 package com.chunkzero.window
 
-import com.chunkzero.window.internal.ClickInfo
-import com.chunkzero.window.internal.InventoryHandle
+import com.chunkzero.window.host.ContainerKind
+import com.chunkzero.window.host.ContainerListener
+import com.chunkzero.window.host.OpenContainer
+import com.chunkzero.window.host.WindowHost
+import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.internal.RenderScheduler
 import com.chunkzero.window.manifest.WindowManifest
 import net.kyori.adventure.text.Component
-import net.minestom.server.item.ItemStack
 
 /** A scheduler that records tasks and runs them on demand, for deterministic flush testing. */
 internal class ManualScheduler : RenderScheduler {
     private val tasks = ArrayDeque<Runnable>()
     var scheduleCount = 0
         private set
+
+    val pending: Int
+        get() = tasks.size
 
     override fun schedule(task: Runnable) {
         scheduleCount++
@@ -27,33 +32,60 @@ internal class ManualScheduler : RenderScheduler {
     fun runAll() {
         while (tasks.isNotEmpty()) tasks.removeFirst().run()
     }
-
-    val pending: Int
-        get() = tasks.size
 }
 
-/** A fake handle capturing title sends and exposing the click/close callbacks for driving. */
-internal class FakeInventoryHandle : InventoryHandle {
-    override val containerId: Int = 7
+/**
+ * An in-memory host whose items are the [WindowItem]s themselves (tests may also pass any other
+ * value as an item). It opens [container] once.
+ */
+internal class FakeHost : WindowHost<Any> {
+    val scheduler = ManualScheduler()
+    val container = FakeContainer()
+
+    /** Makes [open] fail like a host whose open request was cancelled. */
+    var refuseOpen = false
+
+    override fun open(
+        kind: ContainerKind,
+        title: Component,
+        listener: ContainerListener,
+    ): OpenContainer<Any> {
+        check(!refuseOpen) { "open refused" }
+        return container.also { it.open(kind, title, listener) }
+    }
+
+    override fun item(item: WindowItem): Any = item
+
+    override fun scheduleNextTick(task: Runnable) = scheduler.schedule(task)
+}
+
+/** A container capturing what the core sends, with helpers to drive client input. */
+internal class FakeContainer : OpenContainer<Any> {
+    lateinit var kind: ContainerKind
+        private set
     val titles = mutableListOf<Component>()
-    val items = mutableMapOf<SlotRef, ItemStack>()
+    val items = mutableMapOf<SlotRef, Any>()
+    val pings = mutableListOf<Int>()
     var opened = false
         private set
-
     var closed = false
         private set
-
-    var listenersTorndown = false
+    var playerSlotsRestored = false
         private set
+    private var listener: ContainerListener? = null
 
-    private var onClick: ((ClickInfo) -> Unit)? = null
-    private var onClose: (() -> Unit)? = null
-    private var onInput: ((String) -> Unit)? = null
-    private var onPong: ((Int) -> Unit)? = null
-    val pings = mutableListOf<Int>()
+    override val size: Int
+        get() = kind.size
 
-    override fun open(title: Component) {
+    fun open(
+        kind: ContainerKind,
+        title: Component,
+        listener: ContainerListener,
+    ) {
+        check(!opened) { "FakeContainer opened twice" }
         opened = true
+        this.kind = kind
+        this.listener = listener
         titles += title
     }
 
@@ -63,45 +95,29 @@ internal class FakeInventoryHandle : InventoryHandle {
 
     override fun setItem(
         slot: SlotRef,
-        item: ItemStack,
+        item: Any?,
     ) {
-        items[slot] = item
+        if (item == null) items.remove(slot) else items[slot] = item
     }
 
     override fun stageItem(
-        slot: SlotRef,
-        item: ItemStack,
-    ) {
-        items[slot] = item
+        slot: Int,
+        item: Any?,
+    ) = setItem(SlotRef(SlotArea.CONTAINER, slot), item)
+
+    override fun restorePlayerSlots() {
+        playerSlotsRestored = true
     }
 
-    override fun registerListeners(
-        onClick: (ClickInfo) -> Unit,
-        onClose: () -> Unit,
-        onInput: (String) -> Unit,
-        onPong: (Int) -> Unit,
-    ) {
-        this.onClick = onClick
-        this.onClose = onClose
-        this.onInput = onInput
-        this.onPong = onPong
-    }
+    override fun batch(action: () -> Unit) = action()
 
     override fun ping(id: Int) {
         pings += id
     }
 
-    override fun bundle(action: () -> Unit) {
-        action()
-    }
-
     override fun close() {
         closed = true
-        listenersTorndown = true
-    }
-
-    override fun teardownListeners() {
-        listenersTorndown = true
+        listener = null
     }
 
     /** Simulates a client click landing on [slot]. */
@@ -110,73 +126,42 @@ internal class FakeInventoryHandle : InventoryHandle {
         shift: Boolean = false,
         right: Boolean = false,
     ) {
-        onClick?.invoke(ClickInfo(slot, shift, right))
+        listener?.onClick(slot, shift, right)
     }
 
     fun clickContainer(
         slot: Int,
         shift: Boolean = false,
         right: Boolean = false,
-    ) {
-        click(SlotRef(SlotArea.CONTAINER, slot), shift, right)
-    }
+    ) = click(SlotRef(SlotArea.CONTAINER, slot), shift, right)
 
-    /** Simulates a client-initiated close. */
+    /** Simulates a client-initiated close; the container stops listening first. */
     fun clientClose() {
-        onClose?.invoke()
+        val listener = listener ?: return
+        this.listener = null
+        listener.onClose()
     }
 
-    /** Simulates a native inventory text-input update. */
+    /** Simulates an anvil text-box update. */
     fun input(value: String) {
-        onInput?.invoke(value)
+        listener?.onAnvilInput(value)
     }
 
     /** Simulates the client answering the latest ping. */
     fun pong() {
-        onPong?.invoke(pings.last())
+        listener?.onPong(pings.last())
     }
 }
 
-/** Builds a [WindowDefinition] from a test manifest for the given window name. */
-internal fun definitionOf(
+/** A window view over [manifest]'s window [name], shown through [host]. */
+internal abstract class TestView(
     manifest: WindowManifest,
-    name: String,
-): WindowDefinition = WindowDefinition(name, manifest, manifest.windows.getValue(name))
+    host: FakeHost,
+    name: String = "w",
+) : WindowView<Any>(WindowDefinition(manifest, name), host)
 
-/**
- * An uninitialised [net.minestom.server.entity.Player] for headless tests.
- *
- * The session never dereferences the player — it only stores it and passes it into [Click]. We
- * allocate an instance without running its constructor; loading the `Player` class needs Minestom's
- * in-memory registries, so [net.minestom.server.MinecraftServer.init] is invoked once. `init()`
- * builds registries/managers only — it does NOT bind a socket or start the server tick loop (that
- * is `start(...)`), so tests stay fully headless.
- */
-internal val stubPlayer: net.minestom.server.entity.Player by lazy {
-    net.minestom.server.MinecraftServer
-        .init()
-    val unsafeField = sun.misc.Unsafe::class.java.getDeclaredField("theUnsafe")
-    unsafeField.isAccessible = true
-    val unsafe = unsafeField.get(null) as sun.misc.Unsafe
-    unsafe.allocateInstance(net.minestom.server.entity.Player::class.java)
-        as net.minestom.server.entity.Player
-}
-
-/** Builds a [WindowSession] over a fake handle and manual scheduler, without a live server. */
-internal fun testSession(
+/** A HUD view over [manifest]'s HUD [name]. */
+internal abstract class TestHud(
     manifest: WindowManifest,
-    name: String,
-    view: WindowView,
-    scheduler: ManualScheduler,
-    handle: FakeInventoryHandle,
-    player: net.minestom.server.entity.Player = stubPlayer,
-    diagnosticsObserver: RenderDiagnosticsObserver = RenderDiagnosticsObserver.NONE,
-): WindowSession =
-    windowSession(
-        definitionOf(manifest, name),
-        view,
-        player,
-        scheduler,
-        handle,
-        diagnosticsObserver,
-    )
+    name: String = "h",
+) : HudView(HudDefinition(manifest, name))
