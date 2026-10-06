@@ -62,7 +62,8 @@ public abstract class WindowView<I : Any>(
 
     /**
      * Invoked when the window closes (by client or server) or another inventory opens over it, before
-     * cleanup.
+     * cleanup. It can run while the server is still closing or replacing the inventory (including when the player
+     * disconnects), so opening another window from it must be deferred, e.g. to the next tick.
      */
     protected open fun onClose() {}
 

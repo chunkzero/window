@@ -50,8 +50,8 @@ public interface ContainerListener {
 
     /**
      * The client closed the container, or another inventory replaced it. Listening has stopped and the player's slots
-     * are restored. The host reports it on a later tick, never while the server is still changing the player's open
-     * inventory, so the listener may open another container.
+     * are restored. It runs while the server is still closing or replacing the inventory (including when the player
+     * disconnects), so opening another container from it must be deferred, e.g. to the next tick.
      */
     public fun onClose()
 

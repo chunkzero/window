@@ -30,6 +30,9 @@ public interface HostFixture<I : Any> : AutoCloseable {
     /** Closes the open screen from the client. */
     public fun closeScreen()
 
+    /** Disconnects the player: the server removes it while its screen is open. */
+    public fun disconnect()
+
     /** Types [text] into the open anvil's text box. */
     public fun typeInAnvil(text: String)
 

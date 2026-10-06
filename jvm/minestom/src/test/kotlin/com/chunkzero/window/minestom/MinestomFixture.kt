@@ -94,6 +94,8 @@ internal class MinestomFixture : HostFixture<ItemStack> {
         connection.closeScreen()
     }
 
+    override fun disconnect() = player.remove()
+
     override fun typeInAnvil(text: String) = AnvilListener.nameItemListener(ClientNameItemPacket(text), player)
 
     override fun pong(id: Int) = EventDispatcher.call(PlayerPacketEvent(player, ClientPongPacket(id)))

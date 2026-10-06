@@ -46,12 +46,13 @@ server, where `I` is the server's item type. A host:
 
 The KDoc on these types is the contract, including the anvil guarantees: `setTitle` on an anvil reopens the screen on
 the same container without reporting `onClose`, and delivers items staged with `stageItem`. A server-initiated `close`
-never reports `onClose`; a client close or a replacing inventory reports it once, on a later tick, after listening has
-stopped and the player's slots are restored (before the server returns a cursor item to the inventory), so `onClose` may
-open another container. Clicks addressed to the player's own inventory window are dropped while a container is open. A
-replacement that a server listener cancels reports nothing and leaves the current container open. Opening a container
-the server refuses to show (cancelled or redirected) throws `IllegalStateException` from `WindowHost.open` with nothing
-registered, and the failed `WindowView.open()` still consumes the view.
+never reports `onClose`; a client close or a replacing inventory reports it once, synchronously, after listening has
+stopped and the player's slots are restored (before the server returns a cursor item to the inventory). `onClose` runs
+while the server is still closing or replacing the inventory, including on disconnect, so opening another container from
+it must be scheduled, e.g. on the next tick. Clicks addressed to the player's own inventory window are dropped while a
+container is open. A replacement that a server listener cancels reports nothing and leaves the current container open.
+Opening a container the server refuses to show (cancelled or redirected) throws `IllegalStateException` from
+`WindowHost.open` with nothing registered, and the failed `WindowView.open()` still consumes the view.
 
 Hosts hold no runtime state, but the runtime keys per-player state (such as merged action bars) by host identity, so a
 player must get the same host instance everywhere. A `HudOutput` must not strongly reference its host or the player that

@@ -213,11 +213,19 @@ public abstract class HostConformance<I : Any>(
 
             client.closeScreen()
             container.close()
-            client.tick()
-            client.tick()
 
             listener.closes shouldBe 1
             client.playerItem(0) shouldBe diamond
+        }
+
+        "a disconnect reports onClose once" {
+            val client = fixture()
+            val listener = RecordingListener()
+            client.host.open(ContainerKind.CHEST_3_ROW, TITLE, listener)
+
+            client.disconnect()
+
+            listener.closes shouldBe 1
         }
 
         "a server close reports no onClose, restores player slots, and stops listening" {
@@ -254,10 +262,8 @@ public abstract class HostConformance<I : Any>(
             firstContainer.setItem(player(0), client.hitbox("hitbox"))
 
             client.click(firstContainer.size + 27)
-            client.tick()
             client.click(ContainerKind.CHEST_1_ROW.size + 27)
             client.closeScreen()
-            client.tick()
 
             events shouldBe listOf("first:click", "first:close", "second:click", "second:close")
             client.playerItem(0) shouldBe diamond
@@ -272,7 +278,6 @@ public abstract class HostConformance<I : Any>(
 
             firstContainer.close()
             client.click(0)
-            client.tick()
 
             first.closes shouldBe 1
             first.clicks.shouldBeEmpty()
@@ -313,18 +318,19 @@ public abstract class HostConformance<I : Any>(
                 listOf(diamond, emerald)
         }
 
-        "a window opened from a replaced container's onClose replaces its replacement" {
+        "a window opened on the next tick after a replaced container's onClose replaces its replacement" {
             val client = fixture()
             val third = RecordingListener()
             val second = RecordingListener()
             val first =
                 RecordingListener(afterClose = {
-                    client.host.open(ContainerKind.CHEST_3_ROW, Component.text("third"), third)
+                    client.host.scheduleNextTick {
+                        client.host.open(ContainerKind.CHEST_3_ROW, Component.text("third"), third)
+                    }
                 })
             client.host.open(ContainerKind.CHEST_3_ROW, Component.text("first"), first)
             client.host.open(ContainerKind.CHEST_3_ROW, Component.text("second"), second)
 
-            client.tick()
             client.tick()
             client.click(ContainerKind.CHEST_3_ROW.size)
 

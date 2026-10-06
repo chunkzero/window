@@ -93,6 +93,8 @@ internal class MultistomFixture : HostFixture<ItemStack> {
         connection.closeScreen()
     }
 
+    override fun disconnect() = player.remove()
+
     override fun typeInAnvil(text: String) = AnvilListener.nameItemListener(ClientNameItemPacket(text), player)
 
     override fun pong(id: Int) = player.process().eventHandler().call(PlayerPacketEvent(player, ClientPongPacket(id)))

@@ -33,9 +33,8 @@ import net.minestom.server.network.packet.server.play.BundlePacket
  * after every open listener let the new inventory open.
  *
  * Ending a container restores the player's slots at once, before Minestom returns a cursor item to the inventory, and
- * stops listening. [ContainerListener.onClose] runs on the next tick of the player's scheduler, because Minestom is
- * still changing the player's open inventory while the end is detected and a window the listener opened then would be
- * overwritten.
+ * stops listening. [ContainerListener.onClose] then runs synchronously, while the server is still closing or
+ * replacing the player's open inventory, so a listener that opens another window must schedule it.
  */
 internal class MinestomContainer private constructor(
     private val player: Player,
@@ -158,7 +157,7 @@ internal class MinestomContainer private constructor(
     private fun end(listener: ContainerListener) {
         if (!stopListening()) return
         playerSlots.restore()
-        player.scheduler().scheduleNextTick(listener::onClose)
+        listener.onClose()
     }
 
     /** Removes the event node; false when it was already removed. */
