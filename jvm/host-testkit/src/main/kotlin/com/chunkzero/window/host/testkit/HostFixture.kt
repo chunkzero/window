@@ -39,6 +39,12 @@ public interface HostFixture<I : Any> {
     /** Adds a listener that runs before the host's and cancels every click on the player's own inventory. */
     public fun guardPlayerInventory()
 
+    /** Adds a server-wide listener that runs after the host's and un-cancels every click of the player. */
+    public fun allowClicksGlobally()
+
+    /** Adds a server-wide listener that runs after the host's and cancels every inventory open of the player. */
+    public fun cancelOpensGlobally()
+
     /** Puts [item] in the player's real inventory slot [slot]; `null` clears it. */
     public fun setPlayerItem(
         slot: Int,

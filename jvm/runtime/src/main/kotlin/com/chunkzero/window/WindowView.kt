@@ -31,8 +31,11 @@ public abstract class WindowView<I : Any>(
     /**
      * Opens this view: runs [bind], opens the container with the composed title, and calls [onOpen].
      *
-     * @throws IllegalStateException if this view was already opened, or a dynamic slot is unbound or
-     *   a button lacks both a handler and a default.
+     * A failed open still consumes the view: [onOpen] and [onClose] never run, and later state writes do nothing.
+     *
+     * @throws IllegalStateException if this view was already opened, a dynamic slot is unbound, a
+     *   button lacks both a handler and a default, or the host could not open the container (for
+     *   example because an open listener cancelled it).
      * @throws IllegalArgumentException for unknown names referenced in [bind].
      */
     public fun open(): WindowSession {

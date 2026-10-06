@@ -1,6 +1,7 @@
 package com.chunkzero.window
 
 import com.chunkzero.window.manifest.Align
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import net.kyori.adventure.text.Component
@@ -60,6 +61,41 @@ class StateTrackingTest :
             bRenders shouldBe 1
             // A title update was sent.
             handle.titles.size shouldBe 2 // open + one re-render
+        }
+
+        "a refused open fails without running lifecycle hooks, and later state writes do nothing" {
+            val host = FakeHost().apply { refuseOpen = true }
+            var opens = 0
+            var closes = 0
+            val view =
+                object : TestView(twoSlotManifest(), host) {
+                    var countA by state(0)
+
+                    override fun WindowScope<Any>.bind() {
+                        slot("a") { Component.text("a$countA") }
+                        slot("b") { Component.text("b") }
+                    }
+
+                    override fun onOpen() {
+                        opens++
+                    }
+
+                    override fun onClose() {
+                        closes++
+                    }
+
+                    fun stop() = close()
+                }
+
+            shouldThrow<IllegalStateException> { view.open() }
+            view.countA = 1
+            host.scheduler.runAll()
+            view.stop()
+
+            opens shouldBe 0
+            closes shouldBe 0
+            host.container.titles.size shouldBe 0
+            shouldThrow<IllegalStateException> { view.open() }
         }
 
         "multiple writes in one burst coalesce into a single schedule" {

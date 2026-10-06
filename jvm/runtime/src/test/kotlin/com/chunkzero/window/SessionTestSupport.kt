@@ -45,11 +45,17 @@ internal class FakeHost : WindowHost<Any> {
     val container = FakeContainer()
     val huds = mutableListOf<FakeHudOutput>()
 
+    /** Makes [open] fail like a host whose open request was cancelled. */
+    var refuseOpen = false
+
     override fun open(
         kind: ContainerKind,
         title: Component,
         listener: ContainerListener,
-    ): OpenContainer<Any> = container.also { it.open(kind, title, listener) }
+    ): OpenContainer<Any> {
+        check(!refuseOpen) { "open refused" }
+        return container.also { it.open(kind, title, listener) }
+    }
 
     override fun showHud(hud: HudDescriptor): HudOutput = FakeHudOutput(hud).also { huds += it }
 

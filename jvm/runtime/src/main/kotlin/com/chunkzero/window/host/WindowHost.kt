@@ -11,7 +11,15 @@ import net.kyori.adventure.text.Component
  * @param I the server's native item type.
  */
 public interface WindowHost<I : Any> {
-    /** Opens [kind] titled [title] for this host's player; reports its input to [listener] until closed. */
+    /**
+     * Opens [kind] titled [title] for this host's player; reports its input to [listener] until closed.
+     *
+     * The container must be the player's open screen when this returns. If the server refuses to show it (an open
+     * listener cancelled or redirected the request), nothing may be left behind: no listener registered, no player
+     * slot touched, and the player's current screen untouched. The host then throws [IllegalStateException].
+     *
+     * @throws IllegalStateException if the container could not be opened.
+     */
     public fun open(
         kind: ContainerKind,
         title: Component,

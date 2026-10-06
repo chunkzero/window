@@ -73,6 +73,7 @@ public class HudSession
             }
 
         private var output: HudOutput? = null
+        private var actionbar: ActionbarMultiplexer.Bar? = null
         private var hidden = false
 
         internal fun show() {
@@ -130,7 +131,7 @@ public class HudSession
 
         private fun send(component: Component) {
             if (definition.channel == HudChannel.ACTION_BAR) {
-                ActionbarMultiplexer.send(host, actionbarId, component)
+                actionbar = ActionbarMultiplexer.send(host, actionbarId, component)
                 return
             }
             val current = output
@@ -147,7 +148,8 @@ public class HudSession
             hidden = true
             view.invokeOnHide()
             if (definition.channel == HudChannel.ACTION_BAR) {
-                ActionbarMultiplexer.hide(host, actionbarId)
+                actionbar?.let { ActionbarMultiplexer.hide(host, it, actionbarId) }
+                actionbar = null
             } else {
                 output?.hide()
                 output = null

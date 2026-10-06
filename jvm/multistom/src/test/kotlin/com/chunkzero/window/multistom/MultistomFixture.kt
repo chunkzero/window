@@ -7,7 +7,9 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.ServerProcess
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventFilter
+import net.minestom.server.event.EventListener
 import net.minestom.server.event.EventNode
+import net.minestom.server.event.inventory.InventoryOpenEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.item.ItemStack
@@ -78,6 +80,24 @@ internal class MultistomFixture : HostFixture<ItemStack> {
             if (event.inventory === player.inventory) event.isCancelled = true
         }
         player.eventNode().addChild(guard)
+    }
+
+    override fun allowClicksGlobally() {
+        val guard = EventNode.type("global-click-allow", EventFilter.PLAYER) { _, entity -> entity === player }
+        guard.addListener(
+            EventListener
+                .builder(InventoryPreClickEvent::class.java)
+                .ignoreCancelled(false)
+                .handler { it.isCancelled = false }
+                .build(),
+        )
+        player.process().eventHandler().addChild(guard)
+    }
+
+    override fun cancelOpensGlobally() {
+        val guard = EventNode.type("global-open-cancel", EventFilter.PLAYER) { _, entity -> entity === player }
+        guard.addListener(InventoryOpenEvent::class.java) { it.isCancelled = true }
+        player.process().eventHandler().addChild(guard)
     }
 
     override fun setPlayerItem(

@@ -122,7 +122,13 @@ internal open class ContainerWindowSession<I : Any>(
         seedTitle()
 
         val render = title.compose()
-        container = host.open(definition.kind, render.component, listener)
+        container =
+            try {
+                host.open(definition.kind, render.component, listener)
+            } catch (failure: Throwable) {
+                closed = true
+                throw failure
+            }
         send { writer.seed() }
         sentTitle = render.component
         frames.observe(render, RenderFrameReason.OPEN)

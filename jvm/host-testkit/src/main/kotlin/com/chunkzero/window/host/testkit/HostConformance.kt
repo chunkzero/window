@@ -9,6 +9,7 @@ import com.chunkzero.window.host.ContainerListener
 import com.chunkzero.window.host.HudChannel
 import com.chunkzero.window.host.HudDescriptor
 import com.chunkzero.window.host.WindowItem
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
@@ -111,6 +112,44 @@ public abstract class HostConformance<I : Any>(
                 .shouldNotBeNull()
                 .slots[0] shouldBe hitbox
             (0 until PLAYER_SLOTS).mapNotNull(client::playerItem).shouldBeEmpty()
+        }
+
+        "a later listener that un-cancels clicks cannot move container or leased player items" {
+            val client = fixture()
+            client.allowClicksGlobally()
+            val container = client.host.open(ContainerKind.CHEST_3_ROW, TITLE, RecordingListener())
+            val hitbox = client.hitbox("hitbox")
+            container.setItem(container(0), hitbox)
+            container.setItem(player(9), hitbox)
+
+            client.click(0)
+            client.click(container.size)
+            client.click(0, shift = true)
+            client.click(container.size, shift = true)
+
+            val slots =
+                client.updates
+                    .screen()
+                    .shouldNotBeNull()
+                    .slots
+            slots[0] shouldBe hitbox
+            slots[27] shouldBe hitbox
+            client.playerItem(9) shouldBe hitbox
+        }
+
+        "a later listener that un-cancels clicks cannot move anvil items" {
+            val client = fixture()
+            client.allowClicksGlobally()
+            val anvil = client.host.open(ContainerKind.ANVIL, TITLE, RecordingListener())
+            val hitbox = client.hitbox("hitbox")
+            anvil.setItem(container(0), hitbox)
+
+            client.click(0)
+
+            client.updates
+                .screen()
+                .shouldNotBeNull()
+                .slots[0] shouldBe hitbox
         }
 
         "player slots are cleared, mirrored to the open screen, and restored" {
@@ -224,6 +263,39 @@ public abstract class HostConformance<I : Any>(
             first.clicks.shouldBeEmpty()
             second.clicks.map { it.slot } shouldBe listOf(container(0))
             client.updates.screen()?.title shouldBe Component.text("second")
+        }
+
+        "a replacement that an open listener cancels leaves the current container open and listening" {
+            val client = fixture()
+            val first = RecordingListener()
+            val firstContainer = client.host.open(ContainerKind.CHEST_3_ROW, Component.text("first"), first)
+            client.cancelOpensGlobally()
+
+            shouldThrow<IllegalStateException> {
+                client.host.open(ContainerKind.CHEST_1_ROW, Component.text("second"), RecordingListener())
+            }
+            client.click(0)
+            firstContainer.close()
+
+            first.closes shouldBe 0
+            first.clicks.map { it.slot } shouldBe listOf(container(0))
+            client.updates.screen() shouldBe null
+        }
+
+        "an open that a listener cancels fails without listening or touching player slots" {
+            val client = fixture()
+            val diamond = client.hitbox("diamond")
+            client.setPlayerItem(0, diamond)
+            client.cancelOpensGlobally()
+            val listener = RecordingListener()
+
+            shouldThrow<IllegalStateException> { client.host.open(ContainerKind.CHEST_3_ROW, TITLE, listener) }
+            client.pong(1)
+
+            listener.pongs.shouldBeEmpty()
+            listener.closes shouldBe 0
+            client.updates.screen() shouldBe null
+            client.playerItem(0) shouldBe diamond
         }
 
         "setTitle retitles the open screen without onClose" {

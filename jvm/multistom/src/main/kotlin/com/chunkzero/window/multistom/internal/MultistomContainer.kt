@@ -6,12 +6,12 @@ import com.chunkzero.window.host.ContainerKind
 import com.chunkzero.window.host.ContainerListener
 import com.chunkzero.window.host.OpenContainer
 import net.kyori.adventure.text.Component
+import net.minestom.server.ServerProcess
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventFilter
 import net.minestom.server.event.EventListener
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryCloseEvent
-import net.minestom.server.event.inventory.InventoryOpenEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.player.PlayerAnvilInputEvent
 import net.minestom.server.event.player.PlayerPacketEvent
@@ -26,15 +26,17 @@ import net.minestom.server.network.packet.server.common.PingPacket
 import net.minestom.server.network.packet.server.play.BundlePacket
 
 /**
- * An [inventory] open for [player], reporting its input through a child of the player's event node.
+ * A [screen] open for [player], reporting its input through a child of the player's event node.
  *
  * Opening any other inventory over this one ends it like a client close, because Multistom replaces an open inventory
- * without an [InventoryCloseEvent].
+ * without an [InventoryCloseEvent]. The replacement is detected when the screen loses its viewer, which happens only
+ * after every open listener let the new inventory open.
  */
 internal class MultistomContainer private constructor(
     private val player: Player,
-    private val inventory: Inventory,
+    private val screen: Screen,
 ) : OpenContainer<ItemStack> {
+    private val inventory = screen.inventory
     private val playerSlots = PlayerSlotLease(player, inventory)
     private var node: EventNode<PlayerEvent>? = null
 
@@ -93,9 +95,6 @@ internal class MultistomContainer private constructor(
         node.addListener(InventoryCloseEvent::class.java) { event ->
             if (event.inventory === inventory) end(listener)
         }
-        node.addListener(InventoryOpenEvent::class.java) { event ->
-            if (event.inventory !== inventory && player.openInventory === inventory) end(listener)
-        }
         node.addListener(PlayerAnvilInputEvent::class.java) { event ->
             if (event.inventory === inventory) listener.onAnvilInput(event.input)
         }
@@ -105,6 +104,7 @@ internal class MultistomContainer private constructor(
         }
         player.eventNode().addChild(node)
         this.node = node
+        screen.onViewerRemoved = { end(listener) }
     }
 
     /** Cancels every click on this container or the player's inventory, and reports those on a Window slot. */
@@ -147,25 +147,32 @@ internal class MultistomContainer private constructor(
     private fun stopListening(): Boolean {
         val node = node ?: return false
         this.node = null
+        screen.onViewerRemoved = null
         player.eventNode().removeChild(node)
         return true
     }
 
     companion object {
-        /** Opens [kind] for [player], then listens, so the container's own open event is not taken as a replacement. */
+        /**
+         * Opens [kind] for [player], then listens.
+         *
+         * @throws IllegalStateException if an open listener cancelled or redirected the open.
+         */
         fun open(
             player: Player,
             kind: ContainerKind,
             title: Component,
             listener: ContainerListener,
         ): MultistomContainer {
-            val inventory =
+            val screen =
                 when (kind) {
-                    ContainerKind.ANVIL -> AnvilInventory(player.process(), title)
-                    else -> Inventory(player.process(), chestType(kind), title)
+                    ContainerKind.ANVIL -> AnvilScreen(player.process(), title)
+                    else -> ChestScreen(player.process(), chestType(kind), title)
                 }
-            player.openInventory(inventory)
-            return MultistomContainer(player, inventory).also { it.listen(listener) }
+            check(player.openInventory(screen.inventory) && player.openInventory === screen.inventory) {
+                "Opening $kind for ${player.username} was cancelled or redirected by an inventory open listener"
+            }
+            return MultistomContainer(player, screen).also { it.listen(listener) }
         }
 
         private fun chestType(kind: ContainerKind): InventoryType =
@@ -179,4 +186,51 @@ internal class MultistomContainer private constructor(
                 ContainerKind.ANVIL -> InventoryType.ANVIL
             }
     }
+}
+
+/** An inventory that never applies a native click and reports when its viewer is removed. */
+private interface Screen {
+    val inventory: Inventory
+
+    /** Runs when the player stops viewing this screen, whether it closed or another inventory replaced it. */
+    var onViewerRemoved: (() -> Unit)?
+}
+
+private class ChestScreen(
+    process: ServerProcess,
+    type: InventoryType,
+    title: Component,
+) : Inventory(process, type, title),
+    Screen {
+    override val inventory: Inventory get() = this
+    override var onViewerRemoved: (() -> Unit)? = null
+
+    override fun handleClick(
+        player: Player,
+        click: Click,
+    ): Boolean = false
+
+    override fun removeViewer(player: Player): Boolean =
+        super.removeViewer(player).also {
+            if (it) onViewerRemoved?.invoke()
+        }
+}
+
+private class AnvilScreen(
+    process: ServerProcess,
+    title: Component,
+) : AnvilInventory(process, title),
+    Screen {
+    override val inventory: Inventory get() = this
+    override var onViewerRemoved: (() -> Unit)? = null
+
+    override fun handleClick(
+        player: Player,
+        click: Click,
+    ): Boolean = false
+
+    override fun removeViewer(player: Player): Boolean =
+        super.removeViewer(player).also {
+            if (it) onViewerRemoved?.invoke()
+        }
 }

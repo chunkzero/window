@@ -46,7 +46,10 @@ server, where `I` is the server's item type. A host:
 
 The KDoc on these types is the contract, including the anvil guarantees: `setTitle` on an anvil reopens the screen on
 the same container without reporting `onClose`, and delivers items staged with `stageItem`. A server-initiated `close`
-never reports `onClose`; a client close or a replacing inventory reports it once.
+never reports `onClose`; a client close or a replacing inventory reports it once. A replacement that a server listener
+cancels reports nothing and leaves the current container open. Opening a container the server refuses to show (cancelled
+or redirected) throws `IllegalStateException` from `WindowHost.open` with nothing registered, and the failed
+`WindowView.open()` still consumes the view.
 
 Hosts hold no runtime state, but the runtime keys per-player state (such as merged action bars) by host identity, so a
 player must get the same host instance everywhere. `MinestomHost.of(player)` and `MultistomHost.of(player)` store it in
@@ -109,7 +112,8 @@ one click target. A repeater cell routes clicks from all its slots while yieldin
 `buttons.*.slots` records routing; `fill_slots` records the button's item ownership.
 
 Generated views expose typed bindings. The runtime validates handwritten bindings when a session opens and routes clicks
-to them. The host cancels inventory interactions, normalises their slots, and leases the player-inventory slots
+to them. The host cancels inventory interactions (its containers also refuse native click handling, so later listeners cannot
+re-enable item movement), normalises their slots, and leases the player-inventory slots
 temporarily claimed by the UI. Closing restores those slots and releases the session's listeners.
 
 Reactive state records which bindings read it. Writes mark those bindings dirty and schedule a batched update on the
