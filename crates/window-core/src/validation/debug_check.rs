@@ -10,7 +10,7 @@ pub(super) fn validate_debug_descriptor(output: &CompileOutput, rebuild: bool, r
         return;
     };
 
-    if let Err(error) = crate::debug::DebugDescriptor::from_json(&emitted.contents) {
+    if let Err(error) = crate::debug::DebugDescriptor::from_json(emitted.contents.as_bytes()) {
         report.push("debug.descriptor.invalid", &emitted.path, error.to_string());
     }
     if !rebuild {
@@ -18,7 +18,7 @@ pub(super) fn validate_debug_descriptor(output: &CompileOutput, rebuild: bool, r
     }
 
     let expected = match crate::debug::DebugDescriptor::build(&output.manifest, &output.files)
-        .and_then(|descriptor| descriptor.to_json_bytes())
+        .and_then(|descriptor| descriptor.to_json())
     {
         Ok(expected) => expected,
         Err(error) => {
@@ -30,7 +30,7 @@ pub(super) fn validate_debug_descriptor(output: &CompileOutput, rebuild: bool, r
             return;
         }
     };
-    if emitted.contents != expected {
+    if emitted.contents.as_bytes() != expected.as_bytes() {
         report.push(
             "debug.descriptor.mismatch",
             &emitted.path,

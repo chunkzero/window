@@ -44,9 +44,17 @@ export interface SourceFile {
     contents: Uint8Array;
 }
 
+/** Generated text crosses the component boundary as a string; images as bytes. */
+export type FileContents = { tag: "text"; val: string } | { tag: "binary"; val: Uint8Array };
+
+export interface OutputFile {
+    path: string;
+    contents: FileContents;
+}
+
 export interface CompileOutput {
-    files: SourceFile[];
-    kotlinFiles: SourceFile[];
+    files: OutputFile[];
+    kotlinFiles: OutputFile[];
     warnings: string[];
 }
 
@@ -74,8 +82,8 @@ export interface WindowContext {
     read(path: string): Uint8Array | undefined;
     readSource(path: string): Uint8Array | undefined;
     remove(path: string): void;
-    emit(path: string, contents: Uint8Array): void;
-    emitOutput(root: string, path: string, contents: Uint8Array): void;
+    emit(path: string, contents: Uint8Array | string): void;
+    emitOutput(root: string, path: string, contents: Uint8Array | string): void;
 }
 
 const DEFINITIONS = "definitions";
@@ -205,14 +213,14 @@ export function generate(ctx: WindowContext, compile: Compile): void {
     const project = buildProject(documents, options, packFormat(ctx.pack.format));
     const output = compile(options.namespace ?? "window", JSON.stringify(project), files, kotlin);
     for (const file of output.files) {
-        ctx.emit(file.path, file.contents);
+        ctx.emit(file.path, file.contents.val);
     }
     for (const warning of output.warnings) {
         console.warn(warning);
     }
     if (kotlin !== undefined) {
         for (const file of output.kotlinFiles) {
-            ctx.emitOutput("kotlin", file.path, file.contents);
+            ctx.emitOutput("kotlin", file.path, file.contents.val);
         }
     }
 }

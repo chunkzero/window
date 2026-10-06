@@ -25,7 +25,7 @@ pub(super) fn generate_pack_data(manifest: &Manifest, package_name: &str) -> Out
         .finish();
     w.property("val manifest: WindowManifest", manifest);
     w.close("}");
-    OutputFile { path: "WindowPackData.kt".into(), contents: w.finish().into_bytes() }
+    OutputFile::text("WindowPackData.kt", w.finish())
 }
 
 pub(super) fn generate_spacers(manifest: &Manifest, package_name: &str) -> OutputFile {
@@ -34,7 +34,7 @@ pub(super) fn generate_spacers(manifest: &Manifest, package_name: &str) -> Outpu
     w.open("internal object WindowSpacers {");
     w.property("val values: Map<Int, Int>", map_of(&manifest.spacers, 2));
     w.close("}");
-    OutputFile { path: "WindowSpacers.kt".into(), contents: w.finish().into_bytes() }
+    OutputFile::text("WindowSpacers.kt", w.finish())
 }
 
 pub(super) fn generate_fonts(manifest: &Manifest, package_name: &str) -> OutputFile {
@@ -79,7 +79,7 @@ pub(super) fn generate_fonts(manifest: &Manifest, package_name: &str) -> OutputF
     }
     w.property("val metrics: Map<String, FontMetricsEntry>", map_of(metrics, 2));
     w.close("}");
-    OutputFile { path: "WindowFonts.kt".into(), contents: w.finish().into_bytes() }
+    OutputFile::text("WindowFonts.kt", w.finish())
 }
 
 pub(super) fn generate_sprites(manifest: &Manifest, package_name: &str) -> OutputFile {
@@ -88,5 +88,5 @@ pub(super) fn generate_sprites(manifest: &Manifest, package_name: &str) -> Outpu
     w.open("internal object WindowSprites {");
     w.property("val all: Map<String, SpriteEntry>", string_map(&manifest.sprites, 2, sprite_entry_expr));
     w.close("}");
-    OutputFile { path: "WindowSprites.kt".into(), contents: w.finish().into_bytes() }
+    OutputFile::text("WindowSprites.kt", w.finish())
 }

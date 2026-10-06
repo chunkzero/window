@@ -36,7 +36,7 @@ pub(super) fn index_files<'a>(
         if !seen.insert(file.path.as_str()) {
             report.push("artifact.path.duplicate", &file.path, "path is emitted more than once");
         }
-        files.insert(file.path.as_str(), file.contents.as_slice());
+        files.insert(file.path.as_str(), file.contents.as_bytes());
     }
 }
 

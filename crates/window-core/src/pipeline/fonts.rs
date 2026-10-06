@@ -21,35 +21,35 @@ use super::{CompileContext, OutputFile};
 pub(super) fn emit_fonts(ctx: &mut CompileContext<'_>) -> Result<()> {
     let namespace = ctx.namespace;
     let main = main_font(space_provider(), std::mem::take(&mut ctx.bitmap_providers));
-    ctx.files.push(OutputFile { path: format!("assets/{namespace}/font/ui.json"), contents: to_json_bytes(&main)? });
+    ctx.files.push(OutputFile::text(format!("assets/{namespace}/font/ui.json"), to_json(&main)?));
     emit_hitbox_item(namespace, &mut ctx.files)?;
 
     for k in &ctx.shift_offsets {
-        ctx.files.push(OutputFile {
-            path: format!("assets/{namespace}/font/{}.json", shifted_suffix(*k)),
-            contents: to_json_bytes(&shifted_font(*k)?)?,
-        });
+        ctx.files.push(OutputFile::text(
+            format!("assets/{namespace}/font/{}.json", shifted_suffix(*k)),
+            to_json(&shifted_font(*k)?)?,
+        ));
     }
     let mut sheets = BTreeSet::new();
     for &(name, k) in &ctx.text_font_offsets {
         let font = &ctx.text_fonts[name];
         let file = format!("{namespace}:font/text/{name}.png");
-        ctx.files.push(OutputFile {
-            path: format!("assets/{namespace}/font/{}.json", text_font_suffix(name, k)),
-            contents: to_json_bytes(&text_font(&file, &font.chars, k)?)?,
-        });
+        ctx.files.push(OutputFile::text(
+            format!("assets/{namespace}/font/{}.json", text_font_suffix(name, k)),
+            to_json(&text_font(&file, &font.chars, k)?)?,
+        ));
         if sheets.insert(name) {
-            ctx.files.push(OutputFile {
-                path: format!("assets/{namespace}/textures/font/text/{name}.png"),
-                contents: font.texture.encode_png()?,
-            });
+            ctx.files.push(OutputFile::binary(
+                format!("assets/{namespace}/textures/font/text/{name}.png"),
+                font.texture.encode_png()?,
+            ));
         }
     }
     for k in &ctx.sprite_offsets {
-        ctx.files.push(OutputFile {
-            path: format!("assets/{namespace}/font/sprite_{}.json", shifted_suffix(*k)),
-            contents: to_json_bytes(&sprite_font(*k, ctx.runtime_sprites, &ctx.codepoints)?)?,
-        });
+        ctx.files.push(OutputFile::text(
+            format!("assets/{namespace}/font/sprite_{}.json", shifted_suffix(*k)),
+            to_json(&sprite_font(*k, ctx.runtime_sprites, &ctx.codepoints)?)?,
+        ));
     }
     Ok(())
 }
@@ -96,18 +96,18 @@ pub(super) fn font_metrics(
 }
 
 fn emit_hitbox_item(namespace: &str, files: &mut Vec<OutputFile>) -> Result<()> {
-    files.push(OutputFile {
-        path: format!("assets/{namespace}/items/gui/hitbox.json"),
-        contents: to_json_bytes(&serde_json::json!({
+    files.push(OutputFile::text(
+        format!("assets/{namespace}/items/gui/hitbox.json"),
+        to_json(&serde_json::json!({
             "model": {
                 "type": "minecraft:model",
                 "model": format!("{namespace}:gui/hitbox"),
             },
         }))?,
-    });
-    files.push(OutputFile {
-        path: format!("assets/{namespace}/models/gui/hitbox.json"),
-        contents: to_json_bytes(&serde_json::json!({
+    ));
+    files.push(OutputFile::text(
+        format!("assets/{namespace}/models/gui/hitbox.json"),
+        to_json(&serde_json::json!({
             "parent": "minecraft:item/generated",
             "textures": {
                 "layer0": "minecraft:item/barrier",
@@ -118,17 +118,17 @@ fn emit_hitbox_item(namespace: &str, files: &mut Vec<OutputFile>) -> Result<()> 
                 },
             },
         }))?,
-    });
-    files.push(OutputFile {
-        path: format!("assets/{namespace}/textures/gui/hitbox.png"),
-        contents: Texture { width: 1, height: 1, rgba: vec![0, 0, 0, 0] }.encode_png()?,
-    });
+    ));
+    files.push(OutputFile::binary(
+        format!("assets/{namespace}/textures/gui/hitbox.png"),
+        Texture { width: 1, height: 1, rgba: vec![0, 0, 0, 0] }.encode_png()?,
+    ));
     Ok(())
 }
 
 /// Serialize a JSON value deterministically (pretty, trailing newline).
-fn to_json_bytes(value: &serde_json::Value) -> Result<Vec<u8>> {
-    let mut bytes = serde_json::to_vec_pretty(value).map_err(|e| Error::Font(e.to_string()))?;
-    bytes.push(b'\n');
-    Ok(bytes)
+fn to_json(value: &serde_json::Value) -> Result<String> {
+    let mut json = serde_json::to_string_pretty(value).map_err(|e| Error::Font(e.to_string()))?;
+    json.push('\n');
+    Ok(json)
 }

@@ -70,10 +70,10 @@ fn pickaxe_sprite() -> BTreeMap<String, RuntimeSpriteAsset> {
         glyph_width: 16,
         advance: 17,
         file: "window:font/sprites/pickaxe.png".into(),
-        output: Some(OutputFile {
-            path: "assets/window/textures/font/sprites/pickaxe.png".into(),
-            contents: solid(16, 16, [255, 128, 0, 255]).encode_png().unwrap(),
-        }),
+        output: Some(OutputFile::binary(
+            "assets/window/textures/font/sprites/pickaxe.png",
+            solid(16, 16, [255, 128, 0, 255]).encode_png().unwrap(),
+        )),
     };
     BTreeMap::from([("pickaxe".into(), asset)])
 }
@@ -97,7 +97,7 @@ fn runtime_sprites_are_duplicated_by_y_font_not_texture() {
     assert_eq!(paths.iter().filter(|path| **path == "assets/window/textures/font/sprites/pickaxe.png").count(), 1);
 
     for path in ["assets/window/font/sprite_y0.json", "assets/window/font/sprite_y18.json"] {
-        let doc: serde_json::Value = serde_json::from_slice(&find(&out, path).contents).unwrap();
+        let doc: serde_json::Value = serde_json::from_slice(find(&out, path).contents.as_bytes()).unwrap();
         let provider = &doc["providers"].as_array().unwrap()[0];
         assert_eq!(provider["file"], "window:font/sprites/pickaxe.png");
         assert_eq!(provider["chars"][0].as_str().unwrap(), out.manifest.sprites["pickaxe"].glyph);
@@ -106,7 +106,8 @@ fn runtime_sprites_are_duplicated_by_y_font_not_texture() {
     assert_eq!(out.manifest.windows["shop"].sprite_slots["detail_icon"].font, "window:sprite_y18");
     assert_eq!(out.manifest.windows["shop"].buttons["buy"].sprite_font.as_deref(), Some("window:sprite_y12"));
     let descriptor =
-        crate::debug::DebugDescriptor::from_json(&find(&out, "assets/window/window/debug.json").contents).unwrap();
+        crate::debug::DebugDescriptor::from_json(find(&out, "assets/window/window/debug.json").contents.as_bytes())
+            .unwrap();
     assert_eq!(descriptor.sprites["pickaxe"].resource.as_deref(), Some("window:font/sprites/pickaxe.png"));
 }
 

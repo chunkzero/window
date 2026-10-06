@@ -138,10 +138,10 @@ impl CompileContext<'_> {
         let glyph = char::from_u32(self.codepoints[&key]).expect("glyph codepoint is a valid char");
         let provider = bitmap_provider(self.namespace, file_base, texture.height, ascent, glyph)?;
         self.bitmap_providers.push(provider);
-        self.files.push(OutputFile {
-            path: format!("assets/{}/textures/font/{file_base}.png", self.namespace),
-            contents: texture.encode_png()?,
-        });
+        self.files.push(OutputFile::binary(
+            format!("assets/{}/textures/font/{file_base}.png", self.namespace),
+            texture.encode_png()?,
+        ));
         Ok(StaticGlyph { glyph, advance })
     }
 }

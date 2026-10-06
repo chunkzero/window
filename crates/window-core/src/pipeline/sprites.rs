@@ -96,10 +96,8 @@ fn pack_texture_sprite(
 /// A sprite whose PNG is emitted under this namespace's font sprite textures.
 fn bundled_sprite(name: &str, texture: &Texture, size: Size, namespace: &str) -> Result<RuntimeSpriteAsset> {
     let file_stem = sprite_file_stem(name);
-    let output = OutputFile {
-        path: format!("assets/{namespace}/textures/font/sprites/{file_stem}.png"),
-        contents: texture.encode_png()?,
-    };
+    let output =
+        OutputFile::binary(format!("assets/{namespace}/textures/font/sprites/{file_stem}.png"), texture.encode_png()?);
     Ok(RuntimeSpriteAsset::new(
         size,
         bitmap_metrics(texture, size),

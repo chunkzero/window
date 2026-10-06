@@ -126,7 +126,8 @@ fn scale_boundary(value: u32, source_height: u32, rendered_height: u32) -> u32 {
 
 fn font_documents<'a>(files: &'a [&OutputFile]) -> impl Iterator<Item = Result<Value>> + 'a {
     files.iter().filter(|file| file.path.contains("/font/") && file.path.ends_with(".json")).map(|file| {
-        serde_json::from_slice(&file.contents).map_err(|error| Error::Manifest(format!("{}: {error}", file.path)))
+        serde_json::from_slice(file.contents.as_bytes())
+            .map_err(|error| Error::Manifest(format!("{}: {error}", file.path)))
     })
 }
 

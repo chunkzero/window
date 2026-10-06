@@ -36,7 +36,7 @@ function fake(
         read: (path) => emitted.get(path),
         readSource: (path) => (sources[path] === undefined ? undefined : bytes(sources[path])),
         remove: (path) => removed.push(path),
-        emit: (path, contents) => emitted.set(path, contents),
+        emit: (path, contents) => emitted.set(path, typeof contents === "string" ? bytes(contents) : contents),
         emitOutput: (root, path) => outputs.push([root, path]),
     };
     return { ctx, emitted, outputs, removed };
@@ -130,8 +130,8 @@ test("compilation is skipped without definitions", () => {
 
 test("Kotlin files are emitted only when configured", () => {
     const output: CompileOutput = {
-        files: [{ path: "assets/window/a.json", contents: bytes("{}") }],
-        kotlinFiles: [{ path: "A.kt", contents: bytes("class A") }],
+        files: [{ path: "assets/window/a.json", contents: { tag: "text", val: "{}" } }],
+        kotlinFiles: [{ path: "A.kt", contents: { tag: "text", val: "class A" } }],
         warnings: [],
     };
     const calls: (KotlinOptions | undefined)[] = [];

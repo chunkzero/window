@@ -31,9 +31,7 @@ const VANILLA_ART: [(&str, u32, u32); 2] = [
 pub(super) fn hidden_vanilla_art() -> Result<Vec<OutputFile>> {
     VANILLA_ART
         .iter()
-        .map(|&(path, width, height)| {
-            Ok(OutputFile { path: path.into(), contents: Texture::transparent(width, height).encode_png()? })
-        })
+        .map(|&(path, width, height)| Ok(OutputFile::binary(path, Texture::transparent(width, height).encode_png()?)))
         .collect()
 }
 

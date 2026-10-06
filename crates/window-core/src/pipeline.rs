@@ -58,7 +58,33 @@ pub struct OutputFile {
     /// Pack-output-relative forward-slash path.
     pub path: String,
     /// File contents.
-    pub contents: Vec<u8>,
+    pub contents: FileContents,
+}
+
+impl OutputFile {
+    pub fn text(path: impl Into<String>, contents: String) -> Self {
+        Self { path: path.into(), contents: FileContents::Text(contents) }
+    }
+
+    pub fn binary(path: impl Into<String>, contents: Vec<u8>) -> Self {
+        Self { path: path.into(), contents: FileContents::Binary(contents) }
+    }
+}
+
+/// Output file contents, kept as text when the compiler generates text so hosts can skip byte handling.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FileContents {
+    Text(String),
+    Binary(Vec<u8>),
+}
+
+impl FileContents {
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Self::Text(text) => text.as_bytes(),
+            Self::Binary(bytes) => bytes,
+        }
+    }
 }
 
 /// The result of a successful compile.
@@ -289,10 +315,7 @@ impl<'a> CompileContext<'a> {
         let mut files = self.files;
         files.sort_by(|a, b| a.path.cmp(&b.path));
         let debug_descriptor = crate::debug::DebugDescriptor::build(&manifest, &files)?;
-        files.push(OutputFile {
-            path: crate::debug::output_path(self.namespace),
-            contents: debug_descriptor.to_json_bytes()?,
-        });
+        files.push(OutputFile::text(crate::debug::output_path(self.namespace), debug_descriptor.to_json()?));
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(CompileOutput { files, warnings: self.warnings, manifest })
     }

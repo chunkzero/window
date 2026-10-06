@@ -213,7 +213,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     for file in &output.files {
-        write(&destination.join(&file.path), &file.contents)?;
+        write(&destination.join(&file.path), file.contents.as_bytes())?;
     }
     write(&destination.join("window-test/manifest.json"), &output.manifest.to_json_bytes()?)?;
 
@@ -222,29 +222,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .find(|file| file.path == "assets/window/textures/font/probe.png")
         .ok_or("compiler did not emit the probe static texture")?;
-    write(&destination.join("templates/window-static-probe.png"), &crop_png(&static_texture.contents, 0, 0, 64, 32)?)?;
+    write(
+        &destination.join("templates/window-static-probe.png"),
+        &crop_png(static_texture.contents.as_bytes(), 0, 0, 64, 32)?,
+    )?;
     write(
         &destination.join("templates/window-collection-cell.png"),
-        &crop_png(&static_texture.contents, 10, 26, 16, 16)?,
+        &crop_png(static_texture.contents.as_bytes(), 10, 26, 16, 16)?,
     )?;
     let sprite_texture = output
         .files
         .iter()
         .find(|file| file.path == "assets/window/textures/font/sprites/probe/marker.png")
         .ok_or("compiler did not emit the probe runtime sprite texture")?;
-    write(&destination.join("templates/window-sprite-probe.png"), &sprite_texture.contents)?;
+    write(&destination.join("templates/window-sprite-probe.png"), sprite_texture.contents.as_bytes())?;
     let search_texture = output
         .files
         .iter()
         .find(|file| file.path == "assets/window/textures/font/search_probe.png")
         .ok_or("compiler did not emit the search UI texture")?;
-    write(&destination.join("templates/window-search-probe.png"), &search_texture.contents)?;
+    write(&destination.join("templates/window-search-probe.png"), search_texture.contents.as_bytes())?;
     let hud_texture = output
         .files
         .iter()
         .find(|file| file.path == "assets/window/textures/font/hud_probe_hud.png")
         .ok_or("compiler did not emit the shader HUD texture")?;
-    write(&destination.join("templates/window-hud-probe.png"), &hud_texture.contents)?;
+    write(&destination.join("templates/window-hud-probe.png"), hud_texture.contents.as_bytes())?;
 
     let metadata = serde_json::to_vec_pretty(&json!({
         "gui": { "width": 176, "height": 168 },

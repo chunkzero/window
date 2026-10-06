@@ -14,7 +14,7 @@ const PROJECT: &str = r##"{
 fn emitted_descriptor_parses_and_describes_semantic_layers() {
     let output = compile_project_json(PROJECT.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
     let file = output.files.iter().find(|file| file.path == output_path("window")).unwrap();
-    let descriptor = DebugDescriptor::from_json(&file.contents).unwrap();
+    let descriptor = DebugDescriptor::from_json(file.contents.as_bytes()).unwrap();
     assert_eq!(descriptor.pack_fingerprint.algorithm, "sha256");
     assert_eq!(descriptor.pack_fingerprint.value.len(), 64);
     assert_eq!(descriptor.resources["assets/window/font/ui.json"].resource_id.as_deref(), Some("window:ui"));
@@ -44,12 +44,12 @@ fn emitted_descriptor_parses_and_describes_semantic_layers() {
 fn descriptor_is_byte_identical_when_rebuilt() {
     let output = compile_project_json(PROJECT.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
     let emitted = output.files.iter().find(|file| file.path == output_path("window")).unwrap();
-    let rebuilt = DebugDescriptor::build(&output.manifest, &output.files).unwrap().to_json_bytes().unwrap();
-    assert_eq!(emitted.contents, rebuilt);
+    let rebuilt = DebugDescriptor::build(&output.manifest, &output.files).unwrap().to_json().unwrap();
+    assert_eq!(emitted.contents.as_bytes(), rebuilt.as_bytes());
 
     let mut reversed = output.files.clone();
     reversed.reverse();
-    let rebuilt_from_reversed = DebugDescriptor::build(&output.manifest, &reversed).unwrap().to_json_bytes().unwrap();
+    let rebuilt_from_reversed = DebugDescriptor::build(&output.manifest, &reversed).unwrap().to_json().unwrap();
     assert_eq!(rebuilt, rebuilt_from_reversed);
 }
 
@@ -70,7 +70,7 @@ fn hud_descriptor_distinguishes_shared_and_independent_fixed_width_overlays() {
     }"##;
     let output = compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
     let file = output.files.iter().find(|file| file.path == output_path("window")).unwrap();
-    let descriptor = DebugDescriptor::from_json(&file.contents).unwrap();
+    let descriptor = DebugDescriptor::from_json(file.contents.as_bytes()).unwrap();
 
     let shared = &descriptor.huds["shared"];
     assert_eq!(shared.cursor_contract.convention, "fixed_width_shared_cursor");
@@ -91,7 +91,7 @@ fn hud_descriptor_distinguishes_shared_and_independent_fixed_width_overlays() {
 fn descriptor_rejects_invalid_png_sharing_a_path_with_a_valid_one() {
     let output = compile_project_json(PROJECT.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
     let index = output.files.iter().position(|file| file.path.ends_with(".png")).unwrap();
-    let duplicate = OutputFile { path: output.files[index].path.clone(), contents: b"invalid PNG".to_vec() };
+    let duplicate = OutputFile::binary(output.files[index].path.clone(), b"invalid PNG".to_vec());
     let mut files = output.files.clone();
     files.insert(index, duplicate);
     assert!(DebugDescriptor::build(&output.manifest, &files).is_err());

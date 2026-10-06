@@ -20,7 +20,7 @@ pub(super) fn describe(
         let resource_id = resource_id_from_path(&file.path);
         let image = if file.path.ends_with(".png") {
             Some(debug_image(
-                &Texture::decode_png(&file.contents)
+                &Texture::decode_png(file.contents.as_bytes())
                     .map_err(|error| Error::Texture { path: file.path.clone(), message: error.to_string() })?,
             ))
         } else {
@@ -32,8 +32,8 @@ pub(super) fn describe(
                 resource_id,
                 path: Some(file.path.clone()),
                 generated: true,
-                byte_length: Some(file.contents.len() as u64),
-                fingerprint: Some(fingerprint(&file.contents)),
+                byte_length: Some(file.contents.as_bytes().len() as u64),
+                fingerprint: Some(fingerprint(file.contents.as_bytes())),
                 image,
             },
         );
@@ -70,7 +70,7 @@ pub(super) fn pack_fingerprint(manifest: &Manifest, files: &[&OutputFile]) -> Re
     update_framed(&mut digest, &manifest);
     for file in files {
         update_framed(&mut digest, file.path.as_bytes());
-        update_framed(&mut digest, &file.contents);
+        update_framed(&mut digest, file.contents.as_bytes());
     }
     Ok(DebugFingerprint { algorithm: "sha256".into(), value: hex_digest(digest.finalize()) })
 }
