@@ -22,8 +22,10 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 
@@ -228,5 +230,29 @@ class WindowRendererTest :
                 fixture.renderer.render(setOf(RenderKey.ButtonState("mode"), RenderKey.Item("extra")))
             }
             fixture.renderer.drainWrites().model(0) shouldBe "demo:gui/on"
+        }
+
+        "inventory-only renders reuse the composed title until a title segment changes" {
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    slots = mapOf("label" to TestManifests.slot(8, 40, Align.LEFT)),
+                    items = mapOf("extra" to ItemEntry(listOf(TestManifests.containerSlot(1)))),
+                )
+            val fixture = RendererFixture(manifest)
+            var label by fixture.reactivity.state("A")
+            val opened =
+                fixture.open {
+                    slot("label") { Component.text(label) }
+                    item("extra") { null }
+                }
+
+            fixture.renderer.render(setOf(RenderKey.Item("extra"))).title shouldBeSameInstanceAs opened
+
+            label = "B"
+            val relabeled = fixture.renderer.render(setOf(RenderKey.Slot("label"))).title
+            relabeled shouldNotBe opened
+            plain(relabeled) shouldContain "B"
+            fixture.renderer.render(setOf(RenderKey.Item("extra"))).title shouldBeSameInstanceAs relabeled
         }
     })

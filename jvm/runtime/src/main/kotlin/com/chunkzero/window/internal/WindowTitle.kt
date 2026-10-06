@@ -20,19 +20,26 @@ internal class WindowTitle(
     private val entry = definition.entry
     private val composer = definition.composer
     private val segments = LinkedHashMap<String, RenderedSegment>()
+    private var composed: ComposedRender? = null
 
-    fun compose(): ComposedRender {
-        val switches = bindings.switches
-        val hidden =
-            switches.hiddenSlots().mapTo(HashSet(), bindings.slots::semanticId) +
-                switches.hiddenSpriteSlots().map(::spriteId)
-        return composer.compose(definition.name, segments.filterKeys { it !in hidden })
-    }
+    /**
+     * Composes the current segments; repeated calls return the same render until a segment is written or
+     * [updateSwitch] re-selects a case.
+     */
+    fun compose(): ComposedRender =
+        composed ?: run {
+            val switches = bindings.switches
+            val hidden =
+                switches.hiddenSlots().mapTo(HashSet(), bindings.slots::semanticId) +
+                    switches.hiddenSpriteSlots().map(::spriteId)
+            composer.compose(definition.name, segments.filterKeys { it !in hidden }).also { composed = it }
+        }
 
     /** Draws the art of switch [name]'s active case, re-selected under dependency capture. */
     fun updateSwitch(name: String) {
+        composed = null
         val id = bindings.switches.semanticId(name)
-        segments[id] = composer.renderStatic(id, bindings.switches.render(name).static)
+        put(id, composer.renderStatic(id, bindings.switches.render(name).static))
     }
 
     /** Renders collection selections, fixed sprites, runtime sprites, and text slots once. */
@@ -40,17 +47,17 @@ internal class WindowTitle(
         for (name in bindings.collectionSelections.keys) updateCollectionSelection(name)
         for ((name, slot) in entry.spriteSlots) {
             val sprite = slot.sprite ?: continue
-            segments[spriteId(name)] = spriteSegment(spriteId(name), slot, sprite)
+            put(spriteId(name), spriteSegment(spriteId(name), slot, sprite))
         }
         for ((name, slot) in entry.spriteSlots) {
             if (slot.sprite == null) updateSprite(name)
         }
-        bindings.slots.seed { name, segment -> segments[bindings.slots.semanticId(name)] = segment }
+        bindings.slots.seed { name, segment -> put(bindings.slots.semanticId(name), segment) }
     }
 
     fun updateSlot(name: String) {
         if (!bindings.slots.isBound(name)) return
-        segments[bindings.slots.semanticId(name)] = bindings.slots.render(name)
+        put(bindings.slots.semanticId(name), bindings.slots.render(name))
     }
 
     /** Re-renders a runtime sprite slot under dependency capture. */
@@ -58,7 +65,7 @@ internal class WindowTitle(
         val render = bindings.sprites[name] ?: return
         val sprite = reactivity.withRendering(RenderKey.Sprite(name)) { render() }
         val id = spriteId(name)
-        segments[id] = spriteSegment(id, entry.spriteSlots.getValue(name), sprite)
+        put(id, spriteSegment(id, entry.spriteSlots.getValue(name), sprite))
     }
 
     /** Re-renders collection [name]'s selected-cell sprite under dependency capture. */
@@ -68,7 +75,7 @@ internal class WindowTitle(
         val index = reactivity.withRendering(RenderKey.CollectionSelection(name)) { render() }
         val id = "window/${definition.name}/selection/$name"
         val cell = index?.let(cells::getOrNull)
-        segments[id] = spriteSegment(id, cell ?: cells.first(), cell?.sprite)
+        put(id, spriteSegment(id, cell ?: cells.first(), cell?.sprite))
     }
 
     /** Reserves an empty segment for button [name]'s state sprite until a state is set. */
@@ -76,7 +83,7 @@ internal class WindowTitle(
         val button = entry.buttons.getValue(name)
         val font = button.spriteFont ?: return
         val id = buttonId(name)
-        segments[id] = definition.emptyTitleSegment(id, RenderLayerKind.SPRITE_SLOT, button.x, button.y, font)
+        put(id, definition.emptyTitleSegment(id, RenderLayerKind.SPRITE_SLOT, button.x, button.y, font))
     }
 
     /** Draws button [name]'s sprite for [stateName], or nothing when the state has no sprite. */
@@ -89,7 +96,7 @@ internal class WindowTitle(
         val id = buttonId(name)
         val font = button.spriteFont
         val sprite = state.sprite
-        segments[id] =
+        val segment =
             if (font == null || sprite == null) {
                 definition.emptyTitleSegment(
                     id,
@@ -111,6 +118,15 @@ internal class WindowTitle(
                 composer.renderSprite(id, slot, sprite)
                     ?: error("Button '$name' state '$stateName' has an empty sprite")
             }
+        put(id, segment)
+    }
+
+    private fun put(
+        id: String,
+        segment: RenderedSegment,
+    ) {
+        segments[id] = segment
+        composed = null
     }
 
     private fun spriteSegment(
