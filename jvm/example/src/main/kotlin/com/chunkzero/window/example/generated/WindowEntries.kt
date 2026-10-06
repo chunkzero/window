@@ -5,7 +5,6 @@ import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.ButtonDefault
 import com.chunkzero.window.manifest.ButtonEntry
 import com.chunkzero.window.manifest.ButtonState
-import com.chunkzero.window.manifest.ButtonTooltip
 import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.SlotAreaEntry
@@ -16,6 +15,7 @@ import com.chunkzero.window.manifest.SpriteSlotEntry
 import com.chunkzero.window.manifest.SurfaceEntry
 import com.chunkzero.window.manifest.SwitchCaseEntry
 import com.chunkzero.window.manifest.SwitchEntry
+import com.chunkzero.window.manifest.TooltipEntry
 import com.chunkzero.window.manifest.WindowEntry
 
 /** Compiled window entries of this Window pack. */
@@ -101,7 +101,7 @@ internal object WindowEntries {
                             fillSlots = null,
                             default = null,
                             action = true,
-                            tooltip = ButtonTooltip(
+                            tooltip = TooltipEntry(
                                 title = "Search",
                                 lines = emptyList(),
                             ),
@@ -668,7 +668,7 @@ internal object WindowEntries {
                                 "off" to ButtonState(
                                     itemModel = null,
                                     sprite = null,
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Affordable only off",
                                         lines = emptyList(),
                                     ),
@@ -676,7 +676,7 @@ internal object WindowEntries {
                                 "on" to ButtonState(
                                     itemModel = null,
                                     sprite = null,
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Affordable only on",
                                         lines = emptyList(),
                                     ),
@@ -723,7 +723,7 @@ internal object WindowEntries {
                                 "disabled" to ButtonState(
                                     itemModel = null,
                                     sprite = "buy_disabled",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Buy selected item unavailable",
                                         lines = emptyList(),
                                     ),
@@ -731,7 +731,7 @@ internal object WindowEntries {
                                 "enabled" to ButtonState(
                                     itemModel = null,
                                     sprite = "buy",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Buy selected item",
                                         lines = emptyList(),
                                     ),
@@ -766,7 +766,7 @@ internal object WindowEntries {
                                 "selected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab_selected",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "All items",
                                         lines = emptyList(),
                                     ),
@@ -774,7 +774,7 @@ internal object WindowEntries {
                                 "unselected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "All items",
                                         lines = emptyList(),
                                     ),
@@ -809,7 +809,7 @@ internal object WindowEntries {
                                 "selected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab_selected",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Gear",
                                         lines = emptyList(),
                                     ),
@@ -817,7 +817,7 @@ internal object WindowEntries {
                                 "unselected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Gear",
                                         lines = emptyList(),
                                     ),
@@ -852,7 +852,7 @@ internal object WindowEntries {
                                 "selected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab_selected",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Magic",
                                         lines = emptyList(),
                                     ),
@@ -860,7 +860,7 @@ internal object WindowEntries {
                                 "unselected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Magic",
                                         lines = emptyList(),
                                     ),
@@ -887,7 +887,7 @@ internal object WindowEntries {
                                 "disabled" to ButtonState(
                                     itemModel = null,
                                     sprite = "clear_search_disabled",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Clear search unavailable",
                                         lines = emptyList(),
                                     ),
@@ -895,7 +895,7 @@ internal object WindowEntries {
                                 "enabled" to ButtonState(
                                     itemModel = null,
                                     sprite = "clear_search",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Clear search",
                                         lines = emptyList(),
                                     ),
@@ -925,7 +925,7 @@ internal object WindowEntries {
                             fillSlots = null,
                             default = ButtonDefault.CLOSE,
                             action = true,
-                            tooltip = ButtonTooltip(
+                            tooltip = TooltipEntry(
                                 title = "Close market",
                                 lines = emptyList(),
                             ),
@@ -959,7 +959,7 @@ internal object WindowEntries {
                                 "off" to ButtonState(
                                     itemModel = null,
                                     sprite = null,
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Favorites only off",
                                         lines = emptyList(),
                                     ),
@@ -967,7 +967,7 @@ internal object WindowEntries {
                                 "on" to ButtonState(
                                     itemModel = null,
                                     sprite = null,
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Favorites only on",
                                         lines = emptyList(),
                                     ),
@@ -1002,7 +1002,7 @@ internal object WindowEntries {
                                 "disabled" to ButtonState(
                                     itemModel = null,
                                     sprite = "action_disabled",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Next page unavailable",
                                         lines = emptyList(),
                                     ),
@@ -1010,7 +1010,7 @@ internal object WindowEntries {
                                 "enabled" to ButtonState(
                                     itemModel = null,
                                     sprite = "action",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Next page",
                                         lines = emptyList(),
                                     ),
@@ -1045,7 +1045,7 @@ internal object WindowEntries {
                                 "disabled" to ButtonState(
                                     itemModel = null,
                                     sprite = "action_disabled",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Previous page unavailable",
                                         lines = emptyList(),
                                     ),
@@ -1053,7 +1053,7 @@ internal object WindowEntries {
                                 "enabled" to ButtonState(
                                     itemModel = null,
                                     sprite = "action",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Previous page",
                                         lines = emptyList(),
                                     ),
@@ -1079,7 +1079,7 @@ internal object WindowEntries {
                             fillSlots = null,
                             default = null,
                             action = true,
-                            tooltip = ButtonTooltip(
+                            tooltip = TooltipEntry(
                                 title = "Search the catalog",
                                 lines = emptyList(),
                             ),
@@ -1113,7 +1113,7 @@ internal object WindowEntries {
                                 "selected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab_selected",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Top picks first",
                                         lines = emptyList(),
                                     ),
@@ -1121,7 +1121,7 @@ internal object WindowEntries {
                                 "unselected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Top picks first",
                                         lines = emptyList(),
                                     ),
@@ -1156,7 +1156,7 @@ internal object WindowEntries {
                                 "selected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab_selected",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Name sort",
                                         lines = emptyList(),
                                     ),
@@ -1164,7 +1164,7 @@ internal object WindowEntries {
                                 "unselected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Name sort",
                                         lines = emptyList(),
                                     ),
@@ -1199,7 +1199,7 @@ internal object WindowEntries {
                                 "selected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab_selected",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Price sort",
                                         lines = emptyList(),
                                     ),
@@ -1207,7 +1207,7 @@ internal object WindowEntries {
                                 "unselected" to ButtonState(
                                     itemModel = null,
                                     sprite = "tab",
-                                    tooltip = ButtonTooltip(
+                                    tooltip = TooltipEntry(
                                         title = "Price sort",
                                         lines = emptyList(),
                                     ),

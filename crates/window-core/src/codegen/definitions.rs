@@ -90,7 +90,6 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (any(&|w| w.buttons.values().any(|b| b.default.is_some())), "ButtonDefault"),
         (any(&|w| !w.buttons.is_empty()), "ButtonEntry"),
         (any(&|w| w.buttons.values().any(|b| !b.states.is_empty())), "ButtonState"),
-        (has_tooltip, "ButtonTooltip"),
         (any(&|w| !w.collections.is_empty()), "CollectionEntry"),
         (any(&|w| !w.inputs.is_empty()), "AnvilInputEntry"),
         (any(&|w| !w.items.is_empty()), "ItemEntry"),
@@ -103,6 +102,7 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (true, "SurfaceEntry"),
         (any(&|w| !w.switches.is_empty()), "SwitchCaseEntry"),
         (any(&|w| !w.switches.is_empty()), "SwitchEntry"),
+        (has_tooltip, "TooltipEntry"),
         (true, "WindowEntry"),
     ]
     .into_iter()
