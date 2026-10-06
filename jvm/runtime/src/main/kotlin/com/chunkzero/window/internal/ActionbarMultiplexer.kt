@@ -5,34 +5,34 @@ import com.chunkzero.window.host.HudDescriptor
 import com.chunkzero.window.host.HudOutput
 import com.chunkzero.window.host.WindowHost
 import net.kyori.adventure.text.Component
-import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Combines every live action-bar HUD of one host into a single action-bar output.
  *
- * Each live HUD session strongly holds its host's [Bar]; the registry only weakly refers to it, so a bar never keeps
- * its own host (and through it the player) reachable after every HUD of that host is gone.
+ * The registry holds each bar strongly for as long as its host is reachable, so a shown HUD stays part of the merged
+ * bar even when nothing else refers to its view or session. Its [HudOutput] must therefore not strongly reference the
+ * host or the player that holds it (see [WindowHost.showHud]); otherwise the entry would keep its own key alive.
  */
 internal object ActionbarMultiplexer {
     private val ids = AtomicLong()
-    private val bars = WeakHashMap<WindowHost<*>, WeakReference<Bar>>()
+    private val bars = WeakHashMap<WindowHost<*>, Bar>()
 
     fun nextId(): Long = ids.incrementAndGet()
 
-    /** Shows [component] as HUD [id]'s part of [host]'s action bar; the caller must keep the returned bar. */
+    /** Shows [component] as HUD [id]'s part of [host]'s action bar and returns that bar. */
     @Synchronized
     fun send(
         host: WindowHost<*>,
         id: Long,
         component: Component,
     ): Bar {
-        val bar = bars[host]?.get()
+        val bar = bars[host]
         if (bar == null) {
             val components = linkedMapOf(id to component)
             return Bar(host.showHud(HudDescriptor(HudChannel.ACTION_BAR, combine(components.values))), components)
-                .also { bars[host] = WeakReference(it) }
+                .also { bars[host] = it }
         }
         bar.components[id] = component
         bar.output.update(combine(bar.components.values))
@@ -48,7 +48,7 @@ internal object ActionbarMultiplexer {
     ) {
         if (bar.components.remove(id) == null) return
         if (bar.components.isEmpty()) {
-            if (bars[host]?.get() === bar) bars.remove(host)
+            if (bars[host] === bar) bars.remove(host)
             bar.output.hide()
         } else {
             bar.output.update(combine(bar.components.values))

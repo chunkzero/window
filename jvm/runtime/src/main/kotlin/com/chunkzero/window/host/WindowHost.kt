@@ -26,7 +26,12 @@ public interface WindowHost<I : Any> {
         listener: ContainerListener,
     ): OpenContainer<I>
 
-    /** Shows [hud] to this host's player until the returned output is hidden. */
+    /**
+     * Shows [hud] to this host's player until the returned output is hidden.
+     *
+     * The core keeps action-bar outputs in a map keyed by this host, so an output must not strongly reference this
+     * host or anything that does (such as the player holding it); hold the player weakly instead.
+     */
     public fun showHud(hud: HudDescriptor): HudOutput
 
     /** Builds an item Window renders itself. */

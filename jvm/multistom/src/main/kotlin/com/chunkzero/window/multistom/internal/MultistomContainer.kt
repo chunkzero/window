@@ -22,6 +22,7 @@ import net.minestom.server.inventory.click.Click
 import net.minestom.server.inventory.type.AnvilInventory
 import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.client.common.ClientPongPacket
+import net.minestom.server.network.packet.client.play.ClientClickWindowPacket
 import net.minestom.server.network.packet.server.common.PingPacket
 import net.minestom.server.network.packet.server.play.BundlePacket
 
@@ -31,6 +32,11 @@ import net.minestom.server.network.packet.server.play.BundlePacket
  * Opening any other inventory over this one ends it like a client close, because Multistom replaces an open inventory
  * without an [InventoryCloseEvent]. The replacement is detected when the screen loses its viewer, which happens only
  * after every open listener let the new inventory open.
+ *
+ * Ending a container restores the player's slots at once, before Minestom returns a cursor item to the inventory, and
+ * stops listening. [ContainerListener.onClose] runs on the next tick of the player's scheduler, because Multistom is
+ * still changing the player's open inventory while the end is detected and a window the listener opened then would be
+ * overwritten.
  */
 internal class MultistomContainer private constructor(
     private val player: Player,
@@ -39,6 +45,7 @@ internal class MultistomContainer private constructor(
     private val inventory = screen.inventory
     private val playerSlots = PlayerSlotLease(player, inventory)
     private var node: EventNode<PlayerEvent>? = null
+    private var stopped = false
 
     override val size: Int
         get() = inventory.size
@@ -52,7 +59,7 @@ internal class MultistomContainer private constructor(
         item: ItemStack?,
     ) = when (slot.area) {
         SlotArea.CONTAINER -> inventory.setItemStack(slot.index, item ?: ItemStack.AIR)
-        SlotArea.PLAYER -> playerSlots.setItem(slot.index, item ?: ItemStack.AIR)
+        SlotArea.PLAYER -> if (!stopped) playerSlots.setItem(slot.index, item ?: ItemStack.AIR) else Unit
     }
 
     override fun stageItem(
@@ -99,12 +106,24 @@ internal class MultistomContainer private constructor(
             if (event.inventory === inventory) listener.onAnvilInput(event.input)
         }
         node.addListener(PlayerPacketEvent::class.java) { event ->
-            val packet = event.packet
-            if (packet is ClientPongPacket) listener.onPong(packet.id())
+            when (val packet = event.packet) {
+                is ClientPongPacket -> listener.onPong(packet.id())
+                is ClientClickWindowPacket -> if (packet.windowId() == 0) rejectInventoryClick(event)
+                else -> Unit
+            }
         }
         player.eventNode().addChild(node)
         this.node = node
-        screen.onViewerRemoved = { end(listener) }
+        screen.onViewerRemoving = { end(listener) }
+    }
+
+    /**
+     * Drops a click addressed to the player's own inventory window. Minestom handles it on the player inventory even
+     * while this screen is open, bypassing the screen's refusal of native clicks.
+     */
+    private fun rejectInventoryClick(event: PlayerPacketEvent) {
+        event.isCancelled = true
+        player.inventory.update()
     }
 
     /** Cancels every click on this container or the player's inventory, and reports those on a Window slot. */
@@ -140,14 +159,15 @@ internal class MultistomContainer private constructor(
     private fun end(listener: ContainerListener) {
         if (!stopListening()) return
         playerSlots.restore()
-        listener.onClose()
+        player.scheduler().scheduleNextTick(listener::onClose)
     }
 
     /** Removes the event node; false when it was already removed. */
     private fun stopListening(): Boolean {
         val node = node ?: return false
         this.node = null
-        screen.onViewerRemoved = null
+        stopped = true
+        screen.onViewerRemoving = null
         player.eventNode().removeChild(node)
         return true
     }
@@ -192,8 +212,11 @@ internal class MultistomContainer private constructor(
 private interface Screen {
     val inventory: Inventory
 
-    /** Runs when the player stops viewing this screen, whether it closed or another inventory replaced it. */
-    var onViewerRemoved: (() -> Unit)?
+    /**
+     * Runs when the player is about to stop viewing this screen, whether it closes or another inventory replaces it,
+     * before Minestom clears the player's cursor.
+     */
+    var onViewerRemoving: (() -> Unit)?
 }
 
 private class ChestScreen(
@@ -203,17 +226,17 @@ private class ChestScreen(
 ) : Inventory(process, type, title),
     Screen {
     override val inventory: Inventory get() = this
-    override var onViewerRemoved: (() -> Unit)? = null
+    override var onViewerRemoving: (() -> Unit)? = null
 
     override fun handleClick(
         player: Player,
         click: Click,
     ): Boolean = false
 
-    override fun removeViewer(player: Player): Boolean =
-        super.removeViewer(player).also {
-            if (it) onViewerRemoved?.invoke()
-        }
+    override fun removeViewer(player: Player): Boolean {
+        if (player in viewers) onViewerRemoving?.invoke()
+        return super.removeViewer(player)
+    }
 }
 
 private class AnvilScreen(
@@ -222,15 +245,15 @@ private class AnvilScreen(
 ) : AnvilInventory(process, title),
     Screen {
     override val inventory: Inventory get() = this
-    override var onViewerRemoved: (() -> Unit)? = null
+    override var onViewerRemoving: (() -> Unit)? = null
 
     override fun handleClick(
         player: Player,
         click: Click,
     ): Boolean = false
 
-    override fun removeViewer(player: Player): Boolean =
-        super.removeViewer(player).also {
-            if (it) onViewerRemoved?.invoke()
-        }
+    override fun removeViewer(player: Player): Boolean {
+        if (player in viewers) onViewerRemoving?.invoke()
+        return super.removeViewer(player)
+    }
 }

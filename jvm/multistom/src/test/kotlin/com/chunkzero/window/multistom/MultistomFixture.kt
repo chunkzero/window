@@ -11,7 +11,9 @@ import net.minestom.server.event.EventListener
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.inventory.InventoryOpenEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
+import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.player.PlayerPacketEvent
+import net.minestom.server.event.trait.PlayerEvent
 import net.minestom.server.item.ItemStack
 import net.minestom.server.listener.AnvilListener
 import net.minestom.server.listener.WindowListener
@@ -42,6 +44,9 @@ internal class MultistomFixture : HostFixture<ItemStack> {
     val player = Player(connection, GameProfile(UUID.randomUUID(), "WindowTest"))
 
     override val host: MultistomHost = MultistomHost.of(player)
+    private val playerNodes = mutableListOf<EventNode<PlayerEvent>>()
+    private val globalNodes = mutableListOf<EventNode<PlayerEvent>>()
+
     override val updates: List<ClientUpdate<ItemStack>>
         get() = connection.updates
 
@@ -50,7 +55,7 @@ internal class MultistomFixture : HostFixture<ItemStack> {
         shift: Boolean,
         right: Boolean,
     ) {
-        val packet =
+        receive(
             ClientClickWindowPacket(
                 screen().windowId.toInt(),
                 0,
@@ -59,8 +64,28 @@ internal class MultistomFixture : HostFixture<ItemStack> {
                 if (shift) ClientClickWindowPacket.ClickType.QUICK_MOVE else ClientClickWindowPacket.ClickType.PICKUP,
                 emptyMap(),
                 ItemStack.Hash.AIR,
-            )
-        WindowListener.clickWindowListener(packet, player)
+            ),
+        )
+    }
+
+    override fun clickPlayerWindow(windowSlot: Int) =
+        receive(
+            ClientClickWindowPacket(
+                0,
+                0,
+                windowSlot.toShort(),
+                0,
+                ClientClickWindowPacket.ClickType.PICKUP,
+                emptyMap(),
+                ItemStack.Hash.AIR,
+            ),
+        )
+
+    /** Delivers [packet] like the server's packet manager: the packet event first, then the listener. */
+    private fun receive(packet: ClientClickWindowPacket) {
+        val event = PlayerPacketEvent(player, packet)
+        player.process().eventHandler().call(event)
+        if (!event.isCancelled) WindowListener.clickWindowListener(packet, player)
     }
 
     override fun closeScreen() {
@@ -80,6 +105,7 @@ internal class MultistomFixture : HostFixture<ItemStack> {
             if (event.inventory === player.inventory) event.isCancelled = true
         }
         player.eventNode().addChild(guard)
+        playerNodes += guard
     }
 
     override fun allowClicksGlobally() {
@@ -91,13 +117,35 @@ internal class MultistomFixture : HostFixture<ItemStack> {
                 .handler { it.isCancelled = false }
                 .build(),
         )
-        player.process().eventHandler().addChild(guard)
+        install(guard)
     }
 
     override fun cancelOpensGlobally() {
         val guard = EventNode.type("global-open-cancel", EventFilter.PLAYER) { _, entity -> entity === player }
         guard.addListener(InventoryOpenEvent::class.java) { it.isCancelled = true }
-        player.process().eventHandler().addChild(guard)
+        install(guard)
+    }
+
+    override fun cancelDropsGlobally() {
+        val guard = EventNode.type("global-drop-cancel", EventFilter.PLAYER) { _, entity -> entity === player }
+        guard.addListener(ItemDropEvent::class.java) { it.isCancelled = true }
+        install(guard)
+    }
+
+    override fun setCursorItem(item: ItemStack?) = player.inventory.setCursorItem(item ?: ItemStack.AIR)
+
+    override fun cursorItem(): ItemStack? = player.inventory.cursorItem.takeUnless { it.isAir }
+
+    override fun close() {
+        playerNodes.forEach(player.eventNode()::removeChild)
+        globalNodes.forEach(player.process().eventHandler()::removeChild)
+        playerNodes.clear()
+        globalNodes.clear()
+    }
+
+    private fun install(node: EventNode<PlayerEvent>) {
+        player.process().eventHandler().addChild(node)
+        globalNodes += node
     }
 
     override fun setPlayerItem(

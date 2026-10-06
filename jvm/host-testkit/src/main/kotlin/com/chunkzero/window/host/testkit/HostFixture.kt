@@ -8,9 +8,9 @@ import net.kyori.adventure.text.Component
  * One fresh player on a headless server, plus a simulated client for [HostConformance].
  *
  * The fixture drives client input through the server's real packet handling where it can, and records what the client
- * receives as [updates].
+ * receives as [updates]. Closing the fixture removes every listener it added to the server.
  */
-public interface HostFixture<I : Any> {
+public interface HostFixture<I : Any> : AutoCloseable {
     /** The host of the fixture's player. */
     public val host: WindowHost<I>
 
@@ -23,6 +23,9 @@ public interface HostFixture<I : Any> {
         shift: Boolean = false,
         right: Boolean = false,
     )
+
+    /** Clicks raw slot [windowSlot] of the player's own inventory window (id 0), as if no other screen were open. */
+    public fun clickPlayerWindow(windowSlot: Int)
 
     /** Closes the open screen from the client. */
     public fun closeScreen()
@@ -44,6 +47,15 @@ public interface HostFixture<I : Any> {
 
     /** Adds a server-wide listener that runs after the host's and cancels every inventory open of the player. */
     public fun cancelOpensGlobally()
+
+    /** Adds a server-wide listener that runs after the host's and cancels every item drop of the player. */
+    public fun cancelDropsGlobally()
+
+    /** Puts [item] on the player's cursor; `null` clears it. */
+    public fun setCursorItem(item: I?)
+
+    /** The item on the player's cursor, or `null` when it is empty. */
+    public fun cursorItem(): I?
 
     /** Puts [item] in the player's real inventory slot [slot]; `null` clears it. */
     public fun setPlayerItem(

@@ -7,6 +7,17 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+import java.lang.ref.WeakReference
+
+/** Runs the garbage collector until [until] holds, or a few rounds passed. */
+private fun collectGarbage(until: () -> Boolean = { false }) {
+    val marker = WeakReference(Any())
+    repeat(20) {
+        System.gc()
+        if (marker.get() == null && until()) return
+        Thread.sleep(10)
+    }
+}
 
 class HudSessionTest :
     StringSpec({
@@ -52,6 +63,31 @@ class HudSessionTest :
             output.hidden shouldBe false
             second.close()
             output.hidden shouldBe true
+        }
+
+        "a shown action-bar HUD stays merged after its view and session are collected" {
+            val host = FakeHost()
+            Label(manifest("actionbar"), host, "A").show()
+            collectGarbage()
+            Label(manifest("actionbar"), host, "B").show()
+
+            text(
+                host.huds
+                    .single()
+                    .contents
+                    .last(),
+            ) shouldBe "AB"
+        }
+
+        "a shown action-bar HUD does not keep its host reachable" {
+            var host: FakeHost? = FakeHost()
+            val reference = WeakReference(host)
+            Label(manifest("actionbar"), host!!, "A").show()
+            host = null
+
+            collectGarbage(until = { reference.get() == null })
+
+            reference.get() shouldBe null
         }
 
         "other channels get their own output, updated in place and hidden once" {

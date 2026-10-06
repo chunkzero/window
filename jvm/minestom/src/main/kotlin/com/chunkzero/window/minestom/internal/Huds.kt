@@ -7,6 +7,7 @@ import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 import net.minestom.server.scoreboard.Sidebar
+import java.lang.ref.WeakReference
 
 /** Shows [hud] to [player] on its vanilla channel. */
 internal fun showHud(
@@ -19,12 +20,19 @@ internal fun showHud(
         HudChannel.SIDEBAR -> SidebarOutput(player, hud.content)
     }
 
+/** Holds its player weakly: the runtime keeps action-bar outputs in a map keyed by the player's host. */
 private class ActionBarOutput(
-    private val player: Player,
+    player: Player,
 ) : HudOutput {
-    override fun update(content: Component) = player.sendActionBar(content)
+    private val player = WeakReference(player)
 
-    override fun hide() = player.sendActionBar(Component.empty())
+    override fun update(content: Component) {
+        player.get()?.sendActionBar(content)
+    }
+
+    override fun hide() {
+        player.get()?.sendActionBar(Component.empty())
+    }
 }
 
 private class BossBarOutput(

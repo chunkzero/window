@@ -13,6 +13,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -25,8 +26,17 @@ import net.kyori.adventure.text.Component
  * Extend it in a host's tests with that host's [HostFixture].
  */
 public abstract class HostConformance<I : Any>(
-    fixture: () -> HostFixture<I>,
+    createFixture: () -> HostFixture<I>,
 ) : StringSpec({
+        val fixtures = mutableListOf<HostFixture<I>>()
+
+        fun fixture(): HostFixture<I> = createFixture().also(fixtures::add)
+
+        afterEach {
+            fixtures.forEach(HostFixture<I>::close)
+            fixtures.clear()
+        }
+
         "every container kind opens with its slot count and title" {
             for (kind in ContainerKind.entries) {
                 val client = fixture()
@@ -203,6 +213,8 @@ public abstract class HostConformance<I : Any>(
 
             client.closeScreen()
             container.close()
+            client.tick()
+            client.tick()
 
             listener.closes shouldBe 1
             client.playerItem(0) shouldBe diamond
@@ -242,8 +254,10 @@ public abstract class HostConformance<I : Any>(
             firstContainer.setItem(player(0), client.hitbox("hitbox"))
 
             client.click(firstContainer.size + 27)
+            client.tick()
             client.click(ContainerKind.CHEST_1_ROW.size + 27)
             client.closeScreen()
+            client.tick()
 
             events shouldBe listOf("first:click", "first:close", "second:click", "second:close")
             client.playerItem(0) shouldBe diamond
@@ -258,11 +272,82 @@ public abstract class HostConformance<I : Any>(
 
             firstContainer.close()
             client.click(0)
+            client.tick()
 
             first.closes shouldBe 1
             first.clicks.shouldBeEmpty()
             second.clicks.map { it.slot } shouldBe listOf(container(0))
             client.updates.screen()?.title shouldBe Component.text("second")
+        }
+
+        "a replacement returns a cursor item to the restored inventory instead of erasing it" {
+            val client = fixture()
+            client.cancelDropsGlobally()
+            val diamond = client.hitbox("diamond")
+            val emerald = client.hitbox("emerald")
+            client.setPlayerItem(0, diamond)
+            val first = client.host.open(ContainerKind.CHEST_3_ROW, Component.text("first"), RecordingListener())
+            first.setItem(player(0), client.hitbox("hitbox"))
+            client.setCursorItem(emerald)
+
+            client.host.open(ContainerKind.CHEST_1_ROW, Component.text("second"), RecordingListener())
+
+            (0 until PLAYER_SLOTS).mapNotNull(client::playerItem) shouldContainExactlyInAnyOrder
+                listOf(diamond, emerald)
+            client.cursorItem() shouldBe null
+        }
+
+        "a client close returns a cursor item to the restored inventory instead of erasing it" {
+            val client = fixture()
+            client.cancelDropsGlobally()
+            val diamond = client.hitbox("diamond")
+            val emerald = client.hitbox("emerald")
+            client.setPlayerItem(0, diamond)
+            val container = client.host.open(ContainerKind.CHEST_3_ROW, TITLE, RecordingListener())
+            container.setItem(player(0), client.hitbox("hitbox"))
+            client.setCursorItem(emerald)
+
+            client.closeScreen()
+
+            (0 until PLAYER_SLOTS).mapNotNull(client::playerItem) shouldContainExactlyInAnyOrder
+                listOf(diamond, emerald)
+        }
+
+        "a window opened from a replaced container's onClose replaces its replacement" {
+            val client = fixture()
+            val third = RecordingListener()
+            val second = RecordingListener()
+            val first =
+                RecordingListener(afterClose = {
+                    client.host.open(ContainerKind.CHEST_3_ROW, Component.text("third"), third)
+                })
+            client.host.open(ContainerKind.CHEST_3_ROW, Component.text("first"), first)
+            client.host.open(ContainerKind.CHEST_3_ROW, Component.text("second"), second)
+
+            client.tick()
+            client.tick()
+            client.click(ContainerKind.CHEST_3_ROW.size)
+
+            first.closes shouldBe 1
+            second.closes shouldBe 1
+            second.clicks.shouldBeEmpty()
+            third.clicks.map { it.slot } shouldBe listOf(player(9))
+            client.updates.screen()?.title shouldBe Component.text("third")
+        }
+
+        "clicks on the player's own inventory window never reach the player inventory or the listener" {
+            val client = fixture()
+            client.allowClicksGlobally()
+            val listener = RecordingListener()
+            val container = client.host.open(ContainerKind.CHEST_3_ROW, TITLE, listener)
+            val hitbox = client.hitbox("hitbox")
+            container.setItem(player(0), hitbox)
+
+            client.clickPlayerWindow(HOTBAR_WINDOW_SLOT)
+
+            client.playerItem(0) shouldBe hitbox
+            client.cursorItem() shouldBe null
+            listener.clicks.shouldBeEmpty()
         }
 
         "a replacement that an open listener cancels leaves the current container open and listening" {
@@ -444,6 +529,9 @@ public abstract class HostConformance<I : Any>(
 private val TITLE = Component.text("window")
 private val MODEL = Key.key("window", "gui/hitbox")
 private const val PLAYER_SLOTS = 36
+
+/** The first hotbar slot in the player inventory window. */
+private const val HOTBAR_WINDOW_SLOT = 36
 
 private fun container(index: Int) = SlotRef(SlotArea.CONTAINER, index)
 
