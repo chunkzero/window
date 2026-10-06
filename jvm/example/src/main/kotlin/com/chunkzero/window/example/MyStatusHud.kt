@@ -10,9 +10,9 @@ import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 
 class MyStatusTopLeftHud(
-    player: Player,
+    private val player: Player,
     private val market: Market,
-) : StatusTopLeftHud(player) {
+) : StatusTopLeftHud() {
     override fun coins(): Component = Component.text(market.balanceOf(player))
 
     override fun rate(): Component = Component.text("+${market.unitPrice}")
@@ -21,9 +21,8 @@ class MyStatusTopLeftHud(
 }
 
 class MyStatusTopCenterHud(
-    player: Player,
     private val startedAt: Long,
-) : StatusTopCenterHud(player) {
+) : StatusTopCenterHud() {
     override fun runtime(): Component {
         val seconds = (System.currentTimeMillis() - startedAt) / 1000L
         return Component.text("%d:%02d".format(seconds / 60, seconds % 60))
@@ -31,9 +30,9 @@ class MyStatusTopCenterHud(
 }
 
 class MyStatusTopRightHud(
-    player: Player,
+    private val player: Player,
     private val startedAt: Long,
-) : StatusTopRightHud(player) {
+) : StatusTopRightHud() {
     override fun wave(): Component = Component.text(1 + (System.currentTimeMillis() - startedAt) / WAVE_MILLIS)
 
     override fun biome(): Component = Component.text("Plains")
@@ -42,8 +41,8 @@ class MyStatusTopRightHud(
 }
 
 class MyStatusLeftSideHud(
-    player: Player,
-) : StatusLeftSideHud(player) {
+    private val player: Player,
+) : StatusLeftSideHud() {
     override fun coords(): Component {
         val pos = player.position
         return Component.text("${pos.blockX()}, ${pos.blockZ()}")
@@ -53,18 +52,16 @@ class MyStatusLeftSideHud(
 }
 
 class MyStatusRightSideHud(
-    player: Player,
     private val market: Market,
-) : StatusRightSideHud(player) {
+) : StatusRightSideHud() {
     override fun objective(): Component = Component.text("Sell goods")
 
     override fun stock(): Component = Component.text("${market.unitPrice} per item")
 }
 
 class MyStatusBottomCenterHud(
-    player: Player,
     private val startedAt: Long,
-) : StatusBottomCenterHud(player) {
+) : StatusBottomCenterHud() {
     override fun hint(): Component {
         val remaining = WAVE_MILLIS - (System.currentTimeMillis() - startedAt) % WAVE_MILLIS
         return Component.text("Next wave in ${(remaining + 999) / 1000}s")

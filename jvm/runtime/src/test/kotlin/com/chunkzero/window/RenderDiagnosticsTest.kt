@@ -5,6 +5,7 @@ import com.chunkzero.window.diagnostics.RenderFrame
 import com.chunkzero.window.diagnostics.RenderFrameReason
 import com.chunkzero.window.diagnostics.RenderLayerKind
 import com.chunkzero.window.diagnostics.RenderSurfaceKind
+import com.chunkzero.window.host.WindowHost
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.HudShaderEntry
 import io.kotest.core.spec.style.StringSpec
@@ -126,25 +127,22 @@ class RenderDiagnosticsTest :
                     width = 100,
                     slots = mapOf("coins" to TestManifests.slot(10, 30, Align.LEFT, y = 2)),
                 )
-            val host = FakeHost()
             val view =
-                object : TestHud(manifest, host) {
-                    var coins by state(1)
+                object : TestHud(manifest) {
+                    var coins = 1
 
                     override fun HudScope.bind() {
                         slot("coins") { Component.text("$coins") }
                     }
                 }
             val frames = mutableListOf<RenderFrame>()
-            WindowDiagnostics.observer = RenderDiagnosticsObserver { _, frame -> frames += frame }
-            val scheduler = host.scheduler
-            view.show()
-            val sent = host.huds.single().contents
+            WindowDiagnostics.observer = HudObserver { hud, frame -> if (hud === view) frames += frame }
+            view.render()
 
             view.coins = 2
-            scheduler.runAll()
+            view.render()
+            view.render()
 
-            sent.size shouldBe 2
             frames.map { it.reason } shouldContainExactly
                 listOf(RenderFrameReason.OPEN, RenderFrameReason.REACTIVE_UPDATE)
             val frame = frames.first()
@@ -187,16 +185,15 @@ class RenderDiagnosticsTest :
                         ),
                     shader = HudShaderEntry(staticMarker = "#010002", sourceBottom = 59),
                 )
-            val host = FakeHost()
             val view =
-                object : TestHud(manifest, host) {
+                object : TestHud(manifest) {
                     override fun HudScope.bind() {
                         slot("coins") { Component.text("Hi") }
                     }
                 }
             var frame: RenderFrame? = null
-            WindowDiagnostics.observer = RenderDiagnosticsObserver { _, value -> frame = value }
-            view.show()
+            WindowDiagnostics.observer = HudObserver { _, value -> frame = value }
+            view.render()
 
             val observed = frame!!
             observed.cursorConvention shouldBe RenderCursorConvention.FIXED_WIDTH_COMPOSITION
@@ -209,3 +206,18 @@ class RenderDiagnosticsTest :
             slot.visualWidth shouldBe 7
         }
     })
+
+/** An observer of HUD frames only. */
+private class HudObserver(
+    private val observe: (HudView, RenderFrame) -> Unit,
+) : RenderDiagnosticsObserver {
+    override fun observe(
+        host: WindowHost<*>,
+        frame: RenderFrame,
+    ) = Unit
+
+    override fun observeHud(
+        hud: HudView,
+        frame: RenderFrame,
+    ) = observe.invoke(hud, frame)
+}

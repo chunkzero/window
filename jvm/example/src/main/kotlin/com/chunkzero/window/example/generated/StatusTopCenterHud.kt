@@ -3,12 +3,10 @@ package com.chunkzero.window.example.generated
 
 import com.chunkzero.window.HudScope
 import com.chunkzero.window.HudView
-import com.chunkzero.window.minestom.MinestomHost
 import net.kyori.adventure.text.Component
-import net.minestom.server.entity.Player
 
 /** Typed view for the `status_top_center` HUD. Implement the abstract members. */
-public abstract class StatusTopCenterHud(protected val player: Player) : HudView(WindowHudDefinitions.statusTopCenter, MinestomHost.of(player)) {
+public abstract class StatusTopCenterHud : HudView(WindowHudDefinitions.statusTopCenter) {
     /** Render the `runtime` slot. */
     protected abstract fun runtime(): Component
 

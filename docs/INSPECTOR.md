@@ -67,8 +67,11 @@ val diagnostics =
 Runtime.getRuntime().addShutdownHook(Thread(diagnostics::close))
 ```
 
-Every window `open()`, reactive title update, and HUD `show()` then emits traces from the same composition result sent
-to the player; the adapter sends them only to `MinestomHost` players. Other observers can be registered by assigning
+Every window `open()` and reactive title update then emits traces from the same composition result sent to the player;
+the adapter sends them only to `MinestomHost` players. HUDs are not tied to a player: `HudView.render()` reports the
+frames of new content to `RenderDiagnosticsObserver.observeHud`, which the adapter ignores. To trace a HUD, register an
+observer that delegates to the adapter and forwards each HUD frame with `observe(MinestomHost.of(player), frame)` for
+the player it is sent to, as the validation server does. Other observers can be registered by assigning
 `WindowDiagnostics.observer` directly. Observer failures are isolated from delivery. The adapter accepts at most 256 KiB
 per payload, negotiates the smaller client/server limit, bounds every field and collection, ignores malformed input, and
 drops oversized output.

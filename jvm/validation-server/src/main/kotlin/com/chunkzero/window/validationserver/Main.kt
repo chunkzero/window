@@ -1,8 +1,14 @@
 package com.chunkzero.window.validationserver
 
+import com.chunkzero.window.HudView
+import com.chunkzero.window.RenderDiagnosticsObserver
+import com.chunkzero.window.WindowDiagnostics
 import com.chunkzero.window.diagnostics.PackFingerprint
+import com.chunkzero.window.diagnostics.RenderFrame
 import com.chunkzero.window.diagnostics.minestom.MinestomDiagnostics
 import com.chunkzero.window.manifest.WindowManifest
+import com.chunkzero.window.minestom.MinestomHost
+import com.chunkzero.window.sendHud
 import dev.rpp.mcvalidation.minestom.MinestomValidation
 import dev.rpp.mcvalidation.minestom.ValidationRoutes
 import kotlinx.serialization.json.Json
@@ -45,12 +51,24 @@ private fun createInstance(): Instance =
 private fun installDiagnostics(config: Config): MinestomDiagnostics {
     val descriptor = Json.parseToJsonElement(Files.readString(config.descriptor)).jsonObject
     val fingerprint = descriptor.getValue("pack_fingerprint").jsonObject
-    return MinestomDiagnostics.install(
-        PackFingerprint(
-            fingerprint.getValue("algorithm").jsonPrimitive.content,
-            fingerprint.getValue("value").jsonPrimitive.content,
-        ),
-    )
+    val diagnostics =
+        MinestomDiagnostics.install(
+            PackFingerprint(
+                fingerprint.getValue("algorithm").jsonPrimitive.content,
+                fingerprint.getValue("value").jsonPrimitive.content,
+            ),
+        )
+    // HUD frames carry no player, so the probe HUD's frames are routed to the player it is shown to.
+    WindowDiagnostics.observer =
+        object : RenderDiagnosticsObserver by diagnostics {
+            override fun observeHud(
+                hud: HudView,
+                frame: RenderFrame,
+            ) {
+                if (hud is ProbeHudView) diagnostics.observe(MinestomHost.of(hud.player), frame)
+            }
+        }
+    return diagnostics
 }
 
 private fun installValidationRoutes(report: RuntimeReport) {
@@ -101,7 +119,8 @@ private fun openProbeFlow(
                 SearchProbeView(manifest, probePlayer, report) { searchPlayer ->
                     searchPlayer.scheduler().scheduleNextTick {
                         if (searchPlayer.isOnline) {
-                            ProbeHudView(manifest, searchPlayer, report).show()
+                            searchPlayer.sendHud(ProbeHudView(manifest, searchPlayer))
+                            report.record("hud.shown", mapOf("hud" to "probe_hud"))
                         }
                     }
                 }.open()

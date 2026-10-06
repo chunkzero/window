@@ -1,9 +1,7 @@
 package com.chunkzero.window.minestom
 
-import com.chunkzero.window.host.HudChannel
 import com.chunkzero.window.host.testkit.ClientUpdate
 import com.chunkzero.window.host.testkit.HostFixture
-import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventDispatcher
@@ -27,12 +25,9 @@ import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket
 import net.minestom.server.network.packet.client.play.ClientNameItemPacket
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.common.PingPacket
-import net.minestom.server.network.packet.server.play.ActionBarPacket
-import net.minestom.server.network.packet.server.play.BossBarPacket
 import net.minestom.server.network.packet.server.play.BundlePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.OpenWindowPacket
-import net.minestom.server.network.packet.server.play.ScoreboardObjectivePacket
 import net.minestom.server.network.packet.server.play.SetSlotPacket
 import net.minestom.server.network.packet.server.play.WindowItemsPacket
 import net.minestom.server.network.player.GameProfile
@@ -222,36 +217,6 @@ private class RecordingConnection : PlayerConnection() {
                 updates += ClientUpdate.Ping(sent.id())
             }
 
-            is ActionBarPacket -> {
-                updates += ClientUpdate.Hud(HudChannel.ACTION_BAR, sent.text().takeUnless { it == Component.empty() })
-            }
-
-            is BossBarPacket -> {
-                when (val action = sent.action()) {
-                    is BossBarPacket.AddAction -> {
-                        updates += ClientUpdate.Hud(HudChannel.BOSS_BAR, action.title())
-                    }
-
-                    is BossBarPacket.UpdateTitleAction -> {
-                        updates +=
-                            ClientUpdate.Hud(HudChannel.BOSS_BAR, action.title())
-                    }
-
-                    is BossBarPacket.RemoveAction -> {
-                        updates += ClientUpdate.Hud(HudChannel.BOSS_BAR, null)
-                    }
-
-                    else -> {
-                        Unit
-                    }
-                }
-            }
-
-            is ScoreboardObjectivePacket -> {
-                updates +=
-                    ClientUpdate.Hud(HudChannel.SIDEBAR, sent.objectiveValue().takeUnless { sent.mode() == DESTROY })
-            }
-
             else -> {
                 Unit
             }
@@ -261,8 +226,4 @@ private class RecordingConnection : PlayerConnection() {
     override fun getRemoteAddress(): SocketAddress = InetSocketAddress("127.0.0.1", 25565)
 
     private fun ItemStack.visible(): ItemStack? = takeUnless { it.isAir }
-
-    private companion object {
-        const val DESTROY: Byte = 1
-    }
 }

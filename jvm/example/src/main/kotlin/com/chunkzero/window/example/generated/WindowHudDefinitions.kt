@@ -4,11 +4,11 @@ package com.chunkzero.window.example.generated
 import com.chunkzero.window.HudDefinition
 
 /** Typed HUD definitions of this Window pack. */
-internal object WindowHudDefinitions {
-    val statusBottomCenter: HudDefinition = HudDefinition(WindowPackData.manifest, "status_bottom_center")
-    val statusLeftSide: HudDefinition = HudDefinition(WindowPackData.manifest, "status_left_side")
-    val statusRightSide: HudDefinition = HudDefinition(WindowPackData.manifest, "status_right_side")
-    val statusTopCenter: HudDefinition = HudDefinition(WindowPackData.manifest, "status_top_center")
-    val statusTopLeft: HudDefinition = HudDefinition(WindowPackData.manifest, "status_top_left")
-    val statusTopRight: HudDefinition = HudDefinition(WindowPackData.manifest, "status_top_right")
+public object WindowHudDefinitions {
+    public val statusBottomCenter: HudDefinition = HudDefinition(WindowPackData.manifest, "status_bottom_center")
+    public val statusLeftSide: HudDefinition = HudDefinition(WindowPackData.manifest, "status_left_side")
+    public val statusRightSide: HudDefinition = HudDefinition(WindowPackData.manifest, "status_right_side")
+    public val statusTopCenter: HudDefinition = HudDefinition(WindowPackData.manifest, "status_top_center")
+    public val statusTopLeft: HudDefinition = HudDefinition(WindowPackData.manifest, "status_top_left")
+    public val statusTopRight: HudDefinition = HudDefinition(WindowPackData.manifest, "status_top_right")
 }

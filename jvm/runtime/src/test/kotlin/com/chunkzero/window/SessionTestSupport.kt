@@ -2,8 +2,6 @@ package com.chunkzero.window
 
 import com.chunkzero.window.host.ContainerKind
 import com.chunkzero.window.host.ContainerListener
-import com.chunkzero.window.host.HudDescriptor
-import com.chunkzero.window.host.HudOutput
 import com.chunkzero.window.host.OpenContainer
 import com.chunkzero.window.host.WindowHost
 import com.chunkzero.window.host.WindowItem
@@ -38,12 +36,11 @@ internal class ManualScheduler : RenderScheduler {
 
 /**
  * An in-memory host whose items are the [WindowItem]s themselves (tests may also pass any other
- * value as an item). It opens [container] once and records shown HUDs.
+ * value as an item). It opens [container] once.
  */
 internal class FakeHost : WindowHost<Any> {
     val scheduler = ManualScheduler()
     val container = FakeContainer()
-    val huds = mutableListOf<FakeHudOutput>()
 
     /** Makes [open] fail like a host whose open request was cancelled. */
     var refuseOpen = false
@@ -56,8 +53,6 @@ internal class FakeHost : WindowHost<Any> {
         check(!refuseOpen) { "open refused" }
         return container.also { it.open(kind, title, listener) }
     }
-
-    override fun showHud(hud: HudDescriptor): HudOutput = FakeHudOutput(hud).also { huds += it }
 
     override fun item(item: WindowItem): Any = item
 
@@ -158,23 +153,6 @@ internal class FakeContainer : OpenContainer<Any> {
     }
 }
 
-/** A HUD output recording every component it shows. */
-internal class FakeHudOutput(
-    val descriptor: HudDescriptor,
-) : HudOutput {
-    val contents = mutableListOf(descriptor.content)
-    var hidden = false
-        private set
-
-    override fun update(content: Component) {
-        contents += content
-    }
-
-    override fun hide() {
-        hidden = true
-    }
-}
-
 /** A window view over [manifest]'s window [name], shown through [host]. */
 internal abstract class TestView(
     manifest: WindowManifest,
@@ -182,9 +160,8 @@ internal abstract class TestView(
     name: String = "w",
 ) : WindowView<Any>(WindowDefinition(manifest, name), host)
 
-/** A HUD view over [manifest]'s HUD [name], shown through [host]. */
+/** A HUD view over [manifest]'s HUD [name]. */
 internal abstract class TestHud(
     manifest: WindowManifest,
-    host: FakeHost,
     name: String = "h",
-) : HudView(HudDefinition(manifest, name), host)
+) : HudView(HudDefinition(manifest, name))

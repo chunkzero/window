@@ -12,9 +12,8 @@ mod members;
 use class::ViewBase;
 use members::{Members, ValueKind};
 
-const WINDOW: ViewBase =
-    ViewBase { prefix: "Window", noun: "window", definitions: "WindowDefinitions", item_typed: true };
-const HUD: ViewBase = ViewBase { prefix: "Hud", noun: "HUD", definitions: "WindowHudDefinitions", item_typed: false };
+const WINDOW: ViewBase = ViewBase { prefix: "Window", noun: "window", definitions: "WindowDefinitions", hosted: true };
+const HUD: ViewBase = ViewBase { prefix: "Hud", noun: "HUD", definitions: "WindowHudDefinitions", hosted: false };
 
 pub(super) fn generate_window(
     name: &str,

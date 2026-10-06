@@ -2,14 +2,11 @@ package com.chunkzero.window.minestom
 
 import com.chunkzero.window.host.ContainerKind
 import com.chunkzero.window.host.ContainerListener
-import com.chunkzero.window.host.HudDescriptor
-import com.chunkzero.window.host.HudOutput
 import com.chunkzero.window.host.OpenContainer
 import com.chunkzero.window.host.WindowHost
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.minestom.internal.MinestomContainer
 import com.chunkzero.window.minestom.internal.itemStack
-import com.chunkzero.window.minestom.internal.showHud
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
@@ -30,8 +27,6 @@ public class MinestomHost private constructor(
         listener: ContainerListener,
     ): OpenContainer<ItemStack> = MinestomContainer.open(player, kind, title, listener)
 
-    override fun showHud(hud: HudDescriptor): HudOutput = showHud(player, hud)
-
     override fun item(item: WindowItem): ItemStack = itemStack(item)
 
     override fun scheduleNextTick(task: Runnable) {
@@ -41,7 +36,7 @@ public class MinestomHost private constructor(
     public companion object {
         private val TAG = Tag.Transient<MinestomHost>("window:host")
 
-        /** The host for [player], shared by every view and HUD shown to them. */
+        /** The host for [player], shared by every view opened for them. */
         @JvmStatic
         public fun of(player: Player): MinestomHost = player.updateAndGetTag(TAG) { it ?: MinestomHost(player) }
     }

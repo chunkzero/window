@@ -24,8 +24,8 @@ window_core::validation::validate_compile_output(&output).assert_valid();
 Rust tests additionally cover layout, rasterization, alpha compositing, codepoint allocation, authoring validation,
 codegen, HUD shaders, and the end-to-end shop fixture. Kotlin tests cover title/HUD composition, measurement,
 reactivity, bindings, click routing, and paging against an in-memory host. Each host runs `window-host-testkit`'s
-conformance suite (slot normalization, player-slot leases, anvil reopens, ping ordering, HUD channels) against its real
-server through a recording connection.
+conformance suite (slot normalization, player-slot leases, anvil reopens, ping ordering) against its real server through
+a recording connection.
 
 ## Real Minecraft validation
 

@@ -4,7 +4,7 @@ package com.chunkzero.window.example.generated
 import com.chunkzero.window.WindowDefinition
 
 /** Typed window definitions of this Window pack. */
-internal object WindowDefinitions {
-    val catalogSearch: WindowDefinition = WindowDefinition(WindowPackData.manifest, "catalog_search")
-    val shop: WindowDefinition = WindowDefinition(WindowPackData.manifest, "shop")
+public object WindowDefinitions {
+    public val catalogSearch: WindowDefinition = WindowDefinition(WindowPackData.manifest, "catalog_search")
+    public val shop: WindowDefinition = WindowDefinition(WindowPackData.manifest, "shop")
 }

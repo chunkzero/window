@@ -202,7 +202,7 @@ fn status_hud() -> HudEntry {
 }
 
 #[test]
-fn view_and_hud_headers_follow_the_target() {
+fn views_follow_the_target_and_huds_do_not() {
     let manifest =
         manifest(BTreeMap::from([("shop".into(), shop_window())]), BTreeMap::from([("status".into(), status_hud())]));
     let player_view = |host: &str| {
@@ -211,16 +211,15 @@ fn view_and_hud_headers_follow_the_target() {
              WindowView<ItemStack>(WindowDefinitions.shop, {host}.of(player)) {{"
         )
     };
-    let player_hud = |host: &str| {
-        format!(
-            "public abstract class StatusHud(protected val player: Player) : \
-             HudView(WindowHudDefinitions.status, {host}.of(player)) {{"
-        )
-    };
     let cases = [
         (KotlinTarget::Minestom, "com.chunkzero.window.minestom.MinestomHost", "MinestomHost"),
         (KotlinTarget::Multistom, "com.chunkzero.window.multistom.MultistomHost", "MultistomHost"),
     ];
+    let agnostic = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
+    let hud = file_contents(&agnostic, "StatusHud.kt");
+    assert!(hud.contains("public abstract class StatusHud : HudView(WindowHudDefinitions.status) {"), "{hud}");
+    assert!(hud.contains("final override fun HudScope.bind() {"));
+    assert!(!hud.contains("Player") && !hud.contains("host") && !hud.contains("Host"), "{hud}");
     for (target, import, host) in cases {
         let files = generate_kotlin(&manifest, "golden", target).unwrap();
         let view = file_contents(&files, "ShopView.kt");
@@ -230,46 +229,38 @@ fn view_and_hud_headers_follow_the_target() {
         assert!(view.contains("import net.minestom.server.item.ItemStack\n"));
         assert!(view.contains("final override fun WindowScope<ItemStack>.bind() {"));
         assert!(view.contains("protected abstract fun eggInfoItem(): ItemStack?"));
-        let hud = file_contents(&files, "StatusHud.kt");
-        assert!(hud.contains(&player_hud(host)), "{hud}");
-        assert!(hud.contains(&format!("import {import}\n")));
-        assert!(!hud.contains("ItemStack"));
-        assert!(hud.contains("final override fun HudScope.bind() {"));
+        assert_eq!(file_contents(&files, "StatusHud.kt"), hud);
     }
 
-    let files = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
-    let view = file_contents(&files, "ShopView.kt");
+    let view = file_contents(&agnostic, "ShopView.kt");
     assert!(view.contains(
         "public abstract class ShopView<I : Any>(host: WindowHost<I>) : WindowView<I>(WindowDefinitions.shop, host) {"
     ));
     assert!(view.contains("final override fun WindowScope<I>.bind() {"));
     assert!(view.contains("protected abstract fun eggInfoItem(): I?"));
     assert!(view.contains("protected abstract fun entriesItem(index: Int): I?"));
-    let hud = file_contents(&files, "StatusHud.kt");
-    assert!(hud.contains(
-        "public abstract class StatusHud(host: WindowHost<*>) : HudView(WindowHudDefinitions.status, host) {"
-    ));
-    for file in [view, hud] {
-        assert!(file.contains("import com.chunkzero.window.host.WindowHost\n"));
-        assert!(!file.contains("minestom") && !file.contains("multistom"), "{file}");
-    }
+    assert!(view.contains("import com.chunkzero.window.host.WindowHost\n"));
+    assert!(!view.contains("minestom") && !view.contains("multistom"), "{view}");
 }
 
 #[test]
-fn only_views_and_huds_are_public() {
+fn only_views_huds_and_definitions_are_public() {
     let manifest =
         manifest(BTreeMap::from([("shop".into(), shop_window())]), BTreeMap::from([("status".into(), status_hud())]));
     let files = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
     for file in &files {
         let contents = std::str::from_utf8(&file.contents).unwrap();
-        let public = file.path.ends_with("View.kt") || file.path.ends_with("Hud.kt");
+        let public = ["View.kt", "Hud.kt", "Definitions.kt"].iter().any(|suffix| file.path.ends_with(suffix));
         assert_eq!(contents.contains("public "), public, "{}", file.path);
     }
     let windows = file_contents(&files, "WindowDefinitions.kt");
-    assert!(windows.contains("internal object WindowDefinitions {"));
-    assert!(windows.contains("val shop: WindowDefinition = WindowDefinition(WindowPackData.manifest, \"shop\")"));
+    assert!(windows.contains("public object WindowDefinitions {"));
+    assert!(
+        windows.contains("public val shop: WindowDefinition = WindowDefinition(WindowPackData.manifest, \"shop\")")
+    );
     let huds = file_contents(&files, "WindowHudDefinitions.kt");
-    assert!(huds.contains("val status: HudDefinition = HudDefinition(WindowPackData.manifest, \"status\")"));
+    assert!(huds.contains("public object WindowHudDefinitions {"));
+    assert!(huds.contains("public val status: HudDefinition = HudDefinition(WindowPackData.manifest, \"status\")"));
 }
 
 #[test]

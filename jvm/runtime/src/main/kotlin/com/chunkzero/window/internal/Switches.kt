@@ -12,7 +12,8 @@ internal class Switches(
     private val surface: String,
     private val ownerName: String,
     private val switches: Map<String, SwitchEntry>,
-    private val reactivity: Reactivity,
+    /** Captures state reads per switch; `null` for surfaces that render without reactivity. */
+    private val reactivity: Reactivity?,
 ) {
     val names: Set<String> = switches.keys
 
@@ -39,7 +40,7 @@ internal class Switches(
     /** Selects switch [name]'s case under dependency capture and returns it. */
     fun render(name: String): SwitchCaseEntry {
         val render = renders.getValue(name)
-        val value = reactivity.withRendering(RenderKey.Switch(name)) { render() }
+        val value = if (reactivity == null) render() else reactivity.withRendering(RenderKey.Switch(name), render)
         val cases = switches.getValue(name).cases
         val selected =
             cases.firstOrNull { it.value == value }

@@ -10,11 +10,20 @@ import com.chunkzero.window.host.WindowHost
  * failures so enabling diagnostics never changes normal window or HUD behavior.
  */
 public fun interface RenderDiagnosticsObserver {
-    /** Observes one composed window title or HUD frame shown through [host]. */
+    /** Observes one composed window title frame shown through [host]. */
     public fun observe(
         host: WindowHost<*>,
         frame: RenderFrame,
     )
+
+    /**
+     * Observes one composed frame of [hud], reported when [HudView.render] composes it. A HUD is not tied to a player,
+     * so observers that route frames to players attribute them themselves. Ignores the frame by default.
+     */
+    public fun observeHud(
+        hud: HudView,
+        frame: RenderFrame,
+    ) {}
 
     public companion object {
         /** Observer used by normal runtime operation. */

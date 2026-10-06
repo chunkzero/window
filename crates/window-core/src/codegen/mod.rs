@@ -15,14 +15,14 @@ mod writer;
 #[cfg(test)]
 mod tests;
 
-/// The server API generated view and HUD classes are bound to.
+/// The server API generated window views are bound to. HUD views are the same for every target.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KotlinTarget {
-    /// Classes take any `WindowHost<I>`; no server imports.
+    /// Window views take any `WindowHost<I>`; no server imports.
     Agnostic,
-    /// Classes take a Minestom `Player` and bind it through `MinestomHost`.
+    /// Window views take a Minestom `Player` and bind it through `MinestomHost`.
     Minestom,
-    /// Classes take a Multistom `Player` and bind it through `MultistomHost`.
+    /// Window views take a Multistom `Player` and bind it through `MultistomHost`.
     Multistom,
 }
 

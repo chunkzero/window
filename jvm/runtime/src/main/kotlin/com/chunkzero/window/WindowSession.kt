@@ -77,7 +77,7 @@ internal open class ContainerWindowSession<I : Any>(
 
     private val frames =
         SessionFrames(
-            host,
+            { observer, frame -> observer.observe(host, frame) },
             entry.surface.titleOrigin[0].let {
                 FrameCursor(RenderCursorConvention.INDEPENDENT_NET_ZERO_SEGMENTS, it, it)
             },

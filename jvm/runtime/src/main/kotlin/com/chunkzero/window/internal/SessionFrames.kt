@@ -10,7 +10,6 @@ import com.chunkzero.window.diagnostics.RenderFrameReason
 import com.chunkzero.window.diagnostics.RenderLayerKind
 import com.chunkzero.window.diagnostics.RenderLayerTrace
 import com.chunkzero.window.diagnostics.RenderStyleTrace
-import com.chunkzero.window.host.WindowHost
 import net.kyori.adventure.text.Component
 import org.slf4j.Logger
 import java.util.UUID
@@ -24,11 +23,11 @@ internal data class FrameCursor(
 )
 
 /**
- * Numbers a session's composed frames and reports them to [WindowDiagnostics.observer], isolating
+ * Numbers a session's composed frames and hands them to [WindowDiagnostics.observer] through [report], isolating
  * observer failures from normal rendering.
  */
 internal class SessionFrames(
-    private val host: WindowHost<*>,
+    private val report: (RenderDiagnosticsObserver, RenderFrame) -> Unit,
     private val cursor: FrameCursor,
     private val logger: Logger,
     private val failureMessage: String,
@@ -55,7 +54,7 @@ internal class SessionFrames(
                 layers = render.layers,
             )
         try {
-            observer.observe(host, frame)
+            report(observer, frame)
         } catch (error: RuntimeException) {
             logger.warn(failureMessage, error)
         }

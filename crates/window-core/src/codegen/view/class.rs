@@ -15,8 +15,8 @@ pub(super) struct ViewBase {
     pub(super) noun: &'static str,
     /// Generated object holding the typed definitions.
     pub(super) definitions: &'static str,
-    /// Whether the `View` and `Scope` classes take the host's item type argument.
-    pub(super) item_typed: bool,
+    /// Whether the view takes a host and the `View` and `Scope` classes take its item type argument.
+    pub(super) hosted: bool,
 }
 
 pub(super) fn render(
@@ -29,14 +29,14 @@ pub(super) fn render(
 ) -> String {
     let prefix = base.prefix;
     let item = target.item_type();
-    let type_args = if base.item_typed { format!("<{item}>") } else { String::new() };
+    let type_args = if base.hosted { format!("<{item}>") } else { String::new() };
     let (type_params, params, host) = match target.player_host() {
+        _ if !base.hosted => ("", String::new(), String::new()),
         Some(host) => {
             let simple = host.rsplit('.').next().unwrap_or(host);
-            ("", "protected val player: Player".to_string(), format!("{simple}.of(player)"))
+            ("", "(protected val player: Player)".to_string(), format!(", {simple}.of(player)"))
         }
-        None if base.item_typed => ("<I : Any>", "host: WindowHost<I>".to_string(), "host".to_string()),
-        None => ("", "host: WindowHost<*>".to_string(), "host".to_string()),
+        None => ("<I : Any>", "(host: WindowHost<I>)".to_string(), ", host".to_string()),
     };
     let definition = format!("{}.{}", base.definitions, naming::definition_member(name));
 
@@ -44,7 +44,7 @@ pub(super) fn render(
     w.doc(format_args!("Typed view for the `{name}` {}. Implement the abstract members.", base.noun));
     let keyword = if members.is_empty() { "open" } else { "abstract" };
     w.open(format_args!(
-        "public {keyword} class {class_name}{type_params}({params}) : {prefix}View{type_args}({definition}, {host}) {{"
+        "public {keyword} class {class_name}{type_params}{params} : {prefix}View{type_args}({definition}{host}) {{"
     ));
     for member in members {
         declare(&mut w, member, item);
@@ -68,17 +68,17 @@ fn imports(base: &ViewBase, target: KotlinTarget, members: &[Member]) -> Vec<Str
     let has_slot = any(|m| {
         matches!(m, Member::Value { kind: ValueKind::Slot, .. } | Member::GroupValue { kind: ValueKind::Slot, .. })
     });
-    let host = target.player_host();
+    let host = if base.hosted { target.player_host() } else { None };
     let mut imports: Vec<String> = [
         (any(|m| matches!(m, Member::Button { .. })), "com.chunkzero.window.Click"),
         (
             any(|m| matches!(m, Member::Collection { handler: Some(_), .. } | Member::GroupButton { .. })),
             "com.chunkzero.window.IndexedClick",
         ),
-        (host.is_none(), "com.chunkzero.window.host.WindowHost"),
+        (base.hosted && host.is_none(), "com.chunkzero.window.host.WindowHost"),
         (has_slot, "net.kyori.adventure.text.Component"),
         (host.is_some(), "net.minestom.server.entity.Player"),
-        (host.is_some() && base.item_typed, "net.minestom.server.item.ItemStack"),
+        (host.is_some(), "net.minestom.server.item.ItemStack"),
     ]
     .into_iter()
     .filter_map(|(used, import)| used.then_some(import.to_string()))

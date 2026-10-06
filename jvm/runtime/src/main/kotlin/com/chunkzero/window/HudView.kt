@@ -1,91 +1,148 @@
 package com.chunkzero.window
 
-import com.chunkzero.window.host.WindowHost
-import com.chunkzero.window.internal.LazyState
-import com.chunkzero.window.internal.Reactivity
-import kotlin.properties.ReadWriteProperty
+import com.chunkzero.window.diagnostics.RenderCorrelation
+import com.chunkzero.window.diagnostics.RenderCursorConvention
+import com.chunkzero.window.diagnostics.RenderFrameReason
+import com.chunkzero.window.diagnostics.RenderLayerKind
+import com.chunkzero.window.diagnostics.RenderStyleTrace
+import com.chunkzero.window.diagnostics.RenderSurfaceKind
+import com.chunkzero.window.internal.ComposedRender
+import com.chunkzero.window.internal.DynamicSlots
+import com.chunkzero.window.internal.FrameCursor
+import com.chunkzero.window.internal.RenderedSegment
+import com.chunkzero.window.internal.SessionFrames
+import com.chunkzero.window.internal.Switches
+import com.chunkzero.window.internal.emptySegment
+import com.chunkzero.window.manifest.SwitchCaseEntry
+import net.kyori.adventure.text.Component
+import org.slf4j.LoggerFactory
 
 /**
- * A user-defined view over a HUD: declares slot renders, holds reactive state, and reacts to
- * lifecycle events.
+ * A user-defined view over a HUD: declares the providers of its slots and switches, and composes them on [render].
  *
- * A view shows [definition] to the player of [host] and is single-use: [show] it once.
+ * A view only produces content. The caller decides when to render, sends the result on [channel], and resends it as
+ * needed. A view is not thread-safe; render it from one thread at a time.
  */
 public abstract class HudView(
     private val definition: HudDefinition,
-    private val host: WindowHost<*>,
 ) {
-    private var shown = false
-    private var reactivity: Reactivity? = null
-    private var session: HudSession? = null
+    private val entry = definition.entry
+    private val switches = Switches("hud", definition.name, entry.switches, null)
+    private val slots =
+        DynamicSlots("hud", definition.name, entry.slots, null, definition.composer::renderSlot) { id, slot ->
+            emptySegment(
+                id,
+                RenderLayerKind.HUD_TEXT,
+                slot.x,
+                slot.y,
+                slot.font,
+                RenderStyleTrace(slot.color, slot.shadow),
+                cursor = 0,
+            )
+        }
+
+    private val frames =
+        SessionFrames(
+            { observer, frame -> observer.observeHud(this, frame) },
+            FrameCursor(RenderCursorConvention.FIXED_WIDTH_COMPOSITION, 0, entry.surface.width),
+            LOGGER,
+            "Window HUD diagnostics observer failed",
+        ) { renderSessionId ->
+            RenderCorrelation(
+                surfaceKind = RenderSurfaceKind.HUD,
+                semanticId = definition.name,
+                renderSessionId = renderSessionId,
+                hudChannel = entry.surface.channel,
+            )
+        }
+
+    private val contents = HashMap<String, Component>()
+    private val segments = LinkedHashMap<String, RenderedSegment>()
+    private val cases = HashMap<String, SwitchCaseEntry>()
+    private val caseArt = LinkedHashMap<String, String>()
+    private var current: Component? = null
+
+    /** The channel this HUD's layout was composed for; send [render]'s result only on this channel. */
+    public val channel: HudChannel
+        get() = definition.channel
 
     /**
-     * Shows this HUD: runs [bind], sends the first frame on the HUD's channel, and calls [onShow].
+     * Evaluates every slot and switch provider and returns the composed HUD.
      *
-     * @throws IllegalStateException if this view was already shown, or a dynamic slot is unbound.
-     * @throws IllegalArgumentException for unknown names referenced in [bind].
+     * The first call runs [bind]. Slots whose provider returns an equal component, and switches that keep their case,
+     * reuse their previous layout.
+     *
+     * @throws IllegalStateException on the first call if a dynamic slot or switch is unbound.
+     * @throws IllegalArgumentException for unknown names referenced in [bind], or an unknown switch case.
      */
-    public fun show(): HudSession {
-        check(!shown) { "HUD view '${definition.name}' was already shown; views are single-use" }
-        shown = true
-        return HudSession(definition, this, host).also { it.show() }
+    public fun render(): Component {
+        val previous = current ?: return publish(composeInitialRender(), RenderFrameReason.OPEN)
+        var changed = false
+        for (name in switches.names) changed = updateSwitch(name) || changed
+        for (name in slots.names) {
+            val content = slots.content(name)
+            if (contents[name] == content) continue
+            contents[name] = content
+            segments[name] = slots.segment(name, content)
+            changed = true
+        }
+        return if (changed) publish(compose(), RenderFrameReason.REACTIVE_UPDATE) else previous
     }
 
-    /**
-     * Creates a reactive state delegate with the given [initial] value.
-     *
-     * Reads during a slot render register that slot as a dependent; writes mark dependents dirty
-     * and schedule a single batched re-render. Write state only on the thread that serves the
-     * host's player.
-     */
-    protected fun <T> state(initial: T): ReadWriteProperty<Any?, T> = LazyState(initial) { reactivity }
-
-    /** Declares the slot renders for this HUD. */
+    /** Registers the providers of this HUD's slots and switches; runs once, on the first [render]. */
     protected abstract fun HudScope.bind()
 
-    /** Invoked after bindings are collected and the first HUD component is sent. */
-    protected open fun onShow() {}
+    private fun composeInitialRender(): ComposedRender {
+        val scope =
+            object : HudScope {
+                override fun slot(
+                    name: String,
+                    render: () -> Component,
+                ) = slots.bind(name, render)
 
-    /** Invoked when the HUD is hidden. */
-    protected open fun onHide() {}
-
-    /**
-     * Hides this HUD.
-     *
-     * @throws IllegalStateException if the view is not shown.
-     */
-    protected fun hide() {
-        requireSession().hide()
+                override fun switch(
+                    name: String,
+                    render: () -> String,
+                ) = switches.bind(name, render)
+            }
+        scope.bind()
+        slots.validate()
+        switches.validate()
+        for (name in switches.names) updateSwitch(name)
+        slots.seed(::seedSlot) { name, segment -> segments[name] = segment }
+        return compose()
     }
 
-    /**
-     * Forces all dynamic slots to re-render on the next tick.
-     *
-     * @throws IllegalStateException if the view is not shown.
-     */
-    protected fun refresh() {
-        requireSession().refresh()
+    private fun seedSlot(name: String): RenderedSegment {
+        val content = slots.content(name)
+        contents[name] = content
+        return slots.segment(name, content)
     }
 
-    internal fun attach(
-        session: HudSession,
-        reactivity: Reactivity,
-    ) {
-        this.session = session
-        this.reactivity = reactivity
+    /** Selects switch [name]'s case; returns whether it changed. */
+    private fun updateSwitch(name: String): Boolean {
+        val case = switches.render(name)
+        if (cases.put(name, case) === case) return false
+        caseArt[switches.semanticId(name)] = case.static
+        return true
     }
 
-    internal fun invokeBind(scope: HudScope) {
-        with(scope) { bind() }
+    private fun publish(
+        render: ComposedRender,
+        reason: RenderFrameReason,
+    ): Component {
+        current = render.component
+        frames.observe(render, reason)
+        return render.component
     }
 
-    internal fun invokeOnShow() {
-        onShow()
+    /** Composes the HUD without the slots of inactive switch cases. */
+    private fun compose(): ComposedRender {
+        val hiddenSlots = switches.hiddenSlots()
+        return definition.composer.compose(definition.name, segments.filterKeys { it !in hiddenSlots }, caseArt)
     }
 
-    internal fun invokeOnHide() {
-        onHide()
+    private companion object {
+        val LOGGER = LoggerFactory.getLogger(HudView::class.java)
     }
-
-    private fun requireSession(): HudSession = checkNotNull(session) { "HUD view is not shown" }
 }

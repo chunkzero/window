@@ -1,6 +1,5 @@
 package com.chunkzero.window.host.testkit
 
-import com.chunkzero.window.host.HudChannel
 import com.chunkzero.window.host.WindowHost
 import net.kyori.adventure.text.Component
 
@@ -98,11 +97,5 @@ public sealed interface ClientUpdate<out I : Any> {
     /** A ping the client answers with pong [id]. */
     public data class Ping(
         val id: Int,
-    ) : ClientUpdate<Nothing>
-
-    /** The HUD on [channel] now shows [content]; `null` hides it. */
-    public data class Hud(
-        val channel: HudChannel,
-        val content: Component?,
     ) : ClientUpdate<Nothing>
 }

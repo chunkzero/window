@@ -36,7 +36,7 @@ fn typed_definitions<'a>(
 ) -> Result<OutputFile> {
     let mut w = KotlinWriter::file(package_name, [format!("com.chunkzero.window.{class}")]);
     w.doc(format_args!("Typed {noun} definitions of this Window pack."));
-    w.open(format_args!("internal object {object} {{"));
+    w.open(format_args!("public object {object} {{"));
     let mut taken = BTreeMap::new();
     for name in names {
         let member = naming::definition_member(name);
@@ -48,7 +48,7 @@ fn typed_definitions<'a>(
                 "{noun}s `{existing}` and `{name}` both map to `{object}.{member}`"
             )));
         }
-        w.line(format_args!("val {member}: {class} = {class}(WindowPackData.manifest, {})", kt_string(name)));
+        w.line(format_args!("public val {member}: {class} = {class}(WindowPackData.manifest, {})", kt_string(name)));
     }
     w.close("}");
     Ok(OutputFile { path: format!("{object}.kt"), contents: w.finish().into_bytes() })

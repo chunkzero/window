@@ -20,9 +20,11 @@ example/
 
 The Minestom server is the Gradle module `jvm/example`, which depends on `window-minestom`. `Main.kt` boots the server,
 `Market.kt` is a throwaway domain model, and `MyShop.kt` implements the **generated** `ShopView`. `MyStatusHud.kt`
-implements the **generated** HUD views. The pack uses `target: "minestom"`, so each view takes the `Player` it is shown
-to: `Main.kt` opens the shop with `MyShop(player, market).open()` and shows each HUD with `show()`. The bindings live
-under `generated/`, produced by the rpp plugin — committed, do not hand-edit.
+implements the **generated** HUD views. The pack uses `target: "minestom"`, so the shop view takes the `Player` it is
+shown to: `Main.kt` opens it with `MyShop(player, market).open()`. Generated HUD views take no player; the handwritten
+ones that need it take it themselves. `Main.kt` joins the status HUDs into one action-bar `HudStack` and resends it with
+`player.sendHud(stack)` every second, which re-renders their clocks and stays ahead of the action bar fading out. The
+bindings live under `generated/`, produced by the rpp plugin — committed, do not hand-edit.
 
 ## Run it
 
@@ -47,7 +49,7 @@ when testing from another machine.
 
 ## The typed contract
 
-The rpp plugin emits `internal` pack data (`WindowPackData`, `WindowFonts`, `WindowSpacers`, `WindowDefinitions`,
-`WindowHudDefinitions`, and friends) and one public abstract class for each window/HUD. `MyShop` must implement
-`balance()`, `status()`, and `onBuy(...)`; `MyStatusHud` must implement each authored HUD slot. Omit one, rebuild, and
-the breakage surfaces at compile time.
+The rpp plugin emits `internal` pack data (`WindowPackData`, `WindowFonts`, `WindowSpacers`, and friends), the public
+`WindowDefinitions` and `WindowHudDefinitions`, and one public abstract class for each window/HUD. `MyShop` must
+implement `balance()`, `status()`, and `onBuy(...)`; `MyStatusHud` must implement each authored HUD slot. Omit one,
+rebuild, and the breakage surfaces at compile time.

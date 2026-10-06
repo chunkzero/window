@@ -552,8 +552,8 @@ show("on_sale", { children: [sprite("sale_badge")] });
   descendants, has no function-style equivalent; style labels and slots directly.
 - Cases are visual: sprites, frames, labels, and `<Text bind>`/`<Icon bind>` bindings. Slot-bound controls, nested
   switches, and switches inside repeaters are build errors. Bindings inside cases keep their own window-wide names.
-- Each case's art becomes its own layer. Windows redraw the title and HUDs their line when the case changes; case art
-  draws above the static chrome and below the text and icon slots.
+- Each case's art becomes its own layer. Windows redraw the title when the case changes, and a HUD draws the new case on
+  its next `render()`; case art draws above the static chrome and below the text and icon slots.
 - Generated Kotlin returns the active case: an enum of the case values (`protected abstract fun mode(): Mode` with
   `enum class Mode { BUY, SELL }`), or `Boolean` when the cases are exactly `true` and `false`
   (`protected abstract fun onSale(): Boolean`). Views without generated bindings use

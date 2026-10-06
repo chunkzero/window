@@ -73,24 +73,19 @@ class SwitchBindingTest :
                     slots = mapOf("sale" to TestManifests.slot(10, 40, Align.LEFT, text = "Sale")),
                     switches = mapOf("on_sale" to show),
                 )
-            val host = FakeHost()
             val view =
-                object : TestHud(manifest, host) {
-                    var onSale by state(false)
+                object : TestHud(manifest) {
+                    var onSale = false
 
                     override fun HudScope.bind() {
                         switch("on_sale") { onSale.toString() }
                     }
                 }
-            val scheduler = host.scheduler
-            view.show()
-            val sent = host.huds.single().contents
 
-            plain(sent.last()) shouldNotContain "BADGE"
-            plain(sent.last()) shouldNotContain "Sale"
+            plain(view.render()) shouldNotContain "BADGE"
+            plain(view.render()) shouldNotContain "Sale"
             view.onSale = true
-            scheduler.runAll()
-            plain(sent.last()) shouldContain "BADGE"
-            plain(sent.last()) shouldContain "Sale"
+            plain(view.render()) shouldContain "BADGE"
+            plain(view.render()) shouldContain "Sale"
         }
     })

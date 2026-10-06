@@ -3,10 +3,7 @@ package com.chunkzero.window.host
 import net.kyori.adventure.text.Component
 
 /**
- * The server side of Window for one player: opens containers, shows HUDs, builds items, and schedules work.
- *
- * Every view and HUD shown to a player must use the same host instance; the core keys per-player state (such as
- * merged action bars) by host identity. Hosts hold no core state themselves.
+ * The server side of Window for one player: opens containers, builds items, and schedules work.
  *
  * @param I the server's native item type.
  */
@@ -26,14 +23,6 @@ public interface WindowHost<I : Any> {
         title: Component,
         listener: ContainerListener,
     ): OpenContainer<I>
-
-    /**
-     * Shows [hud] to this host's player until the returned output is hidden.
-     *
-     * The core keeps action-bar outputs in a map keyed by this host, so an output must not strongly reference this
-     * host or anything that does (such as the player holding it); hold the player weakly instead.
-     */
-    public fun showHud(hud: HudDescriptor): HudOutput
 
     /** Builds an item Window renders itself. */
     public fun item(item: WindowItem): I

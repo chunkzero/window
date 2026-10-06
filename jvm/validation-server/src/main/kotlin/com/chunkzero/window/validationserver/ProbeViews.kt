@@ -112,14 +112,10 @@ internal class SearchProbeView(
     }
 }
 
+/** The probe HUD shown to [player]; its diagnostics frames are routed to that player. */
 internal class ProbeHudView(
     manifest: WindowManifest,
-    player: Player,
-    private val report: RuntimeReport,
-) : HudView(HudDefinition(manifest, "probe_hud"), MinestomHost.of(player)) {
+    val player: Player,
+) : HudView(HudDefinition(manifest, "probe_hud")) {
     override fun HudScope.bind() {}
-
-    override fun onShow() {
-        report.record("hud.shown", mapOf("hud" to "probe_hud"))
-    }
 }

@@ -7,7 +7,7 @@ through the inventory title and HUD, and generates a typed Kotlin view for each 
 server. If you rename a button in the UI, the server code stops compiling instead of breaking at runtime.
 
 Inventory UIs support real items, scrolling collections, paging, toggles, choices, tooltips, and native anvil text
-input. HUDs are positioned with core shaders and update live from the server.
+input. HUDs are positioned with core shaders and rendered by the server whenever it wants to update them.
 
 > [!WARNING]
 >
@@ -66,7 +66,7 @@ class Confirm(player: Player, private val question: String, private val onYes: (
 Confirm(player, "Buy this sword?") { buySword(player) }.open()
 ```
 
-Views and HUDs are single-use: create a new one each time you `open()` a window or `show()` a HUD.
+Window views are single-use: create a new one each time you `open()` a window. HUDs work differently; see [HUDs](#huds).
 
 ## Getting started
 
@@ -107,8 +107,8 @@ Nightly versions come from `https://maven.chunkzero.com/nightlies`; see [Releasi
 
 ## Servers
 
-The Kotlin runtime (`window-runtime`) does not depend on any server. A host connects it to one: it opens containers,
-shows HUDs, builds items, and schedules work for one player. Pick the host for your server and set the plugin's
+The Kotlin runtime (`window-runtime`) does not depend on any server. A host connects windows to one: it opens
+containers, builds items, and schedules work for one player. Pick the host for your server and set the plugin's
 `kotlin.target` to match:
 
 | Server                           | Artifact                                | Host                       | `target`      |
@@ -117,8 +117,9 @@ shows HUDs, builds items, and schedules work for one player. Pick the host for y
 | Multistom                        | `com.chunkzero.window:window-multistom` | `MultistomHost.of(player)` | `"multistom"` |
 | Anything else                    | `com.chunkzero.window:window-runtime`   | your own `WindowHost`      | `"agnostic"`  |
 
-With `minestom` or `multistom`, generated views take a `Player`, use that player's shared host, and expose the player to
-subclasses as `player`. With `agnostic`, views take a `WindowHost<I>` and are generic over the server's item type:
+With `minestom` or `multistom`, generated window views take a `Player`, use that player's host, and expose the player to
+subclasses as `player`. With `agnostic`, window views take a `WindowHost<I>` and are generic over the server's item
+type:
 
 ```kotlin
 class Confirm<I : Any>(host: WindowHost<I>, private val onYes: () -> Unit) : ConfirmView<I>(host) {
@@ -130,10 +131,10 @@ class Confirm<I : Any>(host: WindowHost<I>, private val onYes: () -> Unit) : Con
 Confirm(MyHost.of(player)) { buySword(player) }.open()
 ```
 
-A host must be shared by every view and HUD of a player. To write one, see [Hosts](docs/ARCHITECTURE.md#hosts).
+To write a host, see [Hosts](docs/ARCHITECTURE.md#hosts).
 
-Window is not thread-safe. Open views and write view `state` only on the thread that serves the player, such as
-Minestom's event handlers and `player.scheduler()`; Window schedules its re-renders on that thread too.
+Window is not thread-safe. Open window views and write their `state` only on the thread that serves the player, such as
+Minestom's event handlers and `player.scheduler()`; Window schedules window re-renders on that thread too.
 
 The [example](example/README.md) is a complete project: a shop with a paged catalog, filters and anvil search, and a set
 of shader HUDs, running on a Minestom server. To try it:
@@ -144,6 +145,41 @@ just example-run     # start the server on :25565
 ```
 
 Then connect with a Minecraft 26.2 client.
+
+## HUDs
+
+A HUD only produces a `Component`; Window does not deliver, schedule, or track it. Generated HUD classes are identical
+for every `target` and take no player or host, and the generated `WindowDefinitions` and `WindowHudDefinitions` objects
+are public, so views written in other modules can pass their definitions to `WindowView` or `HudView` directly.
+Implement the slot members, then call `render()` whenever you want the current content:
+
+```kotlin
+class Status(private val player: Player) : StatusHud() {
+    override fun coins(): Component = Component.text(balanceOf(player))
+}
+
+val status = Status(player)
+player.scheduler().submitTask {
+    if (!player.isOnline) return@submitTask TaskSchedule.stop()
+    player.sendHud(status)
+    TaskSchedule.seconds(1)
+}
+```
+
+`render()` runs `bind()` once, then evaluates every slot and switch on each call, reusing the layout of slots whose
+component did not change. `HudStack(channel)` joins several HUDs of one channel into one component, in the order they
+were added. The runtime sends with Adventure: `Audience.sendHud(hud)` for action-bar HUDs and `BossBar.showHud(hud)` for
+boss-bar HUDs, each with a `HudStack` overload. The Minestom and Multistom hosts add `Sidebar.showHud(hud)`.
+
+You own the rest:
+
+- When to render and how often to resend. Vanilla hides an action bar about 60 ticks after it was sent, so resend it
+  sooner to keep it visible.
+- Sending each HUD on its definition's `channel`. Shader layouts are composed per channel, so the helpers reject a HUD
+  composed for another one.
+- Creating the boss bar or sidebar, showing it to players, and hiding it again.
+- Per-player state and cleanup, such as stopping the resend task when the player leaves.
+- Threading: a `HudView` or `HudStack` is not thread-safe, so render it from one thread at a time.
 
 ## Supported versions
 

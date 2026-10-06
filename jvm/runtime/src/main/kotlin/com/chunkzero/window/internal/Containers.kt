@@ -1,7 +1,7 @@
 package com.chunkzero.window.internal
 
+import com.chunkzero.window.HudChannel
 import com.chunkzero.window.host.ContainerKind
-import com.chunkzero.window.host.HudChannel
 
 /** Maps window-core container kind ids to [ContainerKind]s. */
 internal object Containers {

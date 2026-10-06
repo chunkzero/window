@@ -23,7 +23,7 @@ import net.minestom.server.inventory.click.Click as MinestomClick
 
 class MinestomHostTest :
     StringSpec({
-        "every view and HUD of a player shares one host" {
+        "every view of a player shares one host" {
             val player = MinestomFixture().player
 
             MinestomHost.of(player) shouldBeSameInstanceAs MinestomHost.of(player)

@@ -6,8 +6,6 @@ import com.chunkzero.window.SlotArea
 import com.chunkzero.window.SlotRef
 import com.chunkzero.window.host.ContainerKind
 import com.chunkzero.window.host.ContainerListener
-import com.chunkzero.window.host.HudChannel
-import com.chunkzero.window.host.HudDescriptor
 import com.chunkzero.window.host.WindowItem
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
@@ -500,21 +498,6 @@ public abstract class HostConformance<I : Any>(
             runs shouldBe 1
         }
 
-        for (channel in HudChannel.entries) {
-            "a $channel HUD shows, updates and hides" {
-                val client = fixture()
-
-                val output = client.host.showHud(HudDescriptor(channel, Component.text("shown")))
-                client.updates.hud(channel) shouldBe Component.text("shown")
-
-                output.update(Component.text("updated"))
-                client.updates.hud(channel) shouldBe Component.text("updated")
-
-                output.hide()
-                client.updates.hud(channel) shouldBe null
-            }
-        }
-
         "equal item descriptions build equal items" {
             val host = fixture().host
             val tooltip = ButtonTooltip(Component.text("title"), listOf(Component.text("line")))
@@ -582,10 +565,6 @@ private fun <I : Any> Map<Int, I>.with(
     slot: Int,
     item: I?,
 ): Map<Int, I> = if (item == null) this - slot else this + (slot to item)
-
-/** The content the client shows on [channel] after these updates, or `null` when hidden. */
-private fun List<ClientUpdate<*>>.hud(channel: HudChannel): Component? =
-    filterIsInstance<ClientUpdate.Hud>().lastOrNull { it.channel == channel }?.content
 
 private class RecordingListener(
     private val afterClose: () -> Unit = {},

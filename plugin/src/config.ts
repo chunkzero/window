@@ -10,7 +10,8 @@ export type { KotlinTarget } from "./project.ts";
 export type WindowConfig = Omit<WindowOptions, "kotlin"> & {
     /**
      * Generate Kotlin bindings into the `output` directory, relative to the project root. `target` picks the server
-     * API the views bind to: `minestom` or `multistom` views take a `Player`; `agnostic` views take any `WindowHost`.
+     * API window views bind to: `minestom` or `multistom` views take a `Player`; `agnostic` views take any
+     * `WindowHost`. HUD views are the same for every target.
      */
     kotlin?: { package: string; output: string; target: KotlinTarget };
 };

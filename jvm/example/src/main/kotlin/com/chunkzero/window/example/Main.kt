@@ -1,6 +1,9 @@
 package com.chunkzero.window.example
 
+import com.chunkzero.window.HudChannel
+import com.chunkzero.window.HudStack
 import com.chunkzero.window.HudView
+import com.chunkzero.window.sendHud
 import net.kyori.adventure.resource.ResourcePackCallback
 import net.kyori.adventure.resource.ResourcePackRequest
 import net.kyori.adventure.text.Component
@@ -139,17 +142,17 @@ private fun openExampleUi(
     }
 }
 
+// The action bar fades after about 60 ticks, so the merged status line is resent every second; each send renders the
+// HUDs' current clock and player values.
 private fun showHuds(
     player: Player,
     huds: List<HudView>,
 ) {
-    val sessions = huds.map(HudView::show)
+    val stack = HudStack(HudChannel.ACTION_BAR)
+    huds.forEach(stack::add)
     player.scheduler().submitTask {
-        if (!player.isOnline) {
-            sessions.forEach { session -> session.hide() }
-            return@submitTask TaskSchedule.stop()
-        }
-        sessions.forEach { session -> session.refresh() }
+        if (!player.isOnline) return@submitTask TaskSchedule.stop()
+        player.sendHud(stack)
         TaskSchedule.seconds(1)
     }
 }
@@ -166,11 +169,11 @@ private fun createStatusHuds(
 ): List<HudView> =
     listOf(
         MyStatusTopLeftHud(player, market),
-        MyStatusTopCenterHud(player, startedAt),
+        MyStatusTopCenterHud(startedAt),
         MyStatusTopRightHud(player, startedAt),
         MyStatusLeftSideHud(player),
-        MyStatusRightSideHud(player, market),
-        MyStatusBottomCenterHud(player, startedAt),
+        MyStatusRightSideHud(market),
+        MyStatusBottomCenterHud(startedAt),
     )
 
 /** Locate the built resource-pack zip, or use `-Dwindow.pack=/path/to/window-example.zip`. */

@@ -12,7 +12,8 @@ internal class DynamicSlots(
     private val surface: String,
     private val ownerName: String,
     private val slots: Map<String, SlotEntry>,
-    private val reactivity: Reactivity,
+    /** Captures state reads per slot; `null` for surfaces that render without reactivity. */
+    private val reactivity: Reactivity?,
     private val renderSlot: (semanticId: String, slot: SlotEntry, content: Component) -> RenderedSegment?,
     private val emptySlot: (semanticId: String, slot: SlotEntry) -> RenderedSegment,
 ) {
@@ -45,13 +46,19 @@ internal class DynamicSlots(
 
     fun semanticId(name: String): String = "$surface/$ownerName/slot/$name"
 
-    /** Renders every slot in definition order, skipping static labels that draw nothing. */
-    fun seed(put: (name: String, segment: RenderedSegment) -> Unit) {
+    /**
+     * Renders every slot in definition order, dynamic ones through [dynamic], skipping static labels that draw
+     * nothing.
+     */
+    fun seed(
+        dynamic: (name: String) -> RenderedSegment = ::render,
+        put: (name: String, segment: RenderedSegment) -> Unit,
+    ) {
         for ((name, slot) in slots) {
             val text = slot.text
             val segment =
                 if (text == null) {
-                    render(name)
+                    dynamic(name)
                 } else {
                     renderSlot(semanticId(name), slot, Component.text(text)) ?: continue
                 }
@@ -60,9 +67,19 @@ internal class DynamicSlots(
     }
 
     /** Renders one bound dynamic slot under dependency capture. */
-    fun render(name: String): RenderedSegment {
+    fun render(name: String): RenderedSegment = segment(name, content(name))
+
+    /** Evaluates bound dynamic slot [name]'s render lambda under dependency capture. */
+    fun content(name: String): Component {
         val render = renders.getValue(name)
-        val content = reactivity.withRendering(RenderKey.Slot(name)) { render() }
+        return if (reactivity == null) render() else reactivity.withRendering(RenderKey.Slot(name), render)
+    }
+
+    /** Lays out [content] as slot [name]'s segment. */
+    fun segment(
+        name: String,
+        content: Component,
+    ): RenderedSegment {
         val slot = slots.getValue(name)
         val id = semanticId(name)
         return renderSlot(id, slot, content) ?: emptySlot(id, slot)
