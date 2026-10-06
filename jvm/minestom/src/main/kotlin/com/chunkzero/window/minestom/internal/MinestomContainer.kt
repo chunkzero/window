@@ -174,6 +174,8 @@ internal class MinestomContainer private constructor(
         /**
          * Opens [kind] for [player], then listens.
          *
+         * A redirected open has already replaced the player's current screen, which reported `onClose`.
+         *
          * @throws IllegalStateException if an open listener cancelled or redirected the open.
          */
         fun open(

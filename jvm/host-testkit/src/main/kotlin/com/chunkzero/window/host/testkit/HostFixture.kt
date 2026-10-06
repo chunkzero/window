@@ -51,6 +51,12 @@ public interface HostFixture<I : Any> : AutoCloseable {
     /** Adds a server-wide listener that runs after the host's and cancels every inventory open of the player. */
     public fun cancelOpensGlobally()
 
+    /** Adds a server-wide listener that runs after the host's and redirects every inventory open of the player. */
+    public fun redirectOpensGlobally()
+
+    /** Whether the player's open inventory is the one [redirectOpensGlobally] redirects to. */
+    public fun redirectTargetIsOpen(): Boolean
+
     /** Adds a server-wide listener that runs after the host's and cancels every item drop of the player. */
     public fun cancelDropsGlobally()
 

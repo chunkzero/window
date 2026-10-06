@@ -373,6 +373,20 @@ public abstract class HostConformance<I : Any>(
             client.updates.screen() shouldBe null
         }
 
+        "a replacement that an open listener redirects closes the current container once and fails" {
+            val client = fixture()
+            val first = RecordingListener()
+            client.host.open(ContainerKind.CHEST_3_ROW, Component.text("first"), first)
+            client.redirectOpensGlobally()
+
+            shouldThrow<IllegalStateException> {
+                client.host.open(ContainerKind.CHEST_1_ROW, Component.text("second"), RecordingListener())
+            }
+
+            first.closes shouldBe 1
+            client.redirectTargetIsOpen() shouldBe true
+        }
+
         "an open that a listener cancels fails without listening or touching player slots" {
             val client = fixture()
             val diamond = client.hitbox("diamond")

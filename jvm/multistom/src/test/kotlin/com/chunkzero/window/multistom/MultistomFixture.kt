@@ -14,6 +14,8 @@ import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.trait.PlayerEvent
+import net.minestom.server.inventory.Inventory
+import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
 import net.minestom.server.listener.AnvilListener
 import net.minestom.server.listener.WindowListener
@@ -45,6 +47,7 @@ internal class MultistomFixture : HostFixture<ItemStack> {
 
     override val host: MultistomHost = MultistomHost.of(player)
     private val playerNodes = mutableListOf<EventNode<PlayerEvent>>()
+    private val redirectTarget = Inventory(process, InventoryType.CHEST_1_ROW, "redirect")
     private val globalNodes = mutableListOf<EventNode<PlayerEvent>>()
 
     override val updates: List<ClientUpdate<ItemStack>>
@@ -127,6 +130,16 @@ internal class MultistomFixture : HostFixture<ItemStack> {
         guard.addListener(InventoryOpenEvent::class.java) { it.isCancelled = true }
         install(guard)
     }
+
+    override fun redirectOpensGlobally() {
+        val guard = EventNode.type("global-open-redirect", EventFilter.PLAYER) { _, entity -> entity === player }
+        guard.addListener(InventoryOpenEvent::class.java) { event ->
+            if (event.inventory !== redirectTarget) event.inventory = redirectTarget
+        }
+        install(guard)
+    }
+
+    override fun redirectTargetIsOpen() = player.openInventory === redirectTarget
 
     override fun cancelDropsGlobally() {
         val guard = EventNode.type("global-drop-cancel", EventFilter.PLAYER) { _, entity -> entity === player }

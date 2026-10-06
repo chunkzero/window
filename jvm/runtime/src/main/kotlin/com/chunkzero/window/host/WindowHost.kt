@@ -15,8 +15,9 @@ public interface WindowHost<I : Any> {
      * Opens [kind] titled [title] for this host's player; reports its input to [listener] until closed.
      *
      * The container must be the player's open screen when this returns. If the server refuses to show it (an open
-     * listener cancelled or redirected the request), nothing may be left behind: no listener registered, no player
-     * slot touched, and the player's current screen untouched. The host then throws [IllegalStateException].
+     * listener cancelled or redirected the request), nothing may be left behind: no listener registered and no player
+     * slot touched. The host then throws [IllegalStateException]. A cancelled open leaves the player's current screen
+     * untouched; a redirected one has already replaced it, and that screen reported `onClose`.
      *
      * @throws IllegalStateException if the container could not be opened.
      */

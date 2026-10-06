@@ -52,7 +52,8 @@ while the server is still closing or replacing the inventory, including on disco
 it must be scheduled, e.g. on the next tick. Clicks addressed to the player's own inventory window are dropped while a
 container is open. A replacement that a server listener cancels reports nothing and leaves the current container open.
 Opening a container the server refuses to show (cancelled or redirected) throws `IllegalStateException` from
-`WindowHost.open` with nothing registered, and the failed `WindowView.open()` still consumes the view.
+`WindowHost.open` with nothing registered (a redirect has already replaced the current container, which reported
+`onClose`), and the failed `WindowView.open()` still consumes the view.
 
 Hosts hold no runtime state, but the runtime keys per-player state (such as merged action bars) by host identity, so a
 player must get the same host instance everywhere. A `HudOutput` must not strongly reference its host or the player that
