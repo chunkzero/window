@@ -83,6 +83,24 @@ class HudViewTest :
             text(hud.render()) shouldBe "bx"
         }
 
+        "a slot whose layout fails keeps failing until its content is valid" {
+            val invalid = Component.translatable("item.minecraft.stone")
+            val broken =
+                object : TestHud(manifest()) {
+                    var content: Component = Component.text("A")
+
+                    override fun HudScope.bind() {
+                        slot("text") { content }
+                    }
+                }
+            broken.render()
+            broken.content = invalid
+            repeat(2) { shouldThrow<IllegalArgumentException> { broken.render() } }
+            broken.content = Component.text("B")
+
+            text(broken.render()) shouldBe "B"
+        }
+
         "a failed first render binds once and completes on retry" {
             val hud = Pair("a", { error("boom") })
             shouldThrow<IllegalStateException> { hud.render() }

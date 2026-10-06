@@ -83,8 +83,8 @@ public abstract class HudView(
         for (name in slots.names) {
             val content = slots.content(name)
             if (contents[name] == content) continue
-            contents[name] = content
             segments[name] = slots.segment(name, content)
+            contents[name] = content
             unpublished = true
         }
         return if (unpublished) publish(compose(), RenderFrameReason.REACTIVE_UPDATE) else previous
@@ -119,8 +119,9 @@ public abstract class HudView(
 
     private fun seedSlot(name: String): RenderedSegment {
         val content = slots.content(name)
+        val segment = slots.segment(name, content)
         contents[name] = content
-        return slots.segment(name, content)
+        return segment
     }
 
     /** Selects switch [name]'s case; returns whether it changed. */
