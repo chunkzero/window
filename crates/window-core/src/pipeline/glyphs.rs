@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::compose::{Composite, Texture, compose_draws};
+use crate::compose::{Composite, RasterCache, Texture, compose_draws_cached};
 use crate::font::{allocate, bitmap_provider};
 use crate::geometry::Size;
 use crate::ir::{Draw, LaidOutHud, LaidOutWindow, SwitchIr};
@@ -29,17 +29,28 @@ pub(super) fn compose_layers(
     huds: &[&LaidOutHud],
     textures: &BTreeMap<String, Texture>,
 ) -> Result<Composites> {
-    let windows = windows.iter().map(|w| layers(&w.name, &w.draws, &w.switches, textures)).collect::<Result<_>>()?;
-    let huds = huds.iter().map(|h| layers(&h.name, &h.draws, &h.switches, textures)).collect::<Result<_>>()?;
+    let mut cache = RasterCache::default();
+    let windows =
+        windows.iter().map(|w| layers(&w.name, &w.draws, &w.switches, textures, &mut cache)).collect::<Result<_>>()?;
+    let huds =
+        huds.iter().map(|h| layers(&h.name, &h.draws, &h.switches, textures, &mut cache)).collect::<Result<_>>()?;
     Ok(Composites { windows, huds })
 }
 
-fn layers(name: &str, draws: &[Draw], switches: &[SwitchIr], textures: &BTreeMap<String, Texture>) -> Result<Layers> {
+fn layers(
+    name: &str,
+    draws: &[Draw],
+    switches: &[SwitchIr],
+    textures: &BTreeMap<String, Texture>,
+    cache: &mut RasterCache,
+) -> Result<Layers> {
     let cases = switches
         .iter()
-        .map(|switch| switch.cases.iter().map(|case| compose_draws(&case.draws, name, textures)).collect())
+        .map(|switch| {
+            switch.cases.iter().map(|case| compose_draws_cached(&case.draws, name, textures, cache)).collect()
+        })
         .collect::<Result<_>>()?;
-    Ok(Layers { base: compose_draws(draws, name, textures)?, cases })
+    Ok(Layers { base: compose_draws_cached(draws, name, textures, cache)?, cases })
 }
 
 /// Allocate codepoints across the whole build: one key per static or case composite

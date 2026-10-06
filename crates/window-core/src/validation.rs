@@ -229,6 +229,21 @@ pub fn validate_compile_output_with_pack(
     output: &CompileOutput,
     pack_files: &BTreeMap<String, Vec<u8>>,
 ) -> ValidationReport {
+    validate(output, pack_files, true)
+}
+
+/// [`validate_compile_output_with_pack`] for output whose debug descriptor was
+/// just built from its files: the descriptor must exist and parse, but is not
+/// rebuilt for comparison.
+pub(crate) fn validate_compiled(output: &CompileOutput, pack_files: &BTreeMap<String, Vec<u8>>) -> ValidationReport {
+    validate(output, pack_files, false)
+}
+
+fn validate(
+    output: &CompileOutput,
+    pack_files: &BTreeMap<String, Vec<u8>>,
+    rebuild_descriptor: bool,
+) -> ValidationReport {
     let mut report = ValidationReport::default();
     let mut files: BTreeMap<&str, &[u8]> =
         pack_files.iter().map(|(path, contents)| (path.as_str(), contents.as_slice())).collect();
@@ -239,6 +254,6 @@ pub fn validate_compile_output_with_pack(
     validate_shifted_fonts(&output.manifest, &files, &mut report);
     validate_sprite_fonts(&output.manifest, &files, &mut report);
     validate_inventory(&output.manifest, &mut report);
-    validate_debug_descriptor(output, &mut report);
+    validate_debug_descriptor(output, rebuild_descriptor, &mut report);
     report.finish()
 }

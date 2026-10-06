@@ -6,12 +6,13 @@
 //! Bitmap stretching (9-slice edges/center) uses deterministic
 //! nearest-neighbor sampling so identical inputs produce byte-identical output.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use image::{ImageEncoder, RgbaImage};
+use image::ImageEncoder;
 
-use crate::geometry::{Insets, Rect};
+use crate::geometry::{Insets, Rect, Size};
 use crate::ir::{Draw, LaidOutWindow, TextureKey};
+use crate::model::GeneratedStyle;
 use crate::{Error, Result};
 
 /// A decoded RGBA8 texture, row-major (`rgba.len() == width * height * 4`).
@@ -64,15 +65,20 @@ impl Texture {
 
     /// Encode this texture as a PNG. Output is deterministic for identical input.
     pub fn encode_png(&self) -> Result<Vec<u8>> {
-        // Round-trip through RgbaImage so the encoder sees a validated buffer.
-        let img = RgbaImage::from_raw(self.width, self.height, self.rgba.clone()).ok_or_else(|| Error::Texture {
-            path: String::new(),
-            message: "texture buffer size does not match dimensions".into(),
-        })?;
+        let fits = (self.width as usize)
+            .checked_mul(self.height as usize)
+            .and_then(|pixels| pixels.checked_mul(4))
+            .is_some_and(|len| len == self.rgba.len());
+        if !fits {
+            return Err(Error::Texture {
+                path: String::new(),
+                message: "texture buffer size does not match dimensions".into(),
+            });
+        }
         let mut out = Vec::new();
         let encoder = image::codecs::png::PngEncoder::new(&mut out);
         encoder
-            .write_image(img.as_raw(), self.width, self.height, image::ExtendedColorType::Rgba8)
+            .write_image(&self.rgba, self.width, self.height, image::ExtendedColorType::Rgba8)
             .map_err(|e| Error::Texture { path: String::new(), message: e.to_string() })?;
         Ok(out)
     }
@@ -86,6 +92,10 @@ impl Texture {
 fn over(src: [u8; 4], dst: [u8; 4]) -> [u8; 4] {
     let sa = src[3] as u32;
     let da = dst[3] as u32;
+    // Opaque sources and transparent destinations round to `src` exactly.
+    if sa == 255 || (da == 0 && sa != 0) {
+        return src;
+    }
     // out_a = sa + da*(255 - sa)/255, rounded.
     let out_a = sa + (da * (255 - sa) + 127) / 255;
     if out_a == 0 {
@@ -124,8 +134,33 @@ pub fn compose_window(window: &LaidOutWindow, textures: &BTreeMap<String, Textur
 }
 
 /// Compose an explicit slice of draws (the [`compose_window`] core, exposed for
-/// testing and the pipeline).
+/// testing).
 pub fn compose_draws(draws: &[Draw], window_name: &str, textures: &BTreeMap<String, Texture>) -> Result<Composite> {
+    compose_draws_cached(draws, window_name, textures, &mut RasterCache::default())
+}
+
+/// Generated-style rasters keyed by style and size, so identical generated draws
+/// are rendered once per cache rather than once per draw.
+#[derive(Default)]
+pub(crate) struct RasterCache(HashMap<(GeneratedStyle, Size), Texture>);
+
+impl RasterCache {
+    fn render(&mut self, style: &GeneratedStyle, size: Size) -> Result<&Texture> {
+        use std::collections::hash_map::Entry;
+        match self.0.entry((style.clone(), size)) {
+            Entry::Occupied(entry) => Ok(entry.into_mut()),
+            Entry::Vacant(entry) => Ok(entry.insert(crate::raster::render(style, size)?)),
+        }
+    }
+}
+
+/// [`compose_draws`] reusing generated rasters from `cache`.
+pub(crate) fn compose_draws_cached(
+    draws: &[Draw],
+    window_name: &str,
+    textures: &BTreeMap<String, Texture>,
+    cache: &mut RasterCache,
+) -> Result<Composite> {
     let Some(bounds) = union_bounds(draws) else {
         return Ok(Composite {
             texture: Texture::transparent(0, 0),
@@ -149,8 +184,7 @@ pub fn compose_draws(draws: &[Draw], window_name: &str, textures: &BTreeMap<Stri
                 blit_nine_slice(&mut canvas, texture, insets, &local);
             }
             Draw::Generated { style, .. } => {
-                let texture = crate::raster::render(style, dest.size())?;
-                blit_sprite(&mut canvas, &texture, &local);
+                blit_sprite(&mut canvas, cache.render(style, dest.size())?, &local);
             }
         }
     }
@@ -177,15 +211,25 @@ fn lookup<'a>(textures: &'a BTreeMap<String, Texture>, key: &TextureKey, window:
 /// `dest`'s size are clipped; `dest` larger than `src` leaves the remainder
 /// untouched.
 fn blit_sprite(canvas: &mut Texture, src: &Texture, dest: &Rect) {
-    let w = dest.width.min(src.width);
-    let h = dest.height.min(src.height);
-    for sy in 0..h {
-        for sx in 0..w {
-            let px = src.get(sx, sy);
-            let dx = dest.x + sx as i32;
-            let dy = dest.y + sy as i32;
-            if dx >= 0 && dy >= 0 {
-                canvas.blend(dx as u32, dy as u32, px);
+    let w = i64::from(dest.width.min(src.width));
+    let h = i64::from(dest.height.min(src.height));
+    let (dest_x, dest_y) = (i64::from(dest.x), i64::from(dest.y));
+    // Source columns whose destination lands on the canvas.
+    let sx0 = (-dest_x).max(0);
+    let sx1 = w.min(i64::from(canvas.width) - dest_x);
+    if sx0 >= sx1 {
+        return;
+    }
+    let (canvas_width, src_width) = (canvas.width as usize, src.width as usize);
+    let (sx0, sx1) = (sx0 as usize, sx1 as usize);
+    for sy in (-dest_y).max(0)..h.min(i64::from(canvas.height) - dest_y) {
+        let src_start = sy as usize * src_width;
+        let dst_start = (sy + dest_y) as usize * canvas_width + (dest_x + sx0 as i64) as usize;
+        let src_row = &src.rgba[(src_start + sx0) * 4..(src_start + sx1) * 4];
+        let dst_row = &mut canvas.rgba[dst_start * 4..(dst_start + sx1 - sx0) * 4];
+        for (s, d) in src_row.as_chunks::<4>().0.iter().zip(dst_row.as_chunks_mut::<4>().0) {
+            if s[3] != 0 {
+                *d = over(*s, *d);
             }
         }
     }

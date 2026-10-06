@@ -81,11 +81,12 @@ fn update_framed(digest: &mut Sha256, bytes: &[u8]) {
 }
 
 fn hex_digest(bytes: impl AsRef<[u8]>) -> String {
-    use std::fmt::Write;
+    const HEX: &[u8; 16] = b"0123456789abcdef";
     let bytes = bytes.as_ref();
     let mut hex = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
-        write!(&mut hex, "{byte:02x}").expect("writing to String cannot fail");
+        hex.push(HEX[usize::from(byte >> 4)] as char);
+        hex.push(HEX[usize::from(byte & 0xf)] as char);
     }
     hex
 }
@@ -98,17 +99,18 @@ fn debug_image(texture: &Texture) -> DebugImage {
     let mut found = false;
     let pixel_count = texture.width.saturating_mul(texture.height);
     let mut mask = vec![0u8; pixel_count.div_ceil(8) as usize];
-    for index in 0..pixel_count {
-        let alpha = texture.rgba[index as usize * 4 + 3];
-        if alpha != 0 {
-            let x = index % texture.width.max(1);
-            let y = index / texture.width.max(1);
-            min_x = min_x.min(x);
-            min_y = min_y.min(y);
-            max_x = max_x.max(x);
-            max_y = max_y.max(y);
-            found = true;
-            mask[index as usize / 8] |= 1 << (7 - index % 8);
+    let mut index = 0usize;
+    for y in 0..texture.height {
+        for x in 0..texture.width {
+            if texture.rgba[index * 4 + 3] != 0 {
+                min_x = min_x.min(x);
+                min_y = min_y.min(y);
+                max_x = max_x.max(x);
+                max_y = max_y.max(y);
+                found = true;
+                mask[index / 8] |= 1 << (7 - index % 8);
+            }
+            index += 1;
         }
     }
     DebugImage {

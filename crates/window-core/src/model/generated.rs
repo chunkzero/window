@@ -1,7 +1,7 @@
 use crate::ir::Rgb;
 
 /// Procedural styles that Window can rasterize into UI sprites.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GeneratedStyle {
     /// Shape family.
     pub kind: GeneratedKind,
@@ -154,7 +154,7 @@ impl GeneratedStyle {
 }
 
 /// Built-in generated shape families.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum GeneratedKind {
     /// Rounded panel with border and inset depth.
     Panel,
