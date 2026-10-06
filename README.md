@@ -216,6 +216,10 @@ Mise 2026.10.0 or newer is required; `mise install` also provides the pinned [rp
 nightly used by the example pack, golden cases, and TypeScript checks. Commits and pull request titles follow
 [Conventional Commits](https://www.conventionalcommits.org).
 
+`just bench` times `rpp build` for the same UI written with JSX and with the function-style API (`bench/authoring/`),
+after checking that both produce identical output. It accepts `--runs`, `--scale`, `--scenarios cold,noop,edit`, and
+`--cold-wasm`, always uses its own `RPP_CACHE_DIR` under `build/bench/`, and honors `RPP` to choose the rpp binary.
+
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.

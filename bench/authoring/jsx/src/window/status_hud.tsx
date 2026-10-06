@@ -1,0 +1,71 @@
+import { Hud, Row, Sprite, Text } from "#plugins/window";
+import type { TextProps } from "#plugins/window";
+
+const text: TextProps = { shadow: true, smallCaps: true, color: "#ffffff" };
+const muted = "#8fb3d9";
+const soft = "#e0edff";
+
+/** A label and a right-aligned value; `coin` follows the value with a coin. */
+function Stat(props: { label: string; bind: string; color?: string; coin?: boolean }) {
+    return (
+        <Row gap={2}>
+            <Text width={34} color={muted}>
+                {props.label}
+            </Text>
+            <Text bind={props.bind} align="right" color={props.color} />
+            {props.coin === true && <Sprite name="coin" />}
+        </Row>
+    );
+}
+
+export default (
+    <>
+        <Hud
+            name="status_top_left"
+            anchor="top-left"
+            offset={[4, 4]}
+            frame="hud"
+            padding={4}
+            gap={2}
+            minWidth={80}
+            text={text}
+        >
+            <Stat label="Coins" bind="coins" color="#ffd75e" coin />
+            <Stat label="Rate" bind="rate" color="#80ff80" />
+            <Stat label="Power" bind="power" />
+        </Hud>
+
+        <Hud name="status_top_center" anchor="top" offset={[0, 4]} frame="hud" padding={3} text={text}>
+            <Text bind="runtime" width={34} align="center" />
+        </Hud>
+
+        <Hud
+            name="status_top_right"
+            anchor="top-right"
+            offset={[-4, 4]}
+            frame="hud"
+            padding={4}
+            gap={2}
+            minWidth={80}
+            text={text}
+        >
+            <Stat label="Wave" bind="wave" />
+            <Stat label="Biome" bind="biome" />
+            <Stat label="Ping" bind="latency" />
+        </Hud>
+
+        <Hud name="status_left_side" anchor="left" offset={[4, 0]} gap={2} text={text}>
+            <Text bind="coords" width={64} />
+            <Text bind="altitude" width={64} color={soft} />
+        </Hud>
+
+        <Hud name="status_right_side" anchor="right" offset={[-4, 0]} gap={2} text={{ ...text, align: "right" }}>
+            <Text bind="objective" width={80} color="#ffd75e" />
+            <Text bind="stock" width={80} color={soft} />
+        </Hud>
+
+        <Hud name="status_bottom_center" anchor="bottom" offset={[0, -72]} text={text}>
+            <Text bind="hint" width={160} align="center" color={soft} />
+        </Hud>
+    </>
+);

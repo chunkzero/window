@@ -88,6 +88,10 @@ test-ts:
 golden *ARGS: plugin
     pnpm golden {{ ARGS }}
 
+# Benchmark JSX and function-style authoring builds, e.g. `just bench --runs 5 --scenarios noop --cold-wasm`.
+bench *ARGS: plugin
+    RPP="{{ rpp }}" node bench/authoring/bench.ts {{ ARGS }}
+
 fmt-docs:
     pnpm fmt
 
