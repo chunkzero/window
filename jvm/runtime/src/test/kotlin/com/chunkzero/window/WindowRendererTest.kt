@@ -3,6 +3,7 @@ package com.chunkzero.window
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.internal.ComposedRender
 import com.chunkzero.window.internal.Reactivity
+import com.chunkzero.window.internal.RenderKey
 import com.chunkzero.window.internal.SlotWrites
 import com.chunkzero.window.internal.Switches
 import com.chunkzero.window.internal.WindowBindings
@@ -11,10 +12,12 @@ import com.chunkzero.window.internal.WindowRenderer
 import com.chunkzero.window.internal.titleSlots
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.ButtonState
+import com.chunkzero.window.manifest.ItemEntry
 import com.chunkzero.window.manifest.SwitchCaseEntry
 import com.chunkzero.window.manifest.SwitchEntry
 import com.chunkzero.window.manifest.TooltipEntry
 import com.chunkzero.window.manifest.WindowManifest
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -194,5 +197,36 @@ class WindowRendererTest :
                 )
             (on.indexOf('') in 0..<on.indexOf('')) shouldBe true
             on shouldNotContain ""
+        }
+
+        "slot writes rendered before a provider throws stay drainable" {
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    buttons =
+                        mapOf(
+                            "mode" to
+                                TestManifests.button(
+                                    slots = listOf(0),
+                                    states =
+                                        mapOf(
+                                            "on" to ButtonState(itemModel = "demo:gui/on"),
+                                            "off" to ButtonState(itemModel = "demo:gui/off"),
+                                        ),
+                                ),
+                        ),
+                    items = mapOf("extra" to ItemEntry(listOf(TestManifests.containerSlot(1)))),
+                )
+            val fixture = RendererFixture(manifest)
+            fixture.open {
+                button("mode") {}
+                buttonState("mode", "on")
+                item("extra") { error("boom") }
+            }
+
+            shouldThrow<IllegalStateException> {
+                fixture.renderer.render(setOf(RenderKey.ButtonState("mode"), RenderKey.Item("extra")))
+            }
+            fixture.renderer.drainWrites().model(0) shouldBe "demo:gui/on"
         }
     })

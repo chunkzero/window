@@ -50,6 +50,48 @@ class HudViewTest :
             hud.binds shouldBe 1
         }
 
+        class Pair(
+            var first: String,
+            var second: () -> String,
+        ) : TestHud(
+                TestManifests.hudManifest(
+                    channel = "actionbar",
+                    slots =
+                        mapOf(
+                            "first" to TestManifests.slot(0, 40, Align.LEFT),
+                            "second" to TestManifests.slot(40, 40, Align.LEFT),
+                        ),
+                ),
+            ) {
+            var binds = 0
+
+            override fun HudScope.bind() {
+                binds++
+                slot("first") { Component.text(first) }
+                slot("second") { Component.text(second()) }
+            }
+        }
+
+        "a render recovering from a provider failure publishes changes made before the failure" {
+            val hud = Pair("a", { "x" })
+            hud.render()
+            hud.first = "b"
+            hud.second = { error("boom") }
+            shouldThrow<IllegalStateException> { hud.render() }
+            hud.second = { "x" }
+
+            text(hud.render()) shouldBe "bx"
+        }
+
+        "a failed first render binds once and completes on retry" {
+            val hud = Pair("a", { error("boom") })
+            shouldThrow<IllegalStateException> { hud.render() }
+            hud.second = { "x" }
+
+            text(hud.render()) shouldBe "ax"
+            hud.binds shouldBe 1
+        }
+
         "a stack joins its HUDs in insertion order" {
             val first = Label(manifest(), "A")
             val second = Label(manifest(), "B")

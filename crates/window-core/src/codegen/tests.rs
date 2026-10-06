@@ -346,6 +346,23 @@ fn hud_lifecycle_members_are_reserved() {
 }
 
 #[test]
+fn hud_slots_cannot_shadow_hud_view_members() {
+    for name in ["render", "channel"] {
+        let hud = HudEntry {
+            surface: HudSurfaceEntry { kind: "hud".into(), channel: "actionbar".into(), width: 120, height: 16 },
+            static_text: String::new(),
+            slots: BTreeMap::from([(name.into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
+            shader: None,
+            switches: BTreeMap::new(),
+        };
+        let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
+
+        let err = generate_kotlin(&manifest, "com.chunkzero.window.generated", KotlinTarget::Minestom).unwrap_err();
+        assert!(err.to_string().contains(&format!("reserved WindowView member `{name}`")), "{err}");
+    }
+}
+
+#[test]
 fn fonts_with_identical_metrics_share_one_table() {
     let small_caps = FontMetricsEntry {
         advances: BTreeMap::from([('a', 6)]),

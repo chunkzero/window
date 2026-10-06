@@ -6,6 +6,7 @@ pub(super) fn check_member(
     member: &str,
     source: &str,
     class_name: &str,
+    extra_reserved: &[&str],
     taken: &mut BTreeMap<String, String>,
 ) -> Result<()> {
     if !is_valid_identifier(member) {
@@ -13,7 +14,7 @@ pub(super) fn check_member(
             "{source} maps to invalid Kotlin identifier `{member}` (class {class_name})"
         )));
     }
-    if RESERVED_MEMBERS.contains(&member) || RESERVED_TYPES.contains(&member) {
+    if RESERVED_MEMBERS.contains(&member) || RESERVED_TYPES.contains(&member) || extra_reserved.contains(&member) {
         return Err(Error::Validation(format!(
             "{source} collides with reserved WindowView member `{member}` (class {class_name})"
         )));
@@ -94,6 +95,9 @@ pub(super) fn is_valid_identifier(name: &str) -> bool {
     }
     !HARD_KEYWORDS.contains(&name)
 }
+
+/// Members `HudView` declares beyond the shared set.
+pub(super) const HUD_RESERVED_MEMBERS: &[&str] = &["render", "channel"];
 
 const RESERVED_MEMBERS: &[&str] = &[
     "player",

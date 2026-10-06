@@ -61,6 +61,8 @@ public abstract class HudView(
     private val cases = HashMap<String, SwitchCaseEntry>()
     private val caseArt = LinkedHashMap<String, String>()
     private var current: Component? = null
+    private var bound = false
+    private var unpublished = false
 
     /** The channel this HUD's layout was composed for; send [render]'s result only on this channel. */
     public val channel: HudChannel
@@ -77,37 +79,39 @@ public abstract class HudView(
      */
     public fun render(): Component {
         val previous = current ?: return publish(composeInitialRender(), RenderFrameReason.OPEN)
-        var changed = false
-        for (name in switches.names) changed = updateSwitch(name) || changed
+        for (name in switches.names) unpublished = updateSwitch(name) || unpublished
         for (name in slots.names) {
             val content = slots.content(name)
             if (contents[name] == content) continue
             contents[name] = content
             segments[name] = slots.segment(name, content)
-            changed = true
+            unpublished = true
         }
-        return if (changed) publish(compose(), RenderFrameReason.REACTIVE_UPDATE) else previous
+        return if (unpublished) publish(compose(), RenderFrameReason.REACTIVE_UPDATE) else previous
     }
 
     /** Registers the providers of this HUD's slots and switches; runs once, on the first [render]. */
     protected abstract fun HudScope.bind()
 
     private fun composeInitialRender(): ComposedRender {
-        val scope =
-            object : HudScope {
-                override fun slot(
-                    name: String,
-                    render: () -> Component,
-                ) = slots.bind(name, render)
+        if (!bound) {
+            val scope =
+                object : HudScope {
+                    override fun slot(
+                        name: String,
+                        render: () -> Component,
+                    ) = slots.bind(name, render)
 
-                override fun switch(
-                    name: String,
-                    render: () -> String,
-                ) = switches.bind(name, render)
-            }
-        scope.bind()
-        slots.validate()
-        switches.validate()
+                    override fun switch(
+                        name: String,
+                        render: () -> String,
+                    ) = switches.bind(name, render)
+                }
+            scope.bind()
+            slots.validate()
+            switches.validate()
+            bound = true
+        }
         for (name in switches.names) updateSwitch(name)
         slots.seed(::seedSlot) { name, segment -> segments[name] = segment }
         return compose()
@@ -132,6 +136,7 @@ public abstract class HudView(
         reason: RenderFrameReason,
     ): Component {
         current = render.component
+        unpublished = false
         frames.observe(render, reason)
         return render.component
     }

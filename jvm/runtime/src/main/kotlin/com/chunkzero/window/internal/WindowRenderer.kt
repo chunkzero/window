@@ -69,6 +69,9 @@ internal class WindowRenderer<I : Any>(
         return frame()
     }
 
+    /** Takes the slot writes rendered but not yet delivered, such as those of a render that threw. */
+    fun drainWrites(): SlotWrites<I> = inventory.drain()
+
     /** Composes the current title. */
     fun title(): ComposedRender = title.compose()
 

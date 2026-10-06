@@ -138,7 +138,15 @@ internal open class ContainerWindowSession<I : Any>(
     }
 
     private fun flush(dirty: Set<RenderKey>) {
-        if (!closed) deliver(renderer.render(dirty))
+        if (closed) return
+        val frame =
+            try {
+                renderer.render(dirty)
+            } catch (failure: Throwable) {
+                deliver(renderer.drainWrites())
+                throw failure
+            }
+        deliver(frame)
     }
 
     private fun deliver(frame: WindowFrame<I>) {
