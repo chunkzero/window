@@ -22,6 +22,12 @@ pub(super) fn index_files<'a>(
                 &file.path,
                 "path must be normalized, relative, and use forward slashes",
             );
+        } else if file.path.starts_with("assets/") && !file.path.bytes().all(is_resource_path_byte) {
+            report.push(
+                "artifact.path.invalid",
+                &file.path,
+                "asset paths may only contain lowercase letters, digits, and `_`, `-`, `.`, `/`",
+            );
         }
         if let Some(previous) = previous
             && previous > file.path.as_str()
@@ -92,4 +98,9 @@ fn validate_font_reference(font: &str, files: &BTreeMap<&str, &[u8]>, report: &m
     if !files.contains_key(path.as_str()) {
         report.push("font.reference.missing", location, format!("font `{font}` requires emitted `{path}`"));
     }
+}
+
+/// Whether Minecraft accepts `byte` in a resource location path.
+fn is_resource_path_byte(byte: u8) -> bool {
+    byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-' | b'.' | b'/')
 }

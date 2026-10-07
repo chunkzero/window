@@ -41,6 +41,7 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
         slot_rects: inventory.slot_rects,
         groups: repeat_groups(w),
         switches,
+        indexed: w.indexed.clone(),
     })
 }
 

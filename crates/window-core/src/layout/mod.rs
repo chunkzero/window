@@ -115,6 +115,7 @@ fn solve_window(
         inputs,
         slot_rects,
         switches,
+        indexed: window.indexed.clone(),
         warnings,
     })
 }
@@ -152,6 +153,7 @@ fn solve_hud(
         draws,
         slots,
         switches,
+        indexed: hud.indexed.clone(),
         warnings,
     })
 }

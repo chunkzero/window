@@ -3,7 +3,7 @@ use std::iter;
 
 use serde::Deserialize;
 
-use super::element::{ElementDto, convert_children};
+use super::element::{ElementDto, convert_children, flatten_indexed};
 use super::hud::HudDto;
 use super::insets::InsetsDto;
 use super::parse::validate_name;
@@ -117,7 +117,15 @@ impl WindowDto {
                 valid.join(", ")
             ))
         })?;
-        let children = convert_children(self.children)?;
-        Ok(Window { name: self.name, container, bleed: self.bleed.into_insets(), frame: self.frame, children })
+        let mut children = self.children;
+        let indexed = flatten_indexed(&mut children, &format!("window `{}`", self.name))?;
+        Ok(Window {
+            name: self.name,
+            container,
+            bleed: self.bleed.into_insets(),
+            frame: self.frame,
+            children: convert_children(children)?,
+            indexed,
+        })
     }
 }

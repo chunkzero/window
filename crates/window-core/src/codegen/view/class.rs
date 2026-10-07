@@ -91,10 +91,15 @@ fn imports(base: &ViewBase, target: KotlinTarget, members: &[Member]) -> Vec<Str
 
 fn declare(w: &mut KotlinWriter, member: &Member, item: &str) {
     match member {
-        Member::Value { kind, source, member } => abstract_fun(
+        Member::Value { kind, source, member, shape } if shape.is_empty() => abstract_fun(
             w,
             format_args!("Render the `{source}` {}.", kind.noun()),
             format_args!("{member}(): {}", kind.return_type(item)),
+        ),
+        Member::Value { kind, source, member, shape } => abstract_fun(
+            w,
+            format_args!("Render one `{source}` {} by {}.", kind.noun(), index_noun(shape)),
+            format_args!("{member}({}): {}", index_params(shape), kind.return_type(item)),
         ),
         Member::GroupValue { kind, group, field, member, .. } => abstract_fun(
             w,
@@ -121,12 +126,12 @@ fn declare(w: &mut KotlinWriter, member: &Member, item: &str) {
             format_args!("Handle a value change from the native `{source}` anvil input."),
             format_args!("{member}(value: String)"),
         ),
-        Member::Switch { source, member, cases: None } => abstract_fun(
+        Member::Switch { source, member, cases: None, shape } => abstract_fun(
             w,
-            format_args!("Whether the `{source}` switch draws its `true` case."),
-            format_args!("{member}(): Boolean"),
+            format_args!("Whether the `{source}` switch{} draws its `true` case.", indexed_suffix(shape)),
+            format_args!("{member}({}): Boolean", index_params(shape)),
         ),
-        Member::Switch { source, member, cases: Some(cases) } => {
+        Member::Switch { source, member, cases: Some(cases), shape } => {
             w.doc(format_args!("The cases of the `{source}` switch."));
             w.open(format_args!("public enum class {}(public val value: String) {{", cases.name));
             for (constant, value) in &cases.constants {
@@ -136,8 +141,8 @@ fn declare(w: &mut KotlinWriter, member: &Member, item: &str) {
             w.blank();
             abstract_fun(
                 w,
-                format_args!("The case the `{source}` switch draws."),
-                format_args!("{member}(): {}", cases.name),
+                format_args!("The case the `{source}` switch{} draws.", indexed_suffix(shape)),
+                format_args!("{member}({}): {}", index_params(shape), cases.name),
             );
         }
         Member::Collection { source, item_member, handler, selection } => {
@@ -170,22 +175,24 @@ fn abstract_fun(w: &mut KotlinWriter, doc: impl Display, signature: impl Display
 
 fn bind(w: &mut KotlinWriter, member: &Member) {
     match member {
-        Member::Value { kind, source, member } => {
-            w.line(format_args!("{}(\"{source}\") {{ {member}() }}", kind.binder()))
+        Member::Value { kind, source, member, shape } => {
+            let binder = kind.binder();
+            indexed_bind(w, source, shape, |w, name, args| {
+                w.line(format_args!("{binder}({name}) {{ {member}({args}) }}"))
+            });
         }
         Member::GroupValue { kind, sources, member, .. } => {
-            for (index, source) in sources.iter().enumerate() {
-                w.line(format_args!("{}(\"{source}\") {{ {member}({index}) }}", kind.binder()));
-            }
+            let binder = kind.binder();
+            each_source(w, sources, |w, name, index| w.line(format_args!("{binder}({name}) {{ {member}({index}) }}")));
         }
         Member::GroupButton { sources, member, .. } => {
-            for (index, source) in sources.iter().enumerate() {
-                w.open(format_args!("button(\"{source}\") {{ click ->"));
+            each_source(w, sources, |w, name, index| {
+                w.open(format_args!("button({name}) {{ click ->"));
                 w.open(format_args!("{member}("));
                 w.line(format_args!("IndexedClick(click.slot, {index}, click.shift, click.right)"));
                 w.close(")");
                 w.close("}");
-            }
+            });
         }
         Member::Button { source, member, .. } => w.line(format_args!("button(\"{source}\", ::{member})")),
         Member::Collection { source, item_member, handler, selection } => {
@@ -198,9 +205,70 @@ fn bind(w: &mut KotlinWriter, member: &Member) {
             }
         }
         Member::AnvilInput { source, member } => w.line(format_args!("anvilInput(\"{source}\", ::{member})")),
-        Member::Switch { source, member, cases } => {
+        Member::Switch { source, member, cases, shape } => {
             let value = if cases.is_some() { "value" } else { "toString()" };
-            w.line(format_args!("switch(\"{source}\") {{ {member}().{value} }}"));
+            indexed_bind(w, source, shape, |w, name, args| {
+                w.line(format_args!("switch({name}) {{ {member}({args}).{value} }}"))
+            });
+        }
+    }
+}
+
+/// The parameter list of an indexed member: none, `index`, or `row` and `column`.
+fn index_params(shape: &[u32]) -> &'static str {
+    match shape.len() {
+        0 => "",
+        1 => "index: Int",
+        _ => "row: Int, column: Int",
+    }
+}
+
+fn index_noun(shape: &[u32]) -> &'static str {
+    if shape.len() == 1 { "index" } else { "row and column" }
+}
+
+fn indexed_suffix(shape: &[u32]) -> &'static str {
+    match shape.len() {
+        0 => "",
+        1 => " at `index`",
+        _ => " at `row` and `column`",
+    }
+}
+
+/// Binds `source`, or every entry of an indexed family in loops over its shape. `line` receives the Kotlin
+/// expression naming the entry and the member arguments.
+fn indexed_bind(w: &mut KotlinWriter, source: &str, shape: &[u32], line: impl Fn(&mut KotlinWriter, &str, &str)) {
+    match shape {
+        [] => line(w, &format!("\"{source}\""), ""),
+        [len] => {
+            w.open(format_args!("for (index in 0 until {len}) {{"));
+            line(w, &format!("\"{source}[$index]\""), "index");
+            w.close("}");
+        }
+        [rows, columns, ..] => {
+            w.open(format_args!("for (row in 0 until {rows}) {{"));
+            w.open(format_args!("for (column in 0 until {columns}) {{"));
+            line(w, &format!("\"{source}[$row][$column]\""), "row, column");
+            w.close("}");
+            w.close("}");
+        }
+    }
+}
+
+/// Binds each repeater cell's `sources` entry: in one loop when they are named `<stem><index>`, otherwise one by
+/// one. `line` receives the Kotlin expressions naming the entry and its index.
+fn each_source(w: &mut KotlinWriter, sources: &[String], line: impl Fn(&mut KotlinWriter, &str, &str)) {
+    let stem = sources.first().and_then(|first| first.strip_suffix('0'));
+    match stem.filter(|stem| sources.iter().enumerate().all(|(i, source)| *source == format!("{stem}{i}"))) {
+        Some(stem) => {
+            w.open(format_args!("for (index in 0 until {}) {{", sources.len()));
+            line(w, &format!("\"{stem}$index\""), "index");
+            w.close("}");
+        }
+        None => {
+            for (index, source) in sources.iter().enumerate() {
+                line(w, &format!("\"{source}\""), &index.to_string());
+            }
         }
     }
 }

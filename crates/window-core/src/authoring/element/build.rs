@@ -202,7 +202,10 @@ impl ElementDto {
 
     fn build_switch(self) -> Result<Element> {
         let name = self.required("name")?;
-        validate_name(&name, "switch")?;
+        // An indexed switch is named by its family, which flattening validated.
+        if self.index.is_none() {
+            validate_name(&name, "switch")?;
+        }
         let pos = self.pos()?;
         let mut cases: Vec<SwitchCase> = Vec::with_capacity(self.children.len());
         for case in self.children {
