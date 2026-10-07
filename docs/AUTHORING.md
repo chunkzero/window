@@ -74,6 +74,18 @@ Window bundles a `small_caps` font: letters of either case as 5px small capitals
 centered on vanilla capital height. `small_caps: true` is shorthand for `font: "small_caps"`; a theme font named
 `small_caps` replaces the bundled one.
 
+Themes may declare a palette of named `#rrggbb` colors for runtime code:
+
+```ts
+colors: {
+  gold: "#ffd75e",
+  muted_text: "#a9d9b5",
+},
+```
+
+Codegen emits the palette as `WindowColors` with one Adventure `TextColor` per name, such as `WindowColors.mutedText`.
+Color names are unique across theme files. Palette names are not accepted by `color` props.
+
 Window also ships a generated default theme:
 
 ```ts

@@ -16,7 +16,15 @@ fn compile_windows(
 ) -> Result<CompileOutput> {
     let fonts = text_font::resolve(&BTreeMap::new(), &BTreeMap::new()).unwrap();
     let assets = Assets { textures, runtime_sprites: &BTreeMap::new(), text_fonts: &fonts };
-    compile_layouts(windows, &[], &assets, namespace, &PackTarget::default(), &BuildOptions::default())
+    compile_layouts(
+        windows,
+        &[],
+        &assets,
+        &BTreeMap::new(),
+        namespace,
+        &PackTarget::default(),
+        &BuildOptions::default(),
+    )
 }
 
 /// A solid RGBA texture for tests.

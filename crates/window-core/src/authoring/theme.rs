@@ -18,6 +18,8 @@ pub(super) struct ThemeDto {
     sprites: BTreeMap<String, SpriteDto>,
     #[serde(default)]
     fonts: BTreeMap<String, FontDto>,
+    #[serde(default)]
+    colors: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,7 +66,7 @@ struct GeneratedStyleDto {
 }
 
 impl ThemeDto {
-    /// Adds this document's frames, sprites, and fonts to `theme`; names are global across documents.
+    /// Adds this document's frames, sprites, fonts, and colors to `theme`; names are global across documents.
     pub(super) fn merge_into(self, theme: &mut Theme) -> Result<()> {
         for (name, frame) in self.frames {
             validate_name(&name, "frame")?;
@@ -94,6 +96,17 @@ impl ThemeDto {
                 return Err(Error::Validation(format!("duplicate font name `{name}`")));
             }
             theme.fonts.insert(name, FontDef { texture: font.texture, chars: font.chars });
+        }
+
+        for (name, color) in self.colors {
+            validate_name(&name, "color")?;
+            if theme.colors.contains_key(&name) {
+                return Err(Error::Validation(format!("duplicate color name `{name}`")));
+            }
+            let rgb = Rgb::parse_hex(&color).ok_or_else(|| {
+                Error::Validation(format!("theme color `{name}` has invalid value `{color}`; expected #rrggbb"))
+            })?;
+            theme.colors.insert(name, rgb);
         }
         Ok(())
     }

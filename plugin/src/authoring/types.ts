@@ -220,6 +220,8 @@ export interface Theme {
     sprites?: Record<string, SpriteDef>;
     /** Text fonts elements select with `font`. A `small_caps` entry replaces the bundled small-caps font. */
     fonts?: Record<string, TextFont>;
+    /** Palette colors by name as "#rrggbb", generated into Kotlin as `WindowColors` `TextColor` constants. */
+    colors?: Record<string, string>;
 }
 
 /** Base colors for `presets.industrial()`; bevels and borders are derived from these fills. */

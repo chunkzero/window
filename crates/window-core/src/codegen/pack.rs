@@ -1,10 +1,15 @@
-//! Pack-level objects: `WindowPackData`, `WindowSpacers`, `WindowFonts`, and `WindowSprites`.
+//! Pack-level objects: `WindowPackData`, `WindowSpacers`, `WindowFonts`, `WindowSprites`, and `WindowColors`.
 
+use std::collections::BTreeMap;
+
+use crate::ir::Rgb;
 use crate::manifest::{FontMetricsEntry, Manifest};
 use crate::pipeline::OutputFile;
+use crate::{Error, Result};
 
 use super::entries::{font_metrics_expr, sprite_entry_expr};
 use super::literals::{char_map, kt_string, string_map};
+use super::naming;
 use super::writer::{Call, KotlinWriter, map_of};
 
 pub(super) fn generate_pack_data(manifest: &Manifest, package_name: &str) -> OutputFile {
@@ -89,4 +94,32 @@ pub(super) fn generate_sprites(manifest: &Manifest, package_name: &str) -> Outpu
     w.property("val all: Map<String, SpriteEntry>", string_map(&manifest.sprites, 2, sprite_entry_expr));
     w.close("}");
     OutputFile::text("WindowSprites.kt", w.finish())
+}
+
+/// The theme palette as `TextColor` constants, or `None` when the theme declares no colors.
+pub(super) fn generate_colors(manifest: &Manifest, package_name: &str) -> Result<Option<OutputFile>> {
+    if manifest.colors.is_empty() {
+        return Ok(None);
+    }
+    let mut w = KotlinWriter::file(package_name, ["net.kyori.adventure.text.format.TextColor"]);
+    w.doc("Theme palette colors of this Window pack.");
+    w.open("public object WindowColors {");
+    let mut taken = BTreeMap::new();
+    for (name, value) in &manifest.colors {
+        let member = naming::definition_member(name);
+        if !naming::is_valid_identifier(&member) {
+            return Err(Error::Validation(format!("color `{name}` maps to invalid Kotlin identifier `{member}`")));
+        }
+        if let Some(existing) = taken.insert(member.clone(), name) {
+            return Err(Error::Validation(format!(
+                "colors `{existing}` and `{name}` both map to `WindowColors.{member}`"
+            )));
+        }
+        let Rgb { r, g, b } = Rgb::parse_hex(value).ok_or_else(|| {
+            Error::Validation(format!("color `{name}` has invalid value `{value}`; expected #rrggbb"))
+        })?;
+        w.line(format_args!("public val {member}: TextColor = TextColor.color(0x{r:02x}{g:02x}{b:02x})"));
+    }
+    w.close("}");
+    Ok(Some(OutputFile::text("WindowColors.kt", w.finish())))
 }
