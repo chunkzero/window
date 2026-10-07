@@ -51,6 +51,9 @@ pub struct Manifest {
     /// All compiled HUDs by name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub huds: BTreeMap<String, HudEntry>,
+    /// Theme palette colors by name, lowercase `#rrggbb`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub colors: BTreeMap<String, String>,
 }
 
 /// Per-font text metrics.

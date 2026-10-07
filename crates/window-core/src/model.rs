@@ -23,6 +23,8 @@ pub struct Theme {
     pub sprites: BTreeMap<String, SpriteDef>,
     /// Bitmap text fonts by name.
     pub fonts: BTreeMap<String, FontDef>,
+    /// Palette colors by name, emitted for runtime code.
+    pub colors: BTreeMap<String, Rgb>,
 }
 
 /// A frame definition.

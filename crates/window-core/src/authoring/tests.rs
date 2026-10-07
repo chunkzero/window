@@ -109,6 +109,24 @@ fn rejects_duplicate_theme_names_across_documents() {
 }
 
 #[test]
+fn merges_theme_colors_across_documents() {
+    let project = project_from_json(
+        br##"{ "themes": [{ "colors": { "gold": "#FFD75E" } }, { "colors": { "muted": "#a9d9b5" } }] }"##,
+    )
+    .unwrap();
+    assert_eq!(project.theme.colors.get("gold").map(|c| c.to_hex()).as_deref(), Some("#ffd75e"));
+    assert_eq!(project.theme.colors.len(), 2);
+
+    let err = project_from_json(
+        br##"{ "themes": [{ "colors": { "gold": "#ffd75e" } }, { "colors": { "gold": "#000000" } }] }"##,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("duplicate color name `gold`"), "{err}");
+    let err = project_from_json(br##"{ "theme": { "colors": { "gold": "ffd75e" } } }"##).unwrap_err();
+    assert!(err.to_string().contains("expected #rrggbb"), "{err}");
+}
+
+#[test]
 fn expands_slot_ranges_in_rust() {
     let json = br#"{
       "windows": [{
