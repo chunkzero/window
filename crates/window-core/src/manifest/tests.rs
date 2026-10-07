@@ -62,6 +62,7 @@ fn sample_title_slot() -> SlotEntry {
         strikethrough: false,
         obfuscated: false,
         text: None,
+        binding: None,
     }
 }
 

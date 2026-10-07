@@ -118,7 +118,8 @@ pub(super) struct Members<'a> {
     reserved: &'a [&'a str],
     taken: BTreeMap<String, String>,
     members: Vec<Member>,
-    grouped: BTreeSet<(ValueKind, String)>,
+    /// Values a member already binds: repeater and indexed entries, and declared values.
+    covered: BTreeSet<(ValueKind, String)>,
     grouped_buttons: BTreeSet<String>,
     indexed_switches: BTreeSet<String>,
 }
@@ -130,7 +131,7 @@ impl<'a> Members<'a> {
             reserved,
             taken: BTreeMap::new(),
             members: Vec::new(),
-            grouped: BTreeSet::new(),
+            covered: BTreeSet::new(),
             grouped_buttons: BTreeSet::new(),
             indexed_switches: BTreeSet::new(),
         }
@@ -146,12 +147,12 @@ impl<'a> Members<'a> {
         members.indexed(&window.indexed, &window.switches)?;
         for (slot, entry) in &window.slots {
             if entry.text.is_none() {
-                members.value(ValueKind::Slot, slot)?;
+                members.value(ValueKind::Slot, entry.binding.as_ref().unwrap_or(slot))?;
             }
         }
         for (slot, entry) in &window.sprite_slots {
             if entry.sprite.is_none() {
-                members.value(ValueKind::Sprite, slot)?;
+                members.value(ValueKind::Sprite, entry.binding.as_ref().unwrap_or(slot))?;
             }
         }
         members.switches(&window.switches)?;
@@ -178,9 +179,9 @@ impl<'a> Members<'a> {
         self.members
     }
 
-    /// A value member, unless `source` is an entry of an indexed family or repeater group.
+    /// A value member, unless one already binds `source`.
     pub(super) fn value(&mut self, kind: ValueKind, source: &str) -> Result<()> {
-        if self.is_grouped(kind, source) {
+        if !self.covered.insert((kind, source.to_string())) {
             return Ok(());
         }
         let member = kind.member(source);
@@ -212,7 +213,7 @@ impl<'a> Members<'a> {
             };
             let member = kind.member(family);
             self.claim(&member, format!("indexed {} `{family}`", kind.label()))?;
-            self.grouped.extend(names.into_iter().map(|name| (kind, name)));
+            self.covered.extend(names.into_iter().map(|name| (kind, name)));
             self.members.push(Member::Value { kind, source: family.clone(), member, shape: binding.shape.clone() });
         }
         Ok(())
@@ -273,7 +274,7 @@ impl<'a> Members<'a> {
         }
         let member = kind.member(&format!("{group}_{field}"));
         self.claim(&member, format!("repeater `{group}` {} `{field}`", kind.label()))?;
-        self.grouped.extend(sources.iter().map(|source| (kind, source.clone())));
+        self.covered.extend(sources.iter().map(|source| (kind, source.clone())));
         self.members.push(Member::GroupValue { kind, group: group.into(), field: field.into(), sources, member });
         Ok(())
     }
@@ -304,10 +305,6 @@ impl<'a> Members<'a> {
         };
         self.members.push(Member::Collection { source: source.into(), item_member, handler, selection });
         Ok(())
-    }
-
-    fn is_grouped(&self, kind: ValueKind, source: &str) -> bool {
-        self.grouped.contains(&(kind, source.to_string()))
     }
 
     fn claim(&mut self, member: &str, source: String) -> Result<()> {

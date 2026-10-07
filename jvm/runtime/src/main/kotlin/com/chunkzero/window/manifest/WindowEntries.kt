@@ -103,6 +103,11 @@ public data class SlotEntry(
     @SerialName("shader_marker") val shaderMarker: String? = null,
     /** Optional legacy near-identical marker color used by older generated HUD shaders. */
     @SerialName("shader_color") val shaderColor: String? = null,
+    /**
+     * The binding name when this slot is one case's copy of a binding shared across a switch's cases,
+     * keyed `{binding}.{case}`; `null` when the key is the binding name.
+     */
+    val binding: String? = null,
 )
 
 /** One runtime-renderable sprite in the compiled pack. */
@@ -139,4 +144,9 @@ public data class SpriteSlotEntry(
     val font: String,
     /** Fixed sprite id, or `null` when this slot must be bound by the view. */
     val sprite: String? = null,
+    /**
+     * The binding name when this sprite slot is one case's copy of a binding shared across a switch's
+     * cases, keyed `{binding}.{case}`; `null` when the key is the binding name.
+     */
+    val binding: String? = null,
 )

@@ -217,6 +217,10 @@ pub struct SlotEntry {
     /// Present for static labels; the runtime renders these automatically.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    /// The binding name when this slot is one case's copy of a binding shared across a switch's cases; the slot
+    /// is then keyed `{binding}.{case}`. Absent when the key is the binding name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding: Option<String>,
 }
 
 /// One runtime-renderable sprite.
@@ -257,6 +261,10 @@ pub struct SpriteSlotEntry {
     /// Fixed sprite id, or `None` when the runtime must bind this slot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sprite: Option<String>,
+    /// The binding name when this sprite slot is one case's copy of a binding shared across a switch's cases;
+    /// the slot is then keyed `{binding}.{case}`. Absent when the key is the binding name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding: Option<String>,
 }
 
 /// A clickable region.

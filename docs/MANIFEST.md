@@ -333,6 +333,8 @@ Notes:
   `title_origin.x`, HUD cases at the HUD's left edge. Runtimes draw the active case's `static` after the surface's
   `static` and leave out the slots and sprite slots of every inactive case. Codegen binds a `Boolean` when the case
   values are exactly `true` and `false`, otherwise an enum of the values.
+- A slot or sprite slot with `binding` is one case's copy of a binding shared across a switch's cases. It is keyed
+  `{binding}.{case}`, and binding the name `binding` binds every copy.
 - `tooltip` may be absent, or an object with `title` and optional `lines`. Authoring accepts a string shorthand, but the
   compiled definition always uses the object form.
 - `states` maps author-chosen names to runtime-selectable inventory item states. `item_model` is optional; when omitted,

@@ -20,7 +20,10 @@ impl<T: LayoutTarget> Solver<'_, T> {
         sprite: Option<&str>,
     ) -> Result<Size> {
         self.require_sprite_slots(name)?;
-        let actual_name = self.scoped_name(name);
+        // Fixed sprites need no binding, so they never join one shared across switch cases.
+        let binding = self.case_binding(name).filter(|_| sprite.is_none()).map(|_| name.to_string());
+        let actual_name =
+            if binding.is_none() && self.active_repeat.is_none() { name.to_string() } else { self.scoped_name(name) };
         self.register_name(&actual_name)?;
         self.check_inside_bounds(rect, &format!("sprite slot `{name}`"))?;
         if let Some(sprite) = sprite {
@@ -38,6 +41,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             align,
             sprite: sprite.map(str::to_string),
             repeat: self.repeat_binding(name),
+            binding,
         });
         Ok(rect.size())
     }
@@ -60,7 +64,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         if width.is_some() {
             self.warn_if_static_text_overflow(text, measured, w, &name);
         }
-        self.slots.push(text_slot_ir(name, Some(text.to_string()), rect, style, None));
+        self.slots.push(text_slot_ir(name, Some(text.to_string()), rect, style, None, None));
         Ok(rect.size())
     }
 
@@ -78,7 +82,8 @@ impl<T: LayoutTarget> Solver<'_, T> {
         self.check_text_constraints(rect, name, true)?;
         self.text_font(style)?;
         let repeat = self.repeat_binding(name);
-        self.slots.push(text_slot_ir(actual_name, None, rect, style, repeat));
+        let binding = self.case_binding(name).map(|_| name.to_string());
+        self.slots.push(text_slot_ir(actual_name, None, rect, style, repeat, binding));
         Ok(rect.size())
     }
 
@@ -123,6 +128,7 @@ fn text_slot_ir(
     rect: Rect,
     style: &TextStyle,
     repeat: Option<RepeatBindingIr>,
+    binding: Option<String>,
 ) -> SlotIr {
     SlotIr {
         name,
@@ -138,5 +144,6 @@ fn text_slot_ir(
         obfuscated: style.obfuscated,
         font: style.font.clone(),
         repeat,
+        binding,
     }
 }

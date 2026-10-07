@@ -218,6 +218,14 @@ struct Solver<'a, T> {
     next_label: usize,
     names: HashSet<String>,
     active_repeat: Option<ActiveRepeat>,
+    active_case: Option<ActiveCase>,
+}
+
+/// The switch case being emitted and the bindings its switch shares across cases.
+#[derive(Clone, Debug)]
+struct ActiveCase {
+    value: String,
+    shared: HashSet<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -256,6 +264,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             next_label: 0,
             names: HashSet::new(),
             active_repeat: None,
+            active_case: None,
         }
     }
 

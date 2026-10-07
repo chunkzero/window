@@ -69,10 +69,8 @@ fn sprite_slots(
     for sprite_slot in &w.sprite_slots {
         let k = sprite_slot.rect.y - title_y;
         let font = ctx.sprite_font(k);
-        entries.insert(
-            sprite_slot.name.clone(),
-            sprite_slot_entry(font, &sprite_slot.rect, sprite_slot.align, sprite_slot.sprite.clone()),
-        );
+        let entry = sprite_slot_entry(font, &sprite_slot.rect, sprite_slot.align, sprite_slot.sprite.clone());
+        entries.insert(sprite_slot.name.clone(), SpriteSlotEntry { binding: sprite_slot.binding.clone(), ..entry });
         if let Some(sprite) = &sprite_slot.sprite {
             let subject = format!("sprite slot `{}`", sprite_slot.name);
             check_sprite_fits(ctx.runtime_sprites, &w.name, &subject, sprite, &sprite_slot.rect)?;
@@ -99,12 +97,13 @@ pub(super) fn slot_entry(slot: &SlotIr, font: String, shader_marker: Option<Rgb>
         strikethrough: slot.strikethrough,
         obfuscated: slot.obfuscated,
         text: slot.text.clone(),
+        binding: slot.binding.clone(),
     }
 }
 
 /// Build a [`SpriteSlotEntry`] covering `rect` drawn with `font`.
 pub(super) fn sprite_slot_entry(font: String, rect: &Rect, align: Align, sprite: Option<String>) -> SpriteSlotEntry {
-    SpriteSlotEntry { x: rect.x, y: rect.y, width: rect.width, height: rect.height, align, font, sprite }
+    SpriteSlotEntry { x: rect.x, y: rect.y, width: rect.width, height: rect.height, align, font, sprite, binding: None }
 }
 
 fn surface_entry(surface: &Surface) -> SurfaceEntry {
