@@ -83,6 +83,7 @@ fn button(x: i32, y: i32, width: u32, height: u32, slots: Vec<SlotRefEntry>) -> 
         tooltip: None,
         states: BTreeMap::new(),
         sprite_font: None,
+        hover: None,
     }
 }
 

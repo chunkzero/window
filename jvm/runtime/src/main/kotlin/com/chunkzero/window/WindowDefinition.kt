@@ -1,6 +1,7 @@
 package com.chunkzero.window
 
 import com.chunkzero.window.internal.Containers
+import com.chunkzero.window.internal.HoverOutlines
 import com.chunkzero.window.internal.TitleComposer
 import com.chunkzero.window.manifest.SurfaceEntry
 import com.chunkzero.window.manifest.WindowEntry
@@ -31,6 +32,8 @@ public class WindowDefinition(
     internal val kind = Containers.kind(entry.surface.container)
 
     internal val composer: TitleComposer = TitleComposer(manifest, entry)
+
+    internal val hoverOutlines: HoverOutlines by lazy { HoverOutlines(manifest) }
 
     /** The item model of this window's invisible hitbox items. */
     internal val hitboxModel: Key = Key.key("${manifest.namespace}:gui/hitbox")

@@ -54,14 +54,15 @@ fn layers(
 }
 
 /// Allocate codepoints across the whole build: one key per static or case composite
-/// with content, plus one per runtime sprite when any window uses sprites.
+/// with content, one per runtime sprite when any window uses sprites, and the given hover outline keys.
 pub(super) fn allocate_codepoints(
     windows: &[&LaidOutWindow],
     huds: &[&LaidOutHud],
     composites: &Composites,
     runtime_sprites: Option<&BTreeMap<String, RuntimeSpriteAsset>>,
+    hover_keys: BTreeSet<String>,
 ) -> Result<BTreeMap<String, u32>> {
-    let mut keys: BTreeSet<String> = BTreeSet::new();
+    let mut keys: BTreeSet<String> = hover_keys;
     for (w, layers) in windows.iter().zip(&composites.windows) {
         layer_keys(&mut keys, &window_key_prefix(&w.name), &w.switches, layers);
     }

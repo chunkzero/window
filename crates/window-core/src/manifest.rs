@@ -348,6 +348,22 @@ pub struct ButtonEntry {
     /// Generated sprite font used by visual states, when any state has a sprite.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sprite_font: Option<String>,
+    /// Hover outline the runtime adds to this button's tooltip title, when hover outlines are enabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hover: Option<HoverEntry>,
+}
+
+/// A hover glyph that rides in a button's tooltip and that the core text shader moves onto the button.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoverEntry {
+    /// Glyph in [`Manifest::font`].
+    pub glyph: String,
+    /// Glyph advance, cancelled by a negative spacer so the tooltip text does not move.
+    pub advance: u32,
+    /// Button left edge relative to the screen center, in GUI pixels.
+    pub x: i32,
+    /// Button top edge relative to the screen center, in GUI pixels.
+    pub y: i32,
 }
 
 impl ButtonEntry {

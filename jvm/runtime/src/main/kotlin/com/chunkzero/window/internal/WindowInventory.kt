@@ -191,7 +191,7 @@ internal class WindowInventory<I : Any>(
         val defaultState = button.states["default"]
         if (defaultState != null) return itemForState(button, defaultState)
         val tooltip = button.tooltip?.let(::tooltip) ?: return null
-        return buildItem(WindowItem.Hitbox(definition.hitboxModel, tooltip))
+        return buildItem(definition.buttonHitbox(button, definition.hitboxModel, tooltip))
     }
 
     private fun itemForState(
@@ -200,7 +200,7 @@ internal class WindowInventory<I : Any>(
     ): I {
         val tooltip = (state.tooltip ?: button.tooltip)?.let(::tooltip)
         val model = state.itemModel?.let(Key::key) ?: definition.hitboxModel
-        return buildItem(WindowItem.Hitbox(model, tooltip))
+        return buildItem(definition.buttonHitbox(button, model, tooltip))
     }
 
     private fun tooltip(source: TooltipEntry): ButtonTooltip =

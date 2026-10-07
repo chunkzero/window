@@ -85,6 +85,7 @@ fn sample_buy_button() -> ButtonEntry {
         tooltip: None,
         states: BTreeMap::new(),
         sprite_font: None,
+        hover: None,
     }
 }
 

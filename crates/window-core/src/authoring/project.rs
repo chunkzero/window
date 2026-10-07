@@ -36,6 +36,8 @@ struct OptionsDto {
     #[serde(default)]
     hud_shaders: bool,
     #[serde(default)]
+    hover_outlines: bool,
+    #[serde(default)]
     anvil_field_sprite: Option<String>,
     #[serde(default)]
     experimental_anvil_updates: bool,
@@ -72,6 +74,7 @@ impl ProjectDto {
             huds: convert_huds(self.huds)?,
             options: BuildOptions {
                 hud_shaders: self.options.hud_shaders,
+                hover_outlines: self.options.hover_outlines,
                 anvil_field_sprite: self.options.anvil_field_sprite,
                 experimental_anvil_updates: self.options.experimental_anvil_updates,
             },

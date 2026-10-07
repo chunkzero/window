@@ -91,6 +91,7 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (any(&|w| !w.buttons.is_empty()), "ButtonEntry"),
         (any(&|w| w.buttons.values().any(|b| !b.states.is_empty())), "ButtonState"),
         (any(&|w| !w.collections.is_empty()), "CollectionEntry"),
+        (any(&|w| w.buttons.values().any(|b| b.hover.is_some())), "HoverEntry"),
         (any(&|w| !w.inputs.is_empty()), "AnvilInputEntry"),
         (any(&|w| !w.items.is_empty()), "ItemEntry"),
         (any(&|w| !w.groups.is_empty()), "RepeatGroupEntry"),

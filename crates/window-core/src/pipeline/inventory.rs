@@ -147,6 +147,11 @@ fn button_entry(
 ) -> Result<ButtonEntry> {
     let (slots, fill_slots) = button_slots(claims, button, input_slot)?;
     let sprite_font = button_sprite_font(ctx, claims.window, button, title_y)?;
+    let hover = if ctx.hover_outlines {
+        Some(ctx.hover_entry(claims.window, Surface::Container(claims.kind), button)?)
+    } else {
+        None
+    };
     Ok(ButtonEntry {
         x: button.rect.x,
         y: button.rect.y,
@@ -159,6 +164,7 @@ fn button_entry(
         tooltip: button.tooltip.clone(),
         states: button.states.clone(),
         sprite_font,
+        hover,
     })
 }
 

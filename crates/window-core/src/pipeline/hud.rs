@@ -85,8 +85,9 @@ pub(super) fn emit_shader_files(
     ctx: &mut CompileContext<'_>,
     pack_format: Option<u32>,
     huds: &[&LaidOutHud],
+    hover_outlines: bool,
 ) -> Result<()> {
-    let output = crate::hud::emit(pack_format, huds)?;
+    let output = crate::hud::emit(pack_format, huds, hover_outlines)?;
     ctx.files.extend(output.files.into_iter().map(|file| OutputFile::text(file.path, file.contents)));
     ctx.warnings.extend(output.warnings);
     Ok(())

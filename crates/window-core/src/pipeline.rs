@@ -22,6 +22,7 @@ use crate::{Error, Result, text_font, vanilla};
 mod anvil;
 mod fonts;
 mod glyphs;
+mod hover;
 mod hud;
 mod inventory;
 mod metrics;
@@ -192,8 +193,10 @@ fn compile_layouts(
         anvil::open_field(w, layers, &mut field_warnings);
     }
     let used_sprites = uses_runtime_sprites.then_some(runtime_sprites);
-    let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;
+    let hover_keys = if options.hover_outlines { hover::hover_keys(&windows) } else { BTreeSet::new() };
+    let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites, hover_keys)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
+    ctx.hover_outlines = options.hover_outlines;
     ctx.warnings.extend(field_warnings);
     if windows.iter().any(|w| !w.inputs.is_empty()) {
         ctx.files.extend(anvil::hidden_vanilla_art()?);
@@ -214,8 +217,9 @@ fn compile_layouts(
     }
 
     fonts::emit_fonts(&mut ctx)?;
-    if options.hud_shaders {
-        hud::emit_shader_files(&mut ctx, target.pack_format, &huds)?;
+    let shader_huds: &[&LaidOutHud] = if options.hud_shaders { &huds } else { &[] };
+    if options.hud_shaders || options.hover_outlines {
+        hud::emit_shader_files(&mut ctx, target.pack_format, shader_huds, options.hover_outlines)?;
     }
     let manifest = ctx.manifest(sprites, window_entries, hud_entries, colors);
     ctx.finish(manifest)
@@ -252,6 +256,8 @@ struct CompileContext<'a> {
     shift_offsets: BTreeSet<i32>,
     text_font_offsets: BTreeSet<(&'a str, i32)>,
     sprite_offsets: BTreeSet<i32>,
+    hover_outlines: bool,
+    hover_glyphs: BTreeSet<char>,
 }
 
 impl<'a> CompileContext<'a> {
@@ -272,6 +278,8 @@ impl<'a> CompileContext<'a> {
             shift_offsets: BTreeSet::new(),
             text_font_offsets: BTreeSet::new(),
             sprite_offsets: BTreeSet::new(),
+            hover_outlines: false,
+            hover_glyphs: BTreeSet::new(),
         }
     }
 

@@ -33,7 +33,8 @@ impl ShaderProfile {
     }
 
     /// Returns `(file name, source)` pairs for `assets/minecraft/shaders/core`.
-    pub(super) fn sources(self, rules: &[HudShaderRule]) -> Vec<(&'static str, String)> {
+    /// Hover outlines are only drawn by the pack_format 85-88 sources; other profiles ignore `hover_outlines`.
+    pub(super) fn sources(self, rules: &[HudShaderRule], hover_outlines: bool) -> Vec<(&'static str, String)> {
         match self {
             Self::Pack9To13LegacyFog => rendertype_sources(
                 |mode, see| render_v150_text_shader(rules, false, true, mode, see),
@@ -60,11 +61,16 @@ impl ShaderProfile {
                 |see| render_v330_text_background_shader(rules, see),
                 |see| render_dynamic_text_intensity_fragment(330, see),
             ),
-            Self::Pack85To88DefineVariants => vec![
-                ("text.vsh", render_v330_define_variant_text_shader(rules)),
-                ("text.fsh", render_v330_define_variant_text_fragment()),
-                ("text_background.vsh", render_v330_define_variant_text_background_shader(rules)),
-            ],
+            Self::Pack85To88DefineVariants => {
+                let mut sources = vec![
+                    ("text.vsh", render_v330_define_variant_text_shader(rules, hover_outlines)),
+                    ("text.fsh", render_v330_define_variant_text_fragment(hover_outlines)),
+                ];
+                if !rules.is_empty() {
+                    sources.push(("text_background.vsh", render_v330_define_variant_text_background_shader(rules)));
+                }
+                sources
+            }
         }
     }
 }

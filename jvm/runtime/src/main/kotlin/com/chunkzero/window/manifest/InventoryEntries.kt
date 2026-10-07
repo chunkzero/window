@@ -53,11 +53,26 @@ public data class ButtonEntry(
     val states: Map<String, ButtonState> = emptyMap(),
     /** Generated sprite font used by state sprites, when present. */
     @SerialName("sprite_font") val spriteFont: String? = null,
+    /** Hover glyph added to this region's tooltip title, when hover outlines are enabled. */
+    val hover: HoverEntry? = null,
 ) {
     /** The slots this region paints with its own item: [fillSlots] when present, else [slots]. */
     public val filledSlots: List<SlotRefEntry>
         get() = fillSlots ?: slots
 }
+
+/** A hover glyph that the core text shader moves out of a tooltip onto its button. */
+@Serializable
+public data class HoverEntry(
+    /** Glyph in the manifest's main font. */
+    val glyph: String,
+    /** Glyph advance, cancelled by a negative spacer. */
+    val advance: Int,
+    /** Button left edge relative to the screen center, in GUI pixels. */
+    val x: Int,
+    /** Button top edge relative to the screen center, in GUI pixels. */
+    val y: Int,
+)
 
 /** A dynamic inventory item region. */
 @Serializable

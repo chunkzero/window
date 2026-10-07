@@ -136,7 +136,8 @@ internal class WindowBindings<I : Any>(
         name: String,
         tooltip: ButtonTooltip?,
     ) {
-        val item = tooltip?.let { buildItem(definition.tooltipHitbox(it)) }
+        val button = definition.requireEntry(entry.buttons, name, "button or hotspot")
+        val item = tooltip?.let { buildItem(definition.tooltipHitbox(button, it)) }
         buttonItem(name) { item }
     }
 

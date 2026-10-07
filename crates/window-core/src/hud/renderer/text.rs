@@ -14,6 +14,9 @@ use super::marker_id;
 const ACTIONBAR_SOURCE_INSET: i32 = 13;
 
 fn render_text_helpers(rules: &[HudShaderRule], screen_size: ScreenSizeSource, texture_mode_output: bool) -> String {
+    if rules.is_empty() {
+        return render_gui_size_helper(screen_size).to_string() + EMPTY_HELPER_FUNCTIONS;
+    }
     let texture_mode_function = if texture_mode_output {
         r#"
 int window_hud_texture_mode(vec4 color) {
@@ -29,6 +32,20 @@ int window_hud_texture_mode(vec4 color) {
     };
     render_helper_tables(rules, screen_size) + &render_helper_functions(texture_mode_function)
 }
+
+/// Stand-ins for the HUD helpers when no HUD is shader-placed, since GLSL has no empty arrays.
+const EMPTY_HELPER_FUNCTIONS: &str = r#"
+vec4 window_hud_vertex_color(vec4 color, vec4 lightColor, float y) {
+    return color * lightColor;
+}
+
+int window_hud_texture_mode(vec4 color) {
+    return 0;
+}
+
+void window_hud_apply(inout vec3 pos, vec4 color) {
+}
+"#;
 
 fn render_helper_tables(rules: &[HudShaderRule], screen_size: ScreenSizeSource) -> String {
     let count = rules.len();
@@ -286,8 +303,13 @@ void main() {{
 
 /// Renders `core/text.vsh`, which vanilla compiles once per pipeline with `IS_GUI`,
 /// `IS_SEE_THROUGH`, and `IS_GRAYSCALE` defines; each variant keeps vanilla's inputs and bindings.
-pub(in crate::hud) fn render_v330_define_variant_text_shader(rules: &[HudShaderRule]) -> String {
+pub(in crate::hud) fn render_v330_define_variant_text_shader(rules: &[HudShaderRule], hover_outlines: bool) -> String {
     let helpers = render_text_helpers(rules, ScreenSizeSource::Globals, true);
+    let (hover_helpers, hover_apply) = if hover_outlines {
+        (render_hover_helpers(), "\n#ifdef IS_GUI\n    window_hover_apply();\n#endif")
+    } else {
+        (String::new(), "")
+    };
 
     format!(
         r#"#version 330
@@ -318,7 +340,7 @@ out vec2 texCoord0;
 #ifdef IS_GRAYSCALE
 flat out int windowHudTextureMode;
 #endif
-{helpers}
+{helpers}{hover_helpers}
 void main() {{
     vec3 pos = Position;
     window_hud_apply(pos, Color);
@@ -334,8 +356,82 @@ void main() {{
     texCoord0 = UV0;
 #ifdef IS_GRAYSCALE
     windowHudTextureMode = window_hud_texture_mode(Color);
-#endif
+#endif{hover_apply}
 }}
 "#
+    )
+}
+
+/// GUI-only helpers that find a hover glyph by its data pixels and move its shadow copy onto the button.
+///
+/// The shadow color carries the button's offset from the screen center (`r`, `g`, biased by 128) and the tooltip's
+/// text width (`b` plus the high bits of `a`) and line count (low 5 bits of `a`), from which the vertex reconstructs
+/// the tooltip box the fragment shader cuts out of the outline.
+fn render_hover_helpers() -> String {
+    let id = crate::hud::HOVER_GLYPH_ID;
+    let hidden = crate::hud::HOVER_HIDDEN_COLOR;
+    format!(
+        r#"
+#ifdef IS_GUI
+uniform sampler2D Sampler0;
+
+flat out vec4 windowHoverCutout;
+out vec2 windowHoverPos;
+
+const ivec3 WINDOW_HOVER_ID = ivec3({id_r}, {id_g}, {id_b});
+const ivec3 WINDOW_HOVER_HIDDEN = ivec3({hidden_r}, {hidden_g}, {hidden_b});
+const float WINDOW_HOVER_TOOLTIP_EDGE = 4.0;
+
+// Reads the data pixel `index` steps inward from this vertex's corner of the glyph.
+ivec3 window_hover_data(vec2 texel, vec2 cornerDir, int index) {{
+    ivec2 pos = ivec2(floor(texel));
+    pos.x -= index * int(cornerDir.x);
+    return ivec3(round(texelFetch(Sampler0, pos, 0).rgb * 255.0));
+}}
+
+void window_hover_apply() {{
+    windowHoverCutout = vec4(1.0, 1.0, 0.0, 0.0);
+    windowHoverPos = Position.xy;
+
+    vec2 texSize = vec2(textureSize(Sampler0, 0));
+    vec2 texel = UV0 * texSize;
+    // Glyph UVs are inset slightly, so the fraction tells which corner of the quad this vertex is.
+    vec2 corner = step(0.5, fract(texel));
+    vec2 cornerDir = corner * 2.0 - 1.0;
+    if (window_hover_data(texel, cornerDir, 0) != WINDOW_HOVER_ID) {{
+        return;
+    }}
+    ivec4 color = ivec4(round(Color * 255.0));
+    if (color.rgb == WINDOW_HOVER_HIDDEN) {{
+        vertexColor = vec4(0.0);
+        return;
+    }}
+
+    vec2 size = vec2(window_hover_data(texel, cornerDir, 1).rg) + 1.0;
+    vec2 guiSize = ceil(2.0 / abs(vec2(ProjMat[0][0], ProjMat[1][1])) - 0.001);
+    vec2 pos = floor(guiSize * 0.5) + vec2(color.rg) - 128.0 + corner * size;
+    gl_Position = ProjMat * ModelViewMat * vec4(pos, Position.z, 1.0);
+    texCoord0.y -= cornerDir.y / texSize.y;
+    vertexColor = vec4(1.0);
+
+    // The glyph has ascent 0 and is drawn as a shadow, so its top-left sits at the text origin plus (1, 8).
+    vec2 textOrigin = Position.xy - corner * (size + vec2(0.0, 2.0)) - vec2(1.0, 8.0);
+    int lines = color.a & 31;
+    float width = float(((color.a >> 5) << 8) | color.b);
+    float height = lines == 1 ? 8.0 : float(10 * lines);
+    windowHoverCutout = vec4(
+        textOrigin - WINDOW_HOVER_TOOLTIP_EDGE,
+        textOrigin + vec2(width, height) + WINDOW_HOVER_TOOLTIP_EDGE
+    );
+    windowHoverPos = pos;
+}}
+#endif
+"#,
+        id_r = id.r,
+        id_g = id.g,
+        id_b = id.b,
+        hidden_r = hidden.r,
+        hidden_g = hidden.g,
+        hidden_b = hidden.b,
     )
 }

@@ -8,9 +8,25 @@ vec4 window_hud_intensity_sample(sampler2D sampler, vec2 coord) {
 }
 "#;
 
-/// Renders `core/text.fsh` for every define variant; only `IS_GRAYSCALE` departs from vanilla.
-pub(in crate::hud) fn render_v330_define_variant_text_fragment() -> String {
-    r#"#version 330
+/// Renders `core/text.fsh` for every define variant; only `IS_GRAYSCALE` departs from vanilla, plus the
+/// `IS_GUI` hover-outline cutout when `hover_outlines` is set.
+pub(in crate::hud) fn render_v330_define_variant_text_fragment(hover_outlines: bool) -> String {
+    let (hover_inputs, hover_cutout) = if hover_outlines {
+        (
+            "\n#ifdef IS_GUI\nflat in vec4 windowHoverCutout;\nin vec2 windowHoverPos;\n#endif",
+            r#"
+#ifdef IS_GUI
+    // Hide the part of a moved hover glyph that would draw over the tooltip it rode in on.
+    if (all(greaterThan(windowHoverPos, windowHoverCutout.xy)) && all(lessThan(windowHoverPos, windowHoverCutout.zw))) {
+        discard;
+    }
+#endif"#,
+        )
+    } else {
+        ("", "")
+    };
+    format!(
+        r#"#version 330
 
 #if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)
 #moj_import <minecraft:fog.glsl>
@@ -29,16 +45,16 @@ in vec4 vertexColor;
 in vec2 texCoord0;
 #ifdef IS_GRAYSCALE
 flat in int windowHudTextureMode;
-#endif
+#endif{hover_inputs}
 
 out vec4 fragColor;
 
-void main() {
+void main() {{
     vec4 texColor = texture(Sampler0, texCoord0);
 #ifdef IS_GRAYSCALE
-    if (windowHudTextureMode != 1) {
+    if (windowHudTextureMode != 1) {{
         texColor = texColor.rrrr;
-    }
+    }}
 #endif
 
 #ifdef IS_SEE_THROUGH
@@ -46,9 +62,9 @@ void main() {
 #else
     vec4 color = texColor * vertexColor * ColorModulator;
 #endif
-    if (color.a < 0.1) {
+    if (color.a < 0.1) {{
         discard;
-    }
+    }}{hover_cutout}
 
 #ifdef IS_SEE_THROUGH
     fragColor = color * ColorModulator;
@@ -57,9 +73,9 @@ void main() {
 #else
     fragColor = apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
 #endif
-}
+}}
 "#
-    .to_string()
+    )
 }
 
 pub(in crate::hud) fn render_v150_text_intensity_fragment(

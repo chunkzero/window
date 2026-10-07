@@ -42,6 +42,8 @@ pub struct ParsedProject {
 pub struct BuildOptions {
     /// Whether to emit generated core shader overrides for HUD relocation.
     pub hud_shaders: bool,
+    /// Whether to outline hovered buttons through generated core text shaders.
+    pub hover_outlines: bool,
     /// 110x16 theme sprite that restyles vanilla's anvil text field pack-wide.
     pub anvil_field_sprite: Option<String>,
     /// Allow anvil input windows to change their title at runtime. Experimental: each change reopens

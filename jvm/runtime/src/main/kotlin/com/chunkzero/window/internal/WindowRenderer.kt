@@ -94,7 +94,10 @@ internal class WindowRenderer<I : Any>(
     fun setTooltip(
         name: String,
         tooltip: ButtonTooltip?,
-    ): SlotWrites<I> = setButtonItem(name, tooltip?.let { buildItem(definition.tooltipHitbox(it)) })
+    ): SlotWrites<I> {
+        val button = definition.requireEntry(definition.entry.buttons, name, "button or hotspot")
+        return setButtonItem(name, tooltip?.let { buildItem(definition.tooltipHitbox(button, it)) })
+    }
 
     /** Switches button [name] to [state]; null when it already has that state. */
     fun setButtonState(

@@ -6,6 +6,7 @@ import com.chunkzero.window.manifest.ButtonDefault
 import com.chunkzero.window.manifest.ButtonEntry
 import com.chunkzero.window.manifest.ButtonState
 import com.chunkzero.window.manifest.CollectionEntry
+import com.chunkzero.window.manifest.HoverEntry
 import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.SlotAreaEntry
 import com.chunkzero.window.manifest.SlotEntry
@@ -86,6 +87,12 @@ internal object WindowEntries {
                             tooltip = null,
                             states = emptyMap(),
                             spriteFont = null,
+                            hover = HoverEntry(
+                                glyph = "\uF0E7",
+                                advance = 17,
+                                x = -61,
+                                y = -36,
+                            ),
                         ),
                         "confirm" to ButtonEntry(
                             x = 134,
@@ -107,6 +114,12 @@ internal object WindowEntries {
                             ),
                             states = emptyMap(),
                             spriteFont = null,
+                            hover = HoverEntry(
+                                glyph = "\uF0E7",
+                                advance = 17,
+                                x = 46,
+                                y = -36,
+                            ),
                         ),
                     ),
                     items = emptyMap(),
@@ -683,6 +696,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = null,
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = -26,
+                                y = 46,
+                            ),
                         ),
                         "buy" to ButtonEntry(
                             x = 8,
@@ -738,6 +757,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y191",
+                            hover = HoverEntry(
+                                glyph = "\uF517",
+                                advance = 107,
+                                x = -80,
+                                y = 86,
+                            ),
                         ),
                         "category_all" to ButtonEntry(
                             x = 8,
@@ -781,6 +806,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y12",
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = -80,
+                                y = -93,
+                            ),
                         ),
                         "category_gear" to ButtonEntry(
                             x = 62,
@@ -824,6 +855,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y12",
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = -26,
+                                y = -93,
+                            ),
                         ),
                         "category_magic" to ButtonEntry(
                             x = 116,
@@ -867,6 +904,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y12",
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = 28,
+                                y = -93,
+                            ),
                         ),
                         "clear_search" to ButtonEntry(
                             x = 152,
@@ -902,6 +945,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y151",
+                            hover = HoverEntry(
+                                glyph = "\uF0E7",
+                                advance = 17,
+                                x = 64,
+                                y = 46,
+                            ),
                         ),
                         "exit" to ButtonEntry(
                             x = 116,
@@ -931,6 +980,12 @@ internal object WindowEntries {
                             ),
                             states = emptyMap(),
                             spriteFont = null,
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = 28,
+                                y = 86,
+                            ),
                         ),
                         "favorites" to ButtonEntry(
                             x = 8,
@@ -974,6 +1029,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = null,
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = -80,
+                                y = 46,
+                            ),
                         ),
                         "next" to ButtonEntry(
                             x = 116,
@@ -1017,6 +1078,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y84",
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = 28,
+                                y = -21,
+                            ),
                         ),
                         "previous" to ButtonEntry(
                             x = 8,
@@ -1060,6 +1127,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y84",
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = -80,
+                                y = -21,
+                            ),
                         ),
                         "search" to ButtonEntry(
                             x = 116,
@@ -1085,6 +1158,12 @@ internal object WindowEntries {
                             ),
                             states = emptyMap(),
                             spriteFont = null,
+                            hover = HoverEntry(
+                                glyph = "\uE815",
+                                advance = 35,
+                                x = 28,
+                                y = 46,
+                            ),
                         ),
                         "sort_featured" to ButtonEntry(
                             x = 8,
@@ -1128,6 +1207,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y133",
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = -80,
+                                y = 28,
+                            ),
                         ),
                         "sort_name" to ButtonEntry(
                             x = 116,
@@ -1171,6 +1256,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y133",
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = 28,
+                                y = 28,
+                            ),
                         ),
                         "sort_price" to ButtonEntry(
                             x = 62,
@@ -1214,6 +1305,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y133",
+                            hover = HoverEntry(
+                                glyph = "\uF3F1",
+                                advance = 53,
+                                x = -26,
+                                y = 28,
+                            ),
                         ),
                     ),
                     items = emptyMap(),

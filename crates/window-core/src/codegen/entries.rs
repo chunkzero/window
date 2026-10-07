@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use crate::ir::{ButtonState, ButtonTooltip};
 use crate::manifest::{
-    AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry,
-    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRectEntry, SlotRefEntry, SpriteEntry,
+    AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HoverEntry, HudShaderEntry, HudSurfaceEntry,
+    ItemEntry, RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRectEntry, SlotRefEntry, SpriteEntry,
     SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry, SwitchEntry, TextOverflow,
 };
 
@@ -144,7 +144,7 @@ pub(super) fn font_metrics_expr(
 pub(super) fn button_entry_expr(button: &ButtonEntry, level: usize) -> String {
     let inner = level + 1;
     let fill_slots = button.fill_slots.as_ref().map_or_else(|| "null".into(), |slots| slot_ref_list_expr(slots, inner));
-    Call::new("ButtonEntry", level)
+    let call = Call::new("ButtonEntry", level)
         .arg("x", button.x)
         .arg("y", button.y)
         .arg("width", button.width)
@@ -155,7 +155,19 @@ pub(super) fn button_entry_expr(button: &ButtonEntry, level: usize) -> String {
         .arg("action", button.action)
         .arg("tooltip", optional_tooltip_expr(button.tooltip.as_ref(), inner))
         .arg("states", string_map(&button.states, inner, button_state_expr))
-        .arg("spriteFont", optional_string_expr(button.sprite_font.as_ref()))
+        .arg("spriteFont", optional_string_expr(button.sprite_font.as_ref()));
+    match &button.hover {
+        Some(hover) => call.arg("hover", hover_entry_expr(hover, inner)).finish(),
+        None => call.finish(),
+    }
+}
+
+fn hover_entry_expr(hover: &HoverEntry, level: usize) -> String {
+    Call::new("HoverEntry", level)
+        .arg("glyph", kt_string(&hover.glyph))
+        .arg("advance", hover.advance)
+        .arg("x", hover.x)
+        .arg("y", hover.y)
         .finish()
 }
 

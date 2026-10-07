@@ -232,6 +232,14 @@ cover pack formats 9 through 88 (Minecraft 26.2); compilation fails when a shade
 format or `hudShaders` is not enabled. Core shaders are intentionally opt-in; the fallback channel remains the runtime
 contract.
 
+### Hover outlines
+
+The plugin option `hoverOutlines: true` draws a 1px white outline around a button or hotspot while its tooltip is
+showing. Like `hudShaders`, it overrides the core text shaders, and it needs pack format 85 through 88. The runtime adds
+a net-zero outline glyph to the front of the tooltip title. The text shader moves that glyph's shadow onto the button
+and keeps it from drawing over the tooltip. A button with no tooltip draws no outline, because the client draws no
+tooltip for it. Vanilla's slot highlight still draws over the hovered slot.
+
 ## JSX Sources
 
 `.tsx` sources describe windows and HUDs as JSX. They compile to the same elements as the function API, and the compiler
