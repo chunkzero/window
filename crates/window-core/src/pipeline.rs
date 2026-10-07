@@ -201,6 +201,9 @@ fn compile_layouts(
     if windows.iter().any(|w| !w.inputs.is_empty()) {
         ctx.files.extend(anvil::hidden_vanilla_art()?);
     }
+    if options.hide_slot_highlight {
+        ctx.files.extend(hover::hidden_slot_highlight()?);
+    }
     if let Some(sprite) = &options.anvil_field_sprite {
         ctx.files.extend(anvil::field_sprites(runtime_sprites, sprite)?);
     }

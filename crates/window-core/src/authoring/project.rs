@@ -38,6 +38,8 @@ struct OptionsDto {
     #[serde(default)]
     hover_outlines: bool,
     #[serde(default)]
+    hide_slot_highlight: bool,
+    #[serde(default)]
     anvil_field_sprite: Option<String>,
     #[serde(default)]
     experimental_anvil_updates: bool,
@@ -75,6 +77,7 @@ impl ProjectDto {
             options: BuildOptions {
                 hud_shaders: self.options.hud_shaders,
                 hover_outlines: self.options.hover_outlines,
+                hide_slot_highlight: self.options.hide_slot_highlight,
                 anvil_field_sprite: self.options.anvil_field_sprite,
                 experimental_anvil_updates: self.options.experimental_anvil_updates,
             },

@@ -44,6 +44,8 @@ pub struct BuildOptions {
     pub hud_shaders: bool,
     /// Whether to outline hovered buttons through generated core text shaders.
     pub hover_outlines: bool,
+    /// Whether to replace vanilla's slot highlight with transparent sprites in every container.
+    pub hide_slot_highlight: bool,
     /// 110x16 theme sprite that restyles vanilla's anvil text field pack-wide.
     pub anvil_field_sprite: Option<String>,
     /// Allow anvil input windows to change their title at runtime. Experimental: each change reopens

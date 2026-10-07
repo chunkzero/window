@@ -7,6 +7,8 @@ export interface WindowOptions {
     hudShaders?: boolean;
     /** Outline hovered buttons with generated core text shaders. */
     hoverOutlines?: boolean;
+    /** Hide vanilla's slot highlight in every container, not only Window's. */
+    hideSlotHighlight?: boolean;
     /** A 110x16 theme sprite that restyles every anvil's native text field; see docs/AUTHORING.md. */
     anvilFieldSprite?: string;
     /**
@@ -74,6 +76,7 @@ export interface ProjectJson {
     options: {
         hud_shaders: boolean;
         hover_outlines?: boolean;
+        hide_slot_highlight?: boolean;
         anvil_field_sprite?: string;
         experimental_anvil_updates?: boolean;
     };
@@ -144,6 +147,7 @@ export function buildProject(
         options: {
             hud_shaders: options.hudShaders === true,
             ...(options.hoverOutlines === true ? { hover_outlines: true } : {}),
+            ...(options.hideSlotHighlight === true ? { hide_slot_highlight: true } : {}),
             ...(options.anvilFieldSprite === undefined ? {} : { anvil_field_sprite: options.anvilFieldSprite }),
             ...(options.experimentalAnvilUpdates === true ? { experimental_anvil_updates: true } : {}),
         },

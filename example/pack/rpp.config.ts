@@ -18,6 +18,7 @@ export default defineConfig({
             namespace: "window",
             hudShaders: true,
             hoverOutlines: true,
+            hideSlotHighlight: true,
             anvilFieldSprite: "search_field",
             kotlin: {
                 package: "com.chunkzero.window.example.generated",

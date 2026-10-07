@@ -238,7 +238,11 @@ The plugin option `hoverOutlines: true` draws a 1px white outline around a butto
 showing. Like `hudShaders`, it overrides the core text shaders, and it needs pack format 85 through 88. The runtime adds
 a net-zero outline glyph to the front of the tooltip title. The text shader moves that glyph's shadow onto the button
 and keeps it from drawing over the tooltip. A button with no tooltip draws no outline, because the client draws no
-tooltip for it. Vanilla's slot highlight still draws over the hovered slot.
+tooltip for it. Vanilla's slot highlight still draws over the hovered slot. With advanced tooltips (F3+H) on, the
+outline can show through the extra lines the client adds, because the server can't count them.
+
+The plugin option `hideSlotHighlight: true` replaces vanilla's slot highlight sprites with transparent ones. This
+affects every container the pack is active in, not only Window's, so players lose the highlight on real inventories too.
 
 ## JSX Sources
 

@@ -16,6 +16,18 @@ use super::{CompileContext, OutputFile};
 
 const HOVER_COLOR: Rgb = Rgb { r: 0xff, g: 0xff, b: 0xff };
 
+/// Vanilla's slot highlight, drawn as a back and a front sprite around the hovered slot.
+const SLOT_HIGHLIGHT_SPRITES: [&str; 2] = [
+    "assets/minecraft/textures/gui/sprites/container/slot_highlight_back.png",
+    "assets/minecraft/textures/gui/sprites/container/slot_highlight_front.png",
+];
+
+/// Transparent replacements for vanilla's slot highlight. They apply to every container, not only Window's.
+pub(super) fn hidden_slot_highlight() -> Result<Vec<OutputFile>> {
+    let png = Texture::transparent(24, 24).encode_png()?;
+    Ok(SLOT_HIGHLIGHT_SPRITES.iter().map(|path| OutputFile::binary(*path, png.clone())).collect())
+}
+
 /// The codepoint allocation keys of every distinct hover outline size.
 pub(super) fn hover_keys(windows: &[&LaidOutWindow]) -> BTreeSet<String> {
     windows
