@@ -222,6 +222,8 @@ pub struct SlotIr {
     /// Repeater metadata for grouped codegen, if this slot was emitted by a
     /// repeated template.
     pub repeat: Option<RepeatBindingIr>,
+    /// The binding this slot shares with its copies in the other cases of one switch.
+    pub binding: Option<String>,
 }
 
 /// The kind of binding an [`IndexedBinding`] family flattens.
@@ -268,6 +270,8 @@ pub struct SpriteSlotIr {
     /// Repeater metadata for grouped codegen, if this sprite slot was emitted
     /// by a repeated template.
     pub repeat: Option<RepeatBindingIr>,
+    /// The binding this sprite slot shares with its copies in the other cases of one switch.
+    pub binding: Option<String>,
 }
 
 /// A positioned clickable region.

@@ -21,6 +21,9 @@ internal class WindowBindings<I : Any>(
 ) : WindowScope<I> {
     private val entry = definition.entry
 
+    /** The sprite slot keys of each binding name; a binding shared across switch cases has one per case. */
+    private val spriteBindings = entry.spriteSlots.keys.groupBy { entry.spriteSlots.getValue(it).binding ?: it }
+
     val sprites = HashMap<String, () -> String?>()
     val buttonHandlers = HashMap<String, (Click) -> Unit>()
     val buttonItems = HashMap<String, () -> I?>()
@@ -40,11 +43,13 @@ internal class WindowBindings<I : Any>(
         name: String,
         render: () -> String?,
     ) {
-        val slot = definition.requireEntry(entry.spriteSlots, name, "sprite slot", known = "sprite slots")
-        require(slot.sprite == null) {
-            "Sprite slot '$name' has a fixed authored sprite and must not be bound"
+        val keys = definition.requireEntry(spriteBindings, name, "sprite slot", known = "sprite slots")
+        for (key in keys) {
+            require(entry.spriteSlots.getValue(key).sprite == null) {
+                "Sprite slot '$name' has a fixed authored sprite and must not be bound"
+            }
+            bindOnce(sprites, key, render) { "Sprite slot '$name' bound more than once" }
         }
-        bindOnce(sprites, name, render) { "Sprite slot '$name' bound more than once" }
     }
 
     override fun button(
@@ -139,8 +144,11 @@ internal class WindowBindings<I : Any>(
     fun validate() {
         slots.validate()
         switches.validate()
-        val dynamicSprites = entry.spriteSlots.filterValues { it.sprite == null }.keys
-        checkNone(dynamicSprites - sprites.keys) { "Unbound dynamic sprite slots in window '$it'" }
+        val unboundSprites =
+            entry.spriteSlots
+                .filter { (key, slot) -> slot.sprite == null && key !in sprites }
+                .map { (key, slot) -> slot.binding ?: key }
+        checkNone(unboundSprites.toSet()) { "Unbound dynamic sprite slots in window '$it'" }
         val actionsWithoutDefault = entry.buttons.filterValues { it.action && it.default == null }.keys
         checkNone(actionsWithoutDefault - buttonHandlers.keys) {
             "Buttons in window '$it' have neither a handler nor a default"

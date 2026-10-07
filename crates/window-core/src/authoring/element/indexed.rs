@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use super::ElementDto;
 use crate::authoring::parse::validate_name;
@@ -9,10 +9,22 @@ use crate::{Error, Result};
 struct Family {
     kind: IndexedKind,
     rank: usize,
-    seen: BTreeSet<Vec<u32>>,
+    /// Each authored index and the switch cases it appears in; `None` outside any switch case.
+    seen: BTreeMap<Vec<u32>, Vec<Option<CaseScope>>>,
     /// Case values of a switch family, in authoring order.
     cases: Vec<String>,
 }
+
+/// Where an element sits: its enclosing repeater, its closest switch, and the switch case it is in, with each
+/// switch numbered in authoring order.
+#[derive(Clone, Default)]
+struct Scope {
+    repeater: Option<String>,
+    switch: Option<usize>,
+    case: Option<CaseScope>,
+}
+
+type CaseScope = (usize, String);
 
 /// Renames every element authored with an `index` to its flattened entry name and returns the families by name.
 ///
@@ -23,38 +35,48 @@ pub(in crate::authoring) fn flatten_indexed(
     owner: &str,
 ) -> Result<BTreeMap<String, IndexedBinding>> {
     let mut families = BTreeMap::new();
+    let mut switches = 0;
     for child in children.iter_mut() {
-        collect(child, None, owner, &mut families)?;
+        collect(child, &Scope::default(), owner, &mut families, &mut switches)?;
     }
     families.into_iter().map(|(name, family)| Ok((name.clone(), finish(&name, family, owner)?))).collect()
 }
 
 fn collect(
     dto: &mut ElementDto,
-    repeater: Option<&str>,
+    scope: &Scope,
     owner: &str,
     families: &mut BTreeMap<String, Family>,
+    switches: &mut usize,
 ) -> Result<()> {
     if let Some(index) = dto.index.clone() {
-        let (family, entry) = flatten(dto, &index, repeater, owner, families)?;
-        dto.name = Some(IndexedBinding::entry_name(&family, &index));
-        families.get_mut(&family).expect("family was just inserted").seen.insert(entry);
+        let name = flatten(dto, &index, scope, owner, families)?;
+        dto.name = Some(IndexedBinding::entry_name(&name, &index));
     }
-    let repeater = if dto.kind == "repeater" { dto.name.as_deref().or(repeater) } else { repeater };
-    let repeater = repeater.map(str::to_string);
+    let mut inner = scope.clone();
+    match dto.kind.as_str() {
+        "repeater" => inner.repeater = inner.repeater.or_else(|| dto.name.clone()),
+        "switch" => {
+            *switches += 1;
+            inner.switch = Some(*switches);
+        }
+        "case" => inner.case = inner.switch.zip(dto.value.clone()),
+        _ => {}
+    }
     for child in &mut dto.children {
-        collect(child, repeater.as_deref(), owner, families)?;
+        collect(child, &inner, owner, families, switches)?;
     }
     Ok(())
 }
 
+/// Records `dto` in its family and returns the family name.
 fn flatten(
     dto: &ElementDto,
     index: &[u32],
-    repeater: Option<&str>,
+    scope: &Scope,
     owner: &str,
     families: &mut BTreeMap<String, Family>,
-) -> Result<(String, Vec<u32>)> {
+) -> Result<String> {
     let kind = match dto.kind.as_str() {
         "slot" => IndexedKind::Slot,
         "sprite_slot" => IndexedKind::SpriteSlot,
@@ -74,7 +96,7 @@ fn flatten(
             index.len()
         )));
     }
-    if let Some(repeater) = repeater {
+    if let Some(repeater) = &scope.repeater {
         return Err(Error::Validation(format!(
             "{owner}: indexed binding `{name}` is inside repeater `{repeater}`, whose cells are already indexed"
         )));
@@ -83,7 +105,7 @@ fn flatten(
     let family = families.entry(name.clone()).or_insert_with(|| Family {
         kind,
         rank: index.len(),
-        seen: BTreeSet::new(),
+        seen: BTreeMap::new(),
         cases: cases.clone(),
     });
     if family.kind != kind {
@@ -101,26 +123,35 @@ fn flatten(
             "{owner}: indexed switch `{name}` must use the same case values at every index"
         )));
     }
-    if family.seen.contains(index) {
+    // An index may repeat only once in each case of one switch, where the copies share the entry's binding.
+    let scopes = family.seen.entry(index.to_vec()).or_default();
+    let repeats = match &scope.case {
+        Some((switch, case)) => {
+            !scopes.iter().all(|other| other.as_ref().is_some_and(|(other, value)| other == switch && value != case))
+        }
+        None => !scopes.is_empty(),
+    };
+    if repeats {
         return Err(Error::Validation(format!("{owner}: indexed binding `{name}` repeats index {index:?}")));
     }
-    Ok((name, index.to_vec()))
+    scopes.push(scope.case.clone());
+    Ok(name)
 }
 
 fn finish(name: &str, family: Family, owner: &str) -> Result<IndexedBinding> {
     let too_large = || Error::Validation(format!("{owner}: indexed binding `{name}` has an index too large to cover"));
     let shape = (0..family.rank)
-        .map(|dim| family.seen.iter().try_fold(0, |len: u32, index| index[dim].checked_add(1).map(|end| len.max(end))))
+        .map(|dim| family.seen.keys().try_fold(0, |len: u32, index| index[dim].checked_add(1).map(|end| len.max(end))))
         .map(|len| len.ok_or_else(too_large))
         .collect::<Result<Vec<u32>>>()?;
     // A family missing an index is missing one among its first `seen.len() + 1` indices.
     let limit = family.seen.len() + 1;
     let missing = match shape.as_slice() {
-        [len] => (0..*len).map(|i| vec![i]).take(limit).find(|index| !family.seen.contains(index)),
+        [len] => (0..*len).map(|i| vec![i]).take(limit).find(|index| !family.seen.contains_key(index)),
         [rows, columns] => (0..*rows)
             .flat_map(|i| (0..*columns).map(move |j| vec![i, j]))
             .take(limit)
-            .find(|index| !family.seen.contains(index)),
+            .find(|index| !family.seen.contains_key(index)),
         _ => None,
     };
     if let Some(index) = missing {

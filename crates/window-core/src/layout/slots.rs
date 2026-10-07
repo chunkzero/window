@@ -1,5 +1,5 @@
-use super::Solver;
 use super::target::LayoutTarget;
+use super::{ActiveCase, Solver};
 use crate::Result;
 use crate::error::Error;
 use crate::geometry::{Point, Rect, Size};
@@ -168,12 +168,19 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(slot)
     }
 
-    /// The emitted name for `name`, prefixed by the active repeater group and suffixed by its cell index.
+    /// The emitted name for `name`: prefixed by the active repeater group and suffixed by its cell index, or
+    /// `{name}.{case}` for a binding shared across the cases of the active switch.
     pub(super) fn scoped_name(&self, name: &str) -> String {
-        match &self.active_repeat {
-            Some(repeat) => format!("{}_{}_{}", repeat.group, name, repeat.index),
-            None => name.to_string(),
+        match (&self.active_repeat, self.case_binding(name)) {
+            (Some(repeat), _) => format!("{}_{}_{}", repeat.group, name, repeat.index),
+            (None, Some(case)) => format!("{name}.{}", case.value),
+            (None, None) => name.to_string(),
         }
+    }
+
+    /// The active switch case when `name` is a binding shared across that switch's cases.
+    pub(super) fn case_binding(&self, name: &str) -> Option<&ActiveCase> {
+        self.active_case.as_ref().filter(|case| case.shared.contains(name))
     }
 
     pub(super) fn repeat_binding(&self, field: &str) -> Option<RepeatBindingIr> {

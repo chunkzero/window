@@ -60,7 +60,7 @@ fn resource_runtime_sprite_uses_decoded_pack_texture_metrics_when_available() {
 }
 
 fn empty_sprite_slot(name: &str, rect: Rect) -> SpriteSlotIr {
-    SpriteSlotIr { name: name.into(), rect, align: Align::Center, sprite: None, repeat: None }
+    SpriteSlotIr { name: name.into(), rect, align: Align::Center, sprite: None, repeat: None, binding: None }
 }
 
 fn pickaxe_sprite() -> BTreeMap<String, RuntimeSpriteAsset> {

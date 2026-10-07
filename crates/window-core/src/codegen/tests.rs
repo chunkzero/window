@@ -59,6 +59,7 @@ fn slot(x: i32, y: i32, width: u32, align: Align, font: &str, color: &str, text:
         strikethrough: false,
         obfuscated: false,
         text: text.map(Into::into),
+        binding: None,
     }
 }
 
@@ -128,6 +129,7 @@ fn shop_window() -> WindowEntry {
         align: Align::Left,
         font: "window:sprite_y11".into(),
         sprite: Some("slot_selected".into()),
+        binding: None,
     };
     shop.collections = BTreeMap::from([(
         "entries".into(),
@@ -349,6 +351,23 @@ fn indexed_families_bind_one_member_in_loops() {
     assert!(view.contains("protected abstract fun cell(row: Int, column: Int): Cell"), "{view}");
     assert!(view.contains("switch(\"cell[$row][$column]\") { cell(row, column).value }"), "{view}");
     assert!(!view.contains("power0") && !view.contains("cell00"), "{view}");
+}
+
+#[test]
+fn bindings_shared_across_switch_cases_bind_one_member() {
+    let mut hud = status_hud();
+    for case in ["good", "bad"] {
+        let copy =
+            SlotEntry { binding: Some("status".into()), ..slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None) };
+        hud.slots.insert(format!("status.{case}"), copy);
+    }
+    let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
+
+    let files = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
+    let view = file_contents(&files, "StatusHud.kt");
+    assert_eq!(view.matches("protected abstract fun status(): Component").count(), 1, "{view}");
+    assert_eq!(view.matches("slot(\"status\") { status() }").count(), 1, "{view}");
+    assert!(file_contents(&files, "WindowHudEntries.kt").contains("binding = \"status\","));
 }
 
 #[test]

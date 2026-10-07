@@ -50,7 +50,7 @@ pub(super) fn optional_hud_shader_entry_expr(shader: Option<&HudShaderEntry>, le
 }
 
 pub(super) fn slot_entry_expr(slot: &SlotEntry, level: usize) -> String {
-    Call::new("SlotEntry", level)
+    let call = Call::new("SlotEntry", level)
         .arg("x", slot.x)
         .arg("y", slot.y)
         .arg("width", slot.width)
@@ -65,8 +65,8 @@ pub(super) fn slot_entry_expr(slot: &SlotEntry, level: usize) -> String {
         .arg("obfuscated", slot.obfuscated)
         .arg("text", optional_string_expr(slot.text.as_ref()))
         .arg("shaderMarker", optional_string_expr(slot.shader_marker.as_ref()))
-        .arg("shaderColor", optional_string_expr(slot.shader_color.as_ref()))
-        .finish()
+        .arg("shaderColor", optional_string_expr(slot.shader_color.as_ref()));
+    with_binding(call, slot.binding.as_ref()).finish()
 }
 
 pub(super) fn sprite_entry_expr(sprite: &SpriteEntry, level: usize) -> String {
@@ -81,15 +81,23 @@ pub(super) fn sprite_entry_expr(sprite: &SpriteEntry, level: usize) -> String {
 }
 
 pub(super) fn sprite_slot_entry_expr(slot: &SpriteSlotEntry, level: usize) -> String {
-    Call::new("SpriteSlotEntry", level)
+    let call = Call::new("SpriteSlotEntry", level)
         .arg("x", slot.x)
         .arg("y", slot.y)
         .arg("width", slot.width)
         .arg("height", slot.height)
         .arg("align", align_expr(slot.align))
         .arg("font", kt_string(&slot.font))
-        .arg("sprite", optional_string_expr(slot.sprite.as_ref()))
-        .finish()
+        .arg("sprite", optional_string_expr(slot.sprite.as_ref()));
+    with_binding(call, slot.binding.as_ref()).finish()
+}
+
+/// Adds the `binding` argument only to slots that share a binding across switch cases.
+fn with_binding(call: Call, binding: Option<&String>) -> Call {
+    match binding {
+        Some(binding) => call.arg("binding", kt_string(binding)),
+        None => call,
+    }
 }
 
 /// Renders font metrics, referencing `advances_expr`/`glyph_widths_expr` when a table equals the vanilla one.

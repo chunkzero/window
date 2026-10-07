@@ -35,7 +35,7 @@ pub(super) fn generate_hud(name: &str, hud: &HudEntry, package_name: &str, targe
     members.indexed(&hud.indexed, &hud.switches)?;
     for (slot, entry) in &hud.slots {
         if entry.text.is_none() {
-            members.value(ValueKind::Slot, slot)?;
+            members.value(ValueKind::Slot, entry.binding.as_ref().unwrap_or(slot))?;
         }
     }
     members.switches(&hud.switches)?;

@@ -551,7 +551,10 @@ show("on_sale", { children: [sprite("sale_badge")] });
   both), and `show` also takes the case options for its shown case. The JSX `text` prop, which cascades text styling to
   descendants, has no function-style equivalent; style labels and slots directly.
 - Cases are visual: sprites, frames, labels, and `<Text bind>`/`<Icon bind>` bindings. Slot-bound controls, nested
-  switches, and switches inside repeaters are build errors. Bindings inside cases keep their own window-wide names.
+  switches, and switches inside repeaters are build errors.
+- A `<Text bind>` or `<Icon bind>` name may appear once in each of several cases of one switch. Each case keeps its own
+  position and style, which lets a shader HUD give one value a different color per case, and Kotlin binds the name once.
+  Other bindings inside cases keep their own window-wide names.
 - Each case's art becomes its own layer. Windows redraw the title when the case changes, and a HUD draws the new case on
   its next `render()`; case art draws above the static chrome and below the text and icon slots.
 - Generated Kotlin returns the active case: an enum of the case values (`protected abstract fun mode(): Mode` with
@@ -590,6 +593,7 @@ protected abstract fun strokes(row: Int, column: Int): Component
 - A family covers every index from zero up to its largest one, uses one element kind and number of dimensions, and, for
   switches, the same case values at every index. Repeaters already index their cells, so indexed bindings inside one are
   build errors.
+- Like other bindings, an indexed entry may appear once in each of several cases of one switch, sharing its binding.
 
 ## Native anvil search
 
