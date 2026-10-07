@@ -1,4 +1,5 @@
-//! Pack-level objects: `WindowPackData`, `WindowSpacers`, `WindowFonts`, `WindowSprites`, and `WindowColors`.
+//! Pack-level objects: `WindowPackData`, `WindowSpacers`, `WindowFonts`, `WindowSprites`, `WindowSprite`, and
+//! `WindowColors`.
 
 use std::collections::BTreeMap;
 
@@ -94,6 +95,23 @@ pub(super) fn generate_sprites(manifest: &Manifest, package_name: &str) -> Outpu
     w.property("val all: Map<String, SpriteEntry>", string_map(&manifest.sprites, 2, sprite_entry_expr));
     w.close("}");
     OutputFile::text("WindowSprites.kt", w.finish())
+}
+
+/// The runtime sprites as a `WindowSprite` enum for sprite slot members, or `None` when the pack has neither sprites
+/// nor dynamic sprite slots.
+pub(super) fn generate_sprite_ids(manifest: &Manifest, package_name: &str) -> Option<OutputFile> {
+    let dynamic_slots = manifest.windows.values().flat_map(|window| window.sprite_slots.values());
+    if manifest.sprites.is_empty() && dynamic_slots.filter(|slot| slot.sprite.is_none()).count() == 0 {
+        return None;
+    }
+    let mut w = KotlinWriter::file(package_name, std::iter::empty::<&str>());
+    w.doc("Runtime sprites of this Window pack, returned by sprite slot members.");
+    w.open("public enum class WindowSprite(public val id: String) {");
+    for name in manifest.sprites.keys() {
+        w.line(format_args!("{}({}),", name.to_uppercase(), kt_string(name)));
+    }
+    w.close("}");
+    Some(OutputFile::text("WindowSprite.kt", w.finish()))
 }
 
 /// The theme palette as `TextColor` constants, or `None` when the theme declares no colors.

@@ -54,11 +54,11 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
     /** Render the `status` slot. */
     protected abstract fun status(): Component
 
-    /** Render the `affordable_lamp` runtime sprite id. */
-    protected abstract fun affordableLampSprite(): String?
+    /** Render the `affordable_lamp` runtime sprite. */
+    protected abstract fun affordableLampSprite(): WindowSprite?
 
-    /** Render the `favorites_lamp` runtime sprite id. */
-    protected abstract fun favoritesLampSprite(): String?
+    /** Render the `favorites_lamp` runtime sprite. */
+    protected abstract fun favoritesLampSprite(): WindowSprite?
 
     /** Whether the `has_price` switch draws its `true` case. */
     protected abstract fun hasPrice(): Boolean
@@ -129,8 +129,8 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
         slot("sort_name_label") { sortNameLabel() }
         slot("sort_price_label") { sortPriceLabel() }
         slot("status") { status() }
-        sprite("affordable_lamp") { affordableLampSprite() }
-        sprite("favorites_lamp") { favoritesLampSprite() }
+        sprite("affordable_lamp") { affordableLampSprite()?.id }
+        sprite("favorites_lamp") { favoritesLampSprite()?.id }
         switch("has_price") { hasPrice().toString() }
         button("affordable", ::onAffordable)
         button("buy", ::onBuy)

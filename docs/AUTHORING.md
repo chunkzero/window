@@ -490,7 +490,9 @@ spriteSlot("selected_tool_icon", {
 `spriteSlot` reserves a named runtime layer but does not draw into the baked background. The compiler emits every theme
 sprite into a generated sprite catalog when at least one sprite slot is present. For each distinct vertical offset,
 Window emits a `sprite_y...` font whose bitmap providers reference the same sprite texture files with the appropriate
-ascent. This lets the runtime place the same sprite texture at multiple heights without duplicating PNGs.
+ascent. This lets the runtime place the same sprite texture at multiple heights without duplicating PNGs. Generated
+sprite slot members return the generated `WindowSprite` enum, with one constant per catalog sprite
+(`WindowSprite.LAMP_ON` for `lamp_on`), or `null` to draw nothing.
 
 Theme sprites can point at `window/**.png` files, generated sprite styles, or an existing pack texture id such as
 `example:tool/wooden_pickaxe.png`. Resource texture ids must set `width` and `height` because Window does not infer
@@ -779,7 +781,7 @@ Generated Kotlin shape:
 
 ```kotlin
 protected abstract fun entryPrice(index: Int): Component
-protected abstract fun entryIconSprite(index: Int): String?
+protected abstract fun entryIconSprite(index: Int): WindowSprite?
 protected abstract fun onEntry(click: IndexedClick)
 ```
 

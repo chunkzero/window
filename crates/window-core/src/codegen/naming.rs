@@ -137,6 +137,7 @@ const RESERVED_TYPES: &[&str] = &[
     "WindowHost",
     "WindowHudDefinitions",
     "WindowScope",
+    "WindowSprite",
     "WindowView",
 ];
 

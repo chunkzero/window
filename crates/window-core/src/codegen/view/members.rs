@@ -34,7 +34,7 @@ impl ValueKind {
     pub(super) fn noun(self) -> &'static str {
         match self {
             Self::Slot => "slot",
-            Self::Sprite => "runtime sprite id",
+            Self::Sprite => "runtime sprite",
             Self::Item => "inventory item",
         }
     }
@@ -43,8 +43,16 @@ impl ValueKind {
     pub(super) fn return_type(self, item: &str) -> String {
         match self {
             Self::Slot => "Component".into(),
-            Self::Sprite => "String?".into(),
+            Self::Sprite => "WindowSprite?".into(),
             Self::Item => format!("{item}?"),
+        }
+    }
+
+    /// What the binder passes on from this kind's member result: the sprite id of a `WindowSprite`.
+    pub(super) fn bound_suffix(self) -> &'static str {
+        match self {
+            Self::Sprite => "?.id",
+            Self::Slot | Self::Item => "",
         }
     }
 

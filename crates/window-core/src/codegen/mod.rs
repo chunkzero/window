@@ -50,6 +50,7 @@ pub fn generate_kotlin(manifest: &Manifest, package_name: &str, target: KotlinTa
     files.push(pack::generate_spacers(manifest, package_name));
     files.push(pack::generate_fonts(manifest, package_name));
     files.push(pack::generate_sprites(manifest, package_name));
+    files.extend(pack::generate_sprite_ids(manifest, package_name));
     files.extend(pack::generate_colors(manifest, package_name)?);
     files.push(definitions::generate_window_entries(manifest, package_name));
     files.push(definitions::generate_hud_entries(manifest, package_name));

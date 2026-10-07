@@ -176,14 +176,16 @@ fn abstract_fun(w: &mut KotlinWriter, doc: impl Display, signature: impl Display
 fn bind(w: &mut KotlinWriter, member: &Member) {
     match member {
         Member::Value { kind, source, member, shape } => {
-            let binder = kind.binder();
+            let (binder, suffix) = (kind.binder(), kind.bound_suffix());
             indexed_bind(w, source, shape, |w, name, args| {
-                w.line(format_args!("{binder}({name}) {{ {member}({args}) }}"))
+                w.line(format_args!("{binder}({name}) {{ {member}({args}){suffix} }}"))
             });
         }
         Member::GroupValue { kind, sources, member, .. } => {
-            let binder = kind.binder();
-            each_source(w, sources, |w, name, index| w.line(format_args!("{binder}({name}) {{ {member}({index}) }}")));
+            let (binder, suffix) = (kind.binder(), kind.bound_suffix());
+            each_source(w, sources, |w, name, index| {
+                w.line(format_args!("{binder}({name}) {{ {member}({index}){suffix} }}"))
+            });
         }
         Member::GroupButton { sources, member, .. } => {
             each_source(w, sources, |w, name, index| {

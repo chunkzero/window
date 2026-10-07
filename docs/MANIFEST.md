@@ -2,8 +2,8 @@
 
 The compiled definition is the typed contract between the rpp plugin and the server runtime/codegen. The rpp plugin now
 emits Kotlin sources that instantiate this schema directly (`WindowPackData`, `WindowFonts`, and friends are `internal`;
-`WindowDefinitions`, `WindowHudDefinitions`, and `WindowColors` are public); it does not write a JSON manifest into the
-pack output.
+`WindowDefinitions`, `WindowHudDefinitions`, `WindowColors`, and `WindowSprite` are public); it does not write a JSON
+manifest into the pack output.
 
 The JSON below is the schema's compatibility representation, used by legacy tools and parser tests. Schema changes bump
 `version` and must update `window-core/src/manifest.rs`, the runtime DTOs, and codegen together.
