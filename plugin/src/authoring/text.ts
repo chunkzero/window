@@ -1,3 +1,5 @@
+import { textHandle } from "./handles.ts";
+
 const SMALL_CAPS: Record<string, string> = {
     a: "ᴀ",
     b: "ʙ",
@@ -54,7 +56,8 @@ export function smallCapsMinimessage(text: string): string {
     return out;
 }
 
-export const text: {
+/** A `text` handle (see `textHandle`), carrying the small-caps helpers. */
+export const text: typeof textHandle & {
     smallCaps: typeof smallCaps;
     smallCapsMinimessage: typeof smallCapsMinimessage;
-} = { smallCaps, smallCapsMinimessage };
+} = Object.assign(textHandle, { smallCaps, smallCapsMinimessage });

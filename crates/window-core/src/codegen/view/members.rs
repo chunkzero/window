@@ -2,8 +2,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::Result;
 use crate::codegen::naming;
-use crate::ir::{ButtonDefault, IndexedBinding, IndexedKind};
+use crate::ir::{ButtonDefault, Handle, IndexedBinding, IndexedKind};
 use crate::manifest::{CollectionEntry, RepeatGroupEntry, SwitchEntry, WindowEntry};
+
+use super::handles::{HandleMember, covered};
 
 /// A runtime-rendered value bound by name: a text slot, sprite id, or inventory item.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -130,6 +132,8 @@ pub(super) struct Members<'a> {
     covered: BTreeSet<(ValueKind, String)>,
     grouped_buttons: BTreeSet<String>,
     indexed_switches: BTreeSet<String>,
+    /// Entries a handle binds.
+    handled: BTreeSet<String>,
 }
 
 impl<'a> Members<'a> {
@@ -142,45 +146,64 @@ impl<'a> Members<'a> {
             covered: BTreeSet::new(),
             grouped_buttons: BTreeSet::new(),
             indexed_switches: BTreeSet::new(),
+            handled: BTreeSet::new(),
         }
     }
 
-    /// Window members: repeater groups and indexed families first, then ungrouped slots, sprites, buttons,
-    /// items, collections, and anvil inputs.
-    pub(super) fn of_window(class_name: &'a str, window: &WindowEntry) -> Result<Vec<Member>> {
+    /// Window members: handles first, then members inferred from the entries no handle binds: repeater groups and
+    /// indexed families, then ungrouped slots, sprites, buttons, items, collections, and anvil inputs.
+    pub(super) fn of_window(class_name: &'a str, window: &WindowEntry) -> Result<(Vec<HandleMember>, Vec<Member>)> {
         let mut members = Self::new(class_name, &[]);
+        let handles = members.handles(&window.handles)?;
         for (name, group) in &window.groups {
             members.group(name, group)?;
         }
         members.indexed(&window.indexed, &window.switches)?;
         for (slot, entry) in &window.slots {
-            if entry.text.is_none() {
+            if entry.text.is_none() && !members.handled.contains(slot) {
                 members.value(ValueKind::Slot, entry.binding.as_ref().unwrap_or(slot))?;
             }
         }
         for (slot, entry) in &window.sprite_slots {
-            if entry.sprite.is_none() {
+            if entry.sprite.is_none() && !members.handled.contains(slot) {
                 members.value(ValueKind::Sprite, entry.binding.as_ref().unwrap_or(slot))?;
             }
         }
         members.switches(&window.switches)?;
         for (button, entry) in &window.buttons {
-            if entry.action && !members.grouped_buttons.contains(button) {
+            if entry.action && !members.grouped_buttons.contains(button) && !members.handled.contains(button) {
                 members.button(button, entry.default == Some(ButtonDefault::Close))?;
             }
         }
         for item in window.items.keys() {
-            members.value(ValueKind::Item, item)?;
+            if !members.handled.contains(item) {
+                members.value(ValueKind::Item, item)?;
+            }
         }
         for (collection, entry) in &window.collections {
-            members.collection(collection, entry)?;
+            if !members.handled.contains(collection) {
+                members.collection(collection, entry)?;
+            }
         }
         for input in window.inputs.keys() {
+            if members.handled.contains(input) {
+                continue;
+            }
             let member = format!("{}Changed", naming::button_member(input));
             members.claim(&member, format!("anvil input `{input}`"))?;
             members.members.push(Member::AnvilInput { source: input.clone(), member });
         }
-        Ok(members.finish())
+        Ok((handles, members.finish()))
+    }
+
+    /// One member set per handle; the entries their uses bind are left out of inference.
+    pub(super) fn handles(&mut self, handles: &BTreeMap<String, Handle>) -> Result<Vec<HandleMember>> {
+        let members = handles
+            .iter()
+            .map(|(id, handle)| HandleMember::new(id, handle, |member, source| self.claim(member, source)))
+            .collect::<Result<Vec<_>>>()?;
+        self.handled = covered(&members);
+        Ok(members)
     }
 
     pub(super) fn finish(self) -> Vec<Member> {
@@ -229,7 +252,7 @@ impl<'a> Members<'a> {
 
     pub(super) fn switches(&mut self, switches: &BTreeMap<String, SwitchEntry>) -> Result<()> {
         for (source, switch) in switches {
-            if !self.indexed_switches.contains(source) {
+            if !self.indexed_switches.contains(source) && !self.handled.contains(source) {
                 self.switch(source, switch, Vec::new())?;
             }
         }

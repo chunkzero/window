@@ -21,6 +21,7 @@ fn shader_placed_hud_requires_hud_shaders() {
         slots: vec![],
         switches: vec![],
         indexed: BTreeMap::new(),
+        handles: BTreeMap::new(),
         warnings: vec![],
     };
     let fonts = text_font::resolve(&BTreeMap::new(), &BTreeMap::new()).unwrap();

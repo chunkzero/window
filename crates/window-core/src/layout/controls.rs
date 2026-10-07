@@ -10,7 +10,7 @@ use crate::ir::{
     AnvilInputIr, ButtonDefault, ButtonIr, ButtonState, ButtonTooltip, CollectionIr, ItemIr, RepeatBindingIr,
     SlotRectIr,
 };
-use crate::model::Element;
+use crate::model::{Element, RepeaterCells};
 use crate::surface::ContainerKind;
 
 /// The fields buttons and hotspots share.
@@ -215,17 +215,36 @@ impl<T: LayoutTarget> Solver<'_, T> {
         frame: Option<&str>,
         padding: u32,
         children: &[Element],
+        cells: Option<&RepeaterCells>,
     ) -> Result<Size> {
         self.require_slot_patterns(name)?;
         self.register_name(name)?;
-        let cells = self.resolve_pattern_cells(name, pattern)?;
-        if cells.is_empty() {
+        let resolved = self.resolve_pattern_cells(name, pattern)?;
+        if resolved.is_empty() {
             return Err(self.target.layout_err(format!("repeater `{name}` resolved to no cells")));
         }
-        for (index, cell) in cells.iter().enumerate() {
-            self.place_repeater_cell(name, index as u32, cell, frame, padding, children)?;
+        if let Some(cells) = cells
+            && cells.children.len() != resolved.len()
+        {
+            return Err(self.target.layout_err(format!(
+                "repeater `{name}` renders {} cells, but its pattern has {}",
+                cells.children.len(),
+                resolved.len()
+            )));
         }
-        Ok(cells_bounds(&cells).map_or(Size::new(0, 0), |rect| rect.size()))
+        for (index, cell) in resolved.iter().enumerate() {
+            let content = match cells {
+                Some(cells) => CellContent {
+                    button: cells.buttons[index].clone(),
+                    action: cells.action,
+                    children: &cells.children[index],
+                    scoped: false,
+                },
+                None => CellContent { button: format!("{name}_{index}"), action: true, children, scoped: true },
+            };
+            self.place_repeater_cell(name, index as u32, cell, frame, padding, content)?;
+        }
+        Ok(cells_bounds(&resolved).map_or(Size::new(0, 0), |rect| rect.size()))
     }
 
     fn place_repeater_cell(
@@ -235,40 +254,51 @@ impl<T: LayoutTarget> Solver<'_, T> {
         cell: &PatternCell,
         frame: Option<&str>,
         padding: u32,
-        children: &[Element],
+        content: CellContent<'_>,
     ) -> Result<()> {
-        let cell_name = format!("{group}_{index}");
         if let Some(frame) = frame {
             self.emit_frame(frame, cell.rect, &format!("repeater `{group}` frame `{frame}`"))?;
         }
-        self.register_name(&cell_name)?;
+        self.register_name(&content.button)?;
         self.check_inside_bounds(cell.rect, &format!("repeater `{group}` cell {index}"))?;
         // The cell button keeps every cell slot as a click route. It is pushed
         // before its children so document order is stable; any slot a child
         // item claims is subtracted afterwards.
         let button_index = self.buttons.len();
+        let repeat = content.scoped.then(|| RepeatBindingIr { group: group.to_string(), field: None, index });
         self.buttons.push(ButtonIr {
-            name: cell_name,
+            name: content.button,
             rect: cell.rect,
             slots: Some(cell.slots.clone()),
             yielded_slots: Vec::new(),
             default: None,
-            action: true,
+            action: content.action,
             tooltip: None,
             states: BTreeMap::new(),
-            repeat: Some(RepeatBindingIr { group: group.to_string(), field: None, index }),
+            repeat,
         });
         let previous = self.active_repeat.replace(ActiveRepeat {
             group: group.to_string(),
             index,
+            scoped: content.scoped,
             slots: cell.slots.clone(),
             yielded: Vec::new(),
         });
-        self.layout_container_children(children, cell.rect, Insets::uniform(padding))?;
+        let placed = self.layout_container_children(content.children, cell.rect, Insets::uniform(padding));
         let finished = std::mem::replace(&mut self.active_repeat, previous);
+        placed?;
         if let Some(finished) = finished {
             self.buttons[button_index].yielded_slots = finished.yielded;
         }
         Ok(())
     }
+}
+
+/// What one repeater cell holds: its button and the children placed in it.
+struct CellContent<'e> {
+    button: String,
+    action: bool,
+    children: &'e [Element],
+    /// Whether child names are scoped to the repeater group and cell.
+    scoped: bool,
 }

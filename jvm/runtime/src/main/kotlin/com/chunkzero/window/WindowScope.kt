@@ -80,6 +80,17 @@ public interface WindowScope<I : Any> {
         handler: (IndexedClick) -> Unit,
     )
 
+    /**
+     * Binds a repeated inventory item collection to [source]: its items, its clicks when the
+     * collection accepts them, and its selected cell when the collection has a selected sprite.
+     *
+     * @throws IllegalArgumentException if [name] is not a collection of the window.
+     */
+    public fun collection(
+        name: String,
+        source: WindowCollection<I>,
+    )
+
     /** Binds a display-only repeated inventory item collection. */
     public fun collectionItem(
         name: String,
@@ -209,22 +220,5 @@ public interface WindowScope<I : Any> {
     ) {
         buttonState(name) { if (enabled()) enabledState else disabledState }
         button(name) { click -> if (enabled()) handler(click) }
-    }
-
-    /** Binds previous/next controls to a [WindowPager] and reactive offset/total suppliers. */
-    public fun pager(
-        previous: String,
-        next: String,
-        pager: WindowPager,
-        offset: () -> Int,
-        total: () -> Int,
-        onOffsetChanged: (Int) -> Unit,
-    ) {
-        enabledButton(previous, { pager.canPrevious(offset()) }) {
-            onOffsetChanged(pager.previous(offset(), total()))
-        }
-        enabledButton(next, { pager.canNext(offset(), total()) }) {
-            onOffsetChanged(pager.next(offset(), total()))
-        }
     }
 }

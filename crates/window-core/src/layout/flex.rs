@@ -218,7 +218,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
 
     /// Emits each case box over the switch rect, collecting its draws and text regions into its own case.
     fn emit_switch(&mut self, tree: &Tree, id: NodeId, switch: &Switch, parent: Point) -> Result<Rect> {
-        if let Some(repeat) = &self.active_repeat {
+        if let Some(repeat) = self.active_repeat.as_ref().filter(|repeat| repeat.scoped) {
             return Err(self
                 .target
                 .layout_err(format!("switch `{}` cannot be inside repeater `{}`", switch.name, repeat.group)));

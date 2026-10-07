@@ -1,5 +1,6 @@
 mod build;
 mod fields;
+mod handles;
 mod indexed;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -14,6 +15,8 @@ use super::patterns::{SlotPatternDto, SlotRectPatternDto, SlotRefDto};
 use crate::model::{Element, LayoutChild};
 use crate::{Error, Result};
 
+use handles::HandleRefDto;
+pub(super) use handles::{check_shared, collect_handles};
 pub(super) use indexed::flatten_indexed;
 
 #[derive(Debug)]
@@ -63,6 +66,15 @@ pub(super) struct ElementDto {
     outset: Option<InsetsDto>,
     flow: Option<String>,
     children: Vec<ElementDto>,
+    handle: Option<HandleRefDto>,
+    on_click: Option<HandleRefDto>,
+    enabled: Option<HandleRefDto>,
+    state: Option<HandleRefDto>,
+    cells: Option<Vec<Vec<ElementDto>>>,
+    /// Cell button names of a repeater with `cells`, assigned while collecting handles.
+    cell_buttons: Vec<String>,
+    /// Whether the cells of a repeater with `cells` route clicks to a handler.
+    cell_action: bool,
 }
 
 /// An indexed binding's `index`: one number, or one number per dimension.
@@ -133,6 +145,11 @@ struct ElementShapeDto {
     flow: Option<String>,
     #[serde(default)]
     children: Vec<ElementDto>,
+    handle: Option<HandleRefDto>,
+    on_click: Option<HandleRefDto>,
+    enabled: Option<HandleRefDto>,
+    state: Option<HandleRefDto>,
+    cells: Option<Vec<Vec<ElementDto>>>,
 }
 
 impl<'de> Deserialize<'de> for ElementDto {
@@ -198,6 +215,13 @@ impl ElementDto {
             outset: shape.outset,
             flow: shape.flow,
             children: shape.children,
+            handle: shape.handle,
+            on_click: shape.on_click,
+            enabled: shape.enabled,
+            state: shape.state,
+            cells: shape.cells,
+            cell_buttons: Vec::new(),
+            cell_action: false,
         }
     }
 }

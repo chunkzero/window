@@ -1,6 +1,9 @@
 import type { Child as JsxChild } from "#rpp/jsx";
 
 import { hud, ui } from "./elements.ts";
+import { builtin, isRef, refJson } from "./handles.ts";
+import type { Action, ClickAction, Collection, Condition, Indexed, Input, Items, Ref, Shape } from "./handles.ts";
+import type { Selection, Sprite as SpriteHandle, Text as TextHandle, Toggle as ToggleHandle } from "./handles.ts";
 import type {
     AutoLength,
     BindingIndex,
@@ -106,8 +109,8 @@ export interface BoxProps extends ItemProps {
 }
 
 export interface TextElementProps extends TextProps, ItemProps {
-    /** Dynamic text slot name. Without it, the children are static label text. */
-    bind?: string;
+    /** Dynamic text: a `text` handle, or a slot name. Without it, the children are static label text. */
+    bind?: string | TextHandle;
     /** Places the bound slot in an indexed binding family. */
     index?: BindingIndex;
     /** Fixed width; dynamic text without one grows to fill its box. */
@@ -130,8 +133,8 @@ export interface SpriteProps extends ItemProps {
 }
 
 export interface IconProps extends ItemProps {
-    /** Runtime sprite slot name. */
-    bind: string;
+    /** Runtime sprite: a `sprite` handle, or a sprite slot name. */
+    bind: string | SpriteHandle;
     /** Places the sprite slot in an indexed binding family. */
     index?: BindingIndex;
     /** Slot size in pixels; a number is square. */
@@ -156,12 +159,21 @@ interface SlotSource {
     pattern?: SlotPatternInput;
 }
 
-export interface ButtonProps extends ItemProps, SlotSource {
-    name: string;
+export interface ButtonProps<V extends string = string> extends ItemProps, SlotSource {
+    /** Button name for a string binding; handle buttons are named by `onClick`. */
+    name?: string;
+    /** What a click does: an `action`, `selection.set(value)`, a `toggle` to flip, or a `builtin`. */
+    onClick?: ClickAction;
+    /** Ignores clicks and shows the `disabled` state while the condition is false. Requires `onClick`. */
+    enabled?: Condition;
+    /** State shown while `enabled` is false. */
+    disabled?: StateProps;
+    /** A value or selection whose current value names the state shown; `states` holds one per value. */
+    state?: Ref<"value" | "selection", V>;
     frame?: string;
     tooltip?: string | Tooltip;
-    states?: Record<string, StateProps>;
-    /** Close the window on click. */
+    states?: Record<NoInfer<V>, StateProps>;
+    /** Close the window on click: `onClick={builtin("window:close")}`, or with `name` a closing default handler. */
     close?: boolean;
     padding?: number;
     gap?: FixedLength;
@@ -169,19 +181,19 @@ export interface ButtonProps extends ItemProps, SlotSource {
     children?: Child;
 }
 
-export interface ToggleProps extends Omit<ButtonProps, "states"> {
+export interface ToggleProps extends Omit<ButtonProps, "states" | "state" | "enabled" | "disabled"> {
+    /** The `toggle` handle a click flips; its value picks the `on` or `off` state. */
+    bind?: ToggleHandle;
     on: StateProps;
     off: StateProps;
 }
 
-export interface ChoiceProps extends Omit<ButtonProps, "states"> {
+export interface ChoiceProps extends Omit<ButtonProps, "states" | "state" | "enabled" | "disabled"> {
     selected: StateProps;
     unselected: StateProps;
 }
 
-export interface TabsProps extends ItemProps {
-    /** Prefix of every tab's choice name: `<name>_<value>`. */
-    name: string;
+interface TabsStyle extends ItemProps {
     frame?: string;
     /** Sprite drawn behind an unselected tab. */
     sprite?: string;
@@ -189,7 +201,18 @@ export interface TabsProps extends ItemProps {
     selectedSprite?: string;
     itemModel?: string;
     text?: TextProps;
+}
+
+export interface TabsProps extends TabsStyle {
+    /** Prefix of every tab's choice name: `<name>_<value>`. */
+    name: string;
     children?: Child;
+}
+
+/** One tab per value of `bind`, rendered by `children`; a click selects its value. */
+export interface TabsBindProps<V extends string> extends TabsStyle {
+    bind: Selection<V>;
+    children: (value: V) => Child;
 }
 
 export interface TabProps {
@@ -217,10 +240,20 @@ export interface SwitchProps extends ItemProps {
     children?: Child;
 }
 
+/** A switch on a value or selection handle, with one case per value. */
+export interface SwitchOnProps<V extends string> extends ItemProps {
+    on: Ref<"value" | "selection", V>;
+    x?: number;
+    y?: number;
+    text?: TextProps;
+    /** The content of each case, keyed by value; every value needs one. */
+    children: { readonly [K in NoInfer<V>]: Child };
+}
+
 /** Box props apply to the shown case; item props place the switch. */
 export interface ShowProps extends ItemProps, CaseBoxProps {
-    /** Boolean binding name. */
-    when: string;
+    /** A condition handle, or a Boolean binding name. */
+    when: string | Condition;
     /** Places the switch in an indexed binding family. */
     index?: BindingIndex;
     x?: number;
@@ -234,13 +267,19 @@ export interface HotspotProps extends ItemProps, SlotSource {
 }
 
 export interface ItemSlotProps extends ItemProps, SlotSource {
-    name: string;
+    /** Item name for a string binding; set either `name` or `bind`. */
+    name?: string;
+    /** The `items` handle rendering this item. */
+    bind?: Items;
     /** One-based slot inside the enclosing repeater cell. */
     cellSlot?: number;
 }
 
 export interface CollectionProps extends ItemProps, SlotSource {
-    name: string;
+    /** Collection name for a string binding; set either `name` or `bind`. */
+    name?: string;
+    /** The `collection` handle supplying the cells. */
+    bind?: Collection;
     frame?: string;
     /** Sprite marking the selected cell. */
     selected?: string;
@@ -252,7 +291,10 @@ export interface CollectionProps extends ItemProps, SlotSource {
 }
 
 export interface RepeaterProps extends ItemProps {
-    name: string;
+    /** Repeater name; a repeater rendering its cells with a function may use `onClick` instead. */
+    name?: string;
+    /** An action indexed by cell, `shape: [cells]`; requires children rendered by a function. */
+    onClick?: Indexed<Action, Shape>;
     /** Size of one cell in slots. */
     cell: [number, number];
     columns: number;
@@ -260,7 +302,8 @@ export interface RepeaterProps extends ItemProps {
     frame?: string;
     padding?: number;
     text?: TextProps;
-    children?: Child;
+    /** A template repeated in every cell, or a function rendering cell `i` that reads indexed handles with `.at(i)`. */
+    children?: Child | ((i: number) => Child);
 }
 
 export interface SlotsProps extends ItemProps {
@@ -270,7 +313,10 @@ export interface SlotsProps extends ItemProps {
 }
 
 export interface AnvilInputProps {
-    name: string;
+    /** Input name for a string binding; set either `name` or `bind`. */
+    name?: string;
+    /** The `input` handle receiving the typed value. */
+    bind?: Input;
     initial?: string;
     itemModel?: string;
 }
@@ -443,6 +489,9 @@ function cascade<T>(node: T, style: TextProps | undefined): T {
                 result[key] = (el[key] as Fields[]).map(visit);
             }
         }
+        if (Array.isArray(el.cells)) {
+            result.cells = (el.cells as Fields[][]).map((cell) => cell.map(visit));
+        }
         return result;
     };
     return (Array.isArray(node) ? node.map((el) => visit(el as Fields)) : visit(node as Fields)) as T;
@@ -520,6 +569,23 @@ function requireName(name: unknown, component: string): void {
     }
 }
 
+/** The name or handle an element binds: `{ name }` for a string, `{ handle }` for a handle reference. */
+function binding(value: unknown, component: string): Fields {
+    if (isRef(value)) {
+        return { handle: refJson(value) };
+    }
+    requireName(value, component);
+    return { name: value };
+}
+
+/** One of `name` or `bind`, which handle-capable controls take instead of a required `name`. */
+function nameOrBind(props: { name?: string | undefined; bind?: Ref | undefined }, component: string): Fields {
+    if ((props.name === undefined) === (props.bind === undefined)) {
+        throw new Error(`<${component}> requires exactly one of \`name\` or \`bind\``);
+    }
+    return binding(props.name ?? props.bind, component);
+}
+
 /** A flexbox (or grid) container. Auto-sized boxes fill their parent's content box. */
 export function Box(props: BoxProps): Element {
     const style: FlexStyle | undefined = nonEmpty({
@@ -583,8 +649,13 @@ export function Text(props: TextElementProps): Element {
     const common = clean({ width: props.width, x: props.x, y: props.y, ...style, ...layout(props) });
     const fit = { overflow: props.overflow, lines: props.lines, line_height: props.lineHeight };
     if (props.bind !== undefined) {
-        requireName(props.bind, "Text bind");
-        return clean({ type: "slot", name: props.bind, index: props.index, ...common, ...fit }) as Element;
+        return clean({
+            type: "slot",
+            ...binding(props.bind, "Text bind"),
+            index: props.index,
+            ...common,
+            ...fit,
+        }) as Element;
     }
     if (props.index !== undefined) {
         throw new Error("<Text index> requires `bind`");
@@ -613,11 +684,10 @@ export function Sprite(props: SpriteProps): Element {
 
 /** A runtime sprite slot, drawn above button and selection backgrounds. */
 export function Icon(props: IconProps): Element {
-    requireName(props.bind, "Icon bind");
     const [width, height] = typeof props.size === "number" ? [props.size, props.size] : props.size;
     return clean({
         type: "sprite_slot",
-        name: props.bind,
+        ...binding(props.bind, "Icon bind"),
         index: props.index,
         width,
         height,
@@ -657,9 +727,41 @@ export function Hotbar(props: SectionProps): Element {
     return section("hotbar", props);
 }
 
+/** The name or click handle, `enabled`, and `state` fields of a button. */
+function buttonBinding(props: ButtonProps): Fields {
+    const { name, onClick, enabled, disabled, state: value } = props;
+    if (onClick === undefined && name === undefined && props.close !== true) {
+        throw new Error("<Button> requires `name` or `onClick`");
+    }
+    if (onClick !== undefined && (name !== undefined || props.close === true)) {
+        throw new Error(
+            '<Button> sets `onClick` with `name` or `close`; `close` is `onClick={builtin("window:close")}`',
+        );
+    }
+    if (name !== undefined && (enabled !== undefined || value !== undefined)) {
+        throw new Error("<Button enabled> and <Button state> require `onClick`");
+    }
+    if (disabled !== undefined && enabled === undefined) {
+        throw new Error("<Button disabled> requires `enabled`");
+    }
+    if (enabled !== undefined && props.states !== undefined) {
+        throw new Error("<Button enabled> draws its `disabled` state; it cannot also set `states`");
+    }
+    if (name !== undefined) {
+        requireName(name, "Button");
+        return { name, default: props.close === true ? ("close" satisfies ButtonDefault) : undefined };
+    }
+    return {
+        on_click: refJson(onClick ?? builtin("window:close")),
+        enabled: enabled === undefined ? undefined : refJson(enabled),
+        state: value === undefined ? undefined : refJson(value),
+        ...(enabled === undefined ? {} : { states: { enabled: {}, disabled: state(disabled ?? {}) } }),
+    };
+}
+
 /** Content children are centered in a row filling the button. */
-export function Button(props: ButtonProps): Element {
-    requireName(props.name, "Button");
+export function Button<V extends string = string>(props: ButtonProps<V>): Element {
+    const bound = buttonBinding(props as ButtonProps);
     const kids = nodes(props.children);
     const content =
         kids.length === 0
@@ -674,11 +776,10 @@ export function Button(props: ButtonProps): Element {
               ];
     const node = clean({
         type: "button",
-        name: props.name,
         frame: props.frame,
         tooltip: props.tooltip,
         states: states(props.states),
-        default: props.close === true ? ("close" satisfies ButtonDefault) : undefined,
+        ...bound,
         padding: props.padding,
         slots: props.slots,
         pattern: props.pattern,
@@ -690,8 +791,11 @@ export function Button(props: ButtonProps): Element {
 
 /** A two-state button bound with WindowScope.toggle. */
 export function Toggle(props: ToggleProps): Element {
-    const { on, off, ...rest } = props;
-    return Button({ ...rest, states: { on, off } });
+    const { on, off, bind, ...rest } = props;
+    if (bind !== undefined && rest.onClick !== undefined) {
+        throw new Error("<Toggle> sets both `bind` and `onClick`");
+    }
+    return Button({ ...rest, ...(bind === undefined ? {} : { onClick: bind }), states: { on, off } });
 }
 
 /** One button of a WindowScope.choice group. */
@@ -705,25 +809,41 @@ export function Tab(props: TabProps): TabNode {
     return { type: "tab", value: props.value, tooltip: props.tooltip, children: nodes(props.children) };
 }
 
-/** A choice group: each `<Tab value>` becomes the choice `<name>_<value>`. */
-export function Tabs(props: TabsProps): Element[] {
+/** A tab's tooltip: its own, or the text of its labels. */
+function tabTooltip(tooltip: string | Tooltip | undefined, children: Element[]): string | Tooltip | undefined {
+    const label = tooltip ?? children.flatMap((c) => (c.type === "label" ? [c.text] : [])).join(" ");
+    return label === "" ? undefined : label;
+}
+
+function tab(props: TabsStyle, choice: Fields, tooltip: string | Tooltip | undefined, children: Element[]): Element {
+    const { frame, sprite, selectedSprite, itemModel, text, ...item } = props;
+    const base = clean({ itemModel, tooltip: tabTooltip(tooltip, children) });
+    return Choice({
+        ...item,
+        ...choice,
+        ...clean({ frame, text }),
+        selected: clean({ ...base, sprite: selectedSprite }),
+        unselected: clean({ ...base, sprite }),
+        children,
+    });
+}
+
+/**
+ * A choice group. With `name`, each `<Tab value>` becomes the choice `<name>_<value>`; with a selection `bind`, the
+ * render function draws one tab per value and a click selects it.
+ */
+export function Tabs<V extends string>(props: TabsProps | TabsBindProps<V>): Element[] {
+    if ("bind" in props) {
+        const { bind, children, ...style } = props;
+        return bind.values.map((value) => tab(style, { onClick: bind.set(value) }, undefined, nodes(children(value))));
+    }
     requireName(props.name, "Tabs");
-    const tabs = renderNodes(props.children);
-    return tabs.map((tab) => {
-        if (!("type" in tab) || tab.type !== "tab") {
+    const { name, children, ...style } = props;
+    return renderNodes(children).map((t) => {
+        if (!("type" in t) || t.type !== "tab") {
             throw new Error("<Tabs> children must be <Tab> elements");
         }
-        const t = tab;
-        const label = t.tooltip ?? t.children.flatMap((c) => (c.type === "label" ? [c.text] : [])).join(" ");
-        const tooltip = label === "" ? undefined : label;
-        const base = clean({ itemModel: props.itemModel, tooltip });
-        return Choice({
-            ...props,
-            name: `${props.name}_${t.value}`,
-            selected: clean({ ...base, sprite: props.selectedSprite }),
-            unselected: clean({ ...base, sprite: props.sprite }),
-            children: t.children,
-        });
+        return tab(style, { name: `${name}_${t.value}` }, t.tooltip, t.children);
     });
 }
 
@@ -744,21 +864,15 @@ export function Case(props: CaseProps): CaseElement {
     }) as CaseElement;
 }
 
-/**
- * Stacks its `<Case>` children in one box sized to the largest case; the runtime draws only the case `bind` names.
- * Cases are visual: art, text, and icons, but no slot-bound controls.
- */
-export function Switch(props: SwitchProps): Element {
-    requireName(props.bind, "Switch bind");
-    const cases = renderNodes(props.children).map((node) => {
-        if (!("type" in node) || node.type !== "case") {
-            throw new Error("<Switch> children must be <Case> elements");
-        }
-        return node;
-    });
+/** A switch element drawing `cases`, bound by `binding`. */
+function switchNode(
+    props: ItemProps & { x?: number; y?: number; index?: BindingIndex; text?: TextProps },
+    binding: Fields,
+    cases: CaseElement[],
+): Element {
     const node = clean({
         type: "switch",
-        name: props.bind,
+        ...binding,
         index: props.index,
         x: props.x,
         y: props.y,
@@ -768,18 +882,42 @@ export function Switch(props: SwitchProps): Element {
     return cascade(node as Element, props.text);
 }
 
-/** Draws its children only while the Boolean binding `when` is true; their space is always reserved. */
+/**
+ * Stacks its cases in one box sized to the largest case; the runtime draws only the active case. With `bind`, the
+ * children are `<Case>` elements and the binding names the active one; with `on`, the children map each value of a
+ * value or selection handle to its content. Cases are visual: art, text, and icons, but no slot-bound controls.
+ */
+export function Switch<V extends string>(props: SwitchProps | SwitchOnProps<V>): Element {
+    if ("on" in props) {
+        const content = props.children as Record<string, Child>;
+        const values: readonly string[] = props.on.values ?? [];
+        const extra = Object.keys(content).find((key) => !values.includes(key));
+        if (extra !== undefined) {
+            throw new Error(`<Switch on={${props.on.id}}> has a case \`${extra}\` that is not one of its values`);
+        }
+        const cases = (props.on.values ?? []).map((value) => Case({ value, children: content[value] }));
+        return switchNode(props, { handle: refJson(props.on) }, cases);
+    }
+    requireName(props.bind, "Switch bind");
+    const cases = renderNodes(props.children).map((node) => {
+        if (!("type" in node) || node.type !== "case") {
+            throw new Error("<Switch> children must be <Case> elements");
+        }
+        return node;
+    });
+    return switchNode(props, { name: props.bind }, cases);
+}
+
+/** Draws its children only while the condition `when` is true; their space is always reserved. */
 export function Show(props: ShowProps): Element {
-    requireName(props.when, "Show when");
     const box = Object.fromEntries(
         Object.entries(props).filter(([key]) => !ITEM_KEYS.includes(key) && !["when", "index", "x", "y"].includes(key)),
     ) as CaseBoxProps;
     const { text: _text, children: _children, ...placement } = props;
-    return Switch({
-        ...placement,
-        bind: props.when,
-        children: [Case({ ...box, value: "true" }), Case({ value: "false" })],
-    });
+    return switchNode(placement, binding(props.when, "Show when"), [
+        Case({ ...box, value: "true" }),
+        Case({ value: "false" }),
+    ]);
 }
 
 export function Hotspot(props: HotspotProps): Element {
@@ -797,10 +935,9 @@ export function Hotspot(props: HotspotProps): Element {
 
 /** A real item stack. */
 export function Item(props: ItemSlotProps): Element {
-    requireName(props.name, "Item");
     return clean({
         type: "item",
-        name: props.name,
+        ...nameOrBind(props, "Item"),
         cell_slot: props.cellSlot,
         slots: props.slots,
         pattern: props.pattern,
@@ -810,12 +947,12 @@ export function Item(props: ItemSlotProps): Element {
 
 /** A scrolling item collection; by default it spans the full section width. */
 export function Collection(props: CollectionProps): Element {
-    requireName(props.name, "Collection");
+    const bound = nameOrBind(props, "Collection");
     const full =
         props.columns === undefined && props.span === undefined && props.at === undefined && props.col === undefined;
     return clean({
         type: "collection",
-        name: props.name,
+        ...bound,
         frame: props.frame,
         selected_sprite: props.selected,
         action: props.action,
@@ -829,18 +966,37 @@ export function Collection(props: CollectionProps): Element {
     }) as Element;
 }
 
+/** One cell's children: `<Item cellSlot>` children stay in the cell; the rest are centered in a column filling it. */
+function cell(children: Child): Element[] {
+    const all = nodes(children);
+    const kids = all.filter((c) => c.type !== "item");
+    return [
+        ...all.filter((c) => c.type === "item"),
+        ...(kids.length === 0 ? [] : [Column({ justify: "center", align: "center", children: kids })]),
+    ];
+}
+
 /**
- * A grid of `columns` x `rows` cells, each a button of `cell` slots. `<Item cellSlot>` children stay in the cell;
- * the other children are centered in a column filling it.
+ * A grid of `columns` x `rows` cells, each a button of `cell` slots. Children are a template repeated in every cell,
+ * or a function rendering cell `i` (row-major) that reads indexed handles with `.at(i)`; `onClick` then receives
+ * the clicked cell's index.
  */
 export function Repeater(props: RepeaterProps): Element {
-    requireName(props.name, "Repeater");
-    const all = nodes(props.children);
-    const items = all.filter((c) => c.type === "item");
-    const kids = all.filter((c) => c.type !== "item");
+    const { children, onClick } = props;
+    const rendered = typeof children === "function";
+    if (!rendered && (onClick !== undefined || props.name === undefined)) {
+        throw new Error(
+            "<Repeater> with template children requires `name` and no `onClick`; render cells with a function",
+        );
+    }
+    if (props.name !== undefined) {
+        requireName(props.name, "Repeater");
+    }
+    const count = props.columns * props.rows;
     const node = clean({
         type: "repeater",
         name: props.name,
+        on_click: onClick === undefined ? undefined : refJson(onClick),
         frame: props.frame,
         padding: props.padding,
         pattern: {
@@ -853,10 +1009,8 @@ export function Repeater(props: RepeaterProps): Element {
             cell_width: props.cell[0],
             cell_height: props.cell[1],
         },
-        children: [
-            ...items,
-            ...(kids.length === 0 ? [] : [Column({ justify: "center", align: "center", children: kids })]),
-        ],
+        children: rendered ? undefined : cell(children),
+        cells: rendered ? Array.from({ length: count }, (_, i) => cell(children(i))) : undefined,
         ...layout(props),
     });
     return cascade(node as Element, props.text);
@@ -879,10 +1033,9 @@ export function Slots(props: SlotsProps): Element {
 
 /** The anvil's native rename field, bound as a text input. */
 export function AnvilInput(props: AnvilInputProps): Element {
-    requireName(props.name, "AnvilInput");
     return clean({
         type: "anvil_input",
-        name: props.name,
+        ...nameOrBind(props, "AnvilInput"),
         initial: props.initial,
         item_model: props.itemModel,
     }) as Element;

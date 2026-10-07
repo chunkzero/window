@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
-use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, HudChannel, HudShader, IndexedBinding, Rgb};
+use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, Handle, HudChannel, HudShader, IndexedBinding, Rgb};
 use crate::surface::ContainerKind;
 
 mod flex;
@@ -87,6 +87,8 @@ pub struct Window {
     pub children: Vec<Element>,
     /// Indexed binding families by name; their elements carry the flattened names.
     pub indexed: BTreeMap<String, IndexedBinding>,
+    /// Typed handles by id; their elements carry the entry names of their uses.
+    pub handles: BTreeMap<String, Handle>,
 }
 
 /// One authored HUD.
@@ -109,6 +111,8 @@ pub struct Hud {
     pub children: Vec<Element>,
     /// Indexed binding families by name; their elements carry the flattened names.
     pub indexed: BTreeMap<String, IndexedBinding>,
+    /// Typed handles by id; their elements carry the entry names of their uses.
+    pub handles: BTreeMap<String, Handle>,
 }
 
 /// Cross-axis alignment for `row`/`column` children.
@@ -188,6 +192,17 @@ impl Default for TextFit {
     fn default() -> Self {
         Self { ellipsis: false, lines: 1, line_height: Self::DEFAULT_LINE_HEIGHT }
     }
+}
+
+/// The content of a repeater authored with one render per cell. Cell elements keep their own names.
+#[derive(Clone, Debug)]
+pub struct RepeaterCells {
+    /// Each cell's children, in cell order.
+    pub children: Vec<Vec<Element>>,
+    /// Each cell's button name, in cell order.
+    pub buttons: Vec<String>,
+    /// Whether cell clicks route to a handler.
+    pub action: bool,
 }
 
 /// An element of the authored tree.
@@ -361,6 +376,8 @@ pub enum Element {
         padding: u32,
         /// Visual children placed relative to each repeated cell.
         children: Vec<Element>,
+        /// Per-cell content, replacing `children` and the repeater's grouped names.
+        cells: Option<RepeaterCells>,
     },
     /// Static text, baked into the compiled definition as a constant slot.
     Label {

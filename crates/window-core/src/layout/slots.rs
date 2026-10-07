@@ -171,7 +171,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
     /// The emitted name for `name`: prefixed by the active repeater group and suffixed by its cell index, or
     /// `{name}.{case}` for a binding shared across the cases of the active switch.
     pub(super) fn scoped_name(&self, name: &str) -> String {
-        match (&self.active_repeat, self.case_binding(name)) {
+        match (self.active_repeat.as_ref().filter(|repeat| repeat.scoped), self.case_binding(name)) {
             (Some(repeat), _) => format!("{}_{}_{}", repeat.group, name, repeat.index),
             (None, Some(case)) => format!("{name}.{}", case.value),
             (None, None) => name.to_string(),
@@ -184,7 +184,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
     }
 
     pub(super) fn repeat_binding(&self, field: &str) -> Option<RepeatBindingIr> {
-        self.active_repeat.as_ref().map(|repeat| RepeatBindingIr {
+        self.active_repeat.as_ref().filter(|repeat| repeat.scoped).map(|repeat| RepeatBindingIr {
             group: repeat.group.clone(),
             field: Some(field.to_string()),
             index: repeat.index,

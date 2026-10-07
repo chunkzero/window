@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { Fragment, createElement, jsx } from "../.rpp/sdk/jsx.ts";
-import { Box, Button, Case, Collection, Show, Switch, Tab, Tabs, Text } from "../src/authoring/jsx.ts";
+import { action, flag, selection, text, value } from "../src/authoring/index.ts";
+import { Box, Button, Case, Collection, Repeater, Show, Switch, Tab, Tabs, Text } from "../src/authoring/jsx.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
     const child = Box({ children: Text({ children: "Hello" }) });
@@ -95,4 +96,75 @@ test("button text defaults respect the button's explicit alignment", () => {
     const label = row.children?.[0];
     assert.equal(label?.type, "label");
     assert.equal(label.align, "right");
+});
+
+const fields = (element: unknown): Record<string, unknown> => element as Record<string, unknown>;
+
+test("handle props serialize the handle in place of a name", () => {
+    const title = text("title");
+    assert.deepEqual(Text({ bind: title, width: 8 }), {
+        type: "slot",
+        handle: { kind: "text", id: "title" },
+        width: 8,
+    });
+    const buy = action("buy");
+    const canBuy = flag("can_buy");
+    const button = Button({ onClick: buy, enabled: canBuy, disabled: { tooltip: "Too poor" } });
+    assert.ok(button.type === "button");
+    assert.equal(button.name, undefined);
+    assert.deepEqual(button.states, { enabled: {}, disabled: { tooltip: "Too poor" } });
+    assert.deepEqual(fields(button)["enabled"], { kind: "flag", id: "can_buy" });
+    const close = fields(Button({ close: true }));
+    assert.deepEqual(close["on_click"], { kind: "builtin", id: "window:close" });
+    assert.throws(() => Button({ name: "buy", onClick: buy }), /`onClick` with `name`/);
+});
+
+test("selection helpers carry the compared or assigned value", () => {
+    const category = selection("category", ["all", "gear"], { initial: "gear" });
+    const tabs = Tabs({ bind: category, children: (value) => Text({ children: value }) });
+    assert.deepEqual(
+        tabs.map((tab) => fields(tab)["on_click"]),
+        ["all", "gear"].map((set) => ({
+            kind: "selection",
+            id: "category",
+            values: ["all", "gear"],
+            initial: "gear",
+            set,
+        })),
+    );
+    const show = fields(Show({ when: category.is("gear"), children: Text({ children: "Gear" }) }));
+    assert.deepEqual(show["handle"], {
+        kind: "selection",
+        id: "category",
+        values: ["all", "gear"],
+        initial: "gear",
+        is: "gear",
+    });
+    const mode = value("mode", ["buy", "sell"]);
+    const cases = Switch({ on: mode, children: { buy: Text({ children: "Buy" }), sell: null } });
+    assert.ok(cases.type === "switch");
+    assert.deepEqual(
+        cases.children.map((c) => c.value),
+        ["buy", "sell"],
+    );
+    assert.throws(() => category.set("magic" as "all"), /not one of its values/);
+    assert.throws(() => Switch({ on: mode, children: { buy: null, sell: null, rent: null } }), /`rent`/);
+});
+
+test("a repeater rendered per cell reads indexed handles", () => {
+    const pick = action("pick", { shape: [2] });
+    const names = text("names", { shape: [2] });
+    const repeater = fields(
+        Repeater({
+            cell: [1, 1],
+            columns: 2,
+            rows: 1,
+            onClick: pick,
+            children: (i) => Text({ bind: names.at(i), width: 8 }),
+        }),
+    );
+    assert.deepEqual(repeater["on_click"], { kind: "action", id: "pick", shape: [2] });
+    const cells = repeater["cells"] as Record<string, unknown>[][];
+    assert.equal(cells.length, 2);
+    assert.throws(() => names.at(2), /outside its shape/);
 });

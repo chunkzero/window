@@ -2,7 +2,7 @@ use super::{ElementDto, convert_children, convert_layout_children};
 use crate::authoring::flex::parse_auto_flow;
 use crate::authoring::parse::validate_name;
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
-use crate::model::{Element, FlexBox, SlotSection, Switch, SwitchCase};
+use crate::model::{Element, FlexBox, RepeaterCells, SlotSection, Switch, SwitchCase};
 use crate::{Error, Result};
 
 impl ElementDto {
@@ -141,12 +141,23 @@ impl ElementDto {
     }
 
     fn build_repeater(self) -> Result<Element> {
+        let name = self.required("name")?;
+        let pattern = self.required_pattern()?;
+        let cells = match self.cells {
+            Some(cells) => Some(RepeaterCells {
+                children: cells.into_iter().map(convert_children).collect::<Result<_>>()?,
+                buttons: self.cell_buttons.clone(),
+                action: self.cell_action,
+            }),
+            None => None,
+        };
         Ok(Element::Repeater {
-            name: self.required("name")?,
-            pattern: self.required_pattern()?,
-            frame: self.frame.clone(),
+            name,
+            pattern,
+            frame: self.frame,
             padding: self.padding,
             children: convert_children(self.children)?,
+            cells,
         })
     }
 
@@ -203,8 +214,8 @@ impl ElementDto {
 
     fn build_switch(self) -> Result<Element> {
         let name = self.required("name")?;
-        // An indexed switch is named by its family, which flattening validated.
-        if self.index.is_none() {
+        // Indexed and handle switches are named by their family or handle, which were validated already.
+        if self.index.is_none() && self.handle.is_none() {
             validate_name(&name, "switch")?;
         }
         let pos = self.pos()?;

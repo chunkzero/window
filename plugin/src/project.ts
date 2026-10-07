@@ -1,4 +1,5 @@
 import type { Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
+import type { WindowsDefinition } from "./authoring/windows.ts";
 
 export interface WindowOptions {
     /** Namespace of the generated assets. Defaults to `window`. */
@@ -88,6 +89,7 @@ export interface WindowContext {
 
 const DEFINITIONS = "definitions";
 const JSX_DEFINITIONS = "jsx";
+const ENTRIES = ["window/index.ts", "window/index.tsx"];
 const TEXTURE_REFERENCE = /^([\w.-]+):(.+)$/s;
 
 type Fields = Record<string, unknown>;
@@ -153,15 +155,52 @@ function defaultExport(path: string, module: Record<string, unknown>): WindowDoc
     return docs as WindowDocument[];
 }
 
+/** The documents of a `defineWindows` definition. */
+function entryDocuments(path: string, value: unknown): WindowDocument[] {
+    if (!isFields(value)) {
+        throw new Error(`${path} must export default defineWindows({ themes, windows, huds })`);
+    }
+    const { themes = [], windows = [], huds = [] } = value as WindowsDefinition;
+    return [
+        ...themes.map((theme) => ("theme" in theme ? { theme: theme.theme as Theme } : { theme })),
+        ...windows.map((window) => ("windows" in window ? { windows: window.windows } : { window: window as Window })),
+        ...huds.map((hud) => ("huds" in hud ? { huds: hud.huds } : { hud: hud as Hud })),
+    ];
+}
+
 /**
- * The definition documents in path order and the compiler's source files: the non-TypeScript files
- * under `window/` plus every texture the themes reference. Everything under `window/` leaves the pack.
+ * The definition documents and the compiler's source files: the non-TypeScript files under `window/` plus every
+ * texture the themes reference. Everything under `window/` leaves the pack.
+ *
+ * A `window/index.ts(x)` entry's `defineWindows` default export lists every document, and the other modules are
+ * ordinary modules. Without one, every module under `window/` default-exports documents, read in path order, and
+ * `warnings` asks for an entry.
  */
-export function collectInputs(ctx: WindowContext): { documents: WindowDocument[]; files: SourceFile[] } {
+export function collectInputs(ctx: WindowContext): {
+    documents: WindowDocument[];
+    files: SourceFile[];
+    warnings: string[];
+} {
     const modules = [...ctx.discovered(DEFINITIONS), ...ctx.discovered(JSX_DEFINITIONS)].sort((a, b) =>
         a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
     );
-    const documents = modules.flatMap(({ path, module }) => defaultExport(path, module));
+    const entries = modules.filter(({ path }) => ENTRIES.includes(path));
+    if (entries.length > 1) {
+        throw new Error("window/index.ts and window/index.tsx are both entries; keep one");
+    }
+    const warnings: string[] = [];
+    let documents: WindowDocument[];
+    if (entries.length === 1) {
+        documents = entryDocuments(entries[0]!.path, entries[0]!.module["default"]);
+    } else {
+        documents = modules.flatMap(({ path, module }) => defaultExport(path, module));
+        if (modules.length > 0) {
+            warnings.push(
+                "Window: no window/index.ts(x) entry; reading the default export of every file under window/. " +
+                    "Default-export defineWindows({ themes, windows, huds }) from window/index.ts(x) instead.",
+            );
+        }
+    }
     const files: SourceFile[] = [];
     const seen = new Set<string>();
     const addOnce = (path: string): void => {
@@ -187,7 +226,7 @@ export function collectInputs(ctx: WindowContext): { documents: WindowDocument[]
             }
         }
     }
-    return { documents, files };
+    return { documents, files, warnings };
 }
 
 /** The newest format of the pack's range. rpp's version check ignores pre-release tags, so older hosts are rejected here. */
@@ -201,7 +240,10 @@ function packFormat(format: unknown): number {
 
 /** Compile the project's definitions and write the pack files, warnings, and Kotlin bindings. */
 export function generate(ctx: WindowContext, compile: Compile): void {
-    const { documents, files } = collectInputs(ctx);
+    const { documents, files, warnings } = collectInputs(ctx);
+    for (const warning of warnings) {
+        console.warn(warning);
+    }
     if (documents.length === 0) {
         return;
     }

@@ -258,6 +258,124 @@ impl IndexedBinding {
     }
 }
 
+/// What a typed handle declares: a value Kotlin computes, runtime state the UI owns, or an event.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleKind {
+    /// A Boolean computed by Kotlin.
+    Flag,
+    /// A Boolean the UI owns as runtime state.
+    Toggle,
+    /// One of `values`, computed by Kotlin.
+    Value,
+    /// One of `values`, owned by the UI as runtime state.
+    Selection,
+    /// Dynamic text.
+    Text,
+    /// A runtime sprite.
+    Sprite,
+    /// An inventory item.
+    Items,
+    /// A collection of inventory items, one per cell.
+    Collection,
+    /// A click handled by Kotlin.
+    Action,
+    /// A native anvil text input.
+    Input,
+    /// A runtime action such as `window:close`; it has no Kotlin member.
+    Builtin,
+}
+
+impl HandleKind {
+    /// The authored name of this kind.
+    pub const fn id(self) -> &'static str {
+        match self {
+            Self::Flag => "flag",
+            Self::Toggle => "toggle",
+            Self::Value => "value",
+            Self::Selection => "selection",
+            Self::Text => "text",
+            Self::Sprite => "sprite",
+            Self::Items => "items",
+            Self::Collection => "collection",
+            Self::Action => "action",
+            Self::Input => "input",
+            Self::Builtin => "builtin",
+        }
+    }
+}
+
+/// How an element uses a handle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleRole {
+    /// Renders a dynamic text slot.
+    Slot,
+    /// Renders a runtime sprite slot.
+    SpriteSlot,
+    /// Renders an inventory item region.
+    Item,
+    /// Supplies a collection's cells.
+    Collection,
+    /// Receives an anvil input's value.
+    Input,
+    /// Selects a switch case.
+    Switch,
+    /// Handles a button's clicks.
+    Click,
+    /// Enables a button.
+    Enabled,
+    /// Selects a button's named state.
+    State,
+}
+
+/// One element's use of a handle, bound to the manifest entry `entry`.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct HandleUse {
+    /// How the entry uses the handle.
+    pub role: HandleRole,
+    /// The manifest entry key: a slot, sprite slot, item, collection, input, switch, or button.
+    pub entry: String,
+    /// The index read from an indexed handle; empty otherwise.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub at: Vec<u32>,
+    /// The value a condition compares with (`is`), or a click assigns (`set`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+}
+
+/// A typed handle a surface uses, with every use the surface makes of it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Handle {
+    /// What the handle declares.
+    pub kind: HandleKind,
+    /// The values of a value or selection handle, in declaration order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub values: Vec<String>,
+    /// Extent of each index dimension of an indexed handle: empty, one, or two values.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub shape: Vec<u32>,
+    /// The initial value of UI-owned state: `true`/`false` for a toggle, a value for a selection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial: Option<String>,
+    /// Whether a collection marks a selected cell.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub selectable: bool,
+    /// Every use, in authoring order.
+    pub uses: Vec<HandleUse>,
+}
+
+impl Handle {
+    /// Whether `other` declares the same handle, ignoring uses.
+    pub fn same_declaration(&self, other: &Handle) -> bool {
+        self.kind == other.kind
+            && self.values == other.values
+            && self.shape == other.shape
+            && self.initial == other.initial
+            && self.selectable == other.selectable
+    }
+}
+
 /// A runtime-positioned sprite region.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SpriteSlotIr {
@@ -420,6 +538,8 @@ pub struct LaidOutWindow {
     pub switches: Vec<SwitchIr>,
     /// Indexed binding families by name.
     pub indexed: BTreeMap<String, IndexedBinding>,
+    /// Typed handles by id.
+    pub handles: BTreeMap<String, Handle>,
     /// Non-fatal findings to surface to the user (e.g. overlay overflow).
     pub warnings: Vec<String>,
 }
@@ -447,6 +567,8 @@ pub struct LaidOutHud {
     pub switches: Vec<SwitchIr>,
     /// Indexed binding families by name.
     pub indexed: BTreeMap<String, IndexedBinding>,
+    /// Typed handles by id.
+    pub handles: BTreeMap<String, Handle>,
     /// Non-fatal findings to surface to the user.
     pub warnings: Vec<String>,
 }

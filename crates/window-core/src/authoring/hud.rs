@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use super::element::{ElementDto, convert_children, flatten_indexed};
+use super::element::{ElementDto, collect_handles, convert_children, flatten_indexed};
 use super::insets::InsetsDto;
 use crate::geometry::Size;
 use crate::ir::{HudChannel, HudShader};
@@ -54,7 +54,9 @@ fn default_actionbar_source_bottom() -> i32 {
 impl HudDto {
     pub(super) fn into_hud(self) -> Result<Hud> {
         let mut children = self.children;
-        let indexed = flatten_indexed(&mut children, &format!("hud `{}`", self.name))?;
+        let owner = format!("hud `{}`", self.name);
+        let handles = collect_handles(&mut children, &owner, true)?;
+        let indexed = flatten_indexed(&mut children, &owner)?;
         let children = convert_children(children)?;
         let size = match (self.width, self.height) {
             (Some(width), Some(height)) => Some(Size::new(width, height)),
@@ -75,6 +77,7 @@ impl HudDto {
             shader: self.shader.map(HudShaderDto::into_shader).transpose()?,
             children,
             indexed,
+            handles,
         })
     }
 }

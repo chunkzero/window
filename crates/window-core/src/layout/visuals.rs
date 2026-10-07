@@ -22,8 +22,11 @@ impl<T: LayoutTarget> Solver<'_, T> {
         self.require_sprite_slots(name)?;
         // Fixed sprites need no binding, so they never join one shared across switch cases.
         let binding = self.case_binding(name).filter(|_| sprite.is_none()).map(|_| name.to_string());
-        let actual_name =
-            if binding.is_none() && self.active_repeat.is_none() { name.to_string() } else { self.scoped_name(name) };
+        let actual_name = if binding.is_none() && self.repeat_binding(name).is_none() {
+            name.to_string()
+        } else {
+            self.scoped_name(name)
+        };
         self.register_name(&actual_name)?;
         self.check_inside_bounds(rect, &format!("sprite slot `{name}`"))?;
         if let Some(sprite) = sprite {

@@ -34,6 +34,31 @@ export {
     playerSlot,
     playerSlots,
 } from "./inventory.ts";
+export { action, builtin, flag, input, items, selection, value } from "./handles.ts";
+export type {
+    Action as ActionHandle,
+    Builtin as BuiltinHandle,
+    BuiltinId,
+    ClickAction,
+    Collection as CollectionHandle,
+    Condition,
+    Flag as FlagHandle,
+    HandleKind,
+    Indexed,
+    Input as InputHandle,
+    Is,
+    Items as ItemsHandle,
+    Ref,
+    Selection as SelectionHandle,
+    Set as SetAction,
+    Shape,
+    Sprite as SpriteHandle,
+    Text as TextHandle,
+    Toggle as ToggleHandle,
+    Value as ValueHandle,
+} from "./handles.ts";
+export { defineWindows } from "./windows.ts";
+export type { WindowsDefinition } from "./windows.ts";
 export { presets } from "./presets.ts";
 export { smallCaps, smallCapsMinimessage, text } from "./text.ts";
 export {
@@ -86,8 +111,10 @@ export type {
     SlotsProps,
     SpriteProps,
     StateProps,
+    SwitchOnProps,
     SwitchProps,
     TabProps,
+    TabsBindProps,
     TabsProps,
     TextElementProps,
     TextProps,

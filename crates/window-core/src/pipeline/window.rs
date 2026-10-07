@@ -42,6 +42,7 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
         groups: repeat_groups(w),
         switches,
         indexed: w.indexed.clone(),
+        handles: w.handles.clone(),
     })
 }
 

@@ -42,6 +42,7 @@ fn shader_hud(name: &str, slot_name: &str) -> LaidOutHud {
         }],
         switches: Vec::new(),
         indexed: Default::default(),
+        handles: Default::default(),
         warnings: Vec::new(),
     }
 }

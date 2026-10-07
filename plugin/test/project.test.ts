@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { hud, theme, ui } from "../src/authoring/index.ts";
+import { defineWindows, hud, theme, ui } from "../src/authoring/index.ts";
 import type { WindowDocument } from "../src/authoring/types.ts";
 import { buildProject, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
 import type { CompileOutput, KotlinOptions, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
@@ -164,4 +164,24 @@ test("a missing or unknown Kotlin target is rejected", () => {
             new RegExp(`kotlin\\.target must be one of "agnostic", "minestom", "multistom"; ${got}`),
         );
     }
+});
+
+test("a window/index entry lists every document; other modules are ordinary", () => {
+    const themed = theme({ colors: { gold: "#ffd75e" } });
+    const entry = defineWindows({ themes: [themed], windows: [shop], huds: [status.huds[0]!] });
+    const { ctx } = fake({ "window/index.ts": entry, "window/handles.ts": undefined, "window/shop.tsx": shop });
+    const { documents, warnings } = collectInputs(ctx);
+    const project = buildProject(documents, {}, 84);
+    assert.deepEqual(project.themes, [themed.theme]);
+    assert.deepEqual(project.windows, shop.windows);
+    assert.deepEqual(project.huds, status.huds);
+    assert.deepEqual(warnings, []);
+});
+
+test("without an entry every module's default export is read, with a warning", () => {
+    const { ctx } = fake({ "window/a.ts": shop });
+    const { documents, warnings } = collectInputs(ctx);
+    assert.deepEqual(documents, [shop]);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0]!, /defineWindows/);
 });

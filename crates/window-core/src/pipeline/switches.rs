@@ -50,8 +50,8 @@ impl CompileContext<'_> {
     }
 }
 
-/// `name` as a resource path segment: an indexed entry such as `lamp[2]` becomes `lamp-2`, which no authored name
-/// can collide with.
+/// `name` as a resource path segment: an indexed entry such as `lamp[2]` becomes `lamp-2`, and a handle condition
+/// such as `mode?gear~2` becomes `mode-gear-2`, which no authored name can collide with.
 fn path_segment(name: &str) -> String {
-    name.replace('[', "-").replace(']', "")
+    name.replace(['[', '?', '~'], "-").replace(']', "")
 }

@@ -262,6 +262,20 @@ characters inside JSON strings, except in `spacers` where they are integers for 
       "indexed": {
         "strokes": { "kind": "slot", "shape": [8, 9] },
       },
+
+      // Typed handles by id, with the entries that use them.
+      "handles": {
+        "category": {
+          "kind": "selection",
+          "values": ["all", "gear"],
+          "initial": "gear",
+          "uses": [
+            { "role": "click", "entry": "category=all", "value": "all" },
+            { "role": "switch", "entry": "category?gear", "value": "gear" },
+          ],
+        },
+        "names": { "kind": "text", "shape": [2], "uses": [{ "role": "slot", "entry": "names[0]", "at": [0] }] },
+      },
     },
   },
 
@@ -350,6 +364,15 @@ Notes:
 - `indexed` is optional metadata for codegen on windows and HUDs. `kind` is `slot`, `sprite_slot`, or `switch`, and
   `shape` holds one or two extents. The entry at index `[i]` or `[i, j]` is named `{name}[{i}]` or `{name}[{i}][{j}]`,
   and every index within `shape` exists. Runtimes bind the flattened entries and ignore this map.
+- `handles` is optional metadata for codegen on windows and HUDs; runtimes ignore it. `kind` is `flag`, `toggle`,
+  `value`, `selection`, `text`, `sprite`, `items`, `collection`, `action`, `input`, or `builtin`. `values` lists a value
+  or selection's values, `shape` an indexed handle's extents, `initial` a toggle's (`"true"`/`"false"`) or selection's
+  initial value, and `selectable` whether a collection marks a selected cell. Each use names the entry it binds: a
+  `slot`, `sprite_slot`, `item`, `collection`, `input`, `switch`, or a button's `click`, `enabled`, or `state`. `at` is
+  the index read from an indexed handle, and `value` the value a condition compares with or a click sets. A use is keyed
+  `{id}`, then `[{i}]` per index, `={value}` for a click that sets a value, or `?{value}` for a condition, with `~2`,
+  `~3`, … appended to later uses of the same key. Codegen binds every use to the handle's member and infers members only
+  for entries no handle uses. Adding `handles` kept the schema at version 6: it is additive, and runtimes ignore it.
 - `switches` is optional on windows and HUDs. Each case's `static` is net-zero: window cases start and end at
   `title_origin.x`, HUD cases at the HUD's left edge. Runtimes draw the active case's `static` after the surface's
   `static` and leave out the slots and sprite slots of every inactive case. Codegen binds a `Boolean` when the case

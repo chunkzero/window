@@ -1,4 +1,19 @@
-import { Box, Case, Container, Hud, Row, Show, Sprite, Switch, Tab, Tabs, Text, Window } from "../src/authoring/jsx.ts";
+import { action, flag, selection, value } from "../src/authoring/index.ts";
+import {
+    Box,
+    Button,
+    Case,
+    Container,
+    Hud,
+    Row,
+    Show,
+    Sprite,
+    Switch,
+    Tab,
+    Tabs,
+    Text,
+    Window,
+} from "../src/authoring/jsx.ts";
 
 export default (
     <>
@@ -45,3 +60,30 @@ const invalidCase = <Case value="buy" grow />;
 // @ts-expect-error Show needs the Boolean binding it reads.
 const invalidShow = <Show />;
 void [invalidPadding, invalidInset, invalidTrack, invalidHud, invalidCase, invalidShow];
+
+const category = selection("category", ["all", "gear", "magic"], { initial: "gear" });
+const mode = value("mode", ["buy", "sell"]);
+const lamp = flag("lamp", { shape: [2, 3] });
+const handles = (
+    <Window name="handles" container="generic_9x1">
+        <Switch on={mode}>{{ buy: <Text>Buy</Text>, sell: null }}</Switch>
+        <Show when={category.is("gear")} />
+        <Show when={lamp.at(1, 2)} />
+        <Button onClick={category.set("magic")} state={mode} states={{ buy: {}, sell: {} }} />
+    </Window>
+);
+// @ts-expect-error `is` takes one of the selection's values.
+const isTypo = category.is("gera");
+// @ts-expect-error `set` takes one of the selection's values.
+const setTypo = category.set("gera");
+// @ts-expect-error `initial` is one of the values.
+const initialTypo = selection("sort", ["price", "name"], { initial: "nmae" });
+// @ts-expect-error A switch on a handle covers every value.
+const partialSwitch = <Switch on={mode}>{{ buy: null }}</Switch>;
+// @ts-expect-error An indexed handle is read through `.at()`.
+const unindexed = <Show when={lamp} />;
+// @ts-expect-error `.at()` takes one index per dimension.
+const wrongRank = lamp.at(1);
+// @ts-expect-error Button states are keyed by the state handle's values.
+const wrongStates = <Button onClick={action("trade")} state={mode} states={{ buy: {}, rent: {} }} />;
+void [handles, isTypo, setTypo, initialTypo, partialSwitch, unindexed, wrongRank, wrongStates];
