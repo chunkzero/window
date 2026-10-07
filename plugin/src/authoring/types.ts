@@ -321,7 +321,16 @@ export interface SpriteOptions extends FlexItemOptions {
     y?: number;
 }
 
+/**
+ * Index of one entry in an indexed binding family: a number, or `[row, column]`. Entries sharing a binding name are
+ * flattened to `<name>_<i>` (or `<name>_<row>_<column>`) and generated as one Kotlin member taking the index. A family
+ * must cover every index from zero up to its largest one.
+ */
+export type BindingIndex = number | readonly [number, number];
+
 export interface SpriteSlotOptions extends FlexItemOptions {
+    /** Places this sprite slot in an indexed binding family. */
+    index?: BindingIndex;
     x?: number;
     y?: number;
     width: number;
@@ -445,7 +454,10 @@ export interface TextOptions extends TextStyleOptions, FlexItemOptions {
     y?: number;
 }
 export type LabelOptions = TextOptions;
-export type SlotOptions = TextOptions;
+export interface SlotOptions extends TextOptions {
+    /** Places this slot in an indexed binding family. */
+    index?: BindingIndex;
+}
 
 export interface PanelElement extends PanelOptions {
     type: "panel";
@@ -596,6 +608,8 @@ export interface CaseOptions {
 }
 
 export interface SwitchOptions extends FlexItemOptions {
+    /** Places this switch in an indexed binding family; every entry must have the same case values. */
+    index?: BindingIndex;
     x?: number;
     y?: number;
 }

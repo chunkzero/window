@@ -242,6 +242,12 @@ characters inside JSON strings, except in `spacers` where they are integers for 
           ],
         },
       },
+
+      // Indexed binding families. Each entry is compiled under its flattened
+      // name, here `strokes[0][0]` through `strokes[7][8]` in `slots`.
+      "indexed": {
+        "strokes": { "kind": "slot", "shape": [8, 9] },
+      },
     },
   },
 
@@ -320,6 +326,9 @@ Notes:
   exactly one input owns container slot `0`, whose item name drives the vanilla edit field.
 - `slot_rects` entries are runtime fills only. The visual frames are already in the baked static layer.
 - `groups` is optional metadata for codegen. Runtime routing does not depend on it.
+- `indexed` is optional metadata for codegen on windows and HUDs. `kind` is `slot`, `sprite_slot`, or `switch`, and
+  `shape` holds one or two extents. The entry at index `[i]` or `[i, j]` is named `{name}[{i}]` or `{name}[{i}][{j}]`,
+  and every index within `shape` exists. Runtimes bind the flattened entries and ignore this map.
 - `switches` is optional on windows and HUDs. Each case's `static` is net-zero: window cases start and end at
   `title_origin.x`, HUD cases at the HUD's left edge. Runtimes draw the active case's `static` after the surface's
   `static` and leave out the slots and sprite slots of every inactive case. Codegen binds a `Boolean` when the case

@@ -559,6 +559,38 @@ show("on_sale", { children: [sprite("sale_badge")] });
   (`protected abstract fun onSale(): Boolean`). Views without generated bindings use
   `WindowScope.switch(name) { value }` or `HudScope.switch`.
 
+## Indexed bindings
+
+Give a run of text slots, icons, or switches the same binding name and an `index` to generate one Kotlin member that
+takes the index, instead of one member per entry. An index is a number or `[row, column]`.
+
+```tsx
+{
+  Array.from({ length: 12 }, (_, i) => (
+    <Switch bind="segment" index={i}>
+      <Case value="off" />
+      <Case value="on" frame="lamp_on" />
+    </Switch>
+  ));
+}
+{
+  players.flatMap((_, row) => holes.map((_, column) => <Text bind="strokes" index={[row, column]} width={8} />));
+}
+```
+
+```kotlin
+protected abstract fun segment(index: Int): Segment
+protected abstract fun strokes(row: Int, column: Int): Component
+```
+
+- `slot`, `spriteSlot`, `switchOn`, and `show` take the same `index` option, as do `<Text bind>`, `<Icon>`, `<Switch>`,
+  and `<Show>`.
+- Each entry is compiled under its flattened name, `segment[3]` or `strokes[1][4]`, which views without generated
+  bindings bind directly. Authored names cannot contain brackets, so flattened names never collide with them.
+- A family covers every index from zero up to its largest one, uses one element kind and number of dimensions, and, for
+  switches, the same case values at every index. Repeaters already index their cells, so indexed bindings inside one are
+  build errors.
+
 ## Native anvil search
 
 Use the `anvil` surface when a UI needs real keyboard input. Window seeds the first anvil slot, keeps it owned by the

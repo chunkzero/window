@@ -6,6 +6,8 @@ import com.chunkzero.window.manifest.HudEntry
 import com.chunkzero.window.manifest.HudShaderEntry
 import com.chunkzero.window.manifest.HudSurfaceEntry
 import com.chunkzero.window.manifest.SlotEntry
+import com.chunkzero.window.manifest.SwitchCaseEntry
+import com.chunkzero.window.manifest.SwitchEntry
 
 /** Compiled HUD entries of this Window pack. */
 internal object WindowHudEntries {
@@ -16,7 +18,7 @@ internal object WindowHudEntries {
                     kind = "hud",
                     channel = "actionbar",
                     width = 160,
-                    height = 8,
+                    height = 14,
                 ),
                 static = "",
                 slots = mapOf(
@@ -47,6 +49,168 @@ internal object WindowHudEntries {
                     anchorY = 1.0,
                     offsetX = 0,
                     offsetY = -72,
+                ),
+                switches = mapOf(
+                    "wave_progress[0]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uE243\uDB80\uDC05\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uE888\uDB80\uDC05\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
+                    "wave_progress[1]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uF599\uDB80\uDC04\uDB80\uDC09",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uEFD8\uDB80\uDC04\uDB80\uDC09",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
+                    "wave_progress[2]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC11\uDB80\uDC0C\uE407\uDB80\uDC04\uDB80\uDC08\uDB80\uDC09\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC11\uDB80\uDC0C\uF709\uDB80\uDC04\uDB80\uDC08\uDB80\uDC09\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
+                    "wave_progress[3]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC11\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uF545\uDB80\uDC04\uDB80\uDC07\uDB80\uDC08",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC11\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uF53C\uDB80\uDC04\uDB80\uDC07\uDB80\uDC08",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
+                    "wave_progress[4]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC11\uDB80\uDC0E\uDB80\uDC0D\uE0C2\uDB80\uDC04\uDB80\uDC06\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC11\uDB80\uDC0E\uDB80\uDC0D\uF0AC\uDB80\uDC04\uDB80\uDC06\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
+                    "wave_progress[5]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0B\uEF32\uDB80\uDC04\uDB80\uDC06\uDB80\uDC08\uDB80\uDC09",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0B\uF734\uDB80\uDC04\uDB80\uDC06\uDB80\uDC08\uDB80\uDC09",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
+                    "wave_progress[6]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0C\uF727\uDB80\uDC04\uDB80\uDC06\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0C\uE293\uDB80\uDC04\uDB80\uDC06\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
+                    "wave_progress[7]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0C\uDB80\uDC0B\uE678\uDB80\uDC04\uDB80\uDC05",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0C\uDB80\uDC0B\uF2BC\uDB80\uDC04\uDB80\uDC05",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
+                    "wave_progress[8]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC11\uDB80\uDC10\uEAA7\uDB80\uDC04\uDB80\uDC05\uDB80\uDC08\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC11\uDB80\uDC10\uE17F\uDB80\uDC04\uDB80\uDC05\uDB80\uDC08\uDB80\uDC0A",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
+                    "wave_progress[9]" to SwitchEntry(
+                        cases = listOf(
+                            SwitchCaseEntry(
+                                value = "true",
+                                static = "\uDB80\uDC11\uDB80\uDC10\uDB80\uDC0D\uDB80\uDC0B\uE244\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                            SwitchCaseEntry(
+                                value = "false",
+                                static = "\uDB80\uDC11\uDB80\uDC10\uDB80\uDC0D\uDB80\uDC0B\uE9A1\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09",
+                                slots = emptyList(),
+                                spriteSlots = emptyList(),
+                            ),
+                        ),
+                    ),
                 ),
             ),
             "status_left_side" to HudEntry(

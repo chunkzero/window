@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::ir::{Align, ButtonDefault};
+use crate::ir::{Align, ButtonDefault, IndexedBinding, IndexedKind};
 use crate::manifest::{
     AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudEntry, HudSurfaceEntry, ItemEntry, Manifest,
     RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry,
@@ -38,6 +38,7 @@ fn window(container: &str, size: [u32; 2], title_origin: [i32; 2]) -> WindowEntr
         slot_rects: BTreeMap::new(),
         groups: BTreeMap::new(),
         switches: BTreeMap::new(),
+        indexed: BTreeMap::new(),
     }
 }
 
@@ -174,15 +175,15 @@ fn generates_typed_view() {
     assert!(content.contains("protected abstract fun entryPrice(index: Int): Component"));
     assert!(content.contains("protected abstract fun onEntry(click: IndexedClick)"));
     assert!(content.contains("slot(\"balance\") { balance() }"));
-    assert!(content.contains("slot(\"entry_price_0\") { entryPrice(0) }"));
-    assert!(content.contains("button(\"entry_0\") { click ->"));
-    assert!(content.contains("IndexedClick(click.slot, 0, click.shift, click.right)"));
+    assert!(content.contains("for (index in 0 until 2) {"));
+    assert!(content.contains("slot(\"entry_price_$index\") { entryPrice(index) }"));
+    assert!(content.contains("button(\"entry_$index\") { click ->"));
+    assert!(content.contains("IndexedClick(click.slot, index, click.shift, click.right)"));
     assert!(content.contains("item(\"egg_info\") { eggInfoItem() }"));
     // A repeater cell item is exposed as one grouped indexed member, not as
     // per-cell members, and the flattened per-cell names are bound for it.
     assert!(content.contains("protected abstract fun entryIconItem(index: Int): ItemStack?"));
-    assert!(content.contains("item(\"entry_icon_0\") { entryIconItem(0) }"));
-    assert!(content.contains("item(\"entry_icon_1\") { entryIconItem(1) }"));
+    assert!(content.contains("item(\"entry_icon_$index\") { entryIconItem(index) }"));
     assert!(!content.contains("entryIcon0"));
     assert!(content.contains("collection(\"entries\", ::entriesItem, ::onEntries)"));
     assert!(content.contains("protected open fun entriesSelected(): Int? = null"));
@@ -198,6 +199,7 @@ fn status_hud() -> HudEntry {
         slots: BTreeMap::from([("coins".into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
         shader: None,
         switches: BTreeMap::new(),
+        indexed: BTreeMap::new(),
     }
 }
 
@@ -316,6 +318,40 @@ fn switches_bind_typed_enums_and_booleans() {
 }
 
 #[test]
+fn indexed_families_bind_one_member_in_loops() {
+    let case = |value: &str| SwitchCaseEntry {
+        value: value.into(),
+        static_text: String::new(),
+        slots: vec![],
+        sprite_slots: vec![],
+    };
+    let mut hud = status_hud();
+    for i in 0..3 {
+        hud.slots.insert(format!("power[{i}]"), slot(0, 0, 9, Align::Left, "window:y0", "#ffffff", None));
+    }
+    for (i, j) in [(0, 0), (0, 1), (1, 0), (1, 1)] {
+        hud.switches.insert(format!("cell[{i}][{j}]"), SwitchEntry { cases: vec![case("off"), case("on")] });
+    }
+    hud.indexed = BTreeMap::from([
+        ("power".into(), IndexedBinding { kind: IndexedKind::Slot, shape: vec![3] }),
+        ("cell".into(), IndexedBinding { kind: IndexedKind::Switch, shape: vec![2, 2] }),
+    ]);
+    let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
+
+    let files = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
+    let view = file_contents(&files, "StatusHud.kt");
+    assert!(view.contains("protected abstract fun power(index: Int): Component"), "{view}");
+    assert!(
+        view.contains("for (index in 0 until 3) {\n            slot(\"power[$index]\") { power(index) }"),
+        "{view}"
+    );
+    assert!(view.contains("public enum class Cell(public val value: String) {"), "{view}");
+    assert!(view.contains("protected abstract fun cell(row: Int, column: Int): Cell"), "{view}");
+    assert!(view.contains("switch(\"cell[$row][$column]\") { cell(row, column).value }"), "{view}");
+    assert!(!view.contains("power0") && !view.contains("cell00"), "{view}");
+}
+
+#[test]
 fn generates_typed_anvil_input_binding() {
     let mut search = window("anvil", [176, 166], [60, 6]);
     search.inputs = BTreeMap::from([(
@@ -338,6 +374,7 @@ fn hud_lifecycle_members_are_reserved() {
         slots: BTreeMap::from([("on_show".into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
         shader: None,
         switches: BTreeMap::new(),
+        indexed: BTreeMap::new(),
     };
     let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
 
@@ -354,6 +391,7 @@ fn hud_slots_cannot_shadow_hud_view_members() {
             slots: BTreeMap::from([(name.into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
             shader: None,
             switches: BTreeMap::new(),
+            indexed: BTreeMap::new(),
         };
         let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
 

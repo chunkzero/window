@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
-use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, HudChannel, HudShader, Rgb};
+use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, HudChannel, HudShader, IndexedBinding, Rgb};
 use crate::surface::ContainerKind;
 
 mod flex;
@@ -83,6 +83,8 @@ pub struct Window {
     /// The root element (the `window` node's single child in practice, but
     /// any number of children is allowed — they are laid out like a panel's).
     pub children: Vec<Element>,
+    /// Indexed binding families by name; their elements carry the flattened names.
+    pub indexed: BTreeMap<String, IndexedBinding>,
 }
 
 /// One authored HUD.
@@ -103,6 +105,8 @@ pub struct Hud {
     /// The root elements. HUDs share the same visual primitives as windows, but
     /// button and hotspot elements are rejected during layout.
     pub children: Vec<Element>,
+    /// Indexed binding families by name; their elements carry the flattened names.
+    pub indexed: BTreeMap<String, IndexedBinding>,
 }
 
 /// Cross-axis alignment for `row`/`column` children.

@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::inventory::{InventorySlotArea, InventorySlotRef};
-use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip};
+use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, IndexedBinding};
 use crate::{Error, Result};
 
 mod hud;
@@ -99,6 +99,10 @@ pub struct WindowEntry {
     /// Runtime-selected visual cases by binding name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub switches: BTreeMap<String, SwitchEntry>,
+    /// Indexed binding families by name. Their flattened entries appear under their own names in `slots`,
+    /// `sprite_slots`, and `switches`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub indexed: BTreeMap<String, IndexedBinding>,
 }
 
 /// Visual cases of which the runtime draws only the one its binding names.

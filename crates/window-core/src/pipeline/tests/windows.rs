@@ -3,6 +3,22 @@ use crate::inventory::{InventorySlotRef, SlotRectClaim};
 use crate::ir::SlotRectIr;
 
 #[test]
+fn indexed_switch_art_uses_valid_resource_paths() {
+    let project = r##"{
+      "theme":{"sprites":{"dot":{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0,"width":4,"height":4}}},
+      "windows":[{"name":"shop","container":"generic_9x3","children":[
+        {"type":"switch","name":"lamp","index":0,"x":8,"y":20,"children":[
+            {"type":"case","value":"on","children":[{"type":"sprite","name":"dot"}]}
+        ]}
+      ]}]
+    }"##;
+    let input = crate::pipeline::CompileInput::new(std::collections::BTreeMap::new());
+    let out = crate::pipeline::compile_project_json(project.as_bytes(), &input).unwrap();
+    let paths: Vec<&str> = out.files.iter().map(|file| file.path.as_str()).collect();
+    assert!(paths.iter().any(|path| path.contains("_switch/lamp-0/on")), "{paths:?}");
+}
+
+#[test]
 fn emits_expected_paths() {
     let (w, textures) = sample_window();
     let out = compile_windows(&[w], &textures, "window").unwrap();

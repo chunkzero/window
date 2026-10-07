@@ -1,7 +1,7 @@
 use super::project_from_json;
 use crate::geometry::{Insets, Size};
 use crate::inventory::InventorySlotRef;
-use crate::ir::{HudChannel, Rgb};
+use crate::ir::{HudChannel, IndexedBinding, IndexedKind, Rgb};
 use crate::model::{Element, Frame, SpriteDef};
 
 const PROJECT_JSON: &[u8] = br##"{
@@ -373,5 +373,54 @@ fn rejects_invalid_flex_numeric_styles() {
         });
         let err = project_from_json(json.to_string().as_bytes()).unwrap_err();
         assert!(err.to_string().contains("must be"), "{err}");
+    }
+}
+
+#[test]
+fn flattens_indexed_bindings() {
+    let window = |children: &str| {
+        format!(r#"{{"windows":[{{"name":"card","container":"generic_9x3","children":[{children}]}}]}}"#)
+    };
+    let cell = |i: u32, j: u32| format!(r#"{{"type":"slot","name":"hole","index":[{i},{j}],"width":8}}"#);
+    let cells: Vec<String> = (0..2).flat_map(|i| (0..3).map(move |j| cell(i, j))).collect();
+    let project = project_from_json(window(&cells.join(",")).as_bytes()).unwrap();
+    let card = &project.windows[0];
+    assert_eq!(card.indexed["hole"], IndexedBinding { kind: IndexedKind::Slot, shape: vec![2, 3] });
+    let Element::Slot { name, .. } = &card.children[5] else {
+        panic!("expected slot");
+    };
+    assert_eq!(name, "hole[1][2]");
+    let lamp = |i: u32| {
+        format!(
+            r#"{{"type":"switch","name":"lamp","index":{i},"children":[{{"type":"case","value":"on","children":[]}}]}}"#
+        )
+    };
+    let project = project_from_json(window(&format!("{},{}", lamp(0), lamp(1))).as_bytes()).unwrap();
+    let Element::Switch(switch) = &project.windows[0].children[1] else {
+        panic!("expected switch");
+    };
+    assert_eq!(switch.name, "lamp[1]");
+
+    let cases = [
+        (cells[..5].join(","), "indexed binding `hole` is missing index [1, 2]"),
+        (
+            format!(r#"{},{{"type":"sprite_slot","name":"hole","index":[0,0],"width":8,"height":8}}"#, cell(0, 1)),
+            "indexed binding `hole` mixes element kinds",
+        ),
+        (
+            r#"{"type":"repeater","name":"row","pattern":{"kind":"grid","area":"container","x":0,"y":0,"columns":2,"rows":1},
+                "children":[{"type":"slot","name":"hole","index":[0],"width":8}]}"#
+                .to_string(),
+            "indexed binding `hole` is inside repeater `row`",
+        ),
+        (
+            r#"{"type":"sprite_slot","name":"dot","index":0,"width":8,"height":8,"sprite":"coin"}"#.to_string(),
+            "indexed binding `dot` sets a fixed `sprite`",
+        ),
+        (r#"{"type":"slot","name":"hole","index":4294967295,"width":8}"#.to_string(), "too large to cover"),
+    ];
+    for (children, message) in cases {
+        let err = project_from_json(window(&children).as_bytes()).unwrap_err();
+        assert!(err.to_string().contains(message), "{err}");
     }
 }

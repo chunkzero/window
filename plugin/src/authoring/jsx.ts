@@ -3,6 +3,7 @@ import type { Child as JsxChild } from "#rpp/jsx";
 import { hud, ui } from "./elements.ts";
 import type {
     AutoLength,
+    BindingIndex,
     ButtonDefault,
     CaseElement,
     ContainerKind,
@@ -106,6 +107,8 @@ export interface BoxProps extends ItemProps {
 export interface TextElementProps extends TextProps, ItemProps {
     /** Dynamic text slot name. Without it, the children are static label text. */
     bind?: string;
+    /** Places the bound slot in an indexed binding family. */
+    index?: BindingIndex;
     /** Fixed width; dynamic text without one grows to fill its box. */
     width?: number;
     x?: number;
@@ -122,6 +125,8 @@ export interface SpriteProps extends ItemProps {
 export interface IconProps extends ItemProps {
     /** Runtime sprite slot name. */
     bind: string;
+    /** Places the sprite slot in an indexed binding family. */
+    index?: BindingIndex;
     /** Slot size in pixels; a number is square. */
     size: number | [number, number];
     /** Fixed theme sprite; the slot then needs no Kotlin binding. */
@@ -197,6 +202,8 @@ export interface CaseProps extends CaseBoxProps {
 export interface SwitchProps extends ItemProps {
     /** Binding name of the active case value. */
     bind: string;
+    /** Places the switch in an indexed binding family; every entry must have the same case values. */
+    index?: BindingIndex;
     x?: number;
     y?: number;
     text?: TextProps;
@@ -207,6 +214,8 @@ export interface SwitchProps extends ItemProps {
 export interface ShowProps extends ItemProps, CaseBoxProps {
     /** Boolean binding name. */
     when: string;
+    /** Places the switch in an indexed binding family. */
+    index?: BindingIndex;
     x?: number;
     y?: number;
 }
@@ -567,7 +576,10 @@ export function Text(props: TextElementProps): Element {
     const common = clean({ width: props.width, x: props.x, y: props.y, ...style, ...layout(props) });
     if (props.bind !== undefined) {
         requireName(props.bind, "Text bind");
-        return { type: "slot", name: props.bind, ...common } as Element;
+        return clean({ type: "slot", name: props.bind, index: props.index, ...common }) as Element;
+    }
+    if (props.index !== undefined) {
+        throw new Error("<Text index> requires `bind`");
     }
     const value = text(props.children);
     if (value === "") {
@@ -589,6 +601,7 @@ export function Icon(props: IconProps): Element {
     return clean({
         type: "sprite_slot",
         name: props.bind,
+        index: props.index,
         width,
         height,
         sprite: props.sprite,
@@ -726,7 +739,15 @@ export function Switch(props: SwitchProps): Element {
         }
         return node;
     });
-    const node = clean({ type: "switch", name: props.bind, x: props.x, y: props.y, children: cases, ...layout(props) });
+    const node = clean({
+        type: "switch",
+        name: props.bind,
+        index: props.index,
+        x: props.x,
+        y: props.y,
+        children: cases,
+        ...layout(props),
+    });
     return cascade(node as Element, props.text);
 }
 
@@ -734,7 +755,7 @@ export function Switch(props: SwitchProps): Element {
 export function Show(props: ShowProps): Element {
     requireName(props.when, "Show when");
     const box = Object.fromEntries(
-        Object.entries(props).filter(([key]) => !ITEM_KEYS.includes(key) && !["when", "x", "y"].includes(key)),
+        Object.entries(props).filter(([key]) => !ITEM_KEYS.includes(key) && !["when", "index", "x", "y"].includes(key)),
     ) as CaseBoxProps;
     const { text: _text, children: _children, ...placement } = props;
     return Switch({

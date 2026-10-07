@@ -1,4 +1,4 @@
-import { Hud, Row, Sprite, Text } from "#plugins/window";
+import { Case, Hud, Row, Sprite, Switch, Text } from "#plugins/window";
 import type { TextProps } from "#plugins/window";
 
 const text: TextProps = { shadow: true, smallCaps: true, color: "#ffffff" };
@@ -64,8 +64,20 @@ export default (
             <Text bind="stock" width={80} color={soft} />
         </Hud>
 
-        <Hud name="status_bottom_center" anchor="bottom" offset={[0, -72]} text={text}>
+        <Hud name="status_bottom_center" anchor="bottom" offset={[0, -72]} gap={2} align="center" text={text}>
             <Text bind="hint" width={160} align="center" color={soft} />
+            <Row gap={1}>
+                {Array.from({ length: 10 }, (_, i) => (
+                    <Switch bind="wave_progress" index={i}>
+                        <Case value="true">
+                            <Sprite name="lamp_on" />
+                        </Case>
+                        <Case value="false">
+                            <Sprite name="lamp_off" />
+                        </Case>
+                    </Switch>
+                ))}
+            </Row>
         </Hud>
     </>
 );

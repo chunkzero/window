@@ -44,6 +44,19 @@ test("Show is a true/false switch whose box props style the shown case", () => {
     assert.deepEqual(hidden, { type: "case", value: "false", style: { direction: "column" }, children: [] });
 });
 
+test("bindings carry their index into indexed families", () => {
+    assert.deepEqual(Text({ bind: "hole", index: [1, 2], width: 8 }), {
+        type: "slot",
+        name: "hole",
+        index: [1, 2],
+        width: 8,
+    });
+    const show = Show({ when: "lit", index: 3, children: Text({ children: "On" }) });
+    assert.ok(show.type === "switch");
+    assert.equal(show.index, 3);
+    assert.throws(() => Text({ index: 0, children: "Static" }), /requires `bind`/);
+});
+
 test("cases belong directly inside a switch", () => {
     assert.throws(() => Box({ children: Case({ value: "buy" }) }), /<Case> inside <Switch>/);
     assert.throws(() => Switch({ bind: "mode", children: "Buy" }), /children must be <Case>/);

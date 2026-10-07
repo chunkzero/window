@@ -224,6 +224,36 @@ pub struct SlotIr {
     pub repeat: Option<RepeatBindingIr>,
 }
 
+/// The kind of binding an [`IndexedBinding`] family flattens.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IndexedKind {
+    /// Dynamic text slots.
+    Slot,
+    /// Runtime sprite slots.
+    SpriteSlot,
+    /// Switches.
+    Switch,
+}
+
+/// A binding authored with an `index`, flattened to one entry named `{name}_{i}` (one dimension) or
+/// `{name}_{i}_{j}` (two dimensions) per index. Every index within `shape` is present.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IndexedBinding {
+    /// What each flattened entry is.
+    pub kind: IndexedKind,
+    /// Extent of each index dimension: one or two values.
+    pub shape: Vec<u32>,
+}
+
+impl IndexedBinding {
+    /// The flattened entry name of `family` at `index`, such as `power[3]` or `strokes[2][4]`. Authored names
+    /// cannot contain brackets, so entry names never collide with them.
+    pub fn entry_name(family: &str, index: &[u32]) -> String {
+        index.iter().fold(family.to_string(), |name, i| format!("{name}[{i}]"))
+    }
+}
+
 /// A runtime-positioned sprite region.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SpriteSlotIr {
@@ -382,6 +412,8 @@ pub struct LaidOutWindow {
     pub slot_rects: Vec<SlotRectIr>,
     /// Runtime-selected visual cases, document order.
     pub switches: Vec<SwitchIr>,
+    /// Indexed binding families by name.
+    pub indexed: BTreeMap<String, IndexedBinding>,
     /// Non-fatal findings to surface to the user (e.g. overlay overflow).
     pub warnings: Vec<String>,
 }
@@ -407,6 +439,8 @@ pub struct LaidOutHud {
     pub slots: Vec<SlotIr>,
     /// Runtime-selected visual cases, document order.
     pub switches: Vec<SwitchIr>,
+    /// Indexed binding families by name.
+    pub indexed: BTreeMap<String, IndexedBinding>,
     /// Non-fatal findings to surface to the user.
     pub warnings: Vec<String>,
 }

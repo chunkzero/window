@@ -66,6 +66,9 @@ class MyStatusBottomCenterHud(
         val remaining = WAVE_MILLIS - (System.currentTimeMillis() - startedAt) % WAVE_MILLIS
         return Component.text("Next wave in ${(remaining + 999) / 1000}s")
     }
+
+    override fun waveProgress(index: Int): Boolean =
+        (System.currentTimeMillis() - startedAt) % WAVE_MILLIS * 10 / WAVE_MILLIS >= index
 }
 
 private const val WAVE_MILLIS = 10_000L

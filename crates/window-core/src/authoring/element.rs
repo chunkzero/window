@@ -1,5 +1,6 @@
 mod build;
 mod fields;
+mod indexed;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -13,11 +14,14 @@ use super::patterns::{SlotPatternDto, SlotRectPatternDto, SlotRefDto};
 use crate::model::{Element, LayoutChild};
 use crate::{Error, Result};
 
+pub(super) use indexed::flatten_indexed;
+
 #[derive(Debug)]
 pub(super) struct ElementDto {
     fields: BTreeSet<String>,
     kind: String,
     name: Option<String>,
+    index: Option<Vec<u32>>,
     frame: Option<String>,
     text: Option<String>,
     value: Option<String>,
@@ -58,11 +62,20 @@ pub(super) struct ElementDto {
     children: Vec<ElementDto>,
 }
 
+/// An indexed binding's `index`: one number, or one number per dimension.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum IndexDto {
+    One(u32),
+    Many(Vec<u32>),
+}
+
 #[derive(Debug, Deserialize)]
 struct ElementShapeDto {
     #[serde(rename = "type")]
     kind: String,
     name: Option<String>,
+    index: Option<IndexDto>,
     frame: Option<String>,
     text: Option<String>,
     value: Option<String>,
@@ -134,6 +147,10 @@ impl ElementDto {
             fields,
             kind: shape.kind,
             name: shape.name,
+            index: shape.index.map(|index| match index {
+                IndexDto::One(index) => vec![index],
+                IndexDto::Many(index) => index,
+            }),
             frame: shape.frame,
             text: shape.text,
             value: shape.value,

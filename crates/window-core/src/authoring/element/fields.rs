@@ -13,7 +13,7 @@ use crate::{Error, Result, text_font};
 const PANEL_FIELDS: &[&str] = &["type", "frame", "width", "height", "x", "y", "padding", "children"];
 const STACK_FIELDS: &[&str] = &["type", "x", "y", "gap", "padding", "align", "children"];
 const SPRITE_FIELDS: &[&str] = &["type", "name", "x", "y"];
-const SPRITE_SLOT_FIELDS: &[&str] = &["type", "name", "x", "y", "width", "height", "align", "sprite"];
+const SPRITE_SLOT_FIELDS: &[&str] = &["type", "name", "index", "x", "y", "width", "height", "align", "sprite"];
 const BUTTON_FIELDS: &[&str] = &[
     "type",
     "name",
@@ -57,12 +57,13 @@ const LABEL_FIELDS: &[&str] = &[
     "small_caps",
 ];
 const FLEX_FIELDS: &[&str] = &["type", "x", "y", "frame", "style", "children"];
-const SWITCH_FIELDS: &[&str] = &["type", "name", "x", "y", "children"];
+const SWITCH_FIELDS: &[&str] = &["type", "name", "index", "x", "y", "children"];
 const CASE_FIELDS: &[&str] = &["type", "value", "frame", "style", "children"];
 const SECTION_FIELDS: &[&str] = &["type", "section", "frame", "outset", "claim", "flow", "children"];
 const SLOT_FIELDS: &[&str] = &[
     "type",
     "name",
+    "index",
     "width",
     "x",
     "y",

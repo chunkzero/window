@@ -195,7 +195,7 @@ export function spriteSlot(name: string, opts: SpriteSlotOptions): SpriteSlotEle
         ...element(
             "sprite_slot",
             opts,
-            ["x", "y", "width", "height", "align", "sprite", "layout"],
+            ["x", "y", "width", "height", "align", "sprite", "layout", "index"],
             ["width", "height"],
         ),
         name,
@@ -325,7 +325,7 @@ export function label(text: string, opts?: LabelOptions): LabelElement {
 
 export function slot(name: string, opts?: SlotOptions): SlotElement {
     requireName(name, "slot name");
-    return { ...element("slot", opts, TEXT_KEYS), name } as unknown as SlotElement;
+    return { ...element("slot", opts, [...TEXT_KEYS, "index"]), name } as unknown as SlotElement;
 }
 
 function switchCase(name: string, value: string, opts: CaseOptions): CaseElement {
@@ -347,11 +347,11 @@ export function switchOn(name: string, cases: Record<string, CaseOptions>, opts?
     if (children.length === 0) {
         throw new Error(`switchOn \`${name}\` requires at least one case`);
     }
-    return { ...element("switch", opts, ["x", "y", "layout"]), name, children } as unknown as SwitchElement;
+    return { ...element("switch", opts, ["x", "y", "layout", "index"]), name, children } as unknown as SwitchElement;
 }
 
 /** Draw `opts.children` only while the Boolean binding `when` is true; their space is always reserved. */
 export function show(when: string, opts: ShowOptions): SwitchElement {
-    const { x, y, layout, ...box } = requireObject(opts, "show options");
-    return switchOn(when, { true: box, false: {} }, { x, y, layout } as SwitchOptions);
+    const { x, y, layout, index, ...box } = requireObject(opts, "show options");
+    return switchOn(when, { true: box, false: {} }, { x, y, layout, index } as SwitchOptions);
 }

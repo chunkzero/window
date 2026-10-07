@@ -30,7 +30,7 @@ impl CompileContext<'_> {
             for (case, comp) in switch.cases.iter().zip(comps) {
                 let static_text = if comp.has_content {
                     let ascent = origin.y + 7 - comp.bounds.y;
-                    let file = format!("{file_base}_switch/{}/{}", switch.name, case.value);
+                    let file = format!("{file_base}_switch/{}/{}", path_segment(&switch.name), case.value);
                     let key = case_key(key_prefix, &switch.name, &case.value);
                     let glyph = self.emit_static_glyph(comp, ascent, owner, &file, key)?;
                     bake::bake_static_with_advance(glyph.glyph, &comp.bounds, origin, glyph.advance)
@@ -48,4 +48,10 @@ impl CompileContext<'_> {
         }
         Ok(entries)
     }
+}
+
+/// `name` as a resource path segment: an indexed entry such as `lamp[2]` becomes `lamp-2`, which no authored name
+/// can collide with.
+fn path_segment(name: &str) -> String {
+    name.replace('[', "-").replace(']', "")
 }

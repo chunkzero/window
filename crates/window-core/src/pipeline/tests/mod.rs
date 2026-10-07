@@ -48,6 +48,7 @@ fn bare_window(name: &str, kind: ContainerKind, draws: Vec<Draw>) -> LaidOutWind
         inputs: vec![],
         slot_rects: vec![],
         switches: vec![],
+        indexed: BTreeMap::new(),
         warnings: vec![],
     }
 }
