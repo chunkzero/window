@@ -16,7 +16,7 @@ mod hud;
 pub use hud::{HudEntry, HudShaderEntry, HudSurfaceEntry};
 
 /// Current compiled definition schema version.
-pub const VERSION: u32 = 5;
+pub const VERSION: u32 = 6;
 
 /// Root compiled pack definition.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -224,6 +224,50 @@ pub struct SlotEntry {
     /// is then keyed `{binding}.{case}`. Absent when the key is the binding name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding: Option<String>,
+    /// How content wider than [`Self::width`] is shortened; absent leaves it untouched.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overflow: Option<TextOverflow>,
+    /// Present when content wraps onto more than one line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lines: Option<SlotLinesEntry>,
+}
+
+impl SlotEntry {
+    /// Height of the slot's box: 8px per line, consecutive lines `line_height` apart.
+    pub fn height(&self) -> u32 {
+        self.lines.as_ref().map_or(8, |lines| (lines.count - 1) * lines.line_height + 8)
+    }
+
+    /// Every font this slot draws with, paired with the offset of the line it draws below [`Self::y`].
+    pub fn fonts(&self) -> Vec<(&str, i32)> {
+        match &self.lines {
+            Some(lines) => (lines.fonts.iter().enumerate())
+                .map(|(s, font)| (font.as_str(), s as i32 * lines.line_height as i32 / 2))
+                .collect(),
+            None => vec![(self.font.as_str(), 0)],
+        }
+    }
+}
+
+/// How a text slot shortens content wider than its width.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TextOverflow {
+    /// Truncate and end with an ellipsis.
+    Ellipsis,
+}
+
+/// The lines a multi-line text slot wraps onto, vertically centered in its box.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SlotLinesEntry {
+    /// Maximum number of lines, at least 2.
+    pub count: u32,
+    /// Distance between the tops of consecutive lines, in pixels.
+    pub line_height: u32,
+    /// Shifted fonts by half-line step: `fonts[s]` draws a line whose top is
+    /// `y + floor(s * line_height / 2)`. With `k` lines used, line `j` uses `s = count - k + 2j`, so the
+    /// table has `2 * count - 1` entries and `fonts[0]` equals the slot's font.
+    pub fonts: Vec<String>,
 }
 
 /// One runtime-renderable sprite.

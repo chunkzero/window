@@ -163,6 +163,33 @@ impl Default for TextStyle {
     }
 }
 
+/// How a dynamic text slot fits runtime content wider than its width.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TextFit {
+    /// Whether overflowing content ends in an ellipsis. Always set when `lines > 1`.
+    pub ellipsis: bool,
+    /// Maximum number of lines the content wraps onto, at least 1.
+    pub lines: u32,
+    /// Distance between the tops of consecutive lines, in pixels.
+    pub line_height: u32,
+}
+
+impl TextFit {
+    /// Vanilla line spacing.
+    pub const DEFAULT_LINE_HEIGHT: u32 = 9;
+
+    /// The height of the slot's box: `lines` lines of 8px text spaced `line_height` apart.
+    pub fn height(self) -> u32 {
+        (self.lines - 1) * self.line_height + 8
+    }
+}
+
+impl Default for TextFit {
+    fn default() -> Self {
+        Self { ellipsis: false, lines: 1, line_height: Self::DEFAULT_LINE_HEIGHT }
+    }
+}
+
 /// An element of the authored tree.
 #[derive(Clone, Debug)]
 pub enum Element {
@@ -357,6 +384,8 @@ pub enum Element {
         pos: Option<Point>,
         /// Styling.
         style: TextStyle,
+        /// Runtime fitting of overflowing content.
+        fit: TextFit,
     },
     /// A taffy flexbox or grid box.
     Flex(Box<FlexBox>),

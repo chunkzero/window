@@ -16,6 +16,8 @@ import net.kyori.adventure.text.format.TextDecoration
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 
+internal fun Style.isBold(): Boolean = decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE
+
 /** Registry of measurable fonts plus component-tree measurement helpers. */
 internal class FontRegistry(
     private val defaultMetrics: FontMetrics,
@@ -53,15 +55,15 @@ internal class FontRegistry(
     ): TextWidth {
         require(component is TextComponent) { unmeasurableMessage(component) }
         val style = component.style().merge(parentStyle, Style.Merge.Strategy.IF_ABSENT_ON_TARGET)
-        val bold = style.decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE
-        var width = metricsFor(style.font()).measureWidths(component.content(), bold)
+        var width = metricsFor(style.font()).measureWidths(component.content(), style.isBold())
         for (child in component.children()) {
             width = width.append(measureComponent(child, style))
         }
         return width
     }
 
-    private fun metricsFor(font: Key?): FontMetrics {
+    /** The metrics of [font], or the default metrics when it is `null` or has none. */
+    fun metricsFor(font: Key?): FontMetrics {
         val id = font?.asString() ?: return defaultMetrics
         val metrics = metricsByFont[id]
         if (metrics != null) return metrics
@@ -95,7 +97,7 @@ internal class FontRegistry(
             return FontRegistry(defaultMetrics, metrics)
         }
 
-        private fun unmeasurableMessage(component: Component): String {
+        fun unmeasurableMessage(component: Component): String {
             val kind =
                 when (component) {
                     is TranslatableComponent -> "translatable"

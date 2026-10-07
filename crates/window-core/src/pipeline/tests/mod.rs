@@ -78,6 +78,7 @@ fn text_slot(name: &str, text: Option<&str>, rect: Rect, align: Align, color: Rg
         font: None,
         repeat: None,
         binding: None,
+        fit: Default::default(),
     }
 }
 

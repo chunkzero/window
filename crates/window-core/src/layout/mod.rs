@@ -13,7 +13,8 @@
 //!   by `gap`, aligning on the cross axis per [`CrossAlign`]. A child with an
 //!   explicit position is taken out of flow and positioned relative to the
 //!   container content origin without consuming flow space.
-//! * `sprite` takes its texture's intrinsic size. `label`/`slot` are 8px tall.
+//! * `sprite` takes its texture's intrinsic size. `label`/`slot` are 8px tall, or a multi-line
+//!   slot `(lines - 1) * line_height + 8`.
 //!
 //! [`CrossAlign`]: crate::model::CrossAlign
 
@@ -366,7 +367,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
                 self.place_sprite_slot(name, Rect::from_parts(origin, *size), *align, sprite.as_deref())
             }
             Element::Label { text, width, style, .. } => self.place_label(text, *width, style, origin),
-            Element::Slot { name, width, style, .. } => self.place_slot(name, *width, style, origin),
+            Element::Slot { name, width, style, fit, .. } => self.place_slot(name, *width, style, *fit, origin),
             Element::Row { gap, padding, align, children, .. } => {
                 self.place_flow(origin, *gap, *padding, *align, children, Axis::Row)
             }

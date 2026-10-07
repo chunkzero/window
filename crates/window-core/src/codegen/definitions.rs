@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::manifest::{HudEntry, Manifest, SwitchEntry, WindowEntry};
+use crate::manifest::{HudEntry, Manifest, SlotEntry, SwitchEntry, WindowEntry};
 use crate::pipeline::OutputFile;
 use crate::{Error, Result};
 
@@ -96,12 +96,14 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (any(&|w| !w.groups.is_empty()), "RepeatGroupEntry"),
         (has_slot_refs, "SlotAreaEntry"),
         (has_slots, "SlotEntry"),
+        (any(&|w| w.slots.values().any(|s| s.lines.is_some())), "SlotLinesEntry"),
         (any(&|w| !w.slot_rects.is_empty()), "SlotRectEntry"),
         (has_slot_refs, "SlotRefEntry"),
         (has_sprite_slots, "SpriteSlotEntry"),
         (true, "SurfaceEntry"),
         (any(&|w| !w.switches.is_empty()), "SwitchCaseEntry"),
         (any(&|w| !w.switches.is_empty()), "SwitchEntry"),
+        (any(&|w| w.slots.values().any(|s| s.overflow.is_some())), "TextOverflow"),
         (has_tooltip, "TooltipEntry"),
         (true, "WindowEntry"),
     ]
@@ -133,14 +135,17 @@ fn with_switches(call: Call, switches: &BTreeMap<String, SwitchEntry>, level: us
 
 pub(super) fn generate_hud_entries(manifest: &Manifest, package_name: &str) -> OutputFile {
     let switches = manifest.huds.values().any(|hud| !hud.switches.is_empty());
+    let any_slot = |test: &dyn Fn(&SlotEntry) -> bool| manifest.huds.values().any(|hud| hud.slots.values().any(test));
     let imports = [
         (true, "Align"),
         (true, "HudEntry"),
         (true, "HudShaderEntry"),
         (true, "HudSurfaceEntry"),
         (true, "SlotEntry"),
+        (any_slot(&|slot| slot.lines.is_some()), "SlotLinesEntry"),
         (switches, "SwitchCaseEntry"),
         (switches, "SwitchEntry"),
+        (any_slot(&|slot| slot.overflow.is_some()), "TextOverflow"),
     ];
     let imports = imports.into_iter().filter(|(used, _)| *used).map(|(_, name)| format!("{MANIFEST_PACKAGE}.{name}"));
     let mut w = KotlinWriter::file(package_name, imports);

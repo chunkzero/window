@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use crate::ir::{ButtonState, ButtonTooltip};
 use crate::manifest::{
     AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry,
-    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRectEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry,
-    SurfaceEntry, SwitchCaseEntry, SwitchEntry,
+    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRectEntry, SlotRefEntry, SpriteEntry,
+    SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry, SwitchEntry, TextOverflow,
 };
 
 use super::literals::{
@@ -66,7 +66,24 @@ pub(super) fn slot_entry_expr(slot: &SlotEntry, level: usize) -> String {
         .arg("text", optional_string_expr(slot.text.as_ref()))
         .arg("shaderMarker", optional_string_expr(slot.shader_marker.as_ref()))
         .arg("shaderColor", optional_string_expr(slot.shader_color.as_ref()));
-    with_binding(call, slot.binding.as_ref()).finish()
+    let call = with_binding(call, slot.binding.as_ref());
+    let call = match slot.overflow {
+        Some(TextOverflow::Ellipsis) => call.arg("overflow", "TextOverflow.ELLIPSIS"),
+        None => call,
+    };
+    match &slot.lines {
+        Some(lines) => call.arg("lines", slot_lines_entry_expr(lines, level + 1)),
+        None => call,
+    }
+    .finish()
+}
+
+fn slot_lines_entry_expr(lines: &SlotLinesEntry, level: usize) -> String {
+    Call::new("SlotLinesEntry", level)
+        .arg("count", lines.count)
+        .arg("lineHeight", lines.line_height)
+        .arg("fonts", string_list_expr(&lines.fonts))
+        .finish()
 }
 
 pub(super) fn sprite_entry_expr(sprite: &SpriteEntry, level: usize) -> String {

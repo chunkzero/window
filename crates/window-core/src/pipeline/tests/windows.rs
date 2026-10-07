@@ -337,3 +337,35 @@ fn switch_cases_bake_their_own_net_zero_glyphs() {
     assert!(!cases[0].static_text.is_empty() && cases[0].static_text != entry.static_text);
     assert_eq!((cases[1].value.as_str(), cases[1].static_text.as_str()), ("sell", ""));
 }
+
+fn compile_children(children: &str) -> crate::Result<CompileOutput> {
+    let project = format!(r#"{{"windows":[{{"name":"shop","container":"generic_9x3","children":{children}}}]}}"#);
+    crate::pipeline::compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new()))
+}
+
+#[test]
+fn multi_line_slots_reserve_their_lines_and_a_font_per_line_position() {
+    let out = compile_children(
+        r#"[{"type":"column","x":8,"y":20,"children":[
+            {"type":"slot","name":"name","width":46,"lines":2,"line_height":7},
+            {"type":"label","text":"Below"}
+        ]}]"#,
+    )
+    .unwrap();
+    crate::validation::validate_compile_output(&out).assert_valid();
+    let slots = &out.manifest.windows["shop"].slots;
+    let name = &slots["name"];
+    assert_eq!((name.y, name.height(), name.font.as_str()), (20, 15, "window:y14"));
+    assert_eq!(name.overflow, Some(crate::manifest::TextOverflow::Ellipsis));
+    let lines = name.lines.as_ref().unwrap();
+    assert_eq!((lines.count, lines.line_height), (2, 7));
+    assert_eq!(lines.fonts, ["window:y14", "window:y17", "window:y21"]);
+    find(&out, "assets/window/font/y17.json");
+    assert_eq!(slots["label_0"].y, 35);
+
+    let err = compile_children(r#"[{"type":"label","text":"Hi","x":8,"y":20,"overflow":"ellipsis"}]"#).unwrap_err();
+    assert!(err.to_string().contains("label element does not accept `overflow`"), "{err}");
+    let err =
+        compile_children(r#"[{"type":"slot","name":"n","width":9,"lines":2,"line_height":4294967295}]"#).unwrap_err();
+    assert!(err.to_string().contains("`lines` span more than 1024 pixels"), "{err}");
+}

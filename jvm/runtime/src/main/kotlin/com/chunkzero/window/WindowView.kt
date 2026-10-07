@@ -3,6 +3,8 @@ package com.chunkzero.window
 import com.chunkzero.window.host.WindowHost
 import com.chunkzero.window.internal.LazyState
 import com.chunkzero.window.internal.Reactivity
+import com.chunkzero.window.internal.bindingSlot
+import net.kyori.adventure.text.Component
 import kotlin.properties.ReadWriteProperty
 
 /**
@@ -126,6 +128,29 @@ public abstract class WindowView<I : Any>(
         tooltip: ButtonTooltip?,
     ) {
         requireSession().setTooltip(name, tooltip)
+    }
+
+    /**
+     * [value] shortened with an ellipsis so that it, followed by [suffix], fits the width of slot [slot] when drawn in
+     * its font and style; followed by [suffix], which is kept even when it alone is wider. Content that already fits is returned unchanged. Use it to keep a
+     * suffix, such as a score, while shortening the text before it.
+     *
+     * [slot] is the slot's authored name, or its flattened entry name such as `name[2]` for an indexed binding. A
+     * binding shared across a switch's cases measures with its copy in the first case that has one.
+     *
+     * @throws IllegalArgumentException if [slot] is not a dynamic text slot of this window.
+     */
+    protected fun fit(
+        slot: String,
+        value: Component,
+        suffix: Component = Component.empty(),
+    ): Component {
+        val entry = definition.entry
+        return definition.composer.fit(
+            entry.slots.bindingSlot(slot, entry.switches, "window", definition.name),
+            value,
+            suffix,
+        )
     }
 
     internal fun attach(

@@ -14,7 +14,7 @@ class ManifestParseTest :
     StringSpec({
         "full sample round-trips into DTOs" {
             val m = WindowManifest.parse(TestManifests.sampleJson)
-            m.version shouldBe 5
+            m.version shouldBe 6
             m.namespace shouldBe "window"
             m.font shouldBe "window:ui"
             m.spacers[983040] shouldBe -1024
@@ -53,10 +53,10 @@ class ManifestParseTest :
         }
 
         "version 2 is rejected" {
-            val json = TestManifests.sampleJson.replaceFirst("\"version\": 5", "\"version\": 2")
+            val json = TestManifests.sampleJson.replaceFirst("\"version\": 6", "\"version\": 2")
             val ex = shouldThrow<IllegalArgumentException> { WindowManifest.parse(json) }
             ex.message shouldBe
-                "Unsupported Window definition version 2; this runtime only supports version 5"
+                "Unsupported Window definition version 2; this runtime only supports version 6"
         }
 
         "unknown keys are ignored" {

@@ -456,9 +456,21 @@ export interface TextOptions extends TextStyleOptions, FlexItemOptions {
     y?: number;
 }
 export type LabelOptions = TextOptions;
+/** How a bound text slot shortens content wider than its width: `"ellipsis"` truncates it and appends "…". */
+export type TextOverflow = "ellipsis";
+
 export interface SlotOptions extends TextOptions {
     /** Places this slot in an indexed binding family. */
     index?: BindingIndex;
+    /** Shortens content wider than the slot at runtime. */
+    overflow?: TextOverflow;
+    /**
+     * Wraps content at spaces onto at most this many lines, ellipsizing the last; at least 1. The slot is
+     * `(lines - 1) * line_height + 8` pixels tall, and the used lines are vertically centered in it.
+     */
+    lines?: number;
+    /** Distance between the tops of consecutive lines in pixels; defaults to 9, the vanilla line spacing. */
+    line_height?: number;
 }
 
 export interface PanelElement extends PanelOptions {

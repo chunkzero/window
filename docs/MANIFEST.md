@@ -1,4 +1,4 @@
-# Compiled Window Pack Definition — schema v5
+# Compiled Window Pack Definition — schema v6
 
 The compiled definition is the typed contract between the rpp plugin and the server runtime/codegen. The rpp plugin now
 emits Kotlin sources that instantiate this schema directly (`WindowPackData`, `WindowFonts`, and friends are `internal`;
@@ -17,7 +17,7 @@ characters inside JSON strings, except in `spacers` where they are integers for 
 
 ```jsonc
 {
-  "version": 5,
+  "version": 6,
   "namespace": "window",
   "font": "window:ui", // font id of the main (static + spacer) font
 
@@ -95,6 +95,19 @@ characters inside JSON strings, except in `spacers` where they are integers for 
           "underlined": false,
           "strikethrough": false,
           "obfuscated": false,
+          "overflow": "ellipsis", // optional: shorten content wider than `width`
+        },
+        "holder": {
+          "x": 8,
+          "y": 20, // top of the slot's box, (count - 1) * line_height + 8 px tall
+          "width": 46,
+          "align": "center",
+          "font": "window:y14",
+          "color": "#ffffff",
+          "shadow": false,
+          "overflow": "ellipsis",
+          // Optional: wrap onto at most `count` lines. fonts[s] draws a line at y + floor(s * line_height / 2).
+          "lines": { "count": 2, "line_height": 7, "fonts": ["window:y14", "window:y17", "window:y21"] },
         },
         "buy_label": {
           "x": 58,
@@ -343,6 +356,13 @@ Notes:
   values are exactly `true` and `false`, otherwise an enum of the values.
 - A slot or sprite slot with `binding` is one case's copy of a binding shared across a switch's cases. It is keyed
   `{binding}.{case}`, and binding the name `binding` binds every copy.
+- `slots.*.overflow` and `slots.*.lines` appear only on dynamic slots. With `overflow: "ellipsis"`, runtimes truncate
+  rendered content whose visible width exceeds `width` and append "…", or "..." when the slot's font metrics have no
+  advance for "…", keeping the styling of the kept text. With `lines`, runtimes wrap content at spaces onto at most
+  `count` lines, ellipsizing a word wider than `width` and the last line when text is left over (`overflow` is then
+  always set). When `k` lines are used, line `j` (0-based) draws in `fonts[count - k + 2j]`, whose top is
+  `y + floor((count - k + 2j) * line_height / 2)`, which centers the used lines in the box. `fonts` has `2 * count - 1`
+  entries and `fonts[0]` equals `font`.
 - `tooltip` may be absent, or an object with `title` and optional `lines`. Authoring accepts a string shorthand, but the
   compiled definition always uses the object form.
 - `states` maps author-chosen names to runtime-selectable inventory item states. `item_model` is optional; when omitted,

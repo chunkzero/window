@@ -41,27 +41,40 @@ internal class HudComposer(
     ): RenderedSegment? {
         val color = requireColor(slot.shaderMarker ?: slot.shaderColor ?: slot.color)
         val shadowColor = slotShadowColor(color)
-        val styled = content.applyFallbackStyle(slotStyle(slot, color, shadowColor))
-        val renderable =
-            if (shaderHud) forceColor(styled, color, slot.shadow, shadowColor) else styled
-        val widths = fonts.measure(renderable, slot.font)
-        if (widths.advance == 0 && widths.visual == 0) return null
-        val xStart = fonts.originFor(slot.align, slot.x, slot.width, widths.visual)
+        val lines =
+            fonts.slotLines(slot, content, slotStyle(slot, color, shadowColor)).map { line ->
+                if (shaderHud) {
+                    SlotLine(
+                        forceColor(line.component, color, slot.shadow, shadowColor),
+                        line.font,
+                        line.y,
+                    )
+                } else {
+                    line
+                }
+            }
+        val placed = fonts.placeLines(slot, lines, ::spacer) ?: return null
         return RenderedSegment(
-            component = renderable,
+            component = placed.component,
             trace =
                 textSlotTrace(
                     semanticId = semanticId,
                     kind = RenderLayerKind.HUD_TEXT,
                     slot = slot,
-                    styled = renderable,
+                    styled = lines.first().component,
                     colorHex = color.asHexString(),
-                    xStart = xStart,
-                    widths = widths,
+                    placed = placed,
                     cursor = 0,
                 ),
         )
     }
+
+    /** [value] shortened with an ellipsis so that it, followed by [suffix], fits [slot]; followed by [suffix]. */
+    fun fit(
+        slot: SlotEntry,
+        value: Component,
+        suffix: Component,
+    ): Component = fonts.fitText(value, suffix, slotStyle(slot, requireColor(slot.color)), slot.width)
 
     /**
      * Appends already-rendered slot segments after the static segment, ordered left to right. Each
@@ -102,7 +115,7 @@ internal class HudComposer(
     ) {
         for ((_, rendered) in ordered) {
             val trace = rendered.trace
-            val xStart = trace.expectedBounds.x
+            val xStart = trace.contentCursorStart
             parts.addSpacer(xStart)
             parts += rendered.component
             parts.addSpacer(-(xStart + trace.advance))
@@ -120,9 +133,9 @@ internal class HudComposer(
         for ((_, rendered) in ordered) {
             val trace = rendered.trace
             val start = cursor
-            parts.addSpacer(trace.expectedBounds.x - cursor)
+            parts.addSpacer(trace.contentCursorStart - cursor)
             parts += rendered.component
-            cursor = trace.expectedBounds.x + trace.advance
+            cursor = trace.contentCursorEnd
             traces += trace.copy(cursorStart = start, cursorEnd = cursor, netCursorDelta = cursor - start)
         }
         parts.addSpacer(originX - cursor)
@@ -160,9 +173,11 @@ internal class HudComposer(
         )
 
     private fun MutableList<Component>.addSpacer(offset: Int) {
-        val text = spacers.compose(offset)
-        if (text.isNotEmpty()) add(Component.text(text).style(spacerStyle))
+        spacer(offset)?.let(::add)
     }
+
+    private fun spacer(offset: Int): Component? =
+        spacers.compose(offset).takeIf { it.isNotEmpty() }?.let { Component.text(it).style(spacerStyle) }
 
     private fun forceColor(
         component: Component,
