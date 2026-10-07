@@ -4,6 +4,7 @@ import com.chunkzero.window.Click
 import com.chunkzero.window.IndexedClick
 import com.chunkzero.window.WindowPager
 import com.chunkzero.window.example.generated.ShopView
+import com.chunkzero.window.example.generated.WindowSprite
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
@@ -55,9 +56,9 @@ class MyShop(
 
     override fun sortNameLabel(): Component = tabLabel("Name", sort == CatalogSort.NAME)
 
-    override fun favoritesLampSprite(): String = lamp(favoritesOnly)
+    override fun favoritesLampSprite(): WindowSprite = lamp(favoritesOnly)
 
-    override fun affordableLampSprite(): String = lamp(affordableOnly)
+    override fun affordableLampSprite(): WindowSprite = lamp(affordableOnly)
 
     override fun previousLabel(): Component = actionLabel("Prev", pager.canPrevious(offset))
 
@@ -261,7 +262,7 @@ class MyShop(
         enabled: Boolean,
     ): Component = if (enabled) Component.text(label, NamedTextColor.WHITE) else Component.text(label, DISABLED_TEXT)
 
-    private fun lamp(on: Boolean): String = if (on) "lamp_on" else "lamp_off"
+    private fun lamp(on: Boolean): WindowSprite = if (on) WindowSprite.LAMP_ON else WindowSprite.LAMP_OFF
 
     private fun selectedState(selected: Boolean): String = if (selected) "selected" else "unselected"
 

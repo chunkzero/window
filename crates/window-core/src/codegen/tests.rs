@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use crate::ir::{Align, ButtonDefault, IndexedBinding, IndexedKind};
 use crate::manifest::{
     AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudEntry, HudSurfaceEntry, ItemEntry, Manifest,
-    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry,
-    SwitchEntry, VERSION, WindowEntry,
+    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry,
+    SwitchCaseEntry, SwitchEntry, VERSION, WindowEntry,
 };
 use crate::pipeline::OutputFile;
 
@@ -255,8 +255,9 @@ fn only_views_huds_and_definitions_are_public() {
     let files = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
     for file in &files {
         let contents = std::str::from_utf8(file.contents.as_bytes()).unwrap();
-        let public =
-            ["View.kt", "Hud.kt", "Definitions.kt", "WindowColors.kt"].iter().any(|suffix| file.path.ends_with(suffix));
+        let public = ["View.kt", "Hud.kt", "Definitions.kt", "WindowColors.kt", "WindowSprite.kt"]
+            .iter()
+            .any(|suffix| file.path.ends_with(suffix));
         assert_eq!(contents.contains("public "), public, "{}", file.path);
     }
     let windows = file_contents(&files, "WindowDefinitions.kt");
@@ -398,6 +399,48 @@ fn bindings_shared_across_switch_cases_bind_one_member() {
     assert_eq!(view.matches("protected abstract fun status(): Component").count(), 1, "{view}");
     assert_eq!(view.matches("slot(\"status\") { status() }").count(), 1, "{view}");
     assert!(file_contents(&files, "WindowHudEntries.kt").contains("binding = \"status\","));
+}
+
+#[test]
+fn sprite_slots_return_typed_runtime_sprites() {
+    let mut shop = window("generic_9x3", [176, 166], [8, 6]);
+    shop.sprite_slots = BTreeMap::from([(
+        "badge".into(),
+        SpriteSlotEntry {
+            x: 0,
+            y: 0,
+            width: 8,
+            height: 8,
+            align: Align::Left,
+            font: "window:sprite_y0".into(),
+            sprite: None,
+            binding: None,
+        },
+    )]);
+    let mut manifest = manifest(BTreeMap::from([("shop".into(), shop)]), BTreeMap::new());
+    let sprite = SpriteEntry { width: 8, height: 8, x_offset: 0, glyph_width: 8, advance: 9, glyph: "\u{e000}".into() };
+    manifest.sprites = BTreeMap::from([("card_empty".into(), sprite)]);
+
+    let files = generate_kotlin(&manifest, "golden", KotlinTarget::Agnostic).unwrap();
+    let sprites = file_contents(&files, "WindowSprite.kt");
+    assert!(
+        sprites.contains("public enum class WindowSprite(public val id: String) {\n    CARD_EMPTY(\"card_empty\"),")
+    );
+    let view = file_contents(&files, "ShopView.kt");
+    assert!(view.contains("protected abstract fun badgeSprite(): WindowSprite?"), "{view}");
+    assert!(view.contains("sprite(\"badge\") { badgeSprite()?.id }"), "{view}");
+
+    let mut shadowed = manifest.clone();
+    let shop = shadowed.windows.get_mut("shop").unwrap();
+    let case = |value: &str| SwitchCaseEntry {
+        value: value.into(),
+        static_text: String::new(),
+        slots: vec![],
+        sprite_slots: vec![],
+    };
+    shop.switches = BTreeMap::from([("window_sprite".into(), SwitchEntry { cases: vec![case("a"), case("b")] })]);
+    let err = generate_kotlin(&shadowed, "golden", KotlinTarget::Agnostic).unwrap_err();
+    assert!(err.to_string().contains("reserved WindowView member `WindowSprite`"), "{err}");
 }
 
 #[test]
