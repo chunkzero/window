@@ -7,10 +7,10 @@ import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_left_side` HUD. Implement the abstract members. */
 public abstract class StatusLeftSideHud : HudView(WindowHudDefinitions.statusLeftSide) {
-    /** Render the `altitude` slot. */
+    /** Render the `altitude` text. */
     protected abstract fun altitude(): Component
 
-    /** Render the `coords` slot. */
+    /** Render the `coords` text. */
     protected abstract fun coords(): Component
 
     final override fun HudScope.bind() {

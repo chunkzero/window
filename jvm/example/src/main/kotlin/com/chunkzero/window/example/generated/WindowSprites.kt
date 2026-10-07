@@ -7,14 +7,6 @@ import com.chunkzero.window.manifest.SpriteEntry
 internal object WindowSprites {
     val all: Map<String, SpriteEntry> =
         mapOf(
-            "action" to SpriteEntry(
-                width = 52,
-                height = 16,
-                xOffset = 0,
-                glyphWidth = 52,
-                advance = 53,
-                glyph = "\uE84D",
-            ),
             "action_disabled" to SpriteEntry(
                 width = 52,
                 height = 16,
@@ -23,14 +15,6 @@ internal object WindowSprites {
                 advance = 53,
                 glyph = "\uF5AA",
             ),
-            "buy" to SpriteEntry(
-                width = 106,
-                height = 16,
-                xOffset = 0,
-                glyphWidth = 106,
-                advance = 107,
-                glyph = "\uF09F",
-            ),
             "buy_disabled" to SpriteEntry(
                 width = 106,
                 height = 16,
@@ -38,14 +22,6 @@ internal object WindowSprites {
                 glyphWidth = 106,
                 advance = 107,
                 glyph = "\uEEE6",
-            ),
-            "clear_search" to SpriteEntry(
-                width = 16,
-                height = 16,
-                xOffset = 0,
-                glyphWidth = 16,
-                advance = 17,
-                glyph = "\uE978",
             ),
             "clear_search_disabled" to SpriteEntry(
                 width = 16,

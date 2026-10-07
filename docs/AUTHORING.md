@@ -288,7 +288,8 @@ export default (
 );
 ```
 
-The example pack's `shop.tsx` and `status_hud.tsx` are complete JSX sources.
+The example pack's `window/` sources are a complete JSX project: `index.ts` lists the documents, `handles.ts` declares
+the shop and search handles, and `shop.tsx`, `search.tsx`, and `status_hud.tsx` use them.
 
 ### Slot sections
 
@@ -567,10 +568,11 @@ Fixed sprite slots require no generated Kotlin binding. Window composes button-s
 selections, then fixed/runtime sprite slots, then text, so icons and labels remain visible above an opaque selected
 background.
 
-The runtime provides `toggle`, typed `choice`, `enabledButton`, and `pager` helpers. `pager` binds previous/next buttons
-to `WindowPager`, updates their `enabled`/`disabled` states, suppresses disabled clicks, and reports the new item
-offset. These primitives cover segmented sorting tabs, mutually exclusive difficulty controls, locked actions, and
-paginated inventory grids.
+The runtime provides `toggle`, typed `choice`, and `enabledButton` helpers. `WindowView.list(...)` creates a
+`WindowList` that pages or scrolls a reactive list through a fixed number of cells and keeps its selection by key; its
+`items(...)` adapts it to a `collection` handle, and `canPrevious()`/`canNext()` back the `flag` handles of
+`<Button enabled>` previous/next buttons. These primitives cover segmented sorting tabs, mutually exclusive difficulty
+controls, locked actions, and paginated inventory grids.
 
 Runtime sprite slots:
 

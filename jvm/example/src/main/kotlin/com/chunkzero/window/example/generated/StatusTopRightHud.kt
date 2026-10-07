@@ -7,13 +7,13 @@ import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_top_right` HUD. Implement the abstract members. */
 public abstract class StatusTopRightHud : HudView(WindowHudDefinitions.statusTopRight) {
-    /** Render the `biome` slot. */
+    /** Render the `biome` text. */
     protected abstract fun biome(): Component
 
-    /** Render the `latency` slot. */
+    /** Render the `latency` text. */
     protected abstract fun latency(): Component
 
-    /** Render the `wave` slot. */
+    /** Render the `wave` text. */
     protected abstract fun wave(): Component
 
     final override fun HudScope.bind() {

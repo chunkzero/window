@@ -321,7 +321,7 @@ internal object WindowEntries {
                             shaderMarker = null,
                             shaderColor = null,
                         ),
-                        "category_all_label" to SlotEntry(
+                        "category_label[0]" to SlotEntry(
                             x = 8,
                             y = 22,
                             width = 52,
@@ -338,7 +338,7 @@ internal object WindowEntries {
                             shaderMarker = null,
                             shaderColor = null,
                         ),
-                        "category_gear_label" to SlotEntry(
+                        "category_label[1]" to SlotEntry(
                             x = 62,
                             y = 22,
                             width = 52,
@@ -355,7 +355,7 @@ internal object WindowEntries {
                             shaderMarker = null,
                             shaderColor = null,
                         ),
-                        "category_magic_label" to SlotEntry(
+                        "category_label[2]" to SlotEntry(
                             x = 116,
                             y = 22,
                             width = 52,
@@ -525,7 +525,7 @@ internal object WindowEntries {
                             shaderMarker = null,
                             shaderColor = null,
                         ),
-                        "selection" to SlotEntry(
+                        "selected_name" to SlotEntry(
                             x = 12,
                             y = 112,
                             width = 97,
@@ -542,7 +542,7 @@ internal object WindowEntries {
                             shaderMarker = null,
                             shaderColor = null,
                         ),
-                        "sort_featured_label" to SlotEntry(
+                        "sort_label[0]" to SlotEntry(
                             x = 8,
                             y = 143,
                             width = 52,
@@ -559,8 +559,8 @@ internal object WindowEntries {
                             shaderMarker = null,
                             shaderColor = null,
                         ),
-                        "sort_name_label" to SlotEntry(
-                            x = 116,
+                        "sort_label[1]" to SlotEntry(
+                            x = 62,
                             y = 143,
                             width = 52,
                             align = Align.CENTER,
@@ -576,8 +576,8 @@ internal object WindowEntries {
                             shaderMarker = null,
                             shaderColor = null,
                         ),
-                        "sort_price_label" to SlotEntry(
-                            x = 62,
+                        "sort_label[2]" to SlotEntry(
+                            x = 116,
                             y = 143,
                             width = 52,
                             align = Align.CENTER,
@@ -718,7 +718,10 @@ internal object WindowEntries {
                             fillSlots = null,
                             default = null,
                             action = true,
-                            tooltip = null,
+                            tooltip = TooltipEntry(
+                                title = "Buy selected item",
+                                lines = emptyList(),
+                            ),
                             states = mapOf(
                                 "disabled" to ButtonState(
                                     itemModel = null,
@@ -730,16 +733,13 @@ internal object WindowEntries {
                                 ),
                                 "enabled" to ButtonState(
                                     itemModel = null,
-                                    sprite = "buy",
-                                    tooltip = TooltipEntry(
-                                        title = "Buy selected item",
-                                        lines = emptyList(),
-                                    ),
+                                    sprite = null,
+                                    tooltip = null,
                                 ),
                             ),
                             spriteFont = "window:sprite_y191",
                         ),
-                        "category_all" to ButtonEntry(
+                        "category=all" to ButtonEntry(
                             x = 8,
                             y = 18,
                             width = 52,
@@ -782,7 +782,7 @@ internal object WindowEntries {
                             ),
                             spriteFont = "window:sprite_y12",
                         ),
-                        "category_gear" to ButtonEntry(
+                        "category=gear" to ButtonEntry(
                             x = 62,
                             y = 18,
                             width = 52,
@@ -825,7 +825,7 @@ internal object WindowEntries {
                             ),
                             spriteFont = "window:sprite_y12",
                         ),
-                        "category_magic" to ButtonEntry(
+                        "category=magic" to ButtonEntry(
                             x = 116,
                             y = 18,
                             width = 52,
@@ -882,7 +882,10 @@ internal object WindowEntries {
                             fillSlots = null,
                             default = null,
                             action = true,
-                            tooltip = null,
+                            tooltip = TooltipEntry(
+                                title = "Clear search",
+                                lines = emptyList(),
+                            ),
                             states = mapOf(
                                 "disabled" to ButtonState(
                                     itemModel = null,
@@ -894,43 +897,11 @@ internal object WindowEntries {
                                 ),
                                 "enabled" to ButtonState(
                                     itemModel = null,
-                                    sprite = "clear_search",
-                                    tooltip = TooltipEntry(
-                                        title = "Clear search",
-                                        lines = emptyList(),
-                                    ),
+                                    sprite = null,
+                                    tooltip = null,
                                 ),
                             ),
                             spriteFont = "window:sprite_y151",
-                        ),
-                        "exit" to ButtonEntry(
-                            x = 116,
-                            y = 197,
-                            width = 52,
-                            height = 16,
-                            slots = listOf(
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 6,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 7,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 8,
-                                ),
-                            ),
-                            fillSlots = null,
-                            default = ButtonDefault.CLOSE,
-                            action = true,
-                            tooltip = TooltipEntry(
-                                title = "Close market",
-                                lines = emptyList(),
-                            ),
-                            states = emptyMap(),
-                            spriteFont = null,
                         ),
                         "favorites" to ButtonEntry(
                             x = 8,
@@ -997,7 +968,10 @@ internal object WindowEntries {
                             fillSlots = null,
                             default = null,
                             action = true,
-                            tooltip = null,
+                            tooltip = TooltipEntry(
+                                title = "Next page",
+                                lines = emptyList(),
+                            ),
                             states = mapOf(
                                 "disabled" to ButtonState(
                                     itemModel = null,
@@ -1009,11 +983,8 @@ internal object WindowEntries {
                                 ),
                                 "enabled" to ButtonState(
                                     itemModel = null,
-                                    sprite = "action",
-                                    tooltip = TooltipEntry(
-                                        title = "Next page",
-                                        lines = emptyList(),
-                                    ),
+                                    sprite = null,
+                                    tooltip = null,
                                 ),
                             ),
                             spriteFont = "window:sprite_y84",
@@ -1040,7 +1011,10 @@ internal object WindowEntries {
                             fillSlots = null,
                             default = null,
                             action = true,
-                            tooltip = null,
+                            tooltip = TooltipEntry(
+                                title = "Previous page",
+                                lines = emptyList(),
+                            ),
                             states = mapOf(
                                 "disabled" to ButtonState(
                                     itemModel = null,
@@ -1052,11 +1026,8 @@ internal object WindowEntries {
                                 ),
                                 "enabled" to ButtonState(
                                     itemModel = null,
-                                    sprite = "action",
-                                    tooltip = TooltipEntry(
-                                        title = "Previous page",
-                                        lines = emptyList(),
-                                    ),
+                                    sprite = null,
+                                    tooltip = null,
                                 ),
                             ),
                             spriteFont = "window:sprite_y84",
@@ -1086,7 +1057,7 @@ internal object WindowEntries {
                             states = emptyMap(),
                             spriteFont = null,
                         ),
-                        "sort_featured" to ButtonEntry(
+                        "sort=featured" to ButtonEntry(
                             x = 8,
                             y = 139,
                             width = 52,
@@ -1129,7 +1100,7 @@ internal object WindowEntries {
                             ),
                             spriteFont = "window:sprite_y133",
                         ),
-                        "sort_name" to ButtonEntry(
+                        "sort=name" to ButtonEntry(
                             x = 116,
                             y = 139,
                             width = 52,
@@ -1172,7 +1143,7 @@ internal object WindowEntries {
                             ),
                             spriteFont = "window:sprite_y133",
                         ),
-                        "sort_price" to ButtonEntry(
+                        "sort=price" to ButtonEntry(
                             x = 62,
                             y = 139,
                             width = 52,
@@ -1214,6 +1185,35 @@ internal object WindowEntries {
                                 ),
                             ),
                             spriteFont = "window:sprite_y133",
+                        ),
+                        "window:close" to ButtonEntry(
+                            x = 116,
+                            y = 197,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 6,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 7,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 8,
+                                ),
+                            ),
+                            fillSlots = null,
+                            default = ButtonDefault.CLOSE,
+                            action = true,
+                            tooltip = TooltipEntry(
+                                title = "Close market",
+                                lines = emptyList(),
+                            ),
+                            states = emptyMap(),
+                            spriteFont = null,
                         ),
                     ),
                     items = emptyMap(),

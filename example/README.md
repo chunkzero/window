@@ -10,10 +10,12 @@ example/
 │   ├── rpp.config.ts           # pack metadata, build, and Window plugin configuration
 │   ├── src/
 │   │   └── window/             # UI sources — stripped from the built pack
+│   │       ├── index.ts        # defineWindows entry listing the theme, windows, and HUDs
+│   │       ├── handles.ts      # typed bindings shared by the shop and search windows
 │   │       ├── theme.ts        # generated industrial theme preset
-│   │       ├── shop.ts         # paged catalog, toggles, choices, and buttons
-│   │       ├── search.ts       # linked native-anvil catalog search
-│   │       ├── status_hud.ts   # the shader-relocated actionbar HUD
+│   │       ├── shop.tsx        # paged catalog, selections, toggles, and buttons
+│   │       ├── search.tsx      # linked native-anvil catalog search
+│   │       ├── status_hud.tsx  # the shader-relocated actionbar HUDs
 │   └── dist/                   # build output: fonts, glyph atlas, shaders, zip
 └── (server lives in ../jvm/example)
 ```
@@ -50,6 +52,9 @@ when testing from another machine.
 ## The typed contract
 
 The rpp plugin emits `internal` pack data (`WindowPackData`, `WindowFonts`, `WindowSpacers`, and friends), the public
-`WindowDefinitions` and `WindowHudDefinitions`, and one public abstract class for each window/HUD. `MyShop` must
-implement `balance()`, `status()`, and `onBuy(...)`; `MyStatusHud` must implement each authored HUD slot. Omit one,
-rebuild, and the breakage surfaces at compile time.
+`WindowDefinitions` and `WindowHudDefinitions`, and one public abstract class for each window/HUD. Each handle in
+`handles.ts` becomes a member of `ShopView`: `text` handles such as `balance` and `status` are functions returning a
+`Component`, `flag` handles such as `canBuy` are Boolean functions, `action` handles such as `buy` are `onBuy(click)`
+handlers, `products` is a `WindowCollection` that `MyShop` backs with a `WindowList`, and the `category`/`sort`
+selections and `favorites`/`affordable` toggles are UI-owned `var`s with `on…Changed` hooks. `MyStatusHud` implements
+each HUD's `text` handles. Omit one, rebuild, and the breakage surfaces at compile time.

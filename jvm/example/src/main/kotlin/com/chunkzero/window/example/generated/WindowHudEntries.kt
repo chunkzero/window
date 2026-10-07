@@ -54,14 +54,14 @@ internal object WindowHudEntries {
                     "wave_progress[0]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uE243\uDB80\uDC05\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC0A",
+                                value = "on",
+                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uE82F\uDB80\uDC05\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uE888\uDB80\uDC05\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC0A",
+                                value = "off",
+                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uE6D7\uDB80\uDC05\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
@@ -70,14 +70,14 @@ internal object WindowHudEntries {
                     "wave_progress[1]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uF599\uDB80\uDC04\uDB80\uDC09",
+                                value = "on",
+                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uE6E4\uDB80\uDC04\uDB80\uDC09",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uEFD8\uDB80\uDC04\uDB80\uDC09",
+                                value = "off",
+                                static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uE000\uDB80\uDC04\uDB80\uDC09",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
@@ -86,14 +86,14 @@ internal object WindowHudEntries {
                     "wave_progress[2]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC11\uDB80\uDC0C\uE407\uDB80\uDC04\uDB80\uDC08\uDB80\uDC09\uDB80\uDC0A",
+                                value = "on",
+                                static = "\uDB80\uDC11\uDB80\uDC0C\uE8BE\uDB80\uDC04\uDB80\uDC08\uDB80\uDC09\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC11\uDB80\uDC0C\uF709\uDB80\uDC04\uDB80\uDC08\uDB80\uDC09\uDB80\uDC0A",
+                                value = "off",
+                                static = "\uDB80\uDC11\uDB80\uDC0C\uEDE8\uDB80\uDC04\uDB80\uDC08\uDB80\uDC09\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
@@ -102,14 +102,14 @@ internal object WindowHudEntries {
                     "wave_progress[3]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC11\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uF545\uDB80\uDC04\uDB80\uDC07\uDB80\uDC08",
+                                value = "on",
+                                static = "\uDB80\uDC11\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uE681\uDB80\uDC04\uDB80\uDC07\uDB80\uDC08",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC11\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uF53C\uDB80\uDC04\uDB80\uDC07\uDB80\uDC08",
+                                value = "off",
+                                static = "\uDB80\uDC11\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uEA5B\uDB80\uDC04\uDB80\uDC07\uDB80\uDC08",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
@@ -118,14 +118,14 @@ internal object WindowHudEntries {
                     "wave_progress[4]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC11\uDB80\uDC0E\uDB80\uDC0D\uE0C2\uDB80\uDC04\uDB80\uDC06\uDB80\uDC0A",
+                                value = "on",
+                                static = "\uDB80\uDC11\uDB80\uDC0E\uDB80\uDC0D\uF50D\uDB80\uDC04\uDB80\uDC06\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC11\uDB80\uDC0E\uDB80\uDC0D\uF0AC\uDB80\uDC04\uDB80\uDC06\uDB80\uDC0A",
+                                value = "off",
+                                static = "\uDB80\uDC11\uDB80\uDC0E\uDB80\uDC0D\uEE95\uDB80\uDC04\uDB80\uDC06\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
@@ -134,14 +134,14 @@ internal object WindowHudEntries {
                     "wave_progress[5]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0B\uEF32\uDB80\uDC04\uDB80\uDC06\uDB80\uDC08\uDB80\uDC09",
+                                value = "on",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0B\uE416\uDB80\uDC04\uDB80\uDC06\uDB80\uDC08\uDB80\uDC09",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0B\uF734\uDB80\uDC04\uDB80\uDC06\uDB80\uDC08\uDB80\uDC09",
+                                value = "off",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0B\uE48E\uDB80\uDC04\uDB80\uDC06\uDB80\uDC08\uDB80\uDC09",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
@@ -150,14 +150,14 @@ internal object WindowHudEntries {
                     "wave_progress[6]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0C\uF727\uDB80\uDC04\uDB80\uDC06\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
+                                value = "on",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0C\uE6DA\uDB80\uDC04\uDB80\uDC06\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0C\uE293\uDB80\uDC04\uDB80\uDC06\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
+                                value = "off",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0C\uE339\uDB80\uDC04\uDB80\uDC06\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
@@ -166,14 +166,14 @@ internal object WindowHudEntries {
                     "wave_progress[7]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0C\uDB80\uDC0B\uE678\uDB80\uDC04\uDB80\uDC05",
+                                value = "on",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0C\uDB80\uDC0B\uED75\uDB80\uDC04\uDB80\uDC05",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0C\uDB80\uDC0B\uF2BC\uDB80\uDC04\uDB80\uDC05",
+                                value = "off",
+                                static = "\uDB80\uDC11\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0C\uDB80\uDC0B\uF76E\uDB80\uDC04\uDB80\uDC05",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
@@ -182,14 +182,14 @@ internal object WindowHudEntries {
                     "wave_progress[8]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC11\uDB80\uDC10\uEAA7\uDB80\uDC04\uDB80\uDC05\uDB80\uDC08\uDB80\uDC0A",
+                                value = "on",
+                                static = "\uDB80\uDC11\uDB80\uDC10\uEE61\uDB80\uDC04\uDB80\uDC05\uDB80\uDC08\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC11\uDB80\uDC10\uE17F\uDB80\uDC04\uDB80\uDC05\uDB80\uDC08\uDB80\uDC0A",
+                                value = "off",
+                                static = "\uDB80\uDC11\uDB80\uDC10\uF8B7\uDB80\uDC04\uDB80\uDC05\uDB80\uDC08\uDB80\uDC0A",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
@@ -198,14 +198,14 @@ internal object WindowHudEntries {
                     "wave_progress[9]" to SwitchEntry(
                         cases = listOf(
                             SwitchCaseEntry(
-                                value = "true",
-                                static = "\uDB80\uDC11\uDB80\uDC10\uDB80\uDC0D\uDB80\uDC0B\uE244\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09",
+                                value = "on",
+                                static = "\uDB80\uDC11\uDB80\uDC10\uDB80\uDC0D\uDB80\uDC0B\uF8AE\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),
                             SwitchCaseEntry(
-                                value = "false",
-                                static = "\uDB80\uDC11\uDB80\uDC10\uDB80\uDC0D\uDB80\uDC0B\uE9A1\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09",
+                                value = "off",
+                                static = "\uDB80\uDC11\uDB80\uDC10\uDB80\uDC0D\uDB80\uDC0B\uE576\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09",
                                 slots = emptyList(),
                                 spriteSlots = emptyList(),
                             ),

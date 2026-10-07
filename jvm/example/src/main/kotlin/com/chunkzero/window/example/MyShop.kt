@@ -1,8 +1,7 @@
 package com.chunkzero.window.example
 
 import com.chunkzero.window.Click
-import com.chunkzero.window.IndexedClick
-import com.chunkzero.window.WindowPager
+import com.chunkzero.window.WindowCollection
 import com.chunkzero.window.example.generated.ShopView
 import com.chunkzero.window.example.generated.WindowSprite
 import net.kyori.adventure.text.Component
@@ -11,150 +10,87 @@ import net.kyori.adventure.text.format.TextColor
 import net.minestom.server.entity.Player
 import net.minestom.server.item.ItemStack
 
-private enum class CatalogCategory {
-    ALL,
-    GEAR,
-    MAGIC,
-}
-
-private enum class CatalogSort {
-    FEATURED,
-    PRICE,
-    NAME,
-}
-
-/** Interactive catalog demonstrating collections, paging, choices, toggles, and live text. */
+/** Interactive catalog demonstrating collections, paging, selections, toggles, and live text. */
 class MyShop(
     player: Player,
     private val market: Market,
-    initialSelection: String? = null,
     initialQuery: String = "",
 ) : ShopView(player) {
-    private val pager = WindowPager(cellCount = 27)
-
     private var coins by state(0)
-    private var category by state(CatalogCategory.ALL)
-    private var sort by state(CatalogSort.FEATURED)
-    private var favoritesOnly by state(false)
-    private var affordableOnly by state(false)
-    private var offset by state(0)
-    private var selectedId by state(initialSelection)
     private var feedback by state<String?>(null)
     private var query by state(initialQuery)
 
+    private val catalog = list(cells = CATALOG_CELLS, key = Product::id) { visibleProducts() }
+
+    override val products: WindowCollection<ItemStack> =
+        catalog.items(Product::toItemStack) { product, _ ->
+            catalog.select(product)
+            feedback = null
+        }
+
     override fun balance(): Component = Component.text(coins)
 
-    override fun categoryAllLabel(): Component = tabLabel("All", category == CatalogCategory.ALL)
+    override fun categoryLabel(index: Int): Component =
+        tabLabel(CATEGORY_LABELS[index], Category.entries[index] == category)
 
-    override fun categoryGearLabel(): Component = tabLabel("Gear", category == CatalogCategory.GEAR)
+    override fun sortLabel(index: Int): Component = tabLabel(SORT_LABELS[index], Sort.entries[index] == sort)
 
-    override fun categoryMagicLabel(): Component = tabLabel("Magic", category == CatalogCategory.MAGIC)
+    override fun favoritesLampSprite(): WindowSprite = lamp(favorites)
 
-    override fun sortFeaturedLabel(): Component = tabLabel("Top", sort == CatalogSort.FEATURED)
+    override fun affordableLampSprite(): WindowSprite = lamp(affordable)
 
-    override fun sortPriceLabel(): Component = tabLabel("Price", sort == CatalogSort.PRICE)
+    override fun canPrevious(): Boolean = catalog.canPrevious()
 
-    override fun sortNameLabel(): Component = tabLabel("Name", sort == CatalogSort.NAME)
+    override fun canNext(): Boolean = catalog.canNext()
 
-    override fun favoritesLampSprite(): WindowSprite = lamp(favoritesOnly)
+    override fun previousLabel(): Component = actionLabel("Prev", catalog.canPrevious())
 
-    override fun affordableLampSprite(): WindowSprite = lamp(affordableOnly)
+    override fun nextLabel(): Component = actionLabel("Next", catalog.canNext())
 
-    override fun previousLabel(): Component = actionLabel("Prev", pager.canPrevious(offset))
+    override fun page(): Component = Component.text("${catalog.page} of ${catalog.pageCount}")
 
-    override fun nextLabel(): Component = actionLabel("Next", pager.canNext(offset, visibleProducts().size))
+    override fun selectedName(): Component = Component.text(catalog.selected?.name ?: "No matches")
 
-    override fun page(): Component {
-        val products = visibleProducts()
-        return Component.text(
-            "${pager.page(offset, products.size)} of ${pager.pageCount(products.size)}",
+    override fun price(): Component =
+        Component.text(
+            catalog.selected
+                ?.price
+                ?.toString()
+                .orEmpty(),
         )
-    }
 
-    override fun selection(): Component = Component.text(selectedProduct()?.name ?: "No matches")
+    override fun hasPrice(): Boolean = catalog.selected != null
 
-    override fun price(): Component = Component.text(selectedProduct()?.price?.toString().orEmpty())
-
-    override fun hasPrice(): Boolean = selectedProduct() != null
+    override fun hasQuery(): Boolean = query.isNotEmpty()
 
     override fun status(): Component {
-        val count = visibleProducts().size
+        val count = catalog.size
         return Component.text(feedback ?: if (query.isEmpty()) "$count items" else "$count matches")
     }
 
+    override fun canBuy(): Boolean = catalog.selected?.let { it.price <= coins } == true
+
     override fun buyLabel(): Component {
-        val product = selectedProduct() ?: return actionLabel("Buy", false)
+        val product = catalog.selected ?: return actionLabel("Buy", false)
         if (product.price > coins) return actionLabel("Need ${product.price - coins}", false)
         return Component.text("Buy ${product.price}")
     }
 
-    override fun productsItem(index: Int): ItemStack? {
-        val products = visibleProducts()
-        val absolute = pager.itemIndex(offset, index, products.size) ?: return null
-        return products[absolute].toItemStack()
-    }
+    override fun onPrevious(click: Click) = catalog.previous()
 
-    override fun productsSelected(): Int? {
-        val products = visibleProducts()
-        val absolute = products.indexOf(selectedProduct() ?: return null)
-        return absolute - pager.clamp(offset, products.size)
-    }
-
-    override fun onProducts(click: IndexedClick) {
-        val products = visibleProducts()
-        val absolute = pager.itemIndex(offset, click.index, products.size) ?: return
-        val product = products[absolute]
-        selectedId = product.id
-        feedback = null
-        syncButtonStates()
-    }
-
-    override fun onCategoryAll(click: Click) = selectCategory(CatalogCategory.ALL)
-
-    override fun onCategoryGear(click: Click) = selectCategory(CatalogCategory.GEAR)
-
-    override fun onCategoryMagic(click: Click) = selectCategory(CatalogCategory.MAGIC)
-
-    override fun onSortFeatured(click: Click) = selectSort(CatalogSort.FEATURED)
-
-    override fun onSortPrice(click: Click) = selectSort(CatalogSort.PRICE)
-
-    override fun onSortName(click: Click) = selectSort(CatalogSort.NAME)
-
-    override fun onFavorites(click: Click) {
-        favoritesOnly = !favoritesOnly
-        filtersChanged()
-    }
-
-    override fun onAffordable(click: Click) {
-        affordableOnly = !affordableOnly
-        filtersChanged()
-    }
-
-    override fun onPrevious(click: Click) {
-        offset = pager.previous(offset, visibleProducts().size)
-        ensureSelection()
-        syncButtonStates()
-    }
-
-    override fun onNext(click: Click) {
-        offset = pager.next(offset, visibleProducts().size)
-        ensureSelection()
-        syncButtonStates()
-    }
+    override fun onNext(click: Click) = catalog.next()
 
     override fun onSearch(click: Click) {
         CatalogSearch(player, market, query).open()
     }
 
     override fun onClearSearch(click: Click) {
-        if (query.isEmpty()) return
         query = ""
         filtersChanged()
     }
 
     override fun onBuy(click: Click) {
-        val product = selectedProduct() ?: return
+        val product = catalog.selected ?: return
         val newBalance = market.purchase(player, product.price)
         if (newBalance == null) {
             feedback = "Need ${product.price - coins} more"
@@ -162,39 +98,34 @@ class MyShop(
             coins = newBalance
             feedback = "Purchased"
         }
-        syncButtonStates()
     }
+
+    override fun onCategoryChanged(value: Category) = filtersChanged()
+
+    override fun onSortChanged(value: Sort) = filtersChanged()
+
+    override fun onFavoritesChanged(value: Boolean) = filtersChanged()
+
+    override fun onAffordableChanged(value: Boolean) = filtersChanged()
 
     override fun onOpen() {
         coins = market.balanceOf(player)
-        ensureSelection()
-        syncButtonStates()
     }
 
     private fun visibleProducts(): List<Product> {
         var products = market.products.asSequence().filter(::matchesQuery)
         products =
             when (category) {
-                CatalogCategory.ALL -> products
-                CatalogCategory.GEAR -> products.filter { it.category == ProductCategory.GEAR }
-                CatalogCategory.MAGIC -> products.filter { it.category == ProductCategory.MAGIC }
+                Category.ALL -> products
+                Category.GEAR -> products.filter { it.category == ProductCategory.GEAR }
+                Category.MAGIC -> products.filter { it.category == ProductCategory.MAGIC }
             }
-        if (favoritesOnly) products = products.filter(Product::featured)
-        if (affordableOnly) products = products.filter { it.price <= coins }
+        if (favorites) products = products.filter(Product::featured)
+        if (affordable) products = products.filter { it.price <= coins }
         return when (sort) {
-            CatalogSort.FEATURED -> {
-                products.sortedWith(
-                    compareByDescending<Product>(Product::featured).thenBy(Product::price),
-                )
-            }
-
-            CatalogSort.PRICE -> {
-                products.sortedBy(Product::price)
-            }
-
-            CatalogSort.NAME -> {
-                products.sortedBy(Product::name)
-            }
+            Sort.FEATURED -> products.sortedWith(compareByDescending<Product>(Product::featured).thenBy(Product::price))
+            Sort.PRICE -> products.sortedBy(Product::price)
+            Sort.NAME -> products.sortedBy(Product::name)
         }.toList()
     }
 
@@ -203,52 +134,11 @@ class MyShop(
             product.tier.label.contains(query, ignoreCase = true) ||
             product.category.name.contains(query, ignoreCase = true)
 
-    private fun selectedProduct(): Product? {
-        val products = visibleProducts()
-        return products.firstOrNull { it.id == selectedId } ?: products.firstOrNull()
-    }
-
-    private fun selectCategory(value: CatalogCategory) {
-        category = value
-        filtersChanged()
-    }
-
-    private fun selectSort(value: CatalogSort) {
-        sort = value
-        filtersChanged()
-    }
-
+    /** Keeps the selected product when it survives the new filters and scrolls to it; otherwise shows the start. */
     private fun filtersChanged() {
-        resetPageAndSelection()
         feedback = null
-        syncButtonStates()
-    }
-
-    private fun resetPageAndSelection() {
-        offset = 0
-        selectedId = visibleProducts().firstOrNull()?.id
-    }
-
-    private fun ensureSelection() {
-        val products = visibleProducts()
-        offset = pager.clamp(offset, products.size)
-        if (products.none { it.id == selectedId }) selectedId = products.firstOrNull()?.id
-    }
-
-    private fun syncButtonStates() {
-        val products = visibleProducts()
-        buttonState("category_all", selectedState(category == CatalogCategory.ALL))
-        buttonState("category_gear", selectedState(category == CatalogCategory.GEAR))
-        buttonState("category_magic", selectedState(category == CatalogCategory.MAGIC))
-        buttonState("sort_featured", selectedState(sort == CatalogSort.FEATURED))
-        buttonState("sort_price", selectedState(sort == CatalogSort.PRICE))
-        buttonState("sort_name", selectedState(sort == CatalogSort.NAME))
-        buttonState("favorites", if (favoritesOnly) "on" else "off")
-        buttonState("affordable", if (affordableOnly) "on" else "off")
-        buttonState("clear_search", enabledState(query.isNotEmpty()))
-        buttonState("previous", enabledState(pager.canPrevious(offset)))
-        buttonState("next", enabledState(pager.canNext(offset, products.size)))
-        buttonState("buy", enabledState(selectedProduct()?.price?.let { it <= coins } == true))
+        val selected = catalog.selected
+        if (selected != null) catalog.select(selected) else catalog.first()
     }
 
     private fun tabLabel(
@@ -263,10 +153,10 @@ class MyShop(
     ): Component = if (enabled) Component.text(label, NamedTextColor.WHITE) else Component.text(label, DISABLED_TEXT)
 
     private fun lamp(on: Boolean): WindowSprite = if (on) WindowSprite.LAMP_ON else WindowSprite.LAMP_OFF
-
-    private fun selectedState(selected: Boolean): String = if (selected) "selected" else "unselected"
-
-    private fun enabledState(enabled: Boolean): String = if (enabled) "enabled" else "disabled"
 }
 
+/** The `products` collection's cells: three rows of the container. */
+private const val CATALOG_CELLS = 27
+private val CATEGORY_LABELS = listOf("All", "Gear", "Magic")
+private val SORT_LABELS = listOf("Top", "Price", "Name")
 private val DISABLED_TEXT = TextColor.color(0x5fb0d4)

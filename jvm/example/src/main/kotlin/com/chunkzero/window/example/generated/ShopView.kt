@@ -2,7 +2,7 @@
 package com.chunkzero.window.example.generated
 
 import com.chunkzero.window.Click
-import com.chunkzero.window.IndexedClick
+import com.chunkzero.window.WindowCollection
 import com.chunkzero.window.WindowScope
 import com.chunkzero.window.WindowView
 import com.chunkzero.window.minestom.MinestomHost
@@ -12,141 +12,187 @@ import net.minestom.server.item.ItemStack
 
 /** Typed view for the `shop` window. Implement the abstract members. */
 public abstract class ShopView(protected val player: Player) : WindowView<ItemStack>(WindowDefinitions.shop, MinestomHost(player)) {
-    /** Render the `balance` slot. */
-    protected abstract fun balance(): Component
+    /** The `affordable` toggle. Clicks change it, then call [onAffordableChanged]. */
+    protected var affordable: Boolean by state(false)
 
-    /** Render the `buy_label` slot. */
-    protected abstract fun buyLabel(): Component
+    /** Called after a click changes `affordable`; assigning it does not call this. */
+    protected open fun onAffordableChanged(value: Boolean) {}
 
-    /** Render the `category_all_label` slot. */
-    protected abstract fun categoryAllLabel(): Component
-
-    /** Render the `category_gear_label` slot. */
-    protected abstract fun categoryGearLabel(): Component
-
-    /** Render the `category_magic_label` slot. */
-    protected abstract fun categoryMagicLabel(): Component
-
-    /** Render the `next_label` slot. */
-    protected abstract fun nextLabel(): Component
-
-    /** Render the `page` slot. */
-    protected abstract fun page(): Component
-
-    /** Render the `previous_label` slot. */
-    protected abstract fun previousLabel(): Component
-
-    /** Render the `price` slot. */
-    protected abstract fun price(): Component
-
-    /** Render the `selection` slot. */
-    protected abstract fun selection(): Component
-
-    /** Render the `sort_featured_label` slot. */
-    protected abstract fun sortFeaturedLabel(): Component
-
-    /** Render the `sort_name_label` slot. */
-    protected abstract fun sortNameLabel(): Component
-
-    /** Render the `sort_price_label` slot. */
-    protected abstract fun sortPriceLabel(): Component
-
-    /** Render the `status` slot. */
-    protected abstract fun status(): Component
-
-    /** Render the `affordable_lamp` runtime sprite. */
+    /** Render the `affordable_lamp` sprite. */
     protected abstract fun affordableLampSprite(): WindowSprite?
 
-    /** Render the `favorites_lamp` runtime sprite. */
-    protected abstract fun favoritesLampSprite(): WindowSprite?
+    /** Render the `balance` text. */
+    protected abstract fun balance(): Component
 
-    /** Whether the `has_price` switch draws its `true` case. */
-    protected abstract fun hasPrice(): Boolean
-
-    /** Handle a click on the `affordable` button. */
-    protected abstract fun onAffordable(click: Click)
-
-    /** Handle a click on the `buy` button. */
+    /** Handle a `buy` click. */
     protected abstract fun onBuy(click: Click)
 
-    /** Handle a click on the `category_all` button. */
-    protected abstract fun onCategoryAll(click: Click)
+    /** Render the `buy_label` text. */
+    protected abstract fun buyLabel(): Component
 
-    /** Handle a click on the `category_gear` button. */
-    protected abstract fun onCategoryGear(click: Click)
+    /** The `can_buy` flag. */
+    protected abstract fun canBuy(): Boolean
 
-    /** Handle a click on the `category_magic` button. */
-    protected abstract fun onCategoryMagic(click: Click)
+    /** The `can_next` flag. */
+    protected abstract fun canNext(): Boolean
 
-    /** Handle a click on the `clear_search` button. */
+    /** The `can_previous` flag. */
+    protected abstract fun canPrevious(): Boolean
+
+    /** The values of `category`. */
+    public enum class Category(public val value: String) {
+        ALL("all"),
+        GEAR("gear"),
+        MAGIC("magic"),
+    }
+
+    /** The `category` selection. Clicks change it, then call [onCategoryChanged]. */
+    protected var category: Category by state(Category.ALL)
+
+    /** Called after a click changes `category`; assigning it does not call this. */
+    protected open fun onCategoryChanged(value: Category) {}
+
+    /** Render the `category_label` text. */
+    protected abstract fun categoryLabel(index: Int): Component
+
+    /** Handle a `clear_search` click. */
     protected abstract fun onClearSearch(click: Click)
 
-    /** Handle a click on the `exit` button (default: close the window). */
-    protected open fun onExit(click: Click): Unit = close()
+    /** The `favorites` toggle. Clicks change it, then call [onFavoritesChanged]. */
+    protected var favorites: Boolean by state(false)
 
-    /** Handle a click on the `favorites` button. */
-    protected abstract fun onFavorites(click: Click)
+    /** Called after a click changes `favorites`; assigning it does not call this. */
+    protected open fun onFavoritesChanged(value: Boolean) {}
 
-    /** Handle a click on the `next` button. */
+    /** Render the `favorites_lamp` sprite. */
+    protected abstract fun favoritesLampSprite(): WindowSprite?
+
+    /** The `has_price` flag. */
+    protected abstract fun hasPrice(): Boolean
+
+    /** The `has_query` flag. */
+    protected abstract fun hasQuery(): Boolean
+
+    /** Handle a `next` click. */
     protected abstract fun onNext(click: Click)
 
-    /** Handle a click on the `previous` button. */
+    /** Render the `next_label` text. */
+    protected abstract fun nextLabel(): Component
+
+    /** Render the `page` text. */
+    protected abstract fun page(): Component
+
+    /** Handle a `previous` click. */
     protected abstract fun onPrevious(click: Click)
 
-    /** Handle a click on the `search` button. */
+    /** Render the `previous_label` text. */
+    protected abstract fun previousLabel(): Component
+
+    /** Render the `price` text. */
+    protected abstract fun price(): Component
+
+    /** The cells of the `products` collection. */
+    protected abstract val products: WindowCollection<ItemStack>
+
+    /** Handle a `search` click. */
     protected abstract fun onSearch(click: Click)
 
-    /** Handle a click on the `sort_featured` button. */
-    protected abstract fun onSortFeatured(click: Click)
+    /** Render the `selected_name` text. */
+    protected abstract fun selectedName(): Component
 
-    /** Handle a click on the `sort_name` button. */
-    protected abstract fun onSortName(click: Click)
+    /** The values of `sort`. */
+    public enum class Sort(public val value: String) {
+        FEATURED("featured"),
+        PRICE("price"),
+        NAME("name"),
+    }
 
-    /** Handle a click on the `sort_price` button. */
-    protected abstract fun onSortPrice(click: Click)
+    /** The `sort` selection. Clicks change it, then call [onSortChanged]. */
+    protected var sort: Sort by state(Sort.FEATURED)
 
-    /** Render one cell in the `products` collection. */
-    protected abstract fun productsItem(index: Int): ItemStack?
+    /** Called after a click changes `sort`; assigning it does not call this. */
+    protected open fun onSortChanged(value: Sort) {}
 
-    /** Handle a click on the `products` collection. */
-    protected abstract fun onProducts(click: IndexedClick)
+    /** Render the `sort_label` text. */
+    protected abstract fun sortLabel(index: Int): Component
 
-    /** The selected cell index in the `products` collection, or `null` for none. */
-    protected open fun productsSelected(): Int? = null
+    /** Render the `status` text. */
+    protected abstract fun status(): Component
 
     final override fun WindowScope<ItemStack>.bind() {
-        slot("balance") { balance() }
-        slot("buy_label") { buyLabel() }
-        slot("category_all_label") { categoryAllLabel() }
-        slot("category_gear_label") { categoryGearLabel() }
-        slot("category_magic_label") { categoryMagicLabel() }
-        slot("next_label") { nextLabel() }
-        slot("page") { page() }
-        slot("previous_label") { previousLabel() }
-        slot("price") { price() }
-        slot("selection") { selection() }
-        slot("sort_featured_label") { sortFeaturedLabel() }
-        slot("sort_name_label") { sortNameLabel() }
-        slot("sort_price_label") { sortPriceLabel() }
-        slot("status") { status() }
+        toggle("affordable", { affordable }) {
+            affordable = !affordable
+            onAffordableChanged(affordable)
+        }
         sprite("affordable_lamp") { affordableLampSprite()?.id }
+        slot("balance") { balance() }
+        enabledButton("buy", { canBuy() }, handler = ::onBuy)
+        slot("buy_label") { buyLabel() }
+        choice("category=all", Category.ALL, { category }) { value, _ ->
+            if (category != value) {
+                category = value
+                onCategoryChanged(value)
+            }
+        }
+        choice("category=gear", Category.GEAR, { category }) { value, _ ->
+            if (category != value) {
+                category = value
+                onCategoryChanged(value)
+            }
+        }
+        choice("category=magic", Category.MAGIC, { category }) { value, _ ->
+            if (category != value) {
+                category = value
+                onCategoryChanged(value)
+            }
+        }
+        for (index in 0 until CATEGORY_LABEL_SIZE) {
+            slot("category_label[$index]") { categoryLabel(index) }
+        }
+        enabledButton("clear_search", { hasQuery() }, handler = ::onClearSearch)
+        toggle("favorites", { favorites }) {
+            favorites = !favorites
+            onFavoritesChanged(favorites)
+        }
         sprite("favorites_lamp") { favoritesLampSprite()?.id }
         switch("has_price") { hasPrice().toString() }
-        button("affordable", ::onAffordable)
-        button("buy", ::onBuy)
-        button("category_all", ::onCategoryAll)
-        button("category_gear", ::onCategoryGear)
-        button("category_magic", ::onCategoryMagic)
-        button("clear_search", ::onClearSearch)
-        button("exit", ::onExit)
-        button("favorites", ::onFavorites)
-        button("next", ::onNext)
-        button("previous", ::onPrevious)
+        enabledButton("next", { canNext() }, handler = ::onNext)
+        slot("next_label") { nextLabel() }
+        slot("page") { page() }
+        enabledButton("previous", { canPrevious() }, handler = ::onPrevious)
+        slot("previous_label") { previousLabel() }
+        slot("price") { price() }
+        collection("products", products)
         button("search", ::onSearch)
-        button("sort_featured", ::onSortFeatured)
-        button("sort_name", ::onSortName)
-        button("sort_price", ::onSortPrice)
-        collection("products", ::productsItem, ::onProducts)
-        collectionSelection("products", ::productsSelected)
+        slot("selected_name") { selectedName() }
+        choice("sort=featured", Sort.FEATURED, { sort }) { value, _ ->
+            if (sort != value) {
+                sort = value
+                onSortChanged(value)
+            }
+        }
+        choice("sort=price", Sort.PRICE, { sort }) { value, _ ->
+            if (sort != value) {
+                sort = value
+                onSortChanged(value)
+            }
+        }
+        choice("sort=name", Sort.NAME, { sort }) { value, _ ->
+            if (sort != value) {
+                sort = value
+                onSortChanged(value)
+            }
+        }
+        for (index in 0 until SORT_LABEL_SIZE) {
+            slot("sort_label[$index]") { sortLabel(index) }
+        }
+        slot("status") { status() }
+    }
+
+    public companion object {
+        /** A shape dimension of `category_label`. */
+        public const val CATEGORY_LABEL_SIZE: Int = 3
+        /** A shape dimension of `sort_label`. */
+        public const val SORT_LABEL_SIZE: Int = 3
     }
 }

@@ -7,13 +7,13 @@ import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_top_left` HUD. Implement the abstract members. */
 public abstract class StatusTopLeftHud : HudView(WindowHudDefinitions.statusTopLeft) {
-    /** Render the `coins` slot. */
+    /** Render the `coins` text. */
     protected abstract fun coins(): Component
 
-    /** Render the `power` slot. */
+    /** Render the `power` text. */
     protected abstract fun power(): Component
 
-    /** Render the `rate` slot. */
+    /** Render the `rate` text. */
     protected abstract fun rate(): Component
 
     final override fun HudScope.bind() {
