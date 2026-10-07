@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use crate::compose::Composite;
 use crate::geometry::{Point, Rect};
 use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr};
-use crate::manifest::{SlotEntry, SpriteSlotEntry, SurfaceEntry, WindowEntry};
+use crate::manifest::{SlotEntry, SlotLinesEntry, SpriteSlotEntry, SurfaceEntry, TextOverflow, WindowEntry};
 use crate::surface::Surface;
 use crate::{Result, bake};
 
@@ -23,8 +23,8 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
 
     let mut slots = BTreeMap::new();
     for slot in &w.slots {
-        let font = ctx.text_font(slot, slot.rect.y - title_origin.y)?;
-        slots.insert(slot.name.clone(), slot_entry(slot, font, None));
+        let entry = slot_entry(ctx, slot, slot.rect.y - title_origin.y, None)?;
+        slots.insert(slot.name.clone(), entry);
     }
     let sprite_slots = sprite_slots(ctx, w, title_origin.y)?;
     let inventory = compile_inventory(ctx, w, title_origin.y)?;
@@ -79,14 +79,28 @@ fn sprite_slots(
     Ok(entries)
 }
 
-/// Build a [`SlotEntry`] for `slot` drawn with `font`.
-pub(super) fn slot_entry(slot: &SlotIr, font: String, shader_marker: Option<Rgb>) -> SlotEntry {
-    SlotEntry {
+/// Build a [`SlotEntry`] for `slot`, whose box top lies `k` pixels below the font baseline origin, registering the
+/// shifted font of every position a line can take.
+pub(super) fn slot_entry(
+    ctx: &mut CompileContext<'_>,
+    slot: &SlotIr,
+    k: i32,
+    shader_marker: Option<Rgb>,
+) -> Result<SlotEntry> {
+    let fit = slot.fit;
+    let lines = if fit.lines > 1 {
+        let steps = 0..(2 * fit.lines - 1) as i32;
+        let fonts = steps.map(|s| ctx.text_font(slot, k + s * fit.line_height as i32 / 2)).collect::<Result<_>>()?;
+        Some(SlotLinesEntry { count: fit.lines, line_height: fit.line_height, fonts })
+    } else {
+        None
+    };
+    Ok(SlotEntry {
         x: slot.rect.x,
         y: slot.rect.y,
         width: slot.rect.width,
         align: slot.align,
-        font,
+        font: ctx.text_font(slot, k)?,
         color: slot.color.to_hex(),
         shader_marker: shader_marker.map(Rgb::to_hex),
         shader_color: None,
@@ -98,7 +112,9 @@ pub(super) fn slot_entry(slot: &SlotIr, font: String, shader_marker: Option<Rgb>
         obfuscated: slot.obfuscated,
         text: slot.text.clone(),
         binding: slot.binding.clone(),
-    }
+        overflow: fit.ellipsis.then_some(TextOverflow::Ellipsis),
+        lines,
+    })
 }
 
 /// Build a [`SpriteSlotEntry`] covering `rect` drawn with `font`.

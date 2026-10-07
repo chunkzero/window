@@ -6,5 +6,6 @@ internal data class TextWidth(
     val visual: Int,
 ) {
     /** Width of this text followed by [next], whose ink starts at this advance. */
-    fun append(next: TextWidth): TextWidth = TextWidth(advance + next.advance, maxOf(visual, advance + next.visual))
+    fun append(next: TextWidth): TextWidth =
+        TextWidth(advance + next.advance, if (next.visual == 0) visual else maxOf(visual, advance + next.visual))
 }

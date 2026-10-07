@@ -25,6 +25,7 @@ import type {
     SlotRectClaim,
     SlotSection,
     TextAlign,
+    TextOverflow,
     Tooltip,
     Window as WindowDef,
 } from "./types.ts";
@@ -113,6 +114,12 @@ export interface TextElementProps extends TextProps, ItemProps {
     width?: number;
     x?: number;
     y?: number;
+    /** Shortens bound text wider than its width at runtime; requires `bind`. */
+    overflow?: TextOverflow;
+    /** Wraps bound text onto at most this many lines, ellipsizing the last; requires `bind`. */
+    lines?: number;
+    /** Distance between the tops of wrapped lines in pixels; defaults to 9. */
+    lineHeight?: number;
     children?: Child;
 }
 
@@ -574,12 +581,22 @@ export function Spacer(props: ItemProps): Element {
 export function Text(props: TextElementProps): Element {
     const style = textFields(props);
     const common = clean({ width: props.width, x: props.x, y: props.y, ...style, ...layout(props) });
+    const fit = { overflow: props.overflow, lines: props.lines, line_height: props.lineHeight };
     if (props.bind !== undefined) {
         requireName(props.bind, "Text bind");
-        return clean({ type: "slot", name: props.bind, index: props.index, ...common }) as Element;
+        return clean({ type: "slot", name: props.bind, index: props.index, ...common, ...fit }) as Element;
     }
     if (props.index !== undefined) {
         throw new Error("<Text index> requires `bind`");
+    }
+    for (const [key, value] of [
+        ["overflow", props.overflow],
+        ["lines", props.lines],
+        ["lineHeight", props.lineHeight],
+    ]) {
+        if (value !== undefined) {
+            throw new Error(`<Text ${key}> requires \`bind\`; static labels do not fit their text at runtime`);
+        }
     }
     const value = text(props.children);
     if (value === "") {

@@ -96,7 +96,7 @@ fn text_layers(
         .map(|(name, slot)| DebugLayer {
             id: format!("text:{name}"),
             kind: "text_slot".into(),
-            bounds: [slot.x, slot.y, slot.width as i32, 8],
+            bounds: [slot.x, slot.y, slot.width as i32, slot.height() as i32],
             font: slot.font.clone(),
             glyph: None,
             content: slot.text.clone(),

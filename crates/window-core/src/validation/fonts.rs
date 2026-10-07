@@ -29,12 +29,16 @@ fn shifted_font_offsets(manifest: &Manifest) -> BTreeMap<&str, i32> {
     let mut expected: BTreeMap<&str, i32> = BTreeMap::new();
     for window in manifest.windows.values() {
         for slot in window.slots.values() {
-            expected.insert(&slot.font, slot.y - window.surface.title_origin[1]);
+            for (font, dy) in slot.fonts() {
+                expected.insert(font, slot.y + dy - window.surface.title_origin[1]);
+            }
         }
     }
     for hud in manifest.huds.values() {
         for slot in hud.slots.values() {
-            expected.insert(&slot.font, slot.y);
+            for (font, dy) in slot.fonts() {
+                expected.insert(font, slot.y + dy);
+            }
         }
     }
     expected

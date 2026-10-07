@@ -165,6 +165,7 @@ impl ElementDto {
             width: self.width,
             pos: self.pos()?,
             style: self.text_style()?,
+            fit: self.text_fit()?,
         })
     }
 

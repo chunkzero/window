@@ -28,7 +28,9 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
                 };
                 Ok(Size::new(w, 8))
             }
-            Element::Slot { name, width, .. } => Ok(Size::new(self.required_slot_width(name, *width)?, 8)),
+            Element::Slot { name, width, fit, .. } => {
+                Ok(Size::new(self.required_slot_width(name, *width)?, fit.height()))
+            }
             Element::Item { .. }
             | Element::Collection { .. }
             | Element::AnvilInput { .. }

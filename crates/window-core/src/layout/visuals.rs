@@ -3,7 +3,7 @@ use super::target::LayoutTarget;
 use crate::Result;
 use crate::geometry::{Insets, Point, Rect, Size};
 use crate::ir::{Align, Draw, RepeatBindingIr, SlotIr, SpriteSlotIr, TextureKey};
-use crate::model::{Element, Frame, SpriteDef, TextStyle};
+use crate::model::{Element, Frame, SpriteDef, TextFit, TextStyle};
 
 impl<T: LayoutTarget> Solver<'_, T> {
     pub(super) fn place_panel(&mut self, frame: &str, rect: Rect, padding: u32, children: &[Element]) -> Result<Size> {
@@ -64,7 +64,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         if width.is_some() {
             self.warn_if_static_text_overflow(text, measured, w, &name);
         }
-        self.slots.push(text_slot_ir(name, Some(text.to_string()), rect, style, None, None));
+        self.slots.push(text_slot_ir(name, Some(text.to_string()), rect, style, None, None, TextFit::default()));
         Ok(rect.size())
     }
 
@@ -73,17 +73,18 @@ impl<T: LayoutTarget> Solver<'_, T> {
         name: &str,
         width: Option<u32>,
         style: &TextStyle,
+        fit: TextFit,
         origin: Point,
     ) -> Result<Size> {
         let width = self.required_slot_width(name, width)?;
-        let rect = Rect::from_parts(origin, Size::new(width, 8));
+        let rect = Rect::from_parts(origin, Size::new(width, fit.height()));
         let actual_name = self.scoped_name(name);
         self.register_name(&actual_name)?;
         self.check_text_constraints(rect, name, true)?;
         self.text_font(style)?;
         let repeat = self.repeat_binding(name);
         let binding = self.case_binding(name).map(|_| name.to_string());
-        self.slots.push(text_slot_ir(actual_name, None, rect, style, repeat, binding));
+        self.slots.push(text_slot_ir(actual_name, None, rect, style, repeat, binding, fit));
         Ok(rect.size())
     }
 
@@ -129,6 +130,7 @@ fn text_slot_ir(
     style: &TextStyle,
     repeat: Option<RepeatBindingIr>,
     binding: Option<String>,
+    fit: TextFit,
 ) -> SlotIr {
     SlotIr {
         name,
@@ -145,5 +147,6 @@ fn text_slot_ir(
         font: style.font.clone(),
         repeat,
         binding,
+        fit,
     }
 }

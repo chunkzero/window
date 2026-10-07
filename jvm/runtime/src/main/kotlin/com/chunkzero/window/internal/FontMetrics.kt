@@ -29,7 +29,7 @@ internal class FontMetrics(
     ): TextWidth {
         var advanceTotal = 0
         var visualWidth = 0
-        forEachRenderedCodePoint(text, bold) { codePoint, glyphBold ->
+        forEachRenderedCodePoint(text, bold) { codePoint, glyphBold, _ ->
             val key = Character.toString(codePoint)
             val baseAdvance = advanceFor(key, codePoint)
             val baseGlyphWidth = glyphWidths[key] ?: inferredGlyphWidth(key, baseAdvance)
@@ -41,6 +41,9 @@ internal class FontMetrics(
         }
         return TextWidth(advanceTotal, visualWidth)
     }
+
+    /** Whether this font has an advance for [codePoint]. */
+    fun hasAdvance(codePoint: Int): Boolean = Character.toString(codePoint) in advances
 
     private fun advanceFor(
         key: String,

@@ -12,6 +12,7 @@ import com.chunkzero.window.internal.FrameCursor
 import com.chunkzero.window.internal.RenderedSegment
 import com.chunkzero.window.internal.SessionFrames
 import com.chunkzero.window.internal.Switches
+import com.chunkzero.window.internal.bindingSlot
 import com.chunkzero.window.internal.emptySegment
 import com.chunkzero.window.manifest.SwitchCaseEntry
 import net.kyori.adventure.text.Component
@@ -92,6 +93,29 @@ public abstract class HudView(
 
     /** Registers the providers of this HUD's slots and switches; runs once, on the first [render]. */
     protected abstract fun HudScope.bind()
+
+    /**
+     * [value] shortened with an ellipsis so that it, followed by [suffix], fits the width of slot [slot] when drawn in
+     * its font and style; followed by [suffix], which is kept even when it alone is wider. Content that already fits is returned unchanged. Use it to keep a
+     * suffix, such as a score, while shortening the text before it.
+     *
+     * [slot] is the slot's authored name, or its flattened entry name such as `name[2]` for an indexed binding. A
+     * binding shared across a switch's cases measures with its copy in the first case that has one.
+     *
+     * @throws IllegalArgumentException if [slot] is not a dynamic text slot of this HUD.
+     */
+    protected fun fit(
+        slot: String,
+        value: Component,
+        suffix: Component = Component.empty(),
+    ): Component {
+        val entry = definition.entry
+        return definition.composer.fit(
+            entry.slots.bindingSlot(slot, entry.switches, "hud", definition.name),
+            value,
+            suffix,
+        )
+    }
 
     private fun composeInitialRender(): ComposedRender {
         if (!bound) {

@@ -61,6 +61,8 @@ fn slot(x: i32, y: i32, width: u32, align: Align, font: &str, color: &str, text:
         obfuscated: false,
         text: text.map(Into::into),
         binding: None,
+        overflow: None,
+        lines: None,
     }
 }
 

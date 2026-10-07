@@ -57,12 +57,9 @@ pub(super) fn validate_manifest_paths(
     }
     for (name, window) in &manifest.windows {
         for (slot_name, slot) in &window.slots {
-            validate_font_reference(
-                &slot.font,
-                files,
-                report,
-                format!("manifest.windows.{name}.slots.{slot_name}.font"),
-            );
+            for (font, _) in slot.fonts() {
+                validate_font_reference(font, files, report, format!("manifest.windows.{name}.slots.{slot_name}.font"));
+            }
         }
         for (slot_name, slot) in &window.sprite_slots {
             validate_font_reference(
@@ -85,7 +82,9 @@ pub(super) fn validate_manifest_paths(
     }
     for (name, hud) in &manifest.huds {
         for (slot_name, slot) in &hud.slots {
-            validate_font_reference(&slot.font, files, report, format!("manifest.huds.{name}.slots.{slot_name}.font"));
+            for (font, _) in slot.fonts() {
+                validate_font_reference(font, files, report, format!("manifest.huds.{name}.slots.{slot_name}.font"));
+            }
         }
     }
 }

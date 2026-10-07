@@ -57,6 +57,17 @@ test("bindings carry their index into indexed families", () => {
     assert.throws(() => Text({ index: 0, children: "Static" }), /requires `bind`/);
 });
 
+test("bound text carries its fitting options", () => {
+    assert.deepEqual(Text({ bind: "name", width: 46, lines: 2, lineHeight: 7 }), {
+        type: "slot",
+        name: "name",
+        width: 46,
+        lines: 2,
+        line_height: 7,
+    });
+    assert.throws(() => Text({ overflow: "ellipsis", children: "Static" }), /<Text overflow> requires `bind`/);
+});
+
 test("cases belong directly inside a switch", () => {
     assert.throws(() => Box({ children: Case({ value: "buy" }) }), /<Case> inside <Switch>/);
     assert.throws(() => Switch({ bind: "mode", children: "Buy" }), /children must be <Case>/);

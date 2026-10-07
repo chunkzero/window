@@ -39,33 +39,37 @@ internal class TitleComposer(
      *
      * The segment is `spacer(xStart − originX)` + styled text + `spacer(−(dx + advanceWidth))`,
      * where `xStart` depends on the slot's alignment and the visible plain-text width of [content].
+     * A multi-line slot chains its lines with spacers between them.
      */
     fun renderSlot(
         semanticId: String,
         slot: SlotEntry,
         content: Component,
     ): RenderedSegment? {
-        val styled = content.applyFallbackStyle(slotStyle(slot, requireColor(slot.color)))
-        val widths = fonts.measure(styled, slot.font)
-        if (widths.advance == 0 && widths.visual == 0) return null
-
-        val xStart = fonts.originFor(slot.align, slot.x, slot.width, widths.visual)
-        val dx = xStart - originX
+        val lines = fonts.slotLines(slot, content, slotStyle(slot, requireColor(slot.color)))
+        val placed = fonts.placeLines(slot, lines, ::spacer) ?: return null
+        val dx = placed.start - originX
         return RenderedSegment(
-            component = netZeroSegment(dx, widths.advance, styled),
+            component = netZeroSegment(dx, placed.end - placed.start, placed.component),
             trace =
                 textSlotTrace(
                     semanticId = semanticId,
                     kind = RenderLayerKind.TEXT_SLOT,
                     slot = slot,
-                    styled = styled,
+                    styled = lines.first().component,
                     colorHex = slot.color,
-                    xStart = xStart,
-                    widths = widths,
+                    placed = placed,
                     cursor = originX,
                 ),
         )
     }
+
+    /** [value] shortened with an ellipsis so that it, followed by [suffix], fits [slot]; followed by [suffix]. */
+    fun fit(
+        slot: SlotEntry,
+        value: Component,
+        suffix: Component,
+    ): Component = fonts.fitText(value, suffix, slotStyle(slot, requireColor(slot.color)), slot.width)
 
     /** Renders a runtime sprite's net-zero segment, or `null` when [spriteName] is null. */
     fun renderSprite(
@@ -146,6 +150,9 @@ internal class TitleComposer(
             netCursorDelta = 0,
         )
     }
+
+    private fun spacer(offset: Int): Component? =
+        spacers.compose(offset).takeIf { it.isNotEmpty() }?.let { Component.text(it).style(spacerStyle) }
 
     private fun netZeroSegment(
         dx: Int,

@@ -33,9 +33,9 @@ pub(super) fn compile_hud(
 
     let mut slots = BTreeMap::new();
     for slot in &h.slots {
-        let font = ctx.text_font(slot, slot.rect.y)?;
         let marker = h.shader.map(|_| markers.slot_marker(&h.name, &slot.name));
-        slots.insert(slot.name.clone(), slot_entry(slot, font, marker));
+        let entry = slot_entry(ctx, slot, slot.rect.y, marker)?;
+        slots.insert(slot.name.clone(), entry);
     }
 
     Ok(HudEntry {

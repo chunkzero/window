@@ -148,8 +148,8 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(())
     }
 
-    /// Text leaves stretch across their line and are at least 8px tall; dynamic text without a width
-    /// also grows along a horizontal parent. Other leaves keep their measured size.
+    /// Text leaves stretch across their line and are at least as tall as their lines; dynamic text without a
+    /// width also grows along a horizontal parent. Other leaves keep their measured size.
     fn add_leaf(&self, tree: &mut Tree, el: &Element, item: &ItemLayout, horizontal: bool) -> Result<NodeId> {
         let mut style = taffy::Style { flex_shrink: 0.0, ..Default::default() };
         let size = self.leaf_size(el)?;
@@ -158,7 +158,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 let unsized_slot = matches!(el, Element::Slot { width: None, .. });
                 let width = if unsized_slot { Dimension::AUTO } else { length(size.width as f32) };
                 style.size = taffy::Size { width, height: Dimension::AUTO };
-                style.min_size.height = LengthPercentageAuto::length(8.0);
+                style.min_size.height = LengthPercentageAuto::length(size.height as f32);
                 if unsized_slot && horizontal {
                     style.flex_grow = 1.0;
                 }
@@ -176,7 +176,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
 
     fn leaf_size(&self, el: &Element) -> Result<Size> {
         match el {
-            Element::Slot { width: None, .. } => Ok(Size::new(0, 8)),
+            Element::Slot { width: None, fit, .. } => Ok(Size::new(0, fit.height())),
             Element::Label { .. }
             | Element::Slot { .. }
             | Element::Sprite { .. }
@@ -252,13 +252,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
     /// Emits a leaf in its solved box: text takes the box width and is vertically centered, and other
     /// elements keep their size, centered in the box.
     fn place_leaf(&mut self, el: &Element, rect: Rect) -> Result<()> {
-        let centered_y = rect.y + (rect.height as i32 - 8).div_euclid(2);
+        let centered_y = |height: u32| rect.y + (rect.height as i32 - height as i32).div_euclid(2);
         match el {
             Element::Label { text, style, .. } => {
-                self.place_label(text, Some(rect.width), style, Point::new(rect.x, centered_y))?;
+                self.place_label(text, Some(rect.width), style, Point::new(rect.x, centered_y(8)))?;
             }
-            Element::Slot { name, style, .. } => {
-                self.place_slot(name, Some(rect.width), style, Point::new(rect.x, centered_y))?;
+            Element::Slot { name, style, fit, .. } => {
+                self.place_slot(name, Some(rect.width), style, *fit, Point::new(rect.x, centered_y(fit.height())))?;
             }
             other => {
                 let size = self.measure(other)?;

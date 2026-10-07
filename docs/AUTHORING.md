@@ -321,7 +321,7 @@ also accept `"auto"`.
 | `<Window name container frame? bleed? text?>`                        | `ui(...)`                    | `frame` is drawn first over the GUI grown by `bleed`                                     |
 | `<Hud name channel? width? height? anchor? offset?>`                 | `hud(...)`                   | children lay out as a column; without a size it fits its content                         |
 | `<Header>`                                                           | box                          | the 176x17 title strip, centering its children                                           |
-| `<Text>text</Text>` / `<Text bind="slot">`                           | `label` / `slot`             | text style props, `width`                                                                |
+| `<Text>text</Text>` / `<Text bind="slot">`                           | `label` / `slot`             | text style props, `width`; bound text also `overflow`, `lines`, `lineHeight`             |
 | `<Sprite name>` / `<Icon bind size sprite?>`                         | `sprite` / `spriteSlot`      |                                                                                          |
 | `<Button name>` / `<Toggle on off>` / `<Choice selected unselected>` | `button`, `toggle`, `choice` | children are centered in a row; string children become labels; `close` closes the window |
 | `<Tabs name sprite selectedSprite><Tab value>…</Tab></Tabs>`         | one `choice` per tab         | choices are named `<name>_<value>`                                                       |
@@ -359,7 +359,7 @@ Generated Kotlin is the same as for the function API: binding names come from `n
 | `slotRects(name, opts)`       | no       | name, and `pattern` or `transform`                                                       | `frame`, `claim: "none"`, `"all"`, or `"unowned"`                                                                                  |
 | `repeater(name, opts)`        | yes      | name, and `pattern` or `transform`                                                       | `frame`, `padding`                                                                                                                 |
 | `label(text, opts)`           | no       | text                                                                                     | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
-| `slot(name, opts)`            | no       | slot name                                                                                | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
+| `slot(name, opts)`            | no       | slot name                                                                                | the `label` options, `overflow`, `lines`, `line_height`; see [Text overflow](#text-overflow)                                       |
 | `switchOn(name, cases, opts)` | yes      | binding name and at least one case, keyed by value                                       | `x`, `y`; each case takes `frame`, `style`, `children`; see [Conditionals](#conditionals)                                          |
 | `show(when, opts)`            | yes      | Boolean binding name                                                                     | `x`, `y`, and the case options for the shown case                                                                                  |
 | `flex(opts)` / `grid(opts)`   | yes      | none                                                                                     | `x`, `y`, `frame`, `style`; `grid` sets `style.display: "grid"`; see [Flex layout](#flex-layout)                                   |
@@ -526,6 +526,36 @@ section("container", {
   ],
 });
 ```
+
+## Text overflow
+
+Bound text can fit itself to its slot at runtime, measured with the slot's own font and style:
+
+```tsx
+<Text bind="name" overflow="ellipsis" width={46} />
+<Text bind="name" lines={2} lineHeight={7} width={46} smallCaps />
+```
+
+```ts
+slot("name", { width: 46, overflow: "ellipsis" });
+slot("name", { width: 46, lines: 2, line_height: 7, small_caps: true });
+```
+
+- `overflow: "ellipsis"` truncates content wider than the slot and appends "…" (or "..." when the slot's font has no
+  "…"). The kept text keeps its colors, decorations, and fonts. Content that fits is drawn unchanged.
+- `lines` wraps content at spaces onto at most that many lines. The last line, and any single word wider than the slot,
+  ends in an ellipsis, so `lines` above 1 implies `overflow: "ellipsis"`. `lineHeight` (`line_height`) is the distance
+  between line tops and defaults to 9, the vanilla line spacing.
+- A slot with `lines: n` is `(n - 1) * lineHeight + 8` pixels tall in layout. The lines a value uses are vertically
+  centered in that box, so a short value sits in its middle and a long one fills it.
+- `lines` must be at least 1, and like any dynamic slot the slot needs a `width` unless its parent sizes it. Fitting
+  only applies to bound text: setting these options on a static label is a build error.
+- Fitting works in windows and HUDs, including shader HUDs, repeater cells, switch cases, and indexed bindings.
+
+When a slot must keep a suffix while shortening the text before it, such as `"<holder> - 42"`, fit the value in Kotlin
+instead: `WindowView` and `HudView` provide `fit(slot, value, suffix)`, which shortens `value` with an ellipsis so that
+it and `suffix` fit the slot, then appends `suffix`. A binding shared across switch cases measures with its first case's
+copy.
 
 ## Conditionals
 

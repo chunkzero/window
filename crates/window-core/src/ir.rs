@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::geometry::{Insets, Rect};
 use crate::inventory::{InventorySlotRef, SlotRectClaim};
-use crate::model::GeneratedStyle;
+use crate::model::{GeneratedStyle, TextFit};
 use crate::surface::Surface;
 
 /// Horizontal text alignment within a slot's reserved width.
@@ -199,7 +199,7 @@ pub struct SlotIr {
     pub name: String,
     /// `Some` for static labels; `None` for dynamic slots.
     pub text: Option<String>,
-    /// Reserved text rect; height is always 8 (one vanilla text line).
+    /// Reserved text rect; 8px tall (one vanilla text line) unless `fit` wraps onto more lines.
     pub rect: Rect,
     /// Horizontal alignment within `rect`.
     pub align: Align,
@@ -224,6 +224,8 @@ pub struct SlotIr {
     pub repeat: Option<RepeatBindingIr>,
     /// The binding this slot shares with its copies in the other cases of one switch.
     pub binding: Option<String>,
+    /// Runtime fitting of overflowing content; the default for static labels.
+    pub fit: TextFit,
 }
 
 /// The kind of binding an [`IndexedBinding`] family flattens.

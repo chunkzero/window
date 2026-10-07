@@ -108,6 +108,32 @@ public data class SlotEntry(
      * keyed `{binding}.{case}`; `null` when the key is the binding name.
      */
     val binding: String? = null,
+    /** How content wider than [width] is shortened; `null` leaves it untouched. */
+    val overflow: TextOverflow? = null,
+    /** The lines content wraps onto; `null` for a single line. */
+    val lines: SlotLinesEntry? = null,
+)
+
+/** How a text slot shortens content wider than its width. */
+@Serializable
+public enum class TextOverflow {
+    /** Truncate and end with an ellipsis. */
+    @SerialName("ellipsis")
+    ELLIPSIS,
+}
+
+/** The lines a multi-line text slot wraps onto, vertically centered in its box. */
+@Serializable
+public data class SlotLinesEntry(
+    /** Maximum number of lines. */
+    val count: Int,
+    /** Distance between the tops of consecutive lines, in GUI pixels. */
+    @SerialName("line_height") val lineHeight: Int,
+    /**
+     * Shifted fonts by half-line step: `fonts[s]` draws a line whose top is
+     * `y + floor(s * lineHeight / 2)`. With `k` lines used, line `j` uses `s = count - k + 2j`.
+     */
+    val fonts: List<String>,
 )
 
 /** One runtime-renderable sprite in the compiled pack. */

@@ -318,14 +318,20 @@ export function repeater(name: string, opts: RepeaterOptions): RepeaterElement {
     return { ...out, name } as unknown as RepeaterElement;
 }
 
+const FIT_KEYS = ["overflow", "lines", "line_height"] as const;
+
 export function label(text: string, opts?: LabelOptions): LabelElement {
     requireName(text, "label text");
+    const fit = FIT_KEYS.find((key) => (opts as Fields | undefined)?.[key] !== undefined);
+    if (fit !== undefined) {
+        throw new Error(`label does not accept option \`${fit}\`; only bound text slots fit their content at runtime`);
+    }
     return { ...element("label", opts, TEXT_KEYS), text } as unknown as LabelElement;
 }
 
 export function slot(name: string, opts?: SlotOptions): SlotElement {
     requireName(name, "slot name");
-    return { ...element("slot", opts, [...TEXT_KEYS, "index"]), name } as unknown as SlotElement;
+    return { ...element("slot", opts, [...TEXT_KEYS, ...FIT_KEYS, "index"]), name } as unknown as SlotElement;
 }
 
 function switchCase(name: string, value: string, opts: CaseOptions): CaseElement {

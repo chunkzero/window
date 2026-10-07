@@ -7,7 +7,7 @@ use crate::authoring::patterns::parse_slot_refs;
 use crate::geometry::{Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, Rgb};
-use crate::model::{CrossAlign, TextStyle};
+use crate::model::{CrossAlign, TextFit, TextStyle};
 use crate::{Error, Result, text_font};
 
 const PANEL_FIELDS: &[&str] = &["type", "frame", "width", "height", "x", "y", "padding", "children"];
@@ -77,7 +77,13 @@ const SLOT_FIELDS: &[&str] = &[
     "obfuscated",
     "font",
     "small_caps",
+    "overflow",
+    "lines",
+    "line_height",
 ];
+/// Tallest box a wrapped text slot may span, in pixels.
+const MAX_TEXT_HEIGHT: u32 = 1024;
+const FIT_FIELDS: &[&str] = &["overflow", "lines", "line_height"];
 
 fn allowed_fields(kind: &str) -> Option<&'static [&'static str]> {
     Some(match kind {
@@ -109,6 +115,14 @@ impl ElementDto {
         };
         let mut fields = self.fields.clone();
         fields.remove("layout");
+        if self.kind == "label"
+            && let Some(field) = FIT_FIELDS.iter().find(|field| fields.contains(**field))
+        {
+            return Err(Error::Validation(format!(
+                "label element does not accept `{field}`: static labels are fixed at compile time, so only bound \
+                 (dynamic) text slots fit their content at runtime"
+            )));
+        }
         reject_unexpected_fields(&fields, allowed, &format!("{} element", self.kind))
     }
 
@@ -210,6 +224,41 @@ impl ElementDto {
             obfuscated: self.obfuscated,
             font,
         })
+    }
+
+    pub(super) fn text_fit(&self) -> Result<TextFit> {
+        let ellipsis = match self.overflow.as_deref() {
+            None => false,
+            Some("ellipsis") => true,
+            Some(other) => {
+                return Err(Error::Validation(format!(
+                    "{} element has unknown overflow `{other}`; valid overflow: ellipsis",
+                    self.kind
+                )));
+            }
+        };
+        let lines = self.lines.unwrap_or(1);
+        if lines == 0 {
+            return Err(Error::Validation(format!("{} element `lines` must be at least 1", self.kind)));
+        }
+        let line_height = match self.line_height {
+            Some(_) if self.lines.is_none() => {
+                return Err(Error::Validation(format!("{} element sets `line_height` without `lines`", self.kind)));
+            }
+            Some(0) => {
+                return Err(Error::Validation(format!("{} element `line_height` must be at least 1", self.kind)));
+            }
+            Some(line_height) => line_height,
+            None => TextFit::DEFAULT_LINE_HEIGHT,
+        };
+        let height = (lines - 1).checked_mul(line_height).and_then(|height| height.checked_add(8));
+        if height.is_none_or(|height| height > MAX_TEXT_HEIGHT) {
+            return Err(Error::Validation(format!(
+                "{} element `lines` span more than {MAX_TEXT_HEIGHT} pixels",
+                self.kind
+            )));
+        }
+        Ok(TextFit { ellipsis: ellipsis || lines > 1, lines, line_height })
     }
 
     pub(super) fn text_align(&self) -> Result<Align> {

@@ -4,7 +4,8 @@ private const val SECTION_SIGN = '§'
 private const val REPLACEMENT_CHARACTER = 0xFFFD
 
 /**
- * Visits the code points the client renders for one literal text run, with each one's bold state.
+ * Visits the code points the client renders for one literal text run, with each one's bold state and the index in
+ * [text] just past it.
  *
  * Mirrors the client's `StringDecomposer.iterateFormatted`: `§` and the following char are never
  * rendered, and a trailing lone `§` is dropped. Codes are case-insensitive: `l` turns bold on, color
@@ -14,7 +15,7 @@ private const val REPLACEMENT_CHARACTER = 0xFFFD
 internal fun forEachRenderedCodePoint(
     text: String,
     baseBold: Boolean,
-    action: (codePoint: Int, bold: Boolean) -> Unit,
+    action: (codePoint: Int, bold: Boolean, end: Int) -> Unit,
 ) {
     var bold = baseBold
     var i = 0
@@ -28,12 +29,12 @@ internal fun forEachRenderedCodePoint(
             }
 
             char.isHighSurrogate() && i + 1 < text.length && text[i + 1].isLowSurrogate() -> {
-                action(Character.toCodePoint(char, text[i + 1]), bold)
+                action(Character.toCodePoint(char, text[i + 1]), bold, i + 2)
                 i += 2
             }
 
             else -> {
-                action(if (char.isSurrogate()) REPLACEMENT_CHARACTER else char.code, bold)
+                action(if (char.isSurrogate()) REPLACEMENT_CHARACTER else char.code, bold, i + 1)
                 i++
             }
         }
