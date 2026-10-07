@@ -186,6 +186,7 @@ fn overlapping_buttons_error() {
         action: true,
         tooltip: None,
         states: BTreeMap::new(),
+        hover_outline: None,
         repeat: None,
     });
 
@@ -368,4 +369,45 @@ fn multi_line_slots_reserve_their_lines_and_a_font_per_line_position() {
     let err =
         compile_children(r#"[{"type":"slot","name":"n","width":9,"lines":2,"line_height":4294967295}]"#).unwrap_err();
     assert!(err.to_string().contains("`lines` span more than 1024 pixels"), "{err}");
+}
+
+fn hover_buttons() -> (LaidOutWindow, BTreeMap<String, Texture>) {
+    let (mut w, textures) = sample_window();
+    w.buttons[0].hover_outline = Some(true);
+    w.buttons.push(ButtonIr {
+        name: "other".into(),
+        rect: Rect::new(26, 18, 16, 16),
+        slots: None,
+        yielded_slots: Vec::new(),
+        default: None,
+        action: true,
+        tooltip: None,
+        states: BTreeMap::new(),
+        hover_outline: None,
+        repeat: None,
+    });
+    (w, textures)
+}
+
+#[test]
+fn button_hover_outline_overrides_the_theme_default() {
+    let (w, textures) = hover_buttons();
+    let theme = Theme { hover_outlines: Some(false), ..Theme::default() };
+    let target = PackTarget { pack_format: Some(88) };
+    let options = BuildOptions { hover_outlines: true, ..BuildOptions::default() };
+    let out = compile_themed(&[w], &textures, "window", &theme, &target, &options).unwrap();
+
+    let buttons = &out.manifest.windows["shop"].buttons;
+    assert!(buttons["buy"].hover.is_some());
+    assert!(buttons["other"].hover.is_none());
+}
+
+#[test]
+fn button_hover_outline_requires_the_core_shader() {
+    let (w, textures) = hover_buttons();
+    let err = compile_windows(&[w], &textures, "window").unwrap_err();
+    assert!(
+        err.to_string().contains("`buy` sets `hover_outline`, but coreShaders.enableHoverOutlines is off"),
+        "{err}"
+    );
 }

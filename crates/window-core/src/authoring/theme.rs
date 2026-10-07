@@ -20,6 +20,7 @@ pub(super) struct ThemeDto {
     fonts: BTreeMap<String, FontDto>,
     #[serde(default)]
     colors: BTreeMap<String, String>,
+    hover_outlines: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,8 +67,16 @@ struct GeneratedStyleDto {
 }
 
 impl ThemeDto {
-    /// Adds this document's frames, sprites, fonts, and colors to `theme`; names are global across documents.
+    /// Adds this document's frames, sprites, fonts, colors, and hover outline default to `theme`; names are global
+    /// across documents, and documents setting the hover outline default must agree.
     pub(super) fn merge_into(self, theme: &mut Theme) -> Result<()> {
+        if let Some(enabled) = self.hover_outlines {
+            if theme.hover_outlines.is_some_and(|existing| existing != enabled) {
+                return Err(Error::Validation("themes disagree on `hover_outlines`".into()));
+            }
+            theme.hover_outlines = Some(enabled);
+        }
+
         for (name, frame) in self.frames {
             validate_name(&name, "frame")?;
             if theme.frames.contains_key(&name) {

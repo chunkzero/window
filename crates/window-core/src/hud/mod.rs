@@ -52,7 +52,7 @@ pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud], hover_outlines: bool
     let Some(pack_format) = pack_format else {
         return Err(Error::Validation(
             "core text shaders are enabled, but Window could not determine pack_format; set the pack format, \
-             remove the HUD `shader` placement, or disable hoverOutlines"
+             remove the HUD `shader` placement, or disable coreShaders.enableHoverOutlines"
                 .into(),
         ));
     };
@@ -60,14 +60,14 @@ pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud], hover_outlines: bool
     let Some(profile) = ShaderProfile::for_pack_format(pack_format) else {
         return Err(Error::Validation(format!(
             "core text shaders are enabled, but pack_format {pack_format} has no core shader profile; target a \
-             supported pack format, remove the HUD `shader` placement, or disable hoverOutlines"
+             supported pack format, remove the HUD `shader` placement, or disable coreShaders.enableHoverOutlines"
         )));
     };
 
     if hover_outlines && profile != ShaderProfile::Pack85To88DefineVariants {
         return Err(Error::Validation(format!(
-            "hoverOutlines needs the pack_format 85-88 core shader profile, but the pack targets pack_format \
-             {pack_format}; target a supported pack format or disable hoverOutlines"
+            "coreShaders.enableHoverOutlines needs the pack_format 85-88 core shader profile, but the pack \
+             targets pack_format {pack_format}; target a supported pack format or turn it off"
         )));
     }
 

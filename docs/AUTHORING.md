@@ -220,7 +220,7 @@ export default hud({
 });
 ```
 
-If the plugin option `hudShaders: true` is set, a HUD may also include
+If the plugin option `coreShaders: { enableHud: true }` is set, a HUD may also include
 `shader: { source_bottom: 59, origin: { x: 0.5, y: 0.08 }, anchor: { x: 0.5, y: 0.0 } }`. `origin` is a normalized GUI
 point (`0.0` is left/top, `1.0` is right/bottom); `anchor` is the normalized point inside the HUD surface placed on that
 origin. Optional `x`/`y` values add a GUI-pixel nudge from the normalized origin. `source_bottom` is the GUI-pixel
@@ -229,17 +229,24 @@ actionbar source inset when deriving its top edge; the source position does not 
 Window then emits generated text core shaders for the pack's `pack.format` (the `max` of a range), including the
 matching text-background pass so vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles
 cover pack formats 9 through 88 (Minecraft 26.2); compilation fails when a shader-placed HUD targets an unsupported pack
-format or `hudShaders` is not enabled. Core shaders are intentionally opt-in; the fallback channel remains the runtime
-contract.
+format or `coreShaders.enableHud` is not set. Core shaders are intentionally opt-in; the fallback channel remains the
+runtime contract.
 
 ### Hover outlines
 
-The plugin option `hoverOutlines: true` draws a 1px white outline around a button or hotspot while its tooltip is
-showing. Like `hudShaders`, it overrides the core text shaders, and it needs pack format 85 through 88. The runtime adds
-a net-zero outline glyph to the front of the tooltip title. The text shader moves that glyph's shadow onto the button
-and keeps it from drawing over the tooltip. A button with no tooltip draws no outline, because the client draws no
-tooltip for it. Vanilla's slot highlight still draws over the hovered slot. With advanced tooltips (F3+H) on, the
-outline can show through the extra lines the client adds, because the server can't count them.
+The plugin option `coreShaders: { enableHoverOutlines: true }` draws a 1px white outline around a button, hotspot, or
+repeater cell while its tooltip is showing. Like `coreShaders.enableHud`, it overrides the core text shaders, and it
+needs pack format 85 through 88. The runtime adds a net-zero outline glyph to the front of the tooltip title. The text
+shader moves that glyph's shadow onto the control and keeps it from drawing over the tooltip.
+
+Every control draws an outline by default. A theme can turn that default off with `hover_outlines: false`, and a
+`button`, `toggle`, `choice`, `hotspot`, or `repeater` can override it with `hover_outline` (`hoverOutline` on
+`<Button>`, `<Toggle>`, `<Choice>`, `<Tabs>`, `<Hotspot>`, and `<Repeater>`). Setting `hover_outline: true` without
+`enableHoverOutlines` is a compile error.
+
+A control with no tooltip draws no outline, because the client draws no tooltip for it. Vanilla's slot highlight still
+draws over the hovered slot. With advanced tooltips (F3+H) on, the outline can show through the extra lines the client
+adds, because the server can't count them.
 
 The plugin option `hideSlotHighlight: true` replaces vanilla's slot highlight sprites with transparent ones. This
 affects every container the pack is active in, not only Window's, so players lose the highlight on real inventories too.
@@ -347,7 +354,7 @@ also accept `"auto"`.
 `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `smallCaps`, `align`) for the text inside it; the
 nearest setting wins. Button content defaults to centered text.
 
-`<Hud anchor>` pins the HUD with the generated core shaders (requires `hudShaders`): `"top-left"`, `"top"`,
+`<Hud anchor>` pins the HUD with the generated core shaders (requires `coreShaders.enableHud`): `"top-left"`, `"top"`,
 `"top-right"`, `"left"`, `"center"`, `"right"`, `"bottom-left"`, `"bottom"`, `"bottom-right"`, or a normalized
 `{ x, y }`. The same point of the HUD is placed on that screen point, and `offset={[x, y]}` nudges it in GUI pixels.
 

@@ -21,6 +21,15 @@ pub(super) struct ControlSpec<'e> {
     pattern: Option<&'e SlotPattern>,
     tooltip: Option<&'e ButtonTooltip>,
     states: &'e BTreeMap<String, ButtonState>,
+    hover_outline: Option<bool>,
+}
+
+/// What every cell of a repeater shares: its frame, padding, hover outline override, and template children.
+struct RepeaterTemplate<'e> {
+    frame: Option<&'e str>,
+    padding: u32,
+    hover_outline: Option<bool>,
+    children: &'e [Element],
 }
 
 impl<'e> ControlSpec<'e> {
@@ -31,8 +40,9 @@ impl<'e> ControlSpec<'e> {
         pattern: Option<&'e SlotPattern>,
         tooltip: &'e Option<ButtonTooltip>,
         states: &'e BTreeMap<String, ButtonState>,
+        hover_outline: Option<bool>,
     ) -> Self {
-        Self { name, size, slots, pattern, tooltip: tooltip.as_ref(), states }
+        Self { name, size, slots, pattern, tooltip: tooltip.as_ref(), states, hover_outline }
     }
 }
 
@@ -100,6 +110,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             action,
             tooltip: control.tooltip.cloned(),
             states: control.states.clone(),
+            hover_outline: control.hover_outline,
             repeat: self.repeat_binding(control.name),
         });
         resolved.rect.size()
@@ -214,6 +225,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         pattern: &SlotPattern,
         frame: Option<&str>,
         padding: u32,
+        hover_outline: Option<bool>,
         children: &[Element],
     ) -> Result<Size> {
         self.require_slot_patterns(name)?;
@@ -222,8 +234,9 @@ impl<T: LayoutTarget> Solver<'_, T> {
         if cells.is_empty() {
             return Err(self.target.layout_err(format!("repeater `{name}` resolved to no cells")));
         }
+        let template = RepeaterTemplate { frame, padding, hover_outline, children };
         for (index, cell) in cells.iter().enumerate() {
-            self.place_repeater_cell(name, index as u32, cell, frame, padding, children)?;
+            self.place_repeater_cell(name, index as u32, cell, &template)?;
         }
         Ok(cells_bounds(&cells).map_or(Size::new(0, 0), |rect| rect.size()))
     }
@@ -233,10 +246,9 @@ impl<T: LayoutTarget> Solver<'_, T> {
         group: &str,
         index: u32,
         cell: &PatternCell,
-        frame: Option<&str>,
-        padding: u32,
-        children: &[Element],
+        template: &RepeaterTemplate<'_>,
     ) -> Result<()> {
+        let RepeaterTemplate { frame, padding, hover_outline, children } = *template;
         let cell_name = format!("{group}_{index}");
         if let Some(frame) = frame {
             self.emit_frame(frame, cell.rect, &format!("repeater `{group}` frame `{frame}`"))?;
@@ -256,6 +268,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             action: true,
             tooltip: None,
             states: BTreeMap::new(),
+            hover_outline,
             repeat: Some(RepeatBindingIr { group: group.to_string(), field: None, index }),
         });
         let previous = self.active_repeat.replace(ActiveRepeat {

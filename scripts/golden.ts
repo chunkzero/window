@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 interface Case {
     packFormat: number;
-    hudShaders?: boolean;
+    coreShaders?: { enableHud?: boolean; enableHoverOutlines?: boolean };
     anvilFieldSprite?: string;
     kotlinPackage?: string;
     /** Required with `kotlinPackage`. */
@@ -46,7 +46,7 @@ function tsProject(caseDir: string, dir: string, options: Case): void {
     copyTree(join(caseDir, "ts"), join(dir, "src"));
     write(join(dir, "rpp.json"), JSON.stringify({ dependencies: { window: `path:${pluginDir}` } }));
     const windowOptions = [
-        `hudShaders: ${options.hudShaders === true}`,
+        `coreShaders: ${JSON.stringify(options.coreShaders ?? {})}`,
         ...(options.anvilFieldSprite === undefined
             ? []
             : [`anvilFieldSprite: ${JSON.stringify(options.anvilFieldSprite)}`]),

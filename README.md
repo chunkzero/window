@@ -187,7 +187,7 @@ Window targets Minecraft 26.2 (resource pack format 88). The hosts and example s
 Minestom serves a single protocol version, so they accept only 26.2 clients. The [inspector](docs/INSPECTOR.md) also
 targets 26.2.
 
-The compiler still emits packs for 26.1.x (pack format 84): its glyph metrics are shared with 26.2, and `hudShaders`
+The compiler still emits packs for 26.1.x (pack format 84): its glyph metrics are shared with 26.2, and `coreShaders`
 selects the core text shaders for the configured `pack.format`. Serving 26.1.x clients requires a server that speaks
 their protocol; the Minestom and Multistom hosts do not.
 

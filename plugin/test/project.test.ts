@@ -66,7 +66,11 @@ test("project JSON omits empty themes", () => {
         target: { pack_format: 88 },
     });
     const themed: WindowDocument = theme({ sprites: { badge: { kind: "badge", width: 1, height: 1 } } });
-    const project = buildProject([themed, { ...status, window: shop.windows[0]! }], { hudShaders: true }, 84);
+    const project = buildProject(
+        [themed, { ...status, window: shop.windows[0]! }],
+        { coreShaders: { enableHud: true } },
+        84,
+    );
     assert.equal(project.themes?.length, 1);
     assert.deepEqual(project.windows, shop.windows);
     assert.deepEqual(project.huds, status.huds);

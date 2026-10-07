@@ -14,17 +14,20 @@ fn compile_windows(
     textures: &BTreeMap<String, Texture>,
     namespace: &str,
 ) -> Result<CompileOutput> {
+    compile_themed(windows, textures, namespace, &Theme::default(), &PackTarget::default(), &BuildOptions::default())
+}
+
+fn compile_themed(
+    windows: &[LaidOutWindow],
+    textures: &BTreeMap<String, Texture>,
+    namespace: &str,
+    theme: &Theme,
+    target: &PackTarget,
+    options: &BuildOptions,
+) -> Result<CompileOutput> {
     let fonts = text_font::resolve(&BTreeMap::new(), &BTreeMap::new()).unwrap();
     let assets = Assets { textures, runtime_sprites: &BTreeMap::new(), text_fonts: &fonts };
-    compile_layouts(
-        windows,
-        &[],
-        &assets,
-        &BTreeMap::new(),
-        namespace,
-        &PackTarget::default(),
-        &BuildOptions::default(),
-    )
+    compile_layouts(windows, &[], &assets, theme, namespace, target, options)
 }
 
 /// A solid RGBA texture for tests.
@@ -114,6 +117,7 @@ fn sample_window() -> (LaidOutWindow, BTreeMap<String, Texture>) {
             "disabled".into(),
             ButtonState { item_model: Some("demo:gui/buy_disabled".into()), sprite: None, tooltip: None },
         )]),
+        hover_outline: None,
         repeat: None,
     }];
     window.warnings = vec!["overlay overflow".into()];

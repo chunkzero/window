@@ -222,6 +222,11 @@ export interface Theme {
     fonts?: Record<string, TextFont>;
     /** Palette colors by name as "#rrggbb", generated into Kotlin as `WindowColors` `TextColor` constants. */
     colors?: Record<string, string>;
+    /**
+     * Whether buttons, hotspots, and repeater cells draw hover outlines unless they set `hover_outline`. Defaults to
+     * true; only applies with `coreShaders.enableHoverOutlines`. Themes that set it must agree.
+     */
+    hover_outlines?: boolean;
 }
 
 /** Base colors for `presets.industrial()`; bevels and borders are derived from these fills. */
@@ -359,6 +364,8 @@ export interface ButtonOptions extends FlexItemOptions {
     default?: ButtonDefault;
     tooltip?: string | Tooltip;
     states?: Record<string, ButtonState>;
+    /** Overrides the theme's `hover_outlines`; `true` requires `coreShaders.enableHoverOutlines`. */
+    hover_outline?: boolean;
     padding?: number;
     /** Unpositioned children are centered in the padded button content rect. */
     children?: Element[];
@@ -391,6 +398,8 @@ export interface HotspotOptions extends FlexItemOptions {
     tooltip?: string | Tooltip;
     /** Required unless `tooltip` is set. */
     states?: Record<string, ButtonState>;
+    /** Overrides the theme's `hover_outlines`; `true` requires `coreShaders.enableHoverOutlines`. */
+    hover_outline?: boolean;
 }
 
 export interface ItemOptions extends FlexItemOptions {
@@ -445,6 +454,8 @@ export interface RepeaterOptions extends FlexItemOptions {
     /** Inline slot-space rect transform. */
     transform?: SlotRectPatternOptions;
     padding?: number;
+    /** Overrides the theme's `hover_outlines` for every cell; `true` requires `coreShaders.enableHoverOutlines`. */
+    hover_outline?: boolean;
     /** Template children placed inside each repeated cell. */
     children?: Element[];
 }

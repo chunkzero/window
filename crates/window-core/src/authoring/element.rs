@@ -46,6 +46,7 @@ pub(super) struct ElementDto {
     color: Option<String>,
     tooltip: Option<TooltipDto>,
     states: BTreeMap<String, ButtonStateDto>,
+    hover_outline: Option<bool>,
     shadow: bool,
     bold: bool,
     italic: bool,
@@ -108,6 +109,7 @@ struct ElementShapeDto {
     tooltip: Option<TooltipDto>,
     #[serde(default)]
     states: BTreeMap<String, ButtonStateDto>,
+    hover_outline: Option<bool>,
     #[serde(default)]
     shadow: bool,
     #[serde(default)]
@@ -181,6 +183,7 @@ impl ElementDto {
             color: shape.color,
             tooltip: shape.tooltip,
             states: shape.states,
+            hover_outline: shape.hover_outline,
             shadow: shape.shadow,
             bold: shape.bold,
             italic: shape.italic,

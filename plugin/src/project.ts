@@ -3,10 +3,8 @@ import type { Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
 export interface WindowOptions {
     /** Namespace of the generated assets. Defaults to `window`. */
     namespace?: string;
-    /** Emit HUD shader assets. */
-    hudShaders?: boolean;
-    /** Outline hovered buttons with generated core text shaders. */
-    hoverOutlines?: boolean;
+    /** Generated core shader overrides; each feature is opt-in. */
+    coreShaders?: CoreShaderOptions;
     /** Hide vanilla's slot highlight in every container, not only Window's. */
     hideSlotHighlight?: boolean;
     /** A 110x16 theme sprite that restyles every anvil's native text field; see docs/AUTHORING.md. */
@@ -18,6 +16,14 @@ export interface WindowOptions {
     experimentalAnvilUpdates?: boolean;
     /** Generate Kotlin bindings. */
     kotlin?: KotlinOptions;
+}
+
+/** Features drawn through generated core text shaders, which replace vanilla's for every client using the pack. */
+export interface CoreShaderOptions {
+    /** Let HUDs set a `shader` placement that pins them to a screen point. */
+    enableHud?: boolean;
+    /** Outline hovered buttons and hotspots; see the theme's `hover_outlines` and each element's `hover_outline`. */
+    enableHoverOutlines?: boolean;
 }
 
 /** Server API the generated Kotlin views and HUDs bind to. */
@@ -145,8 +151,8 @@ export function buildProject(
         windows,
         huds,
         options: {
-            hud_shaders: options.hudShaders === true,
-            ...(options.hoverOutlines === true ? { hover_outlines: true } : {}),
+            hud_shaders: options.coreShaders?.enableHud === true,
+            ...(options.coreShaders?.enableHoverOutlines === true ? { hover_outlines: true } : {}),
             ...(options.hideSlotHighlight === true ? { hide_slot_highlight: true } : {}),
             ...(options.anvilFieldSprite === undefined ? {} : { anvil_field_sprite: options.anvilFieldSprite }),
             ...(options.experimentalAnvilUpdates === true ? { experimental_anvil_updates: true } : {}),

@@ -1,6 +1,6 @@
 {
   "packFormat": 84,
-  "hudShaders": true,
+  "coreShaders": { "enableHud": true },
   "anvilFieldSprite": "search_field",
   "kotlinPackage": "com.chunkzero.window.example.generated",
   "kotlinTarget": "minestom"

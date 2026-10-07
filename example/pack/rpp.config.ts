@@ -16,8 +16,7 @@ export default defineConfig({
     plugins: [
         window({
             namespace: "window",
-            hudShaders: true,
-            hoverOutlines: true,
+            coreShaders: { enableHud: true, enableHoverOutlines: true },
             hideSlotHighlight: true,
             anvilFieldSprite: "search_field",
             kotlin: {

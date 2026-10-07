@@ -3,12 +3,14 @@
 
 use std::collections::BTreeSet;
 
+use crate::authoring::BuildOptions;
 use crate::compose::Texture;
 use crate::font::bitmap_provider;
 use crate::geometry::Size;
 use crate::hud::HOVER_GLYPH_ID;
 use crate::ir::{ButtonIr, LaidOutWindow, Rgb};
 use crate::manifest::HoverEntry;
+use crate::model::Theme;
 use crate::surface::Surface;
 use crate::{Error, Result};
 
@@ -28,11 +30,35 @@ pub(super) fn hidden_slot_highlight() -> Result<Vec<OutputFile>> {
     Ok(SLOT_HIGHLIGHT_SPRITES.iter().map(|path| OutputFile::binary(*path, png.clone())).collect())
 }
 
+/// Whether controls draw hover outlines unless they override it, or `None` when hover outlines are off.
+///
+/// Fails when a control asks for an outline while `coreShaders.enableHoverOutlines` is off.
+pub(super) fn default(windows: &[&LaidOutWindow], theme: &Theme, options: &BuildOptions) -> Result<Option<bool>> {
+    if options.hover_outlines {
+        return Ok(Some(theme.hover_outlines.unwrap_or(true)));
+    }
+    for w in windows {
+        if let Some(button) = w.buttons.iter().find(|button| button.hover_outline == Some(true)) {
+            return Err(Error::Validation(format!(
+                "window `{}`: `{}` sets `hover_outline`, but coreShaders.enableHoverOutlines is off",
+                w.name, button.name
+            )));
+        }
+    }
+    Ok(None)
+}
+
+/// Whether `button` draws a hover outline under `default`, the result of [`default`].
+pub(super) fn enabled(default: Option<bool>, button: &ButtonIr) -> bool {
+    default.is_some_and(|default| button.hover_outline.unwrap_or(default))
+}
+
 /// The codepoint allocation keys of every distinct hover outline size.
-pub(super) fn hover_keys(windows: &[&LaidOutWindow]) -> BTreeSet<String> {
+pub(super) fn hover_keys(windows: &[&LaidOutWindow], default: Option<bool>) -> BTreeSet<String> {
     windows
         .iter()
         .flat_map(|w| &w.buttons)
+        .filter(|button| enabled(default, button))
         .map(|button| hover_key(Size::new(button.rect.width, button.rect.height)))
         .collect()
 }

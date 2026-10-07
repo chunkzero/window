@@ -303,6 +303,8 @@ pub struct ButtonIr {
     pub tooltip: Option<ButtonTooltip>,
     /// Named inventory item states.
     pub states: BTreeMap<String, ButtonState>,
+    /// Authored hover outline override; `None` follows the theme default.
+    pub hover_outline: Option<bool>,
     /// Repeater metadata for grouped codegen, if this button was emitted by a
     /// repeated template.
     pub repeat: Option<RepeatBindingIr>,

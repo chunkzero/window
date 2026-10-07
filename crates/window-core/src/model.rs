@@ -25,6 +25,8 @@ pub struct Theme {
     pub fonts: BTreeMap<String, FontDef>,
     /// Palette colors by name, emitted for runtime code.
     pub colors: BTreeMap<String, Rgb>,
+    /// Whether buttons, hotspots, and repeater cells draw hover outlines unless they override it; `None` means yes.
+    pub hover_outlines: Option<bool>,
 }
 
 /// A frame definition.
@@ -277,6 +279,8 @@ pub enum Element {
         tooltip: Option<ButtonTooltip>,
         /// Named inventory item states for dynamic visual/tooltip toggles.
         states: BTreeMap<String, ButtonState>,
+        /// Hover outline override; `None` follows the theme default.
+        hover_outline: Option<bool>,
         /// Visual children (centered content lives here).
         children: Vec<Element>,
     },
@@ -298,6 +302,8 @@ pub enum Element {
         tooltip: Option<ButtonTooltip>,
         /// Named inventory item states for dynamic visual/tooltip toggles.
         states: BTreeMap<String, ButtonState>,
+        /// Hover outline override; `None` follows the theme default.
+        hover_outline: Option<bool>,
     },
     /// A dynamic inventory item region with no click handler.
     Item {
@@ -359,6 +365,8 @@ pub enum Element {
         frame: Option<String>,
         /// Inner padding for repeated children.
         padding: u32,
+        /// Hover outline override for every cell; `None` follows the theme default.
+        hover_outline: Option<bool>,
         /// Visual children placed relative to each repeated cell.
         children: Vec<Element>,
     },

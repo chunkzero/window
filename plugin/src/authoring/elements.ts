@@ -214,6 +214,7 @@ export function button(name: string, opts?: ButtonOptions): ButtonElement {
         "default",
         "tooltip",
         "states",
+        "hover_outline",
         "padding",
         "children",
         "layout",
@@ -260,6 +261,7 @@ export function hotspot(name: string, opts: HotspotOptions): HotspotElement {
         ...PLACEMENT_KEYS,
         "tooltip",
         "states",
+        "hover_outline",
         "layout",
     ]);
     if (out.tooltip === undefined && out.states === undefined) {
@@ -311,7 +313,15 @@ export function slotRects(name: string, opts: SlotRectsOptions): SlotRectsElemen
 
 export function repeater(name: string, opts: RepeaterOptions): RepeaterElement {
     requireName(name, "repeater name");
-    const out = element("repeater", opts, ["frame", "pattern", "transform", "padding", "children", "layout"]);
+    const out = element("repeater", opts, [
+        "frame",
+        "pattern",
+        "transform",
+        "padding",
+        "hover_outline",
+        "children",
+        "layout",
+    ]);
     if (out.pattern === undefined && out.transform === undefined) {
         throw new Error("repeater requires `pattern` or `transform`");
     }

@@ -333,13 +333,26 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
                 self.place_panel(frame, Rect::from_parts(origin, *size), *padding, children)
             }
             Element::Button {
-                name, frame, size, slots, pattern, padding, default, tooltip, states, children, ..
+                name,
+                frame,
+                size,
+                slots,
+                pattern,
+                padding,
+                default,
+                tooltip,
+                states,
+                hover_outline,
+                children,
+                ..
             } => {
-                let control = ControlSpec::new(name, *size, slots.as_ref(), pattern.as_ref(), tooltip, states);
+                let control =
+                    ControlSpec::new(name, *size, slots.as_ref(), pattern.as_ref(), tooltip, states, *hover_outline);
                 self.place_button(control, frame.as_deref(), *padding, *default, children, origin)
             }
-            Element::Hotspot { name, size, slots, pattern, tooltip, states, .. } => {
-                let control = ControlSpec::new(name, *size, slots.as_ref(), pattern.as_ref(), tooltip, states);
+            Element::Hotspot { name, size, slots, pattern, tooltip, states, hover_outline, .. } => {
+                let control =
+                    ControlSpec::new(name, *size, slots.as_ref(), pattern.as_ref(), tooltip, states, *hover_outline);
                 self.place_hotspot(control, origin)
             }
             Element::Item { name, slots, pattern, cell_slot } => {
@@ -359,8 +372,8 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             Element::SlotRects { name, frame, pattern, claim } => {
                 self.place_slot_rects(name, frame.as_deref(), pattern, *claim)
             }
-            Element::Repeater { name, pattern, frame, padding, children } => {
-                self.place_repeater(name, pattern, frame.as_deref(), *padding, children)
+            Element::Repeater { name, pattern, frame, padding, hover_outline, children } => {
+                self.place_repeater(name, pattern, frame.as_deref(), *padding, *hover_outline, children)
             }
             Element::Sprite { name, .. } => Ok(self.emit_sprite(name, origin)?.size()),
             Element::SpriteSlot { name, size, align, sprite, .. } => {

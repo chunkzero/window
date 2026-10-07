@@ -87,6 +87,7 @@ impl ElementDto {
             default: self.button_default()?,
             tooltip: self.tooltip()?,
             states: self.states()?,
+            hover_outline: self.hover_outline,
             children: convert_children(self.children)?,
         })
     }
@@ -100,6 +101,7 @@ impl ElementDto {
             pattern: self.pattern()?,
             tooltip: self.tooltip()?,
             states: self.states()?,
+            hover_outline: self.hover_outline,
         })
     }
 
@@ -146,6 +148,7 @@ impl ElementDto {
             pattern: self.required_pattern()?,
             frame: self.frame.clone(),
             padding: self.padding,
+            hover_outline: self.hover_outline,
             children: convert_children(self.children)?,
         })
     }

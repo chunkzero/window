@@ -27,8 +27,11 @@ fn shader_placed_hud_requires_hud_shaders() {
     let assets = Assets { textures: &BTreeMap::new(), runtime_sprites: &BTreeMap::new(), text_fonts: &fonts };
     let target = PackTarget { pack_format: Some(88) };
 
-    let err =
-        compile_layouts(&[], &[hud], &assets, &BTreeMap::new(), "demo", &target, &BuildOptions::default()).unwrap_err();
+    let err = compile_layouts(&[], &[hud], &assets, &Theme::default(), "demo", &target, &BuildOptions::default())
+        .unwrap_err();
 
-    assert!(err.to_string().contains("HUD `status` uses `shader` placement, but hudShaders is disabled"), "{err}");
+    assert!(
+        err.to_string().contains("HUD `status` uses `shader` placement, but coreShaders.enableHud is off"),
+        "{err}"
+    );
 }

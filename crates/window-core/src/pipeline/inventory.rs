@@ -147,7 +147,7 @@ fn button_entry(
 ) -> Result<ButtonEntry> {
     let (slots, fill_slots) = button_slots(claims, button, input_slot)?;
     let sprite_font = button_sprite_font(ctx, claims.window, button, title_y)?;
-    let hover = if ctx.hover_outlines {
+    let hover = if super::hover::enabled(ctx.hover_default, button) {
         Some(ctx.hover_entry(claims.window, Surface::Container(claims.kind), button)?)
     } else {
         None

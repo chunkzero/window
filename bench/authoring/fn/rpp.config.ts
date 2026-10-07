@@ -6,6 +6,9 @@ export default defineConfig({
     build: { workers: 1, squash: { enabled: false } },
     plugins: [
         // Shares the jsx project's Kotlin package so both styles must produce identical output.
-        window({ hudShaders: true, kotlin: { package: "golden.jsx", output: "kotlin-out", target: "agnostic" } }),
+        window({
+            coreShaders: { enableHud: true },
+            kotlin: { package: "golden.jsx", output: "kotlin-out", target: "agnostic" },
+        }),
     ],
 });

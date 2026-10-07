@@ -16,6 +16,7 @@ use crate::font::{shifted_suffix, spacer_table, text_font_suffix};
 use crate::geometry::Size;
 use crate::ir::{LaidOutHud, LaidOutWindow, Rgb, SlotIr};
 use crate::manifest::{HudEntry, Manifest, SpriteEntry, VERSION, WindowEntry};
+use crate::model::Theme;
 use crate::text_font::TextFonts;
 use crate::{Error, Result, text_font, vanilla};
 
@@ -114,15 +115,8 @@ pub fn compile_project(project: &ParsedProject, input: &CompileInput) -> Result<
     let runtime_sprites = sprites::runtime_sprite_assets(project, &textures, &input.namespace)?;
 
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &text_fonts };
-    let output = compile_layouts(
-        &windows,
-        &huds,
-        &assets,
-        &project.theme.colors,
-        &input.namespace,
-        &project.target,
-        &project.options,
-    )?;
+    let output =
+        compile_layouts(&windows, &huds, &assets, &project.theme, &input.namespace, &project.target, &project.options)?;
     let validation = crate::validation::validate_compiled(&output, &input.files);
     if !validation.is_valid() {
         return Err(Error::Validation(validation.to_string()));
@@ -161,7 +155,7 @@ fn compile_layouts(
     windows: &[LaidOutWindow],
     huds: &[LaidOutHud],
     assets: &Assets<'_>,
-    colors: &BTreeMap<String, Rgb>,
+    theme: &Theme,
     namespace: &str,
     target: &PackTarget,
     options: &BuildOptions,
@@ -175,7 +169,7 @@ fn compile_layouts(
         && let Some(hud) = huds.iter().find(|h| h.shader.is_some())
     {
         return Err(Error::Validation(format!(
-            "HUD `{}` uses `shader` placement, but hudShaders is disabled; set `hudShaders: true` in the Window \
+            "HUD `{}` uses `shader` placement, but coreShaders.enableHud is off; set `coreShaders: {{ enableHud: true }}` in the Window \
              plugin options or remove the HUD `shader` placement",
             hud.name
         )));
@@ -193,10 +187,11 @@ fn compile_layouts(
         anvil::open_field(w, layers, &mut field_warnings);
     }
     let used_sprites = uses_runtime_sprites.then_some(runtime_sprites);
-    let hover_keys = if options.hover_outlines { hover::hover_keys(&windows) } else { BTreeSet::new() };
+    let hover_default = hover::default(&windows, theme, options)?;
+    let hover_keys = hover::hover_keys(&windows, hover_default);
     let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites, hover_keys)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
-    ctx.hover_outlines = options.hover_outlines;
+    ctx.hover_default = hover_default;
     ctx.warnings.extend(field_warnings);
     if windows.iter().any(|w| !w.inputs.is_empty()) {
         ctx.files.extend(anvil::hidden_vanilla_art()?);
@@ -224,7 +219,7 @@ fn compile_layouts(
     if options.hud_shaders || options.hover_outlines {
         hud::emit_shader_files(&mut ctx, target.pack_format, shader_huds, options.hover_outlines)?;
     }
-    let manifest = ctx.manifest(sprites, window_entries, hud_entries, colors);
+    let manifest = ctx.manifest(sprites, window_entries, hud_entries, &theme.colors);
     ctx.finish(manifest)
 }
 
@@ -259,7 +254,7 @@ struct CompileContext<'a> {
     shift_offsets: BTreeSet<i32>,
     text_font_offsets: BTreeSet<(&'a str, i32)>,
     sprite_offsets: BTreeSet<i32>,
-    hover_outlines: bool,
+    hover_default: Option<bool>,
     hover_glyphs: BTreeSet<char>,
 }
 
@@ -281,7 +276,7 @@ impl<'a> CompileContext<'a> {
             shift_offsets: BTreeSet::new(),
             text_font_offsets: BTreeSet::new(),
             sprite_offsets: BTreeSet::new(),
-            hover_outlines: false,
+            hover_default: None,
             hover_glyphs: BTreeSet::new(),
         }
     }

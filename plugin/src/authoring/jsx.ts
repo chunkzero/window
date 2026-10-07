@@ -161,6 +161,8 @@ export interface ButtonProps extends ItemProps, SlotSource {
     frame?: string;
     tooltip?: string | Tooltip;
     states?: Record<string, StateProps>;
+    /** Overrides the theme's `hover_outlines`; `true` requires `coreShaders.enableHoverOutlines`. */
+    hoverOutline?: boolean;
     /** Close the window on click. */
     close?: boolean;
     padding?: number;
@@ -188,6 +190,9 @@ export interface TabsProps extends ItemProps {
     /** Sprite drawn behind the selected tab. */
     selectedSprite?: string;
     itemModel?: string;
+    /** Overrides the theme's `hover_outlines` for every tab; `true` requires `coreShaders.enableHoverOutlines`. */
+    hoverOutline?: boolean;
+
     text?: TextProps;
     children?: Child;
 }
@@ -231,6 +236,8 @@ export interface HotspotProps extends ItemProps, SlotSource {
     name: string;
     tooltip?: string | Tooltip;
     states?: Record<string, StateProps>;
+    /** Overrides the theme's `hover_outlines`; `true` requires `coreShaders.enableHoverOutlines`. */
+    hoverOutline?: boolean;
 }
 
 export interface ItemSlotProps extends ItemProps, SlotSource {
@@ -259,6 +266,8 @@ export interface RepeaterProps extends ItemProps {
     rows: number;
     frame?: string;
     padding?: number;
+    /** Overrides the theme's `hover_outlines` for every cell; `true` requires `coreShaders.enableHoverOutlines`. */
+    hoverOutline?: boolean;
     text?: TextProps;
     children?: Child;
 }
@@ -678,6 +687,7 @@ export function Button(props: ButtonProps): Element {
         frame: props.frame,
         tooltip: props.tooltip,
         states: states(props.states),
+        hover_outline: props.hoverOutline,
         default: props.close === true ? ("close" satisfies ButtonDefault) : undefined,
         padding: props.padding,
         slots: props.slots,
@@ -789,6 +799,7 @@ export function Hotspot(props: HotspotProps): Element {
         name: props.name,
         tooltip: props.tooltip,
         states: states(props.states),
+        hover_outline: props.hoverOutline,
         slots: props.slots,
         pattern: props.pattern,
         ...layout(props),
@@ -843,6 +854,7 @@ export function Repeater(props: RepeaterProps): Element {
         name: props.name,
         frame: props.frame,
         padding: props.padding,
+        hover_outline: props.hoverOutline,
         pattern: {
             kind: "grid",
             section: "container",
@@ -920,7 +932,7 @@ const ANCHORS: Record<HudAnchor, [number, number]> = {
 
 /**
  * A HUD whose children lay out as a column by default. Without `width`/`height` it sizes to its content.
- * `anchor` pins it to a screen point with the generated core shaders (requires `hudShaders`).
+ * `anchor` pins it to a screen point with the generated core shaders (requires `coreShaders.enableHud`).
  */
 export function Hud(props: HudProps): { huds: HudDef[] } {
     requireName(props.name, "Hud");

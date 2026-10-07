@@ -32,6 +32,13 @@ test("JSX fragments preserve tabs and ignore conditional booleans", () => {
     assert.throws(() => Box({ children: Tab({ value: "bad" }) }), /inside <Tabs>/);
 });
 
+test("hoverOutline reaches buttons, including every tab", () => {
+    const button = Button({ name: "buy", hoverOutline: false });
+    assert.equal(button.type === "button" && button.hover_outline, false);
+    const tabs = Tabs({ name: "kind", hoverOutline: true, children: Tab({ value: "all", children: "All" }) });
+    assert.equal(tabs[0]?.type === "button" && tabs[0].hover_outline, true);
+});
+
 test("Show is a true/false switch whose box props style the shown case", () => {
     const show = Show({ when: "on_sale", grow: 1, justify: "center", children: Text({ children: "Sale" }) });
     assert.equal(show.type, "switch");
