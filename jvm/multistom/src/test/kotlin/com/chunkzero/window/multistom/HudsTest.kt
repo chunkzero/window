@@ -49,7 +49,7 @@ private fun manifest(channel: String): WindowManifest {
     val magnitudes = (0..10).map { 1 shl it }
     val advances = magnitudes.reversed().map { -it } + magnitudes
     return WindowManifest(
-        version = 5,
+        version = 6,
         namespace = "window",
         font = "window:ui",
         spacers = advances.withIndex().associate { (index, advance) -> 0xF0000 + index to advance },

@@ -1,4 +1,4 @@
-# Compiled Window Pack Definition — schema v5
+# Compiled Window Pack Definition — schema v6
 
 The compiled definition is the typed contract between the rpp plugin and the server runtime/codegen. The rpp plugin now
 emits Kotlin sources that instantiate this schema directly (`WindowPackData`, `WindowFonts`, and friends are `internal`;
@@ -17,7 +17,7 @@ characters inside JSON strings, except in `spacers` where they are integers for 
 
 ```jsonc
 {
-  "version": 5,
+  "version": 6,
   "namespace": "window",
   "font": "window:ui", // font id of the main (static + spacer) font
 

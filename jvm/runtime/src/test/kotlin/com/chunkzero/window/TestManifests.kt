@@ -92,7 +92,7 @@ object TestManifests {
     val sampleJson: String =
         """
         {
-          "version": 5,
+          "version": 6,
           "namespace": "window",
           "font": "window:ui",
           "spacers": { "983040": -1024, "983061": 1024, "983050": -1, "983051": 1 },
@@ -174,7 +174,7 @@ object TestManifests {
         switches: Map<String, SwitchEntry> = emptyMap(),
     ): WindowManifest =
         WindowManifest(
-            version = 5,
+            version = 6,
             namespace = "window",
             font = "window:ui",
             spacers = spacerTable(),
@@ -220,7 +220,7 @@ object TestManifests {
         switches: Map<String, SwitchEntry> = emptyMap(),
     ): WindowManifest =
         WindowManifest(
-            version = 5,
+            version = 6,
             namespace = "window",
             font = "window:ui",
             spacers = spacerTable(),
