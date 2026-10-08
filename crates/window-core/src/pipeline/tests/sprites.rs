@@ -81,10 +81,10 @@ fn pickaxe_sprite() -> BTreeMap<String, RuntimeSpriteAsset> {
 #[test]
 fn runtime_sprites_are_duplicated_by_y_font_not_texture() {
     let (mut w, textures) = sample_window();
-    w.buttons[0].states.get_mut("disabled").unwrap().sprite = Some("pickaxe".into());
     w.sprite_slots = vec![
         empty_sprite_slot("card_icon", Rect::new(20, 6, 20, 16)),
         empty_sprite_slot("detail_icon", Rect::new(80, 24, 20, 16)),
+        empty_sprite_slot("buy_icon", Rect::new(8, 18, 16, 16)),
     ];
     let runtime_sprites = pickaxe_sprite();
 
@@ -113,7 +113,7 @@ fn runtime_sprites_are_duplicated_by_y_font_not_texture() {
     }
     assert_eq!(out.manifest.windows["shop"].sprite_slots["card_icon"].font, "window:sprite_y0");
     assert_eq!(out.manifest.windows["shop"].sprite_slots["detail_icon"].font, "window:sprite_y18");
-    assert_eq!(out.manifest.windows["shop"].buttons["buy"].sprite_font.as_deref(), Some("window:sprite_y12"));
+    assert_eq!(out.manifest.windows["shop"].sprite_slots["buy_icon"].font, "window:sprite_y12");
     let descriptor =
         crate::debug::DebugDescriptor::from_json(find(&out, "assets/window/window/debug.json").contents.as_bytes())
             .unwrap();

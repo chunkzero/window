@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::Result;
 use crate::codegen::naming;
-use crate::ir::{ButtonDefault, Handle, IndexedBinding, IndexedKind};
+use crate::ir::{CLOSE_ACTION, Handle, IndexedBinding, IndexedKind};
 use crate::manifest::{CollectionEntry, RepeatGroupEntry, SwitchEntry, WindowEntry};
 
 use super::handles::{HandleMember, covered};
@@ -170,9 +170,16 @@ impl<'a> Members<'a> {
             }
         }
         members.switches(&window.switches)?;
-        for (button, entry) in &window.buttons {
-            if entry.action && !members.grouped_buttons.contains(button) && !members.handled.contains(button) {
-                members.button(button, entry.default == Some(ButtonDefault::Close))?;
+        // One handler per action; `window:` actions are resolved by the runtime.
+        let mut actions = BTreeMap::new();
+        for region in window.regions.values() {
+            if let Some(action) = region.action.as_ref().filter(|action| !action.starts_with("window:")) {
+                actions.insert(action, region.default_action.as_deref() == Some(CLOSE_ACTION));
+            }
+        }
+        for (action, is_close) in actions {
+            if !members.grouped_buttons.contains(action) && !members.handled.contains(action) {
+                members.button(action, is_close)?;
             }
         }
         for item in window.items.keys() {
@@ -241,7 +248,10 @@ impl<'a> Members<'a> {
                 IndexedKind::Slot => ValueKind::Slot,
                 IndexedKind::SpriteSlot => ValueKind::Sprite,
                 IndexedKind::Switch => {
-                    let first = names.first().and_then(|name| switches.get(name));
+                    let first = names.first().and_then(|name| {
+                        switches.iter().find(|(key, switch)| switch.binding.as_ref().unwrap_or(key) == name)
+                    });
+                    let first = first.map(|(_, switch)| switch);
                     let first = first.ok_or_else(|| {
                         crate::Error::Validation(format!("indexed switch `{family}` has no switch entries"))
                     })?;
@@ -258,9 +268,15 @@ impl<'a> Members<'a> {
         Ok(())
     }
 
+    /// One member per switch binding; a control's state switch has none.
     pub(super) fn switches(&mut self, switches: &BTreeMap<String, SwitchEntry>) -> Result<()> {
-        for (source, switch) in switches {
-            if !self.indexed_switches.contains(source) && !self.handled.contains(source) {
+        let mut seen = BTreeSet::new();
+        for (key, switch) in switches {
+            let source = switch.binding.as_ref().unwrap_or(key);
+            if switch.states || self.indexed_switches.contains(source) || self.handled.contains(key) {
+                continue;
+            }
+            if seen.insert(source) {
                 self.switch(source, switch, Vec::new())?;
             }
         }
@@ -295,7 +311,7 @@ impl<'a> Members<'a> {
                 self.group_value(kind, name, field, sources)?;
             }
         }
-        let sources = non_empty(&group.buttons);
+        let sources = non_empty(&group.actions);
         if sources.is_empty() {
             return Ok(());
         }

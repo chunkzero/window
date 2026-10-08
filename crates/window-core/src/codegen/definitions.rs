@@ -3,13 +3,14 @@
 
 use std::collections::BTreeMap;
 
+use crate::ir::Layer;
 use crate::manifest::{HudEntry, Manifest, SlotEntry, SwitchEntry, WindowEntry};
 use crate::pipeline::OutputFile;
 use crate::{Error, Result};
 
 use super::entries::{
-    anvil_input_entry_expr, button_entry_expr, collection_entry_expr, hud_surface_entry_expr, item_entry_expr,
-    optional_hud_shader_entry_expr, repeat_group_entry_expr, slot_entry_expr, slot_rect_entry_expr,
+    anvil_input_entry_expr, collection_entry_expr, hud_surface_entry_expr, item_entry_expr, layers_expr,
+    optional_hud_shader_entry_expr, region_entry_expr, repeat_group_entry_expr, slot_entry_expr,
     sprite_slot_entry_expr, surface_entry_expr, switch_entry_expr,
 };
 use super::literals::{kt_string, string_map};
@@ -75,29 +76,28 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
     let has_sprite_slots = any(&|w| {
         !w.sprite_slots.is_empty() || w.collections.values().any(|collection| !collection.selection.is_empty())
     });
-    let has_tooltip = any(&|w| {
-        w.buttons.values().any(|b| b.tooltip.is_some() || b.states.values().any(|state| state.tooltip.is_some()))
-    });
+    let has_hitbox = any(&|w| w.regions.values().any(|r| r.hitbox.is_some()));
+    let has_tooltip = any(&|w| w.regions.values().any(|r| r.hitbox.as_ref().is_some_and(|h| h.tooltip.is_some())));
     let has_slot_refs = any(&|w| {
-        w.buttons.values().any(|b| !b.slots.is_empty())
+        w.regions.values().any(|r| !r.slots.is_empty())
             || w.items.values().any(|item| !item.slots.is_empty())
             || w.collections.values().any(|collection| !collection.slots.is_empty())
-            || w.slot_rects.values().any(|slot_rect| !slot_rect.slots.is_empty())
             || !w.inputs.is_empty()
     });
+    let has_layers = any(&|w| !w.layers.is_empty());
     [
         (has_slots || has_sprite_slots, "Align"),
-        (any(&|w| w.buttons.values().any(|b| b.default.is_some())), "ButtonDefault"),
-        (any(&|w| !w.buttons.is_empty()), "ButtonEntry"),
-        (any(&|w| w.buttons.values().any(|b| !b.states.is_empty())), "ButtonState"),
         (any(&|w| !w.collections.is_empty()), "CollectionEntry"),
         (any(&|w| !w.inputs.is_empty()), "AnvilInputEntry"),
+        (has_hitbox, "HitboxEntry"),
         (any(&|w| !w.items.is_empty()), "ItemEntry"),
+        (has_layers, "LayerEntry"),
+        (has_layers, "LayerKind"),
+        (any(&|w| !w.regions.is_empty()), "RegionEntry"),
         (any(&|w| !w.groups.is_empty()), "RepeatGroupEntry"),
         (has_slot_refs, "SlotAreaEntry"),
         (has_slots, "SlotEntry"),
         (any(&|w| w.slots.values().any(|s| s.lines.is_some())), "SlotLinesEntry"),
-        (any(&|w| !w.slot_rects.is_empty()), "SlotRectEntry"),
         (has_slot_refs, "SlotRefEntry"),
         (has_sprite_slots, "SpriteSlotEntry"),
         (true, "SurfaceEntry"),
@@ -119,28 +119,32 @@ fn window_entry_expr(window: &WindowEntry, level: usize) -> String {
         .arg("static", kt_string(&window.static_text))
         .arg("slots", string_map(&window.slots, inner, slot_entry_expr))
         .arg("spriteSlots", string_map(&window.sprite_slots, inner, sprite_slot_entry_expr))
-        .arg("buttons", string_map(&window.buttons, inner, button_entry_expr))
+        .arg("regions", string_map(&window.regions, inner, region_entry_expr))
         .arg("items", string_map(&window.items, inner, item_entry_expr))
         .arg("collections", string_map(&window.collections, inner, collection_entry_expr))
         .arg("inputs", string_map(&window.inputs, inner, anvil_input_entry_expr))
-        .arg("slotRects", string_map(&window.slot_rects, inner, slot_rect_entry_expr))
         .arg("groups", string_map(&window.groups, inner, repeat_group_entry_expr));
-    with_switches(call, &window.switches, inner).finish()
+    with_switches(call, &window.switches, &window.layers, inner).finish()
 }
 
-/// Adds the `switches` argument when there are any, so surfaces without switches render unchanged.
-fn with_switches(call: Call, switches: &BTreeMap<String, SwitchEntry>, level: usize) -> Call {
-    if switches.is_empty() { call } else { call.arg("switches", string_map(switches, level, switch_entry_expr)) }
+/// Adds the `switches` and `layers` arguments when there are any.
+fn with_switches(call: Call, switches: &BTreeMap<String, SwitchEntry>, layers: &[Layer], level: usize) -> Call {
+    let call =
+        if switches.is_empty() { call } else { call.arg("switches", string_map(switches, level, switch_entry_expr)) };
+    if layers.is_empty() { call } else { call.arg("layers", layers_expr(layers, level)) }
 }
 
 pub(super) fn generate_hud_entries(manifest: &Manifest, package_name: &str) -> OutputFile {
     let switches = manifest.huds.values().any(|hud| !hud.switches.is_empty());
+    let layers = manifest.huds.values().any(|hud| !hud.layers.is_empty());
     let any_slot = |test: &dyn Fn(&SlotEntry) -> bool| manifest.huds.values().any(|hud| hud.slots.values().any(test));
     let imports = [
         (true, "Align"),
         (true, "HudEntry"),
         (true, "HudShaderEntry"),
         (true, "HudSurfaceEntry"),
+        (layers, "LayerEntry"),
+        (layers, "LayerKind"),
         (true, "SlotEntry"),
         (any_slot(&|slot| slot.lines.is_some()), "SlotLinesEntry"),
         (switches, "SwitchCaseEntry"),
@@ -163,5 +167,5 @@ fn hud_entry_expr(hud: &HudEntry, level: usize) -> String {
         .arg("static", kt_string(&hud.static_text))
         .arg("slots", string_map(&hud.slots, inner, slot_entry_expr))
         .arg("shader", optional_hud_shader_entry_expr(hud.shader.as_ref(), inner));
-    with_switches(call, &hud.switches, inner).finish()
+    with_switches(call, &hud.switches, &hud.layers, inner).finish()
 }

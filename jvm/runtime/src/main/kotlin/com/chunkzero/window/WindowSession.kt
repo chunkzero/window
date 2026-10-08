@@ -12,6 +12,7 @@ import com.chunkzero.window.internal.FrameCursor
 import com.chunkzero.window.internal.Reactivity
 import com.chunkzero.window.internal.RenderKey
 import com.chunkzero.window.internal.RenderScheduler
+import com.chunkzero.window.internal.RuntimeAction
 import com.chunkzero.window.internal.SessionFrames
 import com.chunkzero.window.internal.SlotRoutes
 import com.chunkzero.window.internal.SlotWrites
@@ -28,7 +29,8 @@ import org.slf4j.LoggerFactory
 /**
  * A live window opened by [WindowView.open].
  *
- * Routes clicks to button handlers, drives reactive re-renders, and manages the window lifecycle.
+ * Routes clicks to button handlers and runtime actions, drives reactive re-renders, and manages the
+ * window lifecycle.
  */
 public sealed class WindowSession {
     /** The view driving this session. */
@@ -75,7 +77,12 @@ internal open class ContainerWindowSession<I : Any>(
     /** The open container; set when the window opens. */
     protected lateinit var container: OpenContainer<I>
         private set
-    private val routes = SlotRoutes(entry, bindings, ::close)
+    private val routes =
+        SlotRoutes(entry, bindings) { action ->
+            when (action) {
+                RuntimeAction.CLOSE -> close()
+            }
+        }
     private var sentTitle: Component? = null
 
     private val frames =
@@ -120,6 +127,7 @@ internal open class ContainerWindowSession<I : Any>(
     internal fun open() {
         view.attach(this, reactivity)
         view.invokeBind(bindings)
+        bindings.seal()
         bindings.validate()
         bindInput()
 
@@ -214,12 +222,15 @@ internal open class ContainerWindowSession<I : Any>(
         name: String,
         state: String,
     ) {
+        check(name !in bindings.buttonStates) {
+            "Button state '$name' is bound in bind(); set it there or remove the binding to set it imperatively"
+        }
         deliver(renderer.setButtonState(name, state) ?: return)
     }
 
     internal fun setTooltip(
         name: String,
-        tooltip: ButtonTooltip?,
+        tooltip: Tooltip?,
     ) = deliver(renderer.setTooltip(name, tooltip))
 
     private fun handleClick(click: Click) {

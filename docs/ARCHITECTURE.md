@@ -105,8 +105,9 @@ Every container-title segment is net-zero: it returns the cursor to `title_origi
 spacers. Dynamic segments move to their x position, render, then compensate for both the offset and the measured
 advance. Alignment uses visible bounds; compensation uses advance width.
 
-Window overlays paint button-state sprites first, collection selections second, fixed and bound sprite slots third, and
-text last. Vanilla inventory items render above the title artwork.
+Window paints the static chrome first, then runtime layers (text, sprite slots, switch cases, and collection selections)
+in the authored tree order recorded in each definition's `layers`. Vanilla inventory items render above the title
+artwork.
 
 HUD components claim exactly their authored width so vanilla centering remains stable. Shader-relocated overlays are
 individually net-zero relative to that fixed-width component. HUD origin, anchor, offsets, and source-position semantics
@@ -128,7 +129,8 @@ deterministically. Keep keys stable and retain allocation regression coverage wh
 
 Inventory slots have separate ownership and click-routing assignments. Each slot has at most one item-writing owner and
 one click target. A repeater cell routes clicks from all its slots while yielding selected slots to real item controls.
-`buttons.*.slots` records routing; `fill_slots` records the button's item ownership.
+`regions.*.slots` records routing for regions with an action; `fill_slots` records the region's item ownership. Regions
+in mutually exclusive switch cases may claim the same slots.
 
 Generated views expose typed bindings. The runtime validates handwritten bindings when a session opens and routes clicks
 to them. The host cancels inventory interactions (its containers also refuse native click handling, so later listeners

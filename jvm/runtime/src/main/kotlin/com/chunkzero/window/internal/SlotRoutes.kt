@@ -4,71 +4,67 @@ import com.chunkzero.window.Click
 import com.chunkzero.window.IndexedClick
 import com.chunkzero.window.SlotArea
 import com.chunkzero.window.SlotRef
-import com.chunkzero.window.manifest.ButtonDefault
 import com.chunkzero.window.manifest.SlotAreaEntry
 import com.chunkzero.window.manifest.SlotRefEntry
 import com.chunkzero.window.manifest.WindowEntry
 
 /**
- * Routes clicks on typed backing slots to the button or collection cell that receives them.
+ * Routes clicks on typed backing slots to the active region or the collection cell that receives them.
  *
- * An action collection cell takes precedence over a button covering the same slot.
+ * An action collection cell takes precedence over a region covering the same slot. Regions in
+ * mutually exclusive cases may share slots; a click routes to the one whose case is active. A state
+ * switch's case is read from its provider at click time, if it has one, so a click between a state change and the
+ * next render routes by the current state.
  */
 internal class SlotRoutes(
     private val entry: WindowEntry,
     private val bindings: WindowBindings<*>,
-    /** Applies a `close` button default. */
-    private val close: () -> Unit,
+    /** Runs a region's runtime action when no handler is bound to its action. */
+    private val run: (RuntimeAction) -> Unit,
 ) {
-    private val routes: Map<SlotRef, Route> =
-        buildMap {
-            for ((name, button) in entry.buttons) {
-                for (slot in button.slots) put(slot.toApi(), Route.Button(name))
+    private val regions: Map<SlotRef, List<String>> =
+        buildMap<SlotRef, MutableList<String>> {
+            for ((name, region) in entry.regions) {
+                if (region.action == null) continue
+                for (slot in region.slots) getOrPut(slot.toApi(), ::ArrayList) += name
             }
+        }
+
+    private val cells: Map<SlotRef, Cell> =
+        buildMap {
             for ((name, collection) in entry.collections) {
                 if (!collection.action) continue
-                for ((index, slot) in collection.slots.withIndex()) {
-                    put(slot.toApi(), Route.Collection(name, index))
-                }
+                for ((index, slot) in collection.slots.withIndex()) put(slot.toApi(), Cell(name, index))
             }
         }
 
     fun dispatch(click: Click) {
-        when (val route = routes[click.slot] ?: return) {
-            is Route.Button -> {
-                clickButton(route.name, click)
-            }
-
-            is Route.Collection -> {
-                val handler = bindings.collectionHandlers[route.name] ?: return
-                handler(IndexedClick(click.slot, route.index, click.shift, click.right))
-            }
+        val cell = cells[click.slot]
+        if (cell != null) {
+            val handler = bindings.collectionHandlers[cell.name] ?: return
+            handler(IndexedClick(click.slot, cell.index, click.shift, click.right))
+            return
         }
-    }
-
-    /** Invokes the bound handler, or applies the manifest default when none is bound. */
-    private fun clickButton(
-        name: String,
-        click: Click,
-    ) {
-        val handler = bindings.buttonHandlers[name]
+        val states = HashMap<String, String?>()
+        val name =
+            regions[click.slot]?.firstOrNull { region ->
+                bindings.switches.regionActive(region) { key ->
+                    states.getOrPut(key) { bindings.buttonStates[key]?.invoke() }
+                }
+            } ?: return
+        val region = entry.regions.getValue(name)
+        val handler = bindings.buttonHandlers[region.action]
         if (handler != null) {
             handler(click)
-        } else if (entry.buttons.getValue(name).default == ButtonDefault.CLOSE) {
-            close()
+        } else {
+            region.defaultAction?.let(RuntimeAction::of)?.let(run)
         }
     }
 
-    private sealed interface Route {
-        data class Button(
-            val name: String,
-        ) : Route
-
-        data class Collection(
-            val name: String,
-            val index: Int,
-        ) : Route
-    }
+    private data class Cell(
+        val name: String,
+        val index: Int,
+    )
 }
 
 internal fun SlotRefEntry.toApi(): SlotRef =

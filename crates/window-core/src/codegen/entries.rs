@@ -2,16 +2,15 @@
 
 use std::collections::BTreeMap;
 
-use crate::ir::{ButtonState, ButtonTooltip};
+use crate::ir::{Hitbox, Layer, Tooltip};
 use crate::manifest::{
-    AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry,
-    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRectEntry, SlotRefEntry, SpriteEntry,
-    SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry, SwitchEntry, TextOverflow,
+    AnvilInputEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry, RegionEntry,
+    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry,
+    SurfaceEntry, SwitchCaseEntry, SwitchEntry, TextOverflow,
 };
 
 use super::literals::{
-    align_expr, char_map, float_expr, kt_string, optional_button_default_expr, optional_string_expr, string_list_expr,
-    string_map,
+    align_expr, char_map, float_expr, kt_string, optional_string_expr, string_list_expr, string_map,
 };
 use super::writer::{Call, indent, list_of};
 
@@ -141,33 +140,34 @@ pub(super) fn font_metrics_expr(
         .finish()
 }
 
-pub(super) fn button_entry_expr(button: &ButtonEntry, level: usize) -> String {
+pub(super) fn region_entry_expr(region: &RegionEntry, level: usize) -> String {
     let inner = level + 1;
-    let fill_slots = button.fill_slots.as_ref().map_or_else(|| "null".into(), |slots| slot_ref_list_expr(slots, inner));
-    Call::new("ButtonEntry", level)
-        .arg("x", button.x)
-        .arg("y", button.y)
-        .arg("width", button.width)
-        .arg("height", button.height)
-        .arg("slots", slot_ref_list_expr(&button.slots, inner))
+    let fill_slots = region.fill_slots.as_ref().map_or_else(|| "null".into(), |slots| slot_ref_list_expr(slots, inner));
+    Call::new("RegionEntry", level)
+        .arg("x", region.x)
+        .arg("y", region.y)
+        .arg("width", region.width)
+        .arg("height", region.height)
+        .arg("slots", slot_ref_list_expr(&region.slots, inner))
         .arg("fillSlots", fill_slots)
-        .arg("default", optional_button_default_expr(button.default))
-        .arg("action", button.action)
-        .arg("tooltip", optional_tooltip_expr(button.tooltip.as_ref(), inner))
-        .arg("states", string_map(&button.states, inner, button_state_expr))
-        .arg("spriteFont", optional_string_expr(button.sprite_font.as_ref()))
+        .arg("action", optional_string_expr(region.action.as_ref()))
+        .arg("defaultAction", optional_string_expr(region.default_action.as_ref()))
+        .arg("hitbox", optional_hitbox_expr(region.hitbox.as_ref(), inner))
+        .arg("source", optional_string_expr(region.source.as_ref()))
         .finish()
 }
 
-fn button_state_expr(state: &ButtonState, level: usize) -> String {
-    Call::new("ButtonState", level)
-        .arg("itemModel", optional_string_expr(state.item_model.as_ref()))
-        .arg("sprite", optional_string_expr(state.sprite.as_ref()))
-        .arg("tooltip", optional_tooltip_expr(state.tooltip.as_ref(), level + 1))
+fn optional_hitbox_expr(hitbox: Option<&Hitbox>, level: usize) -> String {
+    let Some(hitbox) = hitbox else {
+        return "null".into();
+    };
+    Call::new("HitboxEntry", level)
+        .arg("itemModel", optional_string_expr(hitbox.item_model.as_ref()))
+        .arg("tooltip", optional_tooltip_expr(hitbox.tooltip.as_ref(), level + 1))
         .finish()
 }
 
-fn optional_tooltip_expr(tooltip: Option<&ButtonTooltip>, level: usize) -> String {
+fn optional_tooltip_expr(tooltip: Option<&Tooltip>, level: usize) -> String {
     let Some(tooltip) = tooltip else {
         return "null".into();
     };
@@ -200,10 +200,6 @@ pub(super) fn anvil_input_entry_expr(input: &AnvilInputEntry, level: usize) -> S
         .finish()
 }
 
-pub(super) fn slot_rect_entry_expr(slot_rect: &SlotRectEntry, level: usize) -> String {
-    Call::new("SlotRectEntry", level).arg("slots", slot_ref_list_expr(&slot_rect.slots, level + 1)).finish()
-}
-
 pub(super) fn repeat_group_entry_expr(group: &RepeatGroupEntry, level: usize) -> String {
     let inner = level + 1;
     let string_lists = |values: &BTreeMap<String, Vec<String>>| {
@@ -214,13 +210,19 @@ pub(super) fn repeat_group_entry_expr(group: &RepeatGroupEntry, level: usize) ->
         .arg("slots", string_lists(&group.slots))
         .arg("spriteSlots", string_lists(&group.sprite_slots))
         .arg("items", string_lists(&group.items))
-        .arg("buttons", string_list_expr(&group.buttons))
+        .arg("actions", string_list_expr(&group.actions))
         .finish()
 }
 
 pub(super) fn switch_entry_expr(switch: &SwitchEntry, level: usize) -> String {
     let cases = switch.cases.iter().map(|case| switch_case_entry_expr(case, level + 2));
-    Call::new("SwitchEntry", level).arg("cases", list_of(cases, level + 1)).finish()
+    Call::new("SwitchEntry", level)
+        .arg("cases", list_of(cases, level + 1))
+        .arg("binding", optional_string_expr(switch.binding.as_ref()))
+        .arg("states", switch.states)
+        .arg("initial", optional_string_expr(switch.initial.as_ref()))
+        .arg("source", optional_string_expr(switch.source.as_ref()))
+        .finish()
 }
 
 fn switch_case_entry_expr(case: &SwitchCaseEntry, level: usize) -> String {
@@ -229,7 +231,23 @@ fn switch_case_entry_expr(case: &SwitchCaseEntry, level: usize) -> String {
         .arg("static", kt_string(&case.static_text))
         .arg("slots", string_list_expr(&case.slots))
         .arg("spriteSlots", string_list_expr(&case.sprite_slots))
+        .arg("regions", string_list_expr(&case.regions))
+        .arg("switches", string_list_expr(&case.switches))
         .finish()
+}
+
+/// A `listOf` of layers, each `LayerEntry(LayerKind.X, "name")`.
+pub(super) fn layers_expr(layers: &[Layer], level: usize) -> String {
+    let layer = |layer: &Layer| {
+        let (kind, name) = match layer {
+            Layer::Slot(name) => ("SLOT", name),
+            Layer::SpriteSlot(name) => ("SPRITE_SLOT", name),
+            Layer::Switch(name) => ("SWITCH", name),
+            Layer::Collection(name) => ("COLLECTION", name),
+        };
+        format!("LayerEntry(LayerKind.{kind}, {})", kt_string(name))
+    };
+    list_of(layers.iter().map(layer), level)
 }
 
 fn slot_ref_list_expr(slots: &[SlotRefEntry], level: usize) -> String {

@@ -69,16 +69,6 @@ pub(super) fn validate_manifest_paths(
                 format!("manifest.windows.{name}.sprite_slots.{slot_name}.font"),
             );
         }
-        for (button_name, button) in &window.buttons {
-            if let Some(font) = &button.sprite_font {
-                validate_font_reference(
-                    font,
-                    files,
-                    report,
-                    format!("manifest.windows.{name}.buttons.{button_name}.sprite_font"),
-                );
-            }
-        }
     }
     for (name, hud) in &manifest.huds {
         for (slot_name, slot) in &hud.slots {

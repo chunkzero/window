@@ -1,12 +1,10 @@
 package com.chunkzero.window.internal
 
-import com.chunkzero.window.ButtonTooltip
 import com.chunkzero.window.SlotRef
+import com.chunkzero.window.Tooltip
 import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
-import com.chunkzero.window.manifest.ButtonEntry
-import com.chunkzero.window.manifest.ButtonState
 import com.chunkzero.window.manifest.SlotAreaEntry
 import com.chunkzero.window.manifest.TooltipEntry
 import net.kyori.adventure.key.Key
@@ -16,8 +14,8 @@ import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.minimessage.MiniMessage
 
 /**
- * Renders a window's inventory items: button and hotspot hitboxes, named button states, item
- * regions, collection cells, and anvil input seeds. Rendered items collect until [drain] takes them.
+ * Renders a window's inventory items: the hitbox items of active regions, item regions, collection
+ * cells, and anvil input seeds. Rendered items collect until [drain] takes them.
  */
 internal class WindowInventory<I : Any>(
     private val definition: WindowDefinition,
@@ -26,12 +24,17 @@ internal class WindowInventory<I : Any>(
     private val buildItem: (WindowItem) -> I,
 ) {
     private val entry = definition.entry
+    private val switches = bindings.switches
 
-    /** Current named state per button that has one. */
-    private val buttonStateValues = HashMap<String, String>()
+    /** The button or hotspot each region belongs to. */
+    private val regionControls: Map<String, String> =
+        definition.controls.flatMap { (control, regions) -> regions.map { it to control } }.toMap()
+
+    /** The regions whose case path was active at the last [claimRegions]. */
+    private val claimed = LinkedHashSet<String>()
 
     /** Parsed manifest tooltips; components are immutable, so they are shared across renders. */
-    private val tooltips = HashMap<TooltipEntry, ButtonTooltip>()
+    private val tooltips = HashMap<TooltipEntry, Tooltip>()
 
     private var inputRevisions = 0
     private val items = LinkedHashMap<SlotRef, I?>()
@@ -45,26 +48,9 @@ internal class WindowInventory<I : Any>(
         return writes
     }
 
-    /** Resolves and records button [name]'s initial named state, if it has one. */
-    fun initialButtonState(name: String): String? {
-        val state =
-            when {
-                name in bindings.buttonStates -> renderButtonState(name)
-                "default" in entry.buttons.getValue(name).states -> "default"
-                else -> null
-            }
-        if (state != null) buttonStateValues[name] = state
-        return state
-    }
-
     /** Renders every manifest-owned inventory slot. */
     fun seed() {
-        for (slotRect in entry.slotRects.values) {
-            for (slot in slotRect.slots) items[slot.toApi()] = null
-        }
-        for ((name, button) in entry.buttons) {
-            applyButtonItem(button, seedButtonItem(name, button))
-        }
+        claimRegions()
         for (name in entry.items.keys) writeItem(name)
         for ((name, collection) in entry.collections) {
             for (index in collection.slots.indices) writeCollectionCell(name, index)
@@ -72,16 +58,16 @@ internal class WindowInventory<I : Any>(
         for (input in entry.inputs.values) applyInput(input, input.initial)
     }
 
-    private fun seedButtonItem(
-        name: String,
-        button: ButtonEntry,
-    ): I? {
-        val state = buttonStateValues[name]
-        return when {
-            state != null -> itemForState(button, definition.requireButtonState(name, state))
-            name in bindings.buttonItems -> renderButtonItem(name)
-            else -> defaultButtonItem(button)
-        }
+    /**
+     * Claims the regions of active cases: empties the fill slots of regions whose case became inactive,
+     * then fills those of newly active regions with their items.
+     */
+    fun claimRegions() {
+        val active = entry.regions.keys.filterTo(LinkedHashSet(), switches::regionActive)
+        for (name in claimed) if (name !in active) fill(name, null)
+        for (name in active) if (name !in claimed) fill(name, regionItem(name))
+        claimed.clear()
+        claimed.addAll(active)
     }
 
     fun renderButtonState(name: String): String {
@@ -89,27 +75,19 @@ internal class WindowInventory<I : Any>(
         return reactivity.withRendering(RenderKey.ButtonState(name)) { render() }
     }
 
-    /** Records [state] as button [name]'s current state and renders its item. */
-    fun applyButtonState(
-        name: String,
-        state: String,
-    ) {
-        val value = definition.requireButtonState(name, state)
-        buttonStateValues[name] = state
-        val button = entry.buttons.getValue(name)
-        applyButtonItem(button, itemForState(button, value))
-    }
-
+    /** Re-renders the item bound to button or hotspot [name] into its claimed regions. */
     fun writeButtonItem(name: String) {
-        applyButtonItem(entry.buttons.getValue(name), renderButtonItem(name))
+        val item = renderButtonItem(name)
+        for (region in claimedRegions(name)) fill(region, item)
     }
 
+    /** Places [item] in the claimed regions of button or hotspot [name]; regions claimed later show their own item. */
     fun setButtonItem(
         name: String,
         item: I?,
     ) {
-        val button = definition.requireEntry(entry.buttons, name, "button or hotspot")
-        applyButtonItem(button, item)
+        definition.requireEntry(definition.controls, name, "button or hotspot")
+        for (region in claimedRegions(name)) fill(region, item)
     }
 
     fun writeItem(name: String) {
@@ -159,9 +137,6 @@ internal class WindowInventory<I : Any>(
         staged[input.slot.index] = buildItem(inputSeed(input, value))
     }
 
-    /** Button [name]'s current named state, if it has one. */
-    fun buttonState(name: String): String? = buttonStateValues[name]
-
     private fun inputSeed(
         input: AnvilInputEntry,
         value: String,
@@ -174,38 +149,32 @@ internal class WindowInventory<I : Any>(
         return reactivity.withRendering(RenderKey.ButtonItem(name)) { render() }
     }
 
+    private fun claimedRegions(control: String): List<String> =
+        definition.controls.getValue(control).filter { it in claimed }
+
+    /** The item bound to region [name]'s button or hotspot, else its hitbox item. */
+    private fun regionItem(name: String): I? {
+        val control = regionControls[name]
+        if (control != null && control in bindings.buttonItems) return renderButtonItem(control)
+        val hitbox = entry.regions.getValue(name).hitbox ?: return null
+        val model = hitbox.itemModel?.let(Key::key) ?: definition.hitboxModel
+        return buildItem(WindowItem.Hitbox(model, hitbox.tooltip?.let(::tooltip)))
+    }
+
     /**
-     * Renders [item] into the slots this button fills.
-     *
-     * Click routing covers every slot in [ButtonEntry.slots], but a repeater cell yields the slots
-     * owned by its item children, so their real stacks are never overwritten by the cell's hitbox.
+     * Renders [item] into the slots region [name] fills. Clicks route to every slot of the region, but a
+     * repeater cell yields the slots owned by its item children, so their real stacks are never overwritten.
      */
-    private fun applyButtonItem(
-        button: ButtonEntry,
+    private fun fill(
+        name: String,
         item: I?,
     ) {
-        for (slot in button.filledSlots) items[slot.toApi()] = item
+        for (slot in entry.regions.getValue(name).filledSlots) items[slot.toApi()] = item
     }
 
-    private fun defaultButtonItem(button: ButtonEntry): I? {
-        val defaultState = button.states["default"]
-        if (defaultState != null) return itemForState(button, defaultState)
-        val tooltip = button.tooltip?.let(::tooltip) ?: return null
-        return buildItem(WindowItem.Hitbox(definition.hitboxModel, tooltip))
-    }
-
-    private fun itemForState(
-        button: ButtonEntry,
-        state: ButtonState,
-    ): I {
-        val tooltip = (state.tooltip ?: button.tooltip)?.let(::tooltip)
-        val model = state.itemModel?.let(Key::key) ?: definition.hitboxModel
-        return buildItem(WindowItem.Hitbox(model, tooltip))
-    }
-
-    private fun tooltip(source: TooltipEntry): ButtonTooltip =
+    private fun tooltip(source: TooltipEntry): Tooltip =
         tooltips.getOrPut(source) {
-            ButtonTooltip(
+            Tooltip(
                 parseTooltipLine(source.title, NamedTextColor.WHITE),
                 source.lines.map { parseTooltipLine(it, NamedTextColor.GRAY) },
             )

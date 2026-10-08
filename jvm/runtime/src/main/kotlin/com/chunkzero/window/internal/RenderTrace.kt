@@ -15,6 +15,10 @@ internal data class RenderedSegment(
     val trace: RenderLayerTrace,
 )
 
+/** This segment with its trace naming [source], the authored element it comes from, when known. */
+internal fun RenderedSegment.sourced(source: String?): RenderedSegment =
+    if (source == null) this else copy(trace = trace.copy(source = source))
+
 internal data class ComposedRender(
     val component: Component,
     val layers: List<RenderLayerTrace>,

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use super::{SlotEntry, SwitchEntry};
-use crate::ir::{Handle, IndexedBinding};
+use crate::ir::{Handle, IndexedBinding, Layer};
 
 /// One compiled HUD.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -19,9 +19,12 @@ pub struct HudEntry {
     /// Optional core-shader relocation settings.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shader: Option<HudShaderEntry>,
-    /// Runtime-selected visual cases by binding name.
+    /// Runtime-selected cases by key; see [`super::WindowEntry::switches`].
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub switches: BTreeMap<String, SwitchEntry>,
+    /// Every slot and switch in authored tree order; see [`super::WindowEntry::layers`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<Layer>,
     /// Indexed binding families by name. Their flattened entries appear under their own names in `slots` and
     /// `switches`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

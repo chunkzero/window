@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use super::ValidationReport;
 use super::groups::validate_groups;
-use crate::manifest::{ButtonEntry, Manifest, SlotAreaEntry, SlotRefEntry, WindowEntry};
+use crate::manifest::{
+    CasePath, Manifest, RegionEntry, SlotAreaEntry, SlotRefEntry, WindowEntry, exclusive_cases, region_case_paths,
+};
 use crate::surface::ContainerKind;
 
 pub(super) fn validate_inventory(manifest: &Manifest, report: &mut ValidationReport) {
@@ -16,30 +18,28 @@ pub(super) fn validate_inventory(manifest: &Manifest, report: &mut ValidationRep
             continue;
         };
         let mut claims = SlotClaims { window_name, kind, owners: BTreeMap::new(), routes: BTreeMap::new() };
-        validate_buttons(window, &mut claims, report);
+        validate_regions(window, &mut claims, report);
         for (name, item) in &window.items {
-            claims.own(&format!("item `{name}`"), &item.slots, report);
+            claims.own(&format!("item `{name}`"), &[], &item.slots, report);
         }
         validate_inputs(window, &mut claims, report);
         validate_collections(window, &mut claims, report);
-        for (name, slot_rect) in &window.slot_rects {
-            claims.own(&format!("slot rect `{name}`"), &slot_rect.slots, report);
-        }
         validate_groups(window_name, window, report);
     }
 }
 
 /// Slot ownership tracks the slot a control fills; routing is a separate,
-/// also-exclusive map so a repeater cell can route a slot it no longer fills.
+/// also-exclusive map so a repeater cell can route a slot it no longer fills. Regions in mutually exclusive switch
+/// cases may share both.
 struct SlotClaims<'a> {
     window_name: &'a str,
     kind: ContainerKind,
-    owners: BTreeMap<SlotRefEntry, String>,
-    routes: BTreeMap<SlotRefEntry, String>,
+    owners: BTreeMap<SlotRefEntry, Vec<(String, CasePath)>>,
+    routes: BTreeMap<SlotRefEntry, Vec<(String, CasePath)>>,
 }
 
 impl SlotClaims<'_> {
-    fn own(&mut self, owner: &str, slots: &[SlotRefEntry], report: &mut ValidationReport) {
+    fn own(&mut self, owner: &str, path: &[(String, String)], slots: &[SlotRefEntry], report: &mut ValidationReport) {
         for slot in slots {
             let valid = match slot.area {
                 SlotAreaEntry::Container => slot.index < self.kind.slot_count(),
@@ -52,71 +52,74 @@ impl SlotClaims<'_> {
                     format!("{owner} owns invalid {:?} slot {}", slot.area, slot.index),
                 );
             }
-            if let Some(previous) = self.owners.insert(*slot, owner.to_string()) {
+            let owners = self.owners.entry(*slot).or_default();
+            if let Some((previous, _)) = owners.iter().find(|(_, other)| !exclusive_cases(path, other)) {
                 report.push(
                     "inventory.slot.duplicate_owner",
                     format!("manifest.windows.{}", self.window_name),
                     format!("{:?} slot {} is owned by both {previous} and {owner}", slot.area, slot.index),
                 );
             }
+            owners.push((owner.to_string(), path.to_vec()));
         }
     }
 
     /// Route clicks on `slot` to `name`. `describe` renders `(previous, current)` router names for the
     /// duplicate-route finding.
-    fn route(
-        &mut self,
-        slot: SlotRefEntry,
-        name: &str,
-        describe: impl FnOnce(&str, &str) -> String,
-        report: &mut ValidationReport,
-    ) {
-        if let Some(previous) = self.routes.insert(slot, name.to_string()) {
+    fn route(&mut self, slot: SlotRefEntry, path: &[(String, String)], name: &str, report: &mut ValidationReport) {
+        let routes = self.routes.entry(slot).or_default();
+        if let Some((previous, _)) = routes.iter().find(|(_, other)| !exclusive_cases(path, other)) {
             report.push(
                 "inventory.slot.duplicate_route",
                 format!("manifest.windows.{}", self.window_name),
-                format!("{:?} slot {} routes clicks to both {}", slot.area, slot.index, describe(&previous, name)),
+                format!("{:?} slot {} routes clicks to both {previous} and {name}", slot.area, slot.index),
             );
         }
+        routes.push((name.to_string(), path.to_vec()));
     }
 }
 
-fn validate_buttons(window: &WindowEntry, claims: &mut SlotClaims, report: &mut ValidationReport) {
-    for (name, button) in &window.buttons {
-        claims.own(&format!("button `{name}`"), button.filled_slots(), report);
-        validate_fill_slots(window, claims.window_name, name, button, report);
-        for slot in &button.slots {
-            claims.route(*slot, name, |previous, name| format!("button `{previous}` and button `{name}`"), report);
+fn validate_regions(window: &WindowEntry, claims: &mut SlotClaims, report: &mut ValidationReport) {
+    let paths = region_case_paths(&window.switches);
+    for (name, region) in &window.regions {
+        let path = paths.get(name).map(Vec::as_slice).unwrap_or_default();
+        let owner = format!("region `{name}`");
+        claims.own(&owner, path, region.filled_slots(), report);
+        validate_fill_slots(window, claims.window_name, name, region, report);
+        if region.action.is_some() {
+            for slot in &region.slots {
+                claims.route(*slot, path, &owner, report);
+            }
         }
     }
 }
 
-/// A button may fill no slot only when it routes the anvil input's slot, whose seed item the input keeps.
+/// A region may fill no slot only when it routes the anvil input's slot, whose seed item the input keeps.
 fn validate_fill_slots(
     window: &WindowEntry,
     window_name: &str,
     name: &str,
-    button: &ButtonEntry,
+    region: &RegionEntry,
     report: &mut ValidationReport,
 ) {
-    let Some(fill_slots) = &button.fill_slots else {
+    let Some(fill_slots) = &region.fill_slots else {
         return;
     };
     for slot in fill_slots {
-        if !button.slots.contains(slot) {
+        if !region.slots.contains(slot) {
             report.push(
                 "inventory.slot.fill_not_routed",
-                format!("manifest.windows.{window_name}.buttons.{name}.fill_slots"),
-                format!("button `{name}` fills {:?} slot {} that it does not route", slot.area, slot.index),
+                format!("manifest.windows.{window_name}.regions.{name}.fill_slots"),
+                format!("region `{name}` fills {:?} slot {} that it does not route", slot.area, slot.index),
             );
         }
     }
-    let routes_input = window.inputs.values().any(|input| button.slots.contains(&input.slot));
+    let routes_input = window.inputs.values().any(|input| region.slots.contains(&input.slot));
     if fill_slots.is_empty() && !routes_input {
         report.push(
             "inventory.slot.fill_empty",
-            format!("manifest.windows.{window_name}.buttons.{name}.fill_slots"),
-            format!("button `{name}` fills no slot; omit `fill_slots` instead"),
+            format!("manifest.windows.{window_name}.regions.{name}.fill_slots"),
+            format!("region `{name}` fills no slot; omit `fill_slots` instead"),
         );
     }
 }
@@ -131,7 +134,7 @@ fn validate_inputs(window: &WindowEntry, claims: &mut SlotClaims, report: &mut V
         );
     }
     for (name, input) in &window.inputs {
-        claims.own(&format!("anvil input `{name}`"), &[input.slot], report);
+        claims.own(&format!("anvil input `{name}`"), &[], &[input.slot], report);
         if claims.kind != ContainerKind::Anvil {
             report.push(
                 "inventory.input.surface_mismatch",
@@ -152,12 +155,12 @@ fn validate_inputs(window: &WindowEntry, claims: &mut SlotClaims, report: &mut V
 
 fn validate_collections(window: &WindowEntry, claims: &mut SlotClaims, report: &mut ValidationReport) {
     for (name, collection) in &window.collections {
-        claims.own(&format!("collection `{name}`"), &collection.slots, report);
+        claims.own(&format!("collection `{name}`"), &[], &collection.slots, report);
         if !collection.action {
             continue;
         }
         for slot in &collection.slots {
-            claims.route(*slot, name, |previous, name| format!("`{previous}` and collection `{name}`"), report);
+            claims.route(*slot, &[], &format!("collection `{name}`"), report);
         }
     }
 }

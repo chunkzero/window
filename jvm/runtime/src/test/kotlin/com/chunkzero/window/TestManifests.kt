@@ -2,23 +2,24 @@ package com.chunkzero.window
 
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.AnvilInputEntry
-import com.chunkzero.window.manifest.ButtonDefault
-import com.chunkzero.window.manifest.ButtonEntry
-import com.chunkzero.window.manifest.ButtonState
 import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.FontMetricsEntry
+import com.chunkzero.window.manifest.HitboxEntry
 import com.chunkzero.window.manifest.HudEntry
 import com.chunkzero.window.manifest.HudShaderEntry
 import com.chunkzero.window.manifest.HudSurfaceEntry
 import com.chunkzero.window.manifest.ItemEntry
+import com.chunkzero.window.manifest.LayerEntry
+import com.chunkzero.window.manifest.LayerKind
+import com.chunkzero.window.manifest.RegionEntry
 import com.chunkzero.window.manifest.RepeatGroupEntry
 import com.chunkzero.window.manifest.SlotAreaEntry
 import com.chunkzero.window.manifest.SlotEntry
-import com.chunkzero.window.manifest.SlotRectEntry
 import com.chunkzero.window.manifest.SlotRefEntry
 import com.chunkzero.window.manifest.SpriteEntry
 import com.chunkzero.window.manifest.SpriteSlotEntry
 import com.chunkzero.window.manifest.SurfaceEntry
+import com.chunkzero.window.manifest.SwitchCaseEntry
 import com.chunkzero.window.manifest.SwitchEntry
 import com.chunkzero.window.manifest.TooltipEntry
 import com.chunkzero.window.manifest.WindowEntry
@@ -92,7 +93,7 @@ object TestManifests {
     val sampleJson: String =
         """
         {
-          "version": 6,
+          "version": 7,
           "namespace": "window",
           "font": "window:ui",
           "spacers": { "983040": -1024, "983061": 1024, "983050": -1, "983051": 1 },
@@ -130,30 +131,54 @@ object TestManifests {
                   "text": "Buy"
                 }
               },
-              "buttons": {
-                "buy": {
+              "sprite_slots": {
+                "icon": { "x": 8, "y": 20, "width": 16, "height": 16, "align": "left", "font": "window:sprite_y14" }
+              },
+              "regions": {
+                "buy.enabled": {
                   "x": 52, "y": 190, "width": 72, "height": 20,
                   "slots": [
                     { "area": "container", "index": 46 },
                     { "area": "container", "index": 47 },
-                    { "area": "container", "index": 48 }
+                    { "area": "player", "index": 0 }
                   ],
-                  "default": null
+                  "fill_slots": [{ "area": "container", "index": 47 }],
+                  "action": "buy",
+                  "hitbox": { "item_model": "example:gui/buy", "tooltip": { "title": "Buy", "lines": ["Spend coins"] } },
+                  "source": "button `buy`"
                 },
                 "exit": {
                   "x": 0, "y": 0, "width": 18, "height": 18,
                   "slots": [{ "area": "container", "index": 0 }],
-                  "default": "close"
+                  "action": "exit",
+                  "default_action": "window:close"
                 }
-              }
+              },
+              "switches": {
+                "buy": {
+                  "states": true,
+                  "initial": "enabled",
+                  "source": "button `buy`",
+                  "cases": [{ "value": "enabled", "static": "ART", "regions": ["buy.enabled"], "switches": ["inner"] }]
+                },
+                "inner": { "binding": "mode", "cases": [{ "value": "a", "sprite_slots": ["icon"] }] }
+              },
+              "layers": [
+                { "kind": "slot", "name": "title" },
+                { "kind": "switch", "name": "buy" },
+                { "kind": "switch", "name": "inner" },
+                { "kind": "sprite_slot", "name": "icon" }
+              ],
+              "groups": { "cell": { "count": 1, "actions": ["cell_0"] } }
             }
           }
         }
         """.trimIndent()
 
     /**
-     * Builds a tiny in-memory manifest with a single window and the given slots/buttons, using the
-     * canonical spacer/advance tables. Title origin defaults to (8, 6).
+     * Builds a tiny in-memory manifest with a single window and the given entries, using the
+     * canonical spacer/advance tables. Title origin defaults to (8, 6). [layers] defaults to
+     * switches, selectable collections, sprite slots, then slots, each in map order.
      */
     fun manifest(
         windowName: String = "w",
@@ -162,19 +187,25 @@ object TestManifests {
         static: String = "STATIC",
         slots: Map<String, SlotEntry> = emptyMap(),
         spriteSlots: Map<String, SpriteSlotEntry> = emptyMap(),
-        buttons: Map<String, ButtonEntry> = emptyMap(),
+        regions: Map<String, RegionEntry> = emptyMap(),
         items: Map<String, ItemEntry> = emptyMap(),
         collections: Map<String, CollectionEntry> = emptyMap(),
         inputs: Map<String, AnvilInputEntry> = emptyMap(),
-        slotRects: Map<String, SlotRectEntry> = emptyMap(),
         groups: Map<String, RepeatGroupEntry> = emptyMap(),
         huds: Map<String, HudEntry> = emptyMap(),
         sprites: Map<String, SpriteEntry> = emptyMap(),
         fontMetrics: Map<String, FontMetricsEntry> = fontMetricEntries(),
         switches: Map<String, SwitchEntry> = emptyMap(),
+        layers: List<LayerEntry> =
+            switches.keys.map { LayerEntry(LayerKind.SWITCH, it) } +
+                collections.filterValues { it.selection.isNotEmpty() }.keys.map {
+                    LayerEntry(LayerKind.COLLECTION, it)
+                } +
+                spriteSlots.keys.map { LayerEntry(LayerKind.SPRITE_SLOT, it) } +
+                slots.keys.map { LayerEntry(LayerKind.SLOT, it) },
     ): WindowManifest =
         WindowManifest(
-            version = 6,
+            version = 7,
             namespace = "window",
             font = "window:ui",
             spacers = spacerTable(),
@@ -196,13 +227,13 @@ object TestManifests {
                             static = static,
                             slots = slots,
                             spriteSlots = spriteSlots,
-                            buttons = buttons,
+                            regions = regions,
                             items = items,
                             collections = collections,
                             inputs = inputs,
-                            slotRects = slotRects,
                             groups = groups,
                             switches = switches,
+                            layers = layers,
                         ),
                 ),
             huds = huds,
@@ -218,9 +249,11 @@ object TestManifests {
         shader: HudShaderEntry? = null,
         fontMetrics: Map<String, FontMetricsEntry> = fontMetricEntries(),
         switches: Map<String, SwitchEntry> = emptyMap(),
+        layers: List<LayerEntry> =
+            switches.keys.map { LayerEntry(LayerKind.SWITCH, it) } + slots.keys.map { LayerEntry(LayerKind.SLOT, it) },
     ): WindowManifest =
         WindowManifest(
-            version = 6,
+            version = 7,
             namespace = "window",
             font = "window:ui",
             spacers = spacerTable(),
@@ -243,6 +276,7 @@ object TestManifests {
                             slots = slots,
                             shader = shader,
                             switches = switches,
+                            layers = layers,
                         ),
                 ),
         )
@@ -308,55 +342,60 @@ object TestManifests {
             sprite = sprite,
         )
 
-    fun button(
+    fun region(
         slots: List<Int>,
-        x: Int = 0,
-        y: Int = 0,
-        width: Int = 18,
-        height: Int = 18,
-        default: ButtonDefault? = null,
-        action: Boolean = true,
-        tooltip: TooltipEntry? = null,
-        states: Map<String, ButtonState> = emptyMap(),
-        spriteFont: String? = null,
-    ): ButtonEntry =
-        ButtonEntry(
-            x = x,
-            y = y,
-            width = width,
-            height = height,
-            slots = slots.map { SlotRefEntry(SlotAreaEntry.CONTAINER, it) },
-            default = default,
+        action: String? = null,
+        defaultAction: String? = null,
+        hitbox: HitboxEntry? = null,
+        fillSlots: List<Int>? = null,
+    ): RegionEntry =
+        regionRefs(slots.map(::containerSlot), action, defaultAction, hitbox, fillSlots?.map(::containerSlot))
+
+    fun regionRefs(
+        slots: List<SlotRefEntry>,
+        action: String? = null,
+        defaultAction: String? = null,
+        hitbox: HitboxEntry? = null,
+        fillSlots: List<SlotRefEntry>? = null,
+    ): RegionEntry =
+        RegionEntry(
+            x = 0,
+            y = 0,
+            width = 18,
+            height = 18,
+            slots = slots,
+            fillSlots = fillSlots,
             action = action,
-            tooltip = tooltip,
-            states = states,
-            spriteFont = spriteFont,
+            defaultAction = defaultAction,
+            hitbox = hitbox,
         )
 
-    fun buttonRefs(
-        slots: List<SlotRefEntry>,
-        x: Int = 0,
-        y: Int = 0,
-        width: Int = 18,
-        height: Int = 18,
-        default: ButtonDefault? = null,
-        action: Boolean = true,
+    /** The compiled form of a button with named states: its state switch and one region per case. */
+    class StateButton(
+        val switch: SwitchEntry,
+        val regions: Map<String, RegionEntry>,
+    )
+
+    /**
+     * Compiles button [name] over [slots] with [states] keyed by state, plus the synthesized `default`
+     * state carrying [tooltip]. [sprites] names a state's sprite slot key by state.
+     */
+    fun stateButton(
+        name: String,
+        slots: List<Int>,
+        states: Map<String, HitboxEntry>,
+        action: String? = name,
         tooltip: TooltipEntry? = null,
-        states: Map<String, ButtonState> = emptyMap(),
-        spriteFont: String? = null,
-    ): ButtonEntry =
-        ButtonEntry(
-            x = x,
-            y = y,
-            width = width,
-            height = height,
-            slots = slots,
-            default = default,
-            action = action,
-            tooltip = tooltip,
-            states = states,
-            spriteFont = spriteFont,
-        )
+        sprites: Map<String, String> = emptyMap(),
+    ): StateButton {
+        val all = mapOf("default" to HitboxEntry(tooltip = tooltip)) + states
+        val regions = all.map { (state, hitbox) -> "$name.$state" to region(slots, action, hitbox = hitbox) }.toMap()
+        val cases =
+            all.keys.map { state ->
+                SwitchCaseEntry(state, regions = listOf("$name.$state"), spriteSlots = listOfNotNull(sprites[state]))
+            }
+        return StateButton(SwitchEntry(cases, states = true, initial = "default", source = "button `$name`"), regions)
+    }
 
     fun containerSlot(index: Int): SlotRefEntry = SlotRefEntry(SlotAreaEntry.CONTAINER, index)
 

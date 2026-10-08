@@ -237,7 +237,7 @@ function statefulButton(
     ) {
         throw new Error(`${kind} requires \`states.${firstState}\` and \`states.${secondState}\``);
     }
-    return button(name, opts);
+    return { ...button(name, opts), source: kind };
 }
 
 /** Create a two-state button for WindowScope.toggle. */

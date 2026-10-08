@@ -134,9 +134,9 @@ pub struct DebugSurface {
 /// One semantic render layer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DebugLayer {
-    /// Stable semantic id (`static`, `text:<slot>`, `sprite:<slot>`).
+    /// Stable semantic id (`static`, `case:<switch>/<value>`, `text:<slot>`, `sprite:<slot>`).
     pub id: String,
-    /// Layer kind (`static_chrome`, `text_slot`, or `sprite_slot`).
+    /// Layer kind (`static_chrome`, `case_chrome`, `text_slot`, or `sprite_slot`).
     pub kind: String,
     /// Expected/reserved GUI-space bounds `[x, y, width, height]`.
     pub bounds: [i32; 4],
@@ -167,6 +167,9 @@ pub struct DebugLayer {
     /// Text style for text slots.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<DebugTextStyle>,
+    /// The authored element a derived layer comes from, such as ``tab `category_new` ``.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 /// Text style expected by a semantic text layer.

@@ -26,7 +26,7 @@ pub(super) fn generate_window(
 ) -> Result<OutputFile> {
     let class_name = naming::class_name(name);
     let (handles, members) = Members::of_window(&class_name, window)?;
-    let view = class::View { handles: &handles, members: &members, buttons: &window.buttons };
+    let view = class::View { handles: &handles, members: &members, switches: &window.switches };
     Ok(OutputFile::text(
         format!("{class_name}.kt"),
         class::render(package_name, &WINDOW, target, name, &class_name, &view),
@@ -46,7 +46,7 @@ pub(super) fn generate_hud(name: &str, hud: &HudEntry, package_name: &str, targe
     }
     members.switches(&hud.switches)?;
     let members = members.finish();
-    let view = class::View { handles: &handles, members: &members, buttons: &BTreeMap::new() };
+    let view = class::View { handles: &handles, members: &members, switches: &BTreeMap::new() };
     Ok(OutputFile::text(
         format!("{class_name}.kt"),
         class::render(package_name, &HUD, target, name, &class_name, &view),

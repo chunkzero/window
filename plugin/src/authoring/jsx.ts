@@ -148,6 +148,9 @@ export interface IconProps extends ItemProps {
 
 export interface StateProps {
     itemModel?: string;
+    /** Theme frame drawn over the button instead of its `frame` while this state is shown. */
+    frame?: string;
+    /** Theme sprite drawn at the button's top-left corner while this state is shown. */
     sprite?: string;
     tooltip?: string | Tooltip;
 }
@@ -567,7 +570,7 @@ function layout(props: ItemProps): Fields {
 }
 
 function state(props: StateProps): Fields {
-    return clean({ item_model: props.itemModel, sprite: props.sprite, tooltip: props.tooltip });
+    return clean({ item_model: props.itemModel, frame: props.frame, sprite: props.sprite, tooltip: props.tooltip });
 }
 
 function states(map: Record<string, StateProps> | undefined): Fields | undefined {
@@ -812,13 +815,14 @@ export function Toggle(props: ToggleProps): Element {
     if (bind !== undefined && rest.onClick !== undefined) {
         throw new Error("<Toggle> sets both `bind` and `onClick`");
     }
-    return Button({ ...rest, ...(bind === undefined ? {} : { onClick: bind }), states: { on, off } });
+    const node = Button({ ...rest, ...(bind === undefined ? {} : { onClick: bind }), states: { on, off } });
+    return { ...node, source: "toggle" } as Element;
 }
 
 /** One button of a WindowScope.choice group. */
 export function Choice(props: ChoiceProps): Element {
     const { selected, unselected, ...rest } = props;
-    return Button({ ...rest, states: { selected, unselected } });
+    return { ...Button({ ...rest, states: { selected, unselected } }), source: "choice" } as Element;
 }
 
 /** One tab of a `<Tabs>` group. */
@@ -835,7 +839,7 @@ function tabTooltip(tooltip: string | Tooltip | undefined, children: Element[]):
 function tab(props: TabsStyle, choice: Fields, tooltip: string | Tooltip | undefined, children: Element[]): Element {
     const { frame, sprite, selectedSprite, itemModel, text, ...item } = props;
     const base = clean({ itemModel, tooltip: tabTooltip(tooltip, children) });
-    return Choice({
+    const node = Choice({
         ...item,
         ...choice,
         ...clean({ frame, text }),
@@ -843,6 +847,7 @@ function tab(props: TabsStyle, choice: Fields, tooltip: string | Tooltip | undef
         unselected: clean({ ...base, sprite }),
         children,
     });
+    return { ...node, source: "tab" } as Element;
 }
 
 /**

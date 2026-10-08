@@ -1,6 +1,6 @@
 package com.chunkzero.window.host
 
-import com.chunkzero.window.ButtonTooltip
+import com.chunkzero.window.Tooltip
 import net.kyori.adventure.key.Key
 
 /** Items Window renders itself, described by meaning; hosts translate them to native items. */
@@ -12,7 +12,7 @@ public sealed interface WindowItem {
      */
     public data class Hitbox(
         val model: Key,
-        val tooltip: ButtonTooltip?,
+        val tooltip: Tooltip?,
     ) : WindowItem
 
     /**

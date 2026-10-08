@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::ir::{Align, ButtonDefault};
+use crate::ir::Align;
 
 use super::writer::map_of;
 
@@ -20,13 +20,6 @@ pub(super) fn align_expr(align: Align) -> &'static str {
         Align::Left => "Align.LEFT",
         Align::Center => "Align.CENTER",
         Align::Right => "Align.RIGHT",
-    }
-}
-
-pub(super) fn optional_button_default_expr(default: Option<ButtonDefault>) -> &'static str {
-    match default {
-        Some(ButtonDefault::Close) => "ButtonDefault.CLOSE",
-        None => "null",
     }
 }
 

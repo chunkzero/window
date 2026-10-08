@@ -2,14 +2,14 @@
 package com.chunkzero.window.example.generated
 
 import com.chunkzero.window.manifest.Align
-import com.chunkzero.window.manifest.ButtonDefault
-import com.chunkzero.window.manifest.ButtonEntry
-import com.chunkzero.window.manifest.ButtonState
 import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.AnvilInputEntry
+import com.chunkzero.window.manifest.HitboxEntry
+import com.chunkzero.window.manifest.LayerEntry
+import com.chunkzero.window.manifest.LayerKind
+import com.chunkzero.window.manifest.RegionEntry
 import com.chunkzero.window.manifest.SlotAreaEntry
 import com.chunkzero.window.manifest.SlotEntry
-import com.chunkzero.window.manifest.SlotRectEntry
 import com.chunkzero.window.manifest.SlotRefEntry
 import com.chunkzero.window.manifest.SpriteSlotEntry
 import com.chunkzero.window.manifest.SurfaceEntry
@@ -68,8 +68,8 @@ internal object WindowEntries {
                         ),
                     ),
                     spriteSlots = emptyMap(),
-                    buttons = mapOf(
-                        "back" to ButtonEntry(
+                    regions = mapOf(
+                        "back" to RegionEntry(
                             x = 27,
                             y = 47,
                             width = 16,
@@ -81,13 +81,12 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = emptyList(),
-                            default = null,
-                            action = true,
-                            tooltip = null,
-                            states = emptyMap(),
-                            spriteFont = null,
+                            action = "back",
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "button `back`",
                         ),
-                        "confirm" to ButtonEntry(
+                        "confirm" to RegionEntry(
                             x = 134,
                             y = 47,
                             width = 16,
@@ -99,30 +98,22 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = TooltipEntry(
-                                title = "Search",
-                                lines = emptyList(),
+                            action = "confirm",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Search",
+                                    lines = emptyList(),
+                                ),
                             ),
-                            states = emptyMap(),
-                            spriteFont = null,
+                            source = "button `confirm`",
                         ),
-                    ),
-                    items = emptyMap(),
-                    collections = emptyMap(),
-                    inputs = mapOf(
-                        "query" to AnvilInputEntry(
-                            slot = SlotRefEntry(
-                                area = SlotAreaEntry.CONTAINER,
-                                index = 0,
-                            ),
-                            initial = "",
-                            itemModel = null,
-                        ),
-                    ),
-                    slotRects = mapOf(
-                        "hotbar" to SlotRectEntry(
+                        "hotbar" to RegionEntry(
+                            x = 8,
+                            y = 142,
+                            width = 160,
+                            height = 16,
                             slots = listOf(
                                 SlotRefEntry(
                                     area = SlotAreaEntry.PLAYER,
@@ -161,8 +152,17 @@ internal object WindowEntries {
                                     index = 8,
                                 ),
                             ),
+                            fillSlots = null,
+                            action = null,
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "slot rects `hotbar`",
                         ),
-                        "inventory" to SlotRectEntry(
+                        "inventory" to RegionEntry(
+                            x = 8,
+                            y = 84,
+                            width = 160,
+                            height = 52,
                             slots = listOf(
                                 SlotRefEntry(
                                     area = SlotAreaEntry.PLAYER,
@@ -273,9 +273,30 @@ internal object WindowEntries {
                                     index = 35,
                                 ),
                             ),
+                            fillSlots = null,
+                            action = null,
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "slot rects `inventory`",
+                        ),
+                    ),
+                    items = emptyMap(),
+                    collections = emptyMap(),
+                    inputs = mapOf(
+                        "query" to AnvilInputEntry(
+                            slot = SlotRefEntry(
+                                area = SlotAreaEntry.CONTAINER,
+                                index = 0,
+                            ),
+                            initial = "",
+                            itemModel = null,
                         ),
                     ),
                     groups = emptyMap(),
+                    layers = listOf(
+                        LayerEntry(LayerKind.SLOT, "label_0"),
+                        LayerEntry(LayerKind.SLOT, "label_1"),
+                    ),
                 ),
             "shop" to
                 WindowEntry(
@@ -612,6 +633,78 @@ internal object WindowEntries {
                         ),
                     ),
                     spriteSlots = mapOf(
+                        "buy.disabled" to SpriteSlotEntry(
+                            x = 8,
+                            y = 197,
+                            width = 106,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y191",
+                            sprite = "buy_disabled",
+                        ),
+                        "category=all.selected" to SpriteSlotEntry(
+                            x = 8,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y12",
+                            sprite = "tab_selected",
+                        ),
+                        "category=all.unselected" to SpriteSlotEntry(
+                            x = 8,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y12",
+                            sprite = "tab",
+                        ),
+                        "category=gear.selected" to SpriteSlotEntry(
+                            x = 62,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y12",
+                            sprite = "tab_selected",
+                        ),
+                        "category=gear.unselected" to SpriteSlotEntry(
+                            x = 62,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y12",
+                            sprite = "tab",
+                        ),
+                        "category=magic.selected" to SpriteSlotEntry(
+                            x = 116,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y12",
+                            sprite = "tab_selected",
+                        ),
+                        "category=magic.unselected" to SpriteSlotEntry(
+                            x = 116,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y12",
+                            sprite = "tab",
+                        ),
+                        "clear_search.disabled" to SpriteSlotEntry(
+                            x = 152,
+                            y = 157,
+                            width = 16,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y151",
+                            sprite = "clear_search_disabled",
+                        ),
                         "clear_search_icon" to SpriteSlotEntry(
                             x = 156,
                             y = 162,
@@ -621,9 +714,81 @@ internal object WindowEntries {
                             font = "window:sprite_y156",
                             sprite = "icon_clear",
                         ),
+                        "next.disabled" to SpriteSlotEntry(
+                            x = 116,
+                            y = 90,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y84",
+                            sprite = "action_disabled",
+                        ),
+                        "previous.disabled" to SpriteSlotEntry(
+                            x = 8,
+                            y = 90,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y84",
+                            sprite = "action_disabled",
+                        ),
+                        "sort=featured.selected" to SpriteSlotEntry(
+                            x = 8,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y133",
+                            sprite = "tab_selected",
+                        ),
+                        "sort=featured.unselected" to SpriteSlotEntry(
+                            x = 8,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y133",
+                            sprite = "tab",
+                        ),
+                        "sort=name.selected" to SpriteSlotEntry(
+                            x = 116,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y133",
+                            sprite = "tab_selected",
+                        ),
+                        "sort=name.unselected" to SpriteSlotEntry(
+                            x = 116,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y133",
+                            sprite = "tab",
+                        ),
+                        "sort=price.selected" to SpriteSlotEntry(
+                            x = 62,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y133",
+                            sprite = "tab_selected",
+                        ),
+                        "sort=price.unselected" to SpriteSlotEntry(
+                            x = 62,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            align = Align.LEFT,
+                            font = "window:sprite_y133",
+                            sprite = "tab",
+                        ),
                     ),
-                    buttons = mapOf(
-                        "affordable" to ButtonEntry(
+                    regions = mapOf(
+                        "affordable.default" to RegionEntry(
                             x = 62,
                             y = 157,
                             width = 52,
@@ -643,30 +808,74 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = null,
-                            states = mapOf(
-                                "off" to ButtonState(
-                                    itemModel = null,
-                                    sprite = null,
-                                    tooltip = TooltipEntry(
-                                        title = "Affordable only off",
-                                        lines = emptyList(),
-                                    ),
+                            action = "affordable",
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "toggle `affordable`",
+                        ),
+                        "affordable.off" to RegionEntry(
+                            x = 62,
+                            y = 157,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 21,
                                 ),
-                                "on" to ButtonState(
-                                    itemModel = null,
-                                    sprite = null,
-                                    tooltip = TooltipEntry(
-                                        title = "Affordable only on",
-                                        lines = emptyList(),
-                                    ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 22,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 23,
                                 ),
                             ),
-                            spriteFont = null,
+                            fillSlots = null,
+                            action = "affordable",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Affordable only off",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "toggle `affordable`",
                         ),
-                        "buy" to ButtonEntry(
+                        "affordable.on" to RegionEntry(
+                            x = 62,
+                            y = 157,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 21,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 22,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 23,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "affordable",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Affordable only on",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "toggle `affordable`",
+                        ),
+                        "buy.default" to RegionEntry(
                             x = 8,
                             y = 197,
                             width = 106,
@@ -698,30 +907,104 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = TooltipEntry(
-                                title = "Buy selected item",
-                                lines = emptyList(),
-                            ),
-                            states = mapOf(
-                                "disabled" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "buy_disabled",
-                                    tooltip = TooltipEntry(
-                                        title = "Buy selected item unavailable",
-                                        lines = emptyList(),
-                                    ),
-                                ),
-                                "enabled" to ButtonState(
-                                    itemModel = null,
-                                    sprite = null,
-                                    tooltip = null,
+                            action = "buy",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Buy selected item",
+                                    lines = emptyList(),
                                 ),
                             ),
-                            spriteFont = "window:sprite_y191",
+                            source = "button `buy`",
                         ),
-                        "category=all" to ButtonEntry(
+                        "buy.disabled" to RegionEntry(
+                            x = 8,
+                            y = 197,
+                            width = 106,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 0,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 1,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 2,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 3,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 4,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 5,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "buy",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Buy selected item unavailable",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "button `buy`",
+                        ),
+                        "buy.enabled" to RegionEntry(
+                            x = 8,
+                            y = 197,
+                            width = 106,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 0,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 1,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 2,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 3,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 4,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 5,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "buy",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Buy selected item",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "button `buy`",
+                        ),
+                        "category=all.default" to RegionEntry(
                             x = 8,
                             y = 18,
                             width = 52,
@@ -741,30 +1024,74 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = null,
-                            states = mapOf(
-                                "selected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab_selected",
-                                    tooltip = TooltipEntry(
-                                        title = "All items",
-                                        lines = emptyList(),
-                                    ),
+                            action = "category=all",
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "tab `category=all`",
+                        ),
+                        "category=all.selected" to RegionEntry(
+                            x = 8,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 0,
                                 ),
-                                "unselected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab",
-                                    tooltip = TooltipEntry(
-                                        title = "All items",
-                                        lines = emptyList(),
-                                    ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 1,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 2,
                                 ),
                             ),
-                            spriteFont = "window:sprite_y12",
+                            fillSlots = null,
+                            action = "category=all",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "All items",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `category=all`",
                         ),
-                        "category=gear" to ButtonEntry(
+                        "category=all.unselected" to RegionEntry(
+                            x = 8,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 0,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 1,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 2,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "category=all",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "All items",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `category=all`",
+                        ),
+                        "category=gear.default" to RegionEntry(
                             x = 62,
                             y = 18,
                             width = 52,
@@ -784,30 +1111,74 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = null,
-                            states = mapOf(
-                                "selected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab_selected",
-                                    tooltip = TooltipEntry(
-                                        title = "Gear",
-                                        lines = emptyList(),
-                                    ),
+                            action = "category=gear",
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "tab `category=gear`",
+                        ),
+                        "category=gear.selected" to RegionEntry(
+                            x = 62,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 3,
                                 ),
-                                "unselected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab",
-                                    tooltip = TooltipEntry(
-                                        title = "Gear",
-                                        lines = emptyList(),
-                                    ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 4,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 5,
                                 ),
                             ),
-                            spriteFont = "window:sprite_y12",
+                            fillSlots = null,
+                            action = "category=gear",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Gear",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `category=gear`",
                         ),
-                        "category=magic" to ButtonEntry(
+                        "category=gear.unselected" to RegionEntry(
+                            x = 62,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 3,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 4,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 5,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "category=gear",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Gear",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `category=gear`",
+                        ),
+                        "category=magic.default" to RegionEntry(
                             x = 116,
                             y = 18,
                             width = 52,
@@ -827,30 +1198,74 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = null,
-                            states = mapOf(
-                                "selected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab_selected",
-                                    tooltip = TooltipEntry(
-                                        title = "Magic",
-                                        lines = emptyList(),
-                                    ),
+                            action = "category=magic",
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "tab `category=magic`",
+                        ),
+                        "category=magic.selected" to RegionEntry(
+                            x = 116,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 6,
                                 ),
-                                "unselected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab",
-                                    tooltip = TooltipEntry(
-                                        title = "Magic",
-                                        lines = emptyList(),
-                                    ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 7,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 8,
                                 ),
                             ),
-                            spriteFont = "window:sprite_y12",
+                            fillSlots = null,
+                            action = "category=magic",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Magic",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `category=magic`",
                         ),
-                        "clear_search" to ButtonEntry(
+                        "category=magic.unselected" to RegionEntry(
+                            x = 116,
+                            y = 18,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 6,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 7,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 8,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "category=magic",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Magic",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `category=magic`",
+                        ),
+                        "clear_search.default" to RegionEntry(
                             x = 152,
                             y = 157,
                             width = 16,
@@ -862,30 +1277,125 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = TooltipEntry(
-                                title = "Clear search",
-                                lines = emptyList(),
-                            ),
-                            states = mapOf(
-                                "disabled" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "clear_search_disabled",
-                                    tooltip = TooltipEntry(
-                                        title = "Clear search unavailable",
-                                        lines = emptyList(),
-                                    ),
-                                ),
-                                "enabled" to ButtonState(
-                                    itemModel = null,
-                                    sprite = null,
-                                    tooltip = null,
+                            action = "clear_search",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Clear search",
+                                    lines = emptyList(),
                                 ),
                             ),
-                            spriteFont = "window:sprite_y151",
+                            source = "button `clear_search`",
                         ),
-                        "favorites" to ButtonEntry(
+                        "clear_search.disabled" to RegionEntry(
+                            x = 152,
+                            y = 157,
+                            width = 16,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 26,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "clear_search",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Clear search unavailable",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "button `clear_search`",
+                        ),
+                        "clear_search.enabled" to RegionEntry(
+                            x = 152,
+                            y = 157,
+                            width = 16,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 26,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "clear_search",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Clear search",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "button `clear_search`",
+                        ),
+                        "container_section" to RegionEntry(
+                            x = 8,
+                            y = 18,
+                            width = 160,
+                            height = 106,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 39,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 40,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 41,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 45,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 46,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 47,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 48,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 49,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 50,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 51,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 52,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 53,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = null,
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "container section",
+                        ),
+                        "favorites.default" to RegionEntry(
                             x = 8,
                             y = 157,
                             width = 52,
@@ -905,30 +1415,74 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = null,
-                            states = mapOf(
-                                "off" to ButtonState(
-                                    itemModel = null,
-                                    sprite = null,
-                                    tooltip = TooltipEntry(
-                                        title = "Favorites only off",
-                                        lines = emptyList(),
-                                    ),
+                            action = "favorites",
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "toggle `favorites`",
+                        ),
+                        "favorites.off" to RegionEntry(
+                            x = 8,
+                            y = 157,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 18,
                                 ),
-                                "on" to ButtonState(
-                                    itemModel = null,
-                                    sprite = null,
-                                    tooltip = TooltipEntry(
-                                        title = "Favorites only on",
-                                        lines = emptyList(),
-                                    ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 19,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 20,
                                 ),
                             ),
-                            spriteFont = null,
+                            fillSlots = null,
+                            action = "favorites",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Favorites only off",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "toggle `favorites`",
                         ),
-                        "next" to ButtonEntry(
+                        "favorites.on" to RegionEntry(
+                            x = 8,
+                            y = 157,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 18,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 19,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 20,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "favorites",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Favorites only on",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "toggle `favorites`",
+                        ),
+                        "next.default" to RegionEntry(
                             x = 116,
                             y = 90,
                             width = 52,
@@ -948,30 +1502,129 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = TooltipEntry(
-                                title = "Next page",
-                                lines = emptyList(),
-                            ),
-                            states = mapOf(
-                                "disabled" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "action_disabled",
-                                    tooltip = TooltipEntry(
-                                        title = "Next page unavailable",
-                                        lines = emptyList(),
-                                    ),
-                                ),
-                                "enabled" to ButtonState(
-                                    itemModel = null,
-                                    sprite = null,
-                                    tooltip = null,
+                            action = "next",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Next page",
+                                    lines = emptyList(),
                                 ),
                             ),
-                            spriteFont = "window:sprite_y84",
+                            source = "button `next`",
                         ),
-                        "previous" to ButtonEntry(
+                        "next.disabled" to RegionEntry(
+                            x = 116,
+                            y = 90,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 42,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 43,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 44,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "next",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Next page unavailable",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "button `next`",
+                        ),
+                        "next.enabled" to RegionEntry(
+                            x = 116,
+                            y = 90,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 42,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 43,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 44,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "next",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Next page",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "button `next`",
+                        ),
+                        "player_section" to RegionEntry(
+                            x = 8,
+                            y = 139,
+                            width = 160,
+                            height = 52,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 27,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 28,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 29,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 30,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 31,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 32,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 33,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 34,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 35,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = null,
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "player section",
+                        ),
+                        "previous.default" to RegionEntry(
                             x = 8,
                             y = 90,
                             width = 52,
@@ -991,30 +1644,80 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = TooltipEntry(
-                                title = "Previous page",
-                                lines = emptyList(),
-                            ),
-                            states = mapOf(
-                                "disabled" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "action_disabled",
-                                    tooltip = TooltipEntry(
-                                        title = "Previous page unavailable",
-                                        lines = emptyList(),
-                                    ),
-                                ),
-                                "enabled" to ButtonState(
-                                    itemModel = null,
-                                    sprite = null,
-                                    tooltip = null,
+                            action = "previous",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Previous page",
+                                    lines = emptyList(),
                                 ),
                             ),
-                            spriteFont = "window:sprite_y84",
+                            source = "button `previous`",
                         ),
-                        "search" to ButtonEntry(
+                        "previous.disabled" to RegionEntry(
+                            x = 8,
+                            y = 90,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 36,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 37,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 38,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "previous",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Previous page unavailable",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "button `previous`",
+                        ),
+                        "previous.enabled" to RegionEntry(
+                            x = 8,
+                            y = 90,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 36,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 37,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.CONTAINER,
+                                    index = 38,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "previous",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Previous page",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "button `previous`",
+                        ),
+                        "search" to RegionEntry(
                             x = 116,
                             y = 157,
                             width = 34,
@@ -1030,16 +1733,18 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = TooltipEntry(
-                                title = "Search the catalog",
-                                lines = emptyList(),
+                            action = "search",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Search the catalog",
+                                    lines = emptyList(),
+                                ),
                             ),
-                            states = emptyMap(),
-                            spriteFont = null,
+                            source = "button `search`",
                         ),
-                        "sort=featured" to ButtonEntry(
+                        "sort=featured.default" to RegionEntry(
                             x = 8,
                             y = 139,
                             width = 52,
@@ -1059,30 +1764,74 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = null,
-                            states = mapOf(
-                                "selected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab_selected",
-                                    tooltip = TooltipEntry(
-                                        title = "Top picks first",
-                                        lines = emptyList(),
-                                    ),
+                            action = "sort=featured",
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "tab `sort=featured`",
+                        ),
+                        "sort=featured.selected" to RegionEntry(
+                            x = 8,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 9,
                                 ),
-                                "unselected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab",
-                                    tooltip = TooltipEntry(
-                                        title = "Top picks first",
-                                        lines = emptyList(),
-                                    ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 10,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 11,
                                 ),
                             ),
-                            spriteFont = "window:sprite_y133",
+                            fillSlots = null,
+                            action = "sort=featured",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Top picks first",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `sort=featured`",
                         ),
-                        "sort=name" to ButtonEntry(
+                        "sort=featured.unselected" to RegionEntry(
+                            x = 8,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 9,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 10,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 11,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "sort=featured",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Top picks first",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `sort=featured`",
+                        ),
+                        "sort=name.default" to RegionEntry(
                             x = 116,
                             y = 139,
                             width = 52,
@@ -1102,30 +1851,74 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = null,
-                            states = mapOf(
-                                "selected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab_selected",
-                                    tooltip = TooltipEntry(
-                                        title = "Name sort",
-                                        lines = emptyList(),
-                                    ),
+                            action = "sort=name",
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "tab `sort=name`",
+                        ),
+                        "sort=name.selected" to RegionEntry(
+                            x = 116,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 15,
                                 ),
-                                "unselected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab",
-                                    tooltip = TooltipEntry(
-                                        title = "Name sort",
-                                        lines = emptyList(),
-                                    ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 16,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 17,
                                 ),
                             ),
-                            spriteFont = "window:sprite_y133",
+                            fillSlots = null,
+                            action = "sort=name",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Name sort",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `sort=name`",
                         ),
-                        "sort=price" to ButtonEntry(
+                        "sort=name.unselected" to RegionEntry(
+                            x = 116,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 15,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 16,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 17,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "sort=name",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Name sort",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `sort=name`",
+                        ),
+                        "sort=price.default" to RegionEntry(
                             x = 62,
                             y = 139,
                             width = 52,
@@ -1145,30 +1938,74 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = null,
-                            action = true,
-                            tooltip = null,
-                            states = mapOf(
-                                "selected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab_selected",
-                                    tooltip = TooltipEntry(
-                                        title = "Price sort",
-                                        lines = emptyList(),
-                                    ),
+                            action = "sort=price",
+                            defaultAction = null,
+                            hitbox = null,
+                            source = "tab `sort=price`",
+                        ),
+                        "sort=price.selected" to RegionEntry(
+                            x = 62,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 12,
                                 ),
-                                "unselected" to ButtonState(
-                                    itemModel = null,
-                                    sprite = "tab",
-                                    tooltip = TooltipEntry(
-                                        title = "Price sort",
-                                        lines = emptyList(),
-                                    ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 13,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 14,
                                 ),
                             ),
-                            spriteFont = "window:sprite_y133",
+                            fillSlots = null,
+                            action = "sort=price",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Price sort",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `sort=price`",
                         ),
-                        "window:close" to ButtonEntry(
+                        "sort=price.unselected" to RegionEntry(
+                            x = 62,
+                            y = 139,
+                            width = 52,
+                            height = 16,
+                            slots = listOf(
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 12,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 13,
+                                ),
+                                SlotRefEntry(
+                                    area = SlotAreaEntry.PLAYER,
+                                    index = 14,
+                                ),
+                            ),
+                            fillSlots = null,
+                            action = "sort=price",
+                            defaultAction = null,
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Price sort",
+                                    lines = emptyList(),
+                                ),
+                            ),
+                            source = "tab `sort=price`",
+                        ),
+                        "window:close" to RegionEntry(
                             x = 116,
                             y = 197,
                             width = 52,
@@ -1188,14 +2025,16 @@ internal object WindowEntries {
                                 ),
                             ),
                             fillSlots = null,
-                            default = ButtonDefault.CLOSE,
-                            action = true,
-                            tooltip = TooltipEntry(
-                                title = "Close market",
-                                lines = emptyList(),
+                            action = "window:close",
+                            defaultAction = "window:close",
+                            hitbox = HitboxEntry(
+                                itemModel = null,
+                                tooltip = TooltipEntry(
+                                    title = "Close market",
+                                    lines = emptyList(),
+                                ),
                             ),
-                            states = emptyMap(),
-                            spriteFont = null,
+                            source = "button `window:close`",
                         ),
                     ),
                     items = emptyMap(),
@@ -1560,102 +2399,40 @@ internal object WindowEntries {
                         ),
                     ),
                     inputs = emptyMap(),
-                    slotRects = mapOf(
-                        "container_section" to SlotRectEntry(
-                            slots = listOf(
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 39,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 40,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 41,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 45,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 46,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 47,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 48,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 49,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 50,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 51,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 52,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.CONTAINER,
-                                    index = 53,
-                                ),
-                            ),
-                        ),
-                        "player_section" to SlotRectEntry(
-                            slots = listOf(
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 27,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 28,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 29,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 30,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 31,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 32,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 33,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 34,
-                                ),
-                                SlotRefEntry(
-                                    area = SlotAreaEntry.PLAYER,
-                                    index = 35,
-                                ),
-                            ),
-                        ),
-                    ),
                     groups = emptyMap(),
                     switches = mapOf(
+                        "affordable" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("affordable.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "off",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("affordable.off"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "on",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("affordable.on"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "toggle `affordable`",
+                        ),
                         "affordable~2" to SwitchEntry(
                             cases = listOf(
                                 SwitchCaseEntry(
@@ -1663,14 +2440,214 @@ internal object WindowEntries {
                                     static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uE9A2\uDB80\uDC04\uDB80\uDC08",
                                     slots = emptyList(),
                                     spriteSlots = emptyList(),
+                                    regions = emptyList(),
+                                    switches = emptyList(),
                                 ),
                                 SwitchCaseEntry(
                                     value = "false",
                                     static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uF686\uDB80\uDC04\uDB80\uDC08",
                                     slots = emptyList(),
                                     spriteSlots = emptyList(),
+                                    regions = emptyList(),
+                                    switches = emptyList(),
                                 ),
                             ),
+                            binding = null,
+                            states = false,
+                            initial = null,
+                            source = null,
+                        ),
+                        "buy" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("buy.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "disabled",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("buy.disabled"),
+                                    regions = listOf("buy.disabled"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "enabled",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("buy.enabled"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "button `buy`",
+                        ),
+                        "category=all" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("category=all.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "selected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("category=all.selected"),
+                                    regions = listOf("category=all.selected"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "unselected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("category=all.unselected"),
+                                    regions = listOf("category=all.unselected"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "tab `category=all`",
+                        ),
+                        "category=gear" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("category=gear.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "selected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("category=gear.selected"),
+                                    regions = listOf("category=gear.selected"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "unselected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("category=gear.unselected"),
+                                    regions = listOf("category=gear.unselected"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "tab `category=gear`",
+                        ),
+                        "category=magic" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("category=magic.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "selected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("category=magic.selected"),
+                                    regions = listOf("category=magic.selected"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "unselected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("category=magic.unselected"),
+                                    regions = listOf("category=magic.unselected"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "tab `category=magic`",
+                        ),
+                        "clear_search" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("clear_search.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "disabled",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("clear_search.disabled"),
+                                    regions = listOf("clear_search.disabled"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "enabled",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("clear_search.enabled"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "button `clear_search`",
+                        ),
+                        "favorites" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("favorites.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "off",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("favorites.off"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "on",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("favorites.on"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "toggle `favorites`",
                         ),
                         "favorites~2" to SwitchEntry(
                             cases = listOf(
@@ -1679,14 +2656,22 @@ internal object WindowEntries {
                                     static = "\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uE964\uDB80\uDC06\uDB80\uDC09",
                                     slots = emptyList(),
                                     spriteSlots = emptyList(),
+                                    regions = emptyList(),
+                                    switches = emptyList(),
                                 ),
                                 SwitchCaseEntry(
                                     value = "false",
                                     static = "\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uF016\uDB80\uDC06\uDB80\uDC09",
                                     slots = emptyList(),
                                     spriteSlots = emptyList(),
+                                    regions = emptyList(),
+                                    switches = emptyList(),
                                 ),
                             ),
+                            binding = null,
+                            states = false,
+                            initial = null,
+                            source = null,
                         ),
                         "has_price" to SwitchEntry(
                             cases = listOf(
@@ -1695,15 +2680,237 @@ internal object WindowEntries {
                                     static = "\uDB80\uDC12\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0B\uEF4A\uDB80\uDC03\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC09",
                                     slots = emptyList(),
                                     spriteSlots = emptyList(),
+                                    regions = emptyList(),
+                                    switches = emptyList(),
                                 ),
                                 SwitchCaseEntry(
                                     value = "false",
                                     static = "",
                                     slots = emptyList(),
                                     spriteSlots = emptyList(),
+                                    regions = emptyList(),
+                                    switches = emptyList(),
                                 ),
                             ),
+                            binding = null,
+                            states = false,
+                            initial = null,
+                            source = null,
                         ),
+                        "next" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("next.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "disabled",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("next.disabled"),
+                                    regions = listOf("next.disabled"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "enabled",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("next.enabled"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "button `next`",
+                        ),
+                        "previous" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("previous.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "disabled",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("previous.disabled"),
+                                    regions = listOf("previous.disabled"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "enabled",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("previous.enabled"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "button `previous`",
+                        ),
+                        "sort=featured" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("sort=featured.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "selected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("sort=featured.selected"),
+                                    regions = listOf("sort=featured.selected"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "unselected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("sort=featured.unselected"),
+                                    regions = listOf("sort=featured.unselected"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "tab `sort=featured`",
+                        ),
+                        "sort=name" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("sort=name.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "selected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("sort=name.selected"),
+                                    regions = listOf("sort=name.selected"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "unselected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("sort=name.unselected"),
+                                    regions = listOf("sort=name.unselected"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "tab `sort=name`",
+                        ),
+                        "sort=price" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "default",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                    regions = listOf("sort=price.default"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "selected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("sort=price.selected"),
+                                    regions = listOf("sort=price.selected"),
+                                    switches = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "unselected",
+                                    static = "",
+                                    slots = emptyList(),
+                                    spriteSlots = listOf("sort=price.unselected"),
+                                    regions = listOf("sort=price.unselected"),
+                                    switches = emptyList(),
+                                ),
+                            ),
+                            binding = null,
+                            states = true,
+                            initial = "default",
+                            source = "tab `sort=price`",
+                        ),
+                    ),
+                    layers = listOf(
+                        LayerEntry(LayerKind.SLOT, "label_0"),
+                        LayerEntry(LayerKind.SWITCH, "category=all"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "category=all.selected"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "category=all.unselected"),
+                        LayerEntry(LayerKind.SLOT, "category_label[0]"),
+                        LayerEntry(LayerKind.SWITCH, "category=gear"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "category=gear.selected"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "category=gear.unselected"),
+                        LayerEntry(LayerKind.SLOT, "category_label[1]"),
+                        LayerEntry(LayerKind.SWITCH, "category=magic"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "category=magic.selected"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "category=magic.unselected"),
+                        LayerEntry(LayerKind.SLOT, "category_label[2]"),
+                        LayerEntry(LayerKind.COLLECTION, "products"),
+                        LayerEntry(LayerKind.SWITCH, "previous"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "previous.disabled"),
+                        LayerEntry(LayerKind.SLOT, "previous_label"),
+                        LayerEntry(LayerKind.SLOT, "page"),
+                        LayerEntry(LayerKind.SWITCH, "next"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "next.disabled"),
+                        LayerEntry(LayerKind.SLOT, "next_label"),
+                        LayerEntry(LayerKind.SLOT, "selected_name"),
+                        LayerEntry(LayerKind.SLOT, "price"),
+                        LayerEntry(LayerKind.SWITCH, "has_price"),
+                        LayerEntry(LayerKind.SWITCH, "sort=featured"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "sort=featured.selected"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "sort=featured.unselected"),
+                        LayerEntry(LayerKind.SLOT, "sort_label[0]"),
+                        LayerEntry(LayerKind.SWITCH, "sort=price"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "sort=price.selected"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "sort=price.unselected"),
+                        LayerEntry(LayerKind.SLOT, "sort_label[1]"),
+                        LayerEntry(LayerKind.SWITCH, "sort=name"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "sort=name.selected"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "sort=name.unselected"),
+                        LayerEntry(LayerKind.SLOT, "sort_label[2]"),
+                        LayerEntry(LayerKind.SWITCH, "favorites"),
+                        LayerEntry(LayerKind.SWITCH, "favorites~2"),
+                        LayerEntry(LayerKind.SLOT, "label_1"),
+                        LayerEntry(LayerKind.SWITCH, "affordable"),
+                        LayerEntry(LayerKind.SWITCH, "affordable~2"),
+                        LayerEntry(LayerKind.SLOT, "label_2"),
+                        LayerEntry(LayerKind.SLOT, "label_3"),
+                        LayerEntry(LayerKind.SWITCH, "clear_search"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "clear_search.disabled"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "clear_search_icon"),
+                        LayerEntry(LayerKind.SLOT, "status"),
+                        LayerEntry(LayerKind.SLOT, "balance"),
+                        LayerEntry(LayerKind.SWITCH, "buy"),
+                        LayerEntry(LayerKind.SPRITE_SLOT, "buy.disabled"),
+                        LayerEntry(LayerKind.SLOT, "buy_label"),
+                        LayerEntry(LayerKind.SLOT, "label_4"),
                     ),
                 ),
         )

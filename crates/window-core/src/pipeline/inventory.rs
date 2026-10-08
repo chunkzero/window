@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use crate::inventory::{InventorySlotArea, InventorySlotRef, SlotRectClaim};
-use crate::ir::{Align, ButtonIr, CollectionIr, LaidOutWindow, RepeatBindingIr};
+use crate::inventory::{InventorySlotArea, InventorySlotRef};
+use crate::ir::{Align, CollectionIr, LaidOutWindow, RegionIr, RepeatBindingIr};
 use crate::manifest::{
-    AnvilInputEntry, ButtonEntry, CollectionEntry, ItemEntry, RepeatGroupEntry, SlotRectEntry, SlotRefEntry,
-    SpriteSlotEntry,
+    AnvilInputEntry, CasePath, CollectionEntry, ItemEntry, RegionEntry, RepeatGroupEntry, SlotRefEntry,
+    SpriteSlotEntry, SwitchEntry, exclusive_cases, region_case_paths,
 };
 use crate::surface::{ContainerKind, Surface};
 use crate::{Error, Result};
@@ -17,33 +17,35 @@ use super::window::sprite_slot_entry;
 
 #[derive(Default)]
 pub(super) struct InventoryEntries {
-    pub(super) buttons: BTreeMap<String, ButtonEntry>,
+    pub(super) regions: BTreeMap<String, RegionEntry>,
     pub(super) items: BTreeMap<String, ItemEntry>,
     pub(super) collections: BTreeMap<String, CollectionEntry>,
     pub(super) inputs: BTreeMap<String, AnvilInputEntry>,
-    pub(super) slot_rects: BTreeMap<String, SlotRectEntry>,
 }
 
-/// Claim slots for every control in kind order: buttons, items, collections,
-/// inputs, then slot rects.
+/// Claim slots for every control: regions, items, collections, inputs, then regions claiming only unowned slots.
+/// Regions in mutually exclusive switch cases may claim the same slots.
 pub(super) fn compile_inventory(
     ctx: &mut CompileContext<'_>,
     w: &LaidOutWindow,
+    switches: &BTreeMap<String, SwitchEntry>,
     title_y: i32,
 ) -> Result<InventoryEntries> {
     let Surface::Container(kind) = w.surface;
+    let paths = region_case_paths(switches);
     let mut claims = SlotClaims { window: &w.name, kind, owners: BTreeMap::new() };
     let mut entries = InventoryEntries::default();
     let input_slot = (!w.inputs.is_empty()).then(|| InventorySlotRef::container(0));
-    for button in &w.buttons {
-        entries.buttons.insert(button.name.clone(), button_entry(ctx, &mut claims, button, input_slot, title_y)?);
+    for region in w.regions.iter().filter(|region| !region.unowned) {
+        let path = paths.get(&region.name).cloned().unwrap_or_default();
+        entries.regions.insert(region.name.clone(), region_entry(&mut claims, region, path, input_slot)?);
     }
     for item in &w.items {
-        let slots = claims.claim(&item.name, &item.slots)?;
+        let slots = claims.claim(&format!("item `{}`", item.name), &[], &item.slots)?;
         entries.items.insert(item.name.clone(), ItemEntry { slots });
     }
     for collection in &w.collections {
-        let slots = claims.claim(&collection.name, &collection.slots)?;
+        let slots = claims.claim(&format!("collection `{}`", collection.name), &[], &collection.slots)?;
         let selection = collection_selection(ctx, &claims, collection, title_y)?;
         entries
             .collections
@@ -51,7 +53,7 @@ pub(super) fn compile_inventory(
     }
     for input in &w.inputs {
         let slot = claims
-            .claim(&input.name, &[InventorySlotRef::container(0)])?
+            .claim(&format!("anvil input `{}`", input.name), &[], &[InventorySlotRef::container(0)])?
             .into_iter()
             .next()
             .expect("anvil input slot is valid");
@@ -60,14 +62,10 @@ pub(super) fn compile_inventory(
             AnvilInputEntry { slot, initial: input.initial.clone(), item_model: input.item_model.clone() },
         );
     }
-    for slot_rect in &w.slot_rects {
-        let slots = match slot_rect.claim {
-            SlotRectClaim::None => Vec::new(),
-            SlotRectClaim::All => claims.claim(&slot_rect.name, &slot_rect.slots)?,
-            SlotRectClaim::Unowned => claims.claim_unowned(&slot_rect.name, &slot_rect.slots)?,
-        };
+    for region in w.regions.iter().filter(|region| region.unowned) {
+        let slots = claims.claim_unowned(&region.source, region.slots.as_deref().unwrap_or_default())?;
         if !slots.is_empty() {
-            entries.slot_rects.insert(slot_rect.name.clone(), SlotRectEntry { slots });
+            entries.regions.insert(region.name.clone(), RegionEntry { slots, ..base_entry(region) });
         }
     }
     Ok(entries)
@@ -77,23 +75,32 @@ pub(super) fn compile_inventory(
 struct SlotClaims<'a> {
     window: &'a str,
     kind: ContainerKind,
-    owners: BTreeMap<InventorySlotRef, String>,
+    /// Each owned slot's owners, with the case path each claimed it in.
+    owners: BTreeMap<InventorySlotRef, Vec<(String, CasePath)>>,
 }
 
 impl SlotClaims<'_> {
-    /// Claim every slot for `owner`; a slot already owned is an error.
-    fn claim(&mut self, owner: &str, slots: &[InventorySlotRef]) -> Result<Vec<SlotRefEntry>> {
+    /// Claim every slot for `owner` in the switch cases `path`; a slot owned outside a mutually exclusive case is
+    /// an error.
+    fn claim(
+        &mut self,
+        owner: &str,
+        path: &[(String, String)],
+        slots: &[InventorySlotRef],
+    ) -> Result<Vec<SlotRefEntry>> {
         let mut out = Vec::with_capacity(slots.len());
         for slot in slots {
             self.validate(owner, slot)?;
-            if let Some(existing) = self.owners.insert(*slot, owner.to_string()) {
+            let owners = self.owners.entry(*slot).or_default();
+            if let Some((existing, _)) = owners.iter().find(|(_, other)| !exclusive_cases(path, other)) {
                 return Err(Error::Validation(format!(
-                    "window `{}`: control `{owner}` and control `{existing}` both own {} slot {}",
+                    "window `{}`: {owner} and {existing} both own {} slot {}",
                     self.window,
                     slot_area_name(slot.area),
                     slot.index
                 )));
             }
+            owners.push((owner.to_string(), path.to_vec()));
             out.push((*slot).into());
         }
         Ok(out)
@@ -107,7 +114,7 @@ impl SlotClaims<'_> {
             if self.owners.contains_key(slot) {
                 continue;
             }
-            self.owners.insert(*slot, owner.to_string());
+            self.owners.insert(*slot, vec![(owner.to_string(), Vec::new())]);
             out.push((*slot).into());
         }
         Ok(out)
@@ -117,13 +124,13 @@ impl SlotClaims<'_> {
         let (window, kind) = (self.window, self.kind);
         match slot.area {
             InventorySlotArea::Container if slot.index >= kind.slot_count() => Err(Error::Validation(format!(
-                "window `{window}`: control `{owner}` references container slot {}, but `{}` has only {} slots",
+                "window `{window}`: {owner} references container slot {}, but `{}` has only {} slots",
                 slot.index,
                 kind.id(),
                 kind.slot_count()
             ))),
             InventorySlotArea::Player if slot.index >= 36 => Err(Error::Validation(format!(
-                "window `{window}`: control `{owner}` references player slot {}, but generic container screens expose only player slots 0..35",
+                "window `{window}`: {owner} references player slot {}, but generic container screens expose only player slots 0..35",
                 slot.index
             ))),
             _ => Ok(()),
@@ -138,89 +145,55 @@ fn slot_area_name(area: InventorySlotArea) -> &'static str {
     }
 }
 
-fn button_entry(
-    ctx: &mut CompileContext<'_>,
-    claims: &mut SlotClaims<'_>,
-    button: &ButtonIr,
-    input_slot: Option<InventorySlotRef>,
-    title_y: i32,
-) -> Result<ButtonEntry> {
-    let (slots, fill_slots) = button_slots(claims, button, input_slot)?;
-    let sprite_font = button_sprite_font(ctx, claims.window, button, title_y)?;
-    Ok(ButtonEntry {
-        x: button.rect.x,
-        y: button.rect.y,
-        width: button.rect.width,
-        height: button.rect.height,
-        slots,
-        fill_slots,
-        default: button.default,
-        action: button.action,
-        tooltip: button.tooltip.clone(),
-        states: button.states.clone(),
-        sprite_font,
-    })
+/// A region's entry before its slots are claimed.
+fn base_entry(region: &RegionIr) -> RegionEntry {
+    RegionEntry {
+        x: region.rect.x,
+        y: region.rect.y,
+        width: region.rect.width,
+        height: region.rect.height,
+        slots: Vec::new(),
+        fill_slots: None,
+        action: region.action.clone(),
+        default_action: region.default_action.clone(),
+        hitbox: region.hitbox.clone(),
+        source: Some(region.source.clone()),
+    }
 }
 
-/// Click routes cover every backing slot; the button only fills (and owns) the
-/// slots it has not yielded to a repeater-cell item control or the anvil input,
-/// which keeps its seed item in `input_slot`. Fill slots are `None` when they
-/// equal the routed slots.
-fn button_slots(
+/// Click routes cover every backing slot; the region only fills (and owns) the slots it has not yielded to a
+/// repeater-cell item control or the anvil input, which keeps its seed item in `input_slot`. Fill slots are `None`
+/// when they equal the routed slots.
+fn region_entry(
     claims: &mut SlotClaims<'_>,
-    button: &ButtonIr,
+    region: &RegionIr,
+    path: CasePath,
     input_slot: Option<InventorySlotRef>,
-) -> Result<(Vec<SlotRefEntry>, Option<Vec<SlotRefEntry>>)> {
-    let window = claims.window;
-    let slot_refs = button.slots.clone().unwrap_or_else(|| claims.kind.slot_refs_overlapping(&button.rect));
+) -> Result<RegionEntry> {
+    let (window, owner) = (claims.window, &region.source);
+    let slot_refs = region.slots.clone().unwrap_or_else(|| claims.kind.slot_refs_overlapping(&region.rect));
     if slot_refs.is_empty() {
-        return Err(Error::Validation(format!(
-            "window `{window}`: button `{}` overlaps no inventory slot",
-            button.name
-        )));
+        return Err(Error::Validation(format!("window `{window}`: {owner} overlaps no inventory slot")));
     }
     let routes_input = input_slot.is_some_and(|input| slot_refs.contains(&input));
     let fill_refs: Vec<InventorySlotRef> = slot_refs
         .iter()
         .copied()
-        .filter(|slot| !button.yielded_slots.contains(slot) && Some(*slot) != input_slot)
+        .filter(|slot| !region.yielded_slots.contains(slot) && Some(*slot) != input_slot)
         .collect();
     if fill_refs.is_empty() && !routes_input {
         return Err(Error::Validation(format!(
-            "window `{window}`: button `{}` yielded every backing slot; leave at least one slot \
-             for the button's own hitbox item",
-            button.name
+            "window `{window}`: {owner} yielded every backing slot; leave at least one slot for its own hitbox item"
         )));
     }
-    let fill_slots = claims.claim(&button.name, &fill_refs)?;
+    let fill_slots = claims.claim(owner, &path, &fill_refs)?;
     let mut slots = Vec::with_capacity(slot_refs.len());
     for slot in &slot_refs {
-        claims.validate(&button.name, slot)?;
+        claims.validate(owner, slot)?;
         slots.push((*slot).into());
     }
     let fill_slots = if fill_slots == slots { None } else { Some(fill_slots) };
-    Ok((slots, fill_slots))
-}
-
-/// The sprite font for a button with sprite states, after checking each state
-/// sprite exists and fits the button.
-fn button_sprite_font(
-    ctx: &mut CompileContext<'_>,
-    window: &str,
-    button: &ButtonIr,
-    title_y: i32,
-) -> Result<Option<String>> {
-    if !button.states.values().any(|state| state.sprite.is_some()) {
-        return Ok(None);
-    }
-    let k = button.rect.y - title_y;
-    for (state_name, state) in &button.states {
-        if let Some(sprite) = &state.sprite {
-            let subject = format!("button `{}` state `{state_name}`", button.name);
-            check_sprite_fits(ctx.runtime_sprites, window, &subject, sprite, &button.rect)?;
-        }
-    }
-    Ok(Some(ctx.sprite_font(k)))
+    Ok(RegionEntry { slots, fill_slots, ..base_entry(region) })
 }
 
 /// One placement of the collection's selected sprite per cell, covering the
@@ -293,16 +266,16 @@ pub(super) fn repeat_groups(window: &LaidOutWindow) -> BTreeMap<String, RepeatGr
             set_indexed_name(&mut group.items, field, repeat.index, item.name.clone());
         }
     }
-    for button in &window.buttons {
-        if !button.action {
+    for region in &window.regions {
+        let Some(action) = &region.action else {
             continue;
-        }
-        if let Some(repeat) = &button.repeat
+        };
+        if let Some(repeat) = &region.repeat
             && repeat.field.is_none()
         {
             let group = repeat_group(&mut groups, repeat);
-            ensure_len(&mut group.buttons, repeat.index);
-            group.buttons[repeat.index as usize] = button.name.clone();
+            ensure_len(&mut group.actions, repeat.index);
+            group.actions[repeat.index as usize] = action.clone();
         }
     }
     groups

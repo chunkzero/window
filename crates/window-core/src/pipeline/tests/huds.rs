@@ -20,6 +20,7 @@ fn shader_placed_hud_requires_hud_shaders() {
         draws: vec![],
         slots: vec![],
         switches: vec![],
+        layers: vec![],
         indexed: BTreeMap::new(),
         handles: BTreeMap::new(),
         warnings: vec![],

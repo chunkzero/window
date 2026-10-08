@@ -121,7 +121,10 @@ public abstract class WindowView<I : Any>(
         requireSession().setItem(name, item)
     }
 
-    /** Uses one of the named manifest states declared by the Window source. */
+    /**
+     * Uses one of the named manifest states declared by the Window source. A button's state is either
+     * bound in `bind()` or set here, never both: throws [IllegalStateException] if [name] is bound.
+     */
     protected fun buttonState(
         name: String,
         state: String,
@@ -143,7 +146,7 @@ public abstract class WindowView<I : Any>(
     /** Sets or clears a tooltip on the invisible hitbox item for a button/hotspot. */
     protected fun tooltip(
         name: String,
-        tooltip: ButtonTooltip?,
+        tooltip: Tooltip?,
     ) {
         requireSession().setTooltip(name, tooltip)
     }

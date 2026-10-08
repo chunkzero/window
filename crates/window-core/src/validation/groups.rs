@@ -23,15 +23,17 @@ pub(super) fn validate_groups(window_name: &str, window: &WindowEntry, report: &
         for (field, names) in &group.items {
             validate_group_names(window_name, group_name, field, group.count, names, &window.items, "item", report);
         }
-        if !group.buttons.is_empty() {
+        if !group.actions.is_empty() {
+            let actions: BTreeMap<String, ()> =
+                window.regions.values().filter_map(|region| region.action.clone()).map(|action| (action, ())).collect();
             validate_group_names(
                 window_name,
                 group_name,
-                "buttons",
+                "actions",
                 group.count,
-                &group.buttons,
-                &window.buttons,
-                "button",
+                &group.actions,
+                &actions,
+                "region action",
                 report,
             );
         }

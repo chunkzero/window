@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::geometry::{Insets, Rect};
-use crate::inventory::{InventorySlotRef, SlotRectClaim};
+use crate::inventory::InventorySlotRef;
 use crate::model::{GeneratedStyle, TextFit};
 use crate::surface::Surface;
 
@@ -109,17 +109,12 @@ impl Rgb {
     }
 }
 
-/// A button's built-in behavior when no handler logic is needed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ButtonDefault {
-    /// Closing the window is an acceptable default handler.
-    Close,
-}
+/// The runtime action closing the window. Action ids in the `window:` namespace are resolved by the runtime.
+pub const CLOSE_ACTION: &str = "window:close";
 
-/// Tooltip content for a button or hotspot.
+/// Tooltip content for a region's hitbox item.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ButtonTooltip {
+pub struct Tooltip {
     /// Tooltip title/name.
     pub title: String,
     /// Additional lore lines.
@@ -127,18 +122,15 @@ pub struct ButtonTooltip {
     pub lines: Vec<String>,
 }
 
-/// A named inventory item state for a button.
+/// The invisible hitbox item a region fills its slots with.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ButtonState {
-    /// Optional item model id, e.g. `example:gui/shop_button_active`.
+pub struct Hitbox {
+    /// Item model id, e.g. `example:gui/shop_button_active`; absent uses the pack's hitbox model.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item_model: Option<String>,
-    /// Optional Window sprite id rendered across the button rect for this state.
+    /// Hover tooltip.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sprite: Option<String>,
-    /// Optional tooltip override for this state.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tooltip: Option<ButtonTooltip>,
+    pub tooltip: Option<Tooltip>,
 }
 
 /// A texture reference: the pack-source-relative path of a PNG.
@@ -394,36 +386,35 @@ pub struct SpriteSlotIr {
     pub binding: Option<String>,
 }
 
-/// A positioned clickable region.
+/// An inventory region: slots it claims and fills with its hitbox item, and the action its clicks name.
 ///
-/// A button distinguishes two slot sets. Its **click slots** are the slots whose
-/// clicks route to it; its **fill slots** are the slots it paints with its own
-/// hitbox/state item. Fill slots are the click slots minus [`Self::yielded_slots`],
-/// which a repeater cell uses to hand one of its slots to a child item control so
-/// the item's real stack (and its native tooltip) survives.
+/// A region distinguishes two slot sets. Its **click slots** are the slots whose clicks route to it; its **fill
+/// slots** are the slots it paints with its hitbox item. Fill slots are the click slots minus
+/// [`Self::yielded_slots`], which a repeater cell uses to hand one of its slots to a child item control so the
+/// item's real stack (and its native tooltip) survives.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ButtonIr {
-    /// Unique name within the window (shared namespace with slots).
+pub struct RegionIr {
+    /// Unique region key within the window.
     pub name: String,
-    /// Clickable rect in GUI space.
+    /// Region rect in GUI space.
     pub rect: Rect,
-    /// Explicit backing inventory slots whose clicks route here, if authored.
-    /// `None` means derive from the visual rect.
+    /// Explicit backing inventory slots, if authored. `None` means derive from the rect.
     pub slots: Option<Vec<InventorySlotRef>>,
-    /// Click slots this button must not fill because another control owns their
-    /// stacks. Always a subset of the resolved click slots.
+    /// Click slots this region must not fill because another control owns their stacks. Always a subset of the
+    /// resolved click slots.
     pub yielded_slots: Vec<InventorySlotRef>,
-    /// Optional built-in default behavior.
-    pub default: Option<ButtonDefault>,
-    /// Whether codegen/runtime should expect a click handler.
-    pub action: bool,
-    /// Default tooltip shown for this region.
-    pub tooltip: Option<ButtonTooltip>,
-    /// Named inventory item states.
-    pub states: BTreeMap<String, ButtonState>,
-    /// Repeater metadata for grouped codegen, if this button was emitted by a
-    /// repeated template.
+    /// Whether the region claims only the slots no other control owns, after every other claim.
+    pub unowned: bool,
+    /// The action id a click names; `None` for a hover-only or claim-only region.
+    pub action: Option<String>,
+    /// The runtime action run when no handler is bound to [`Self::action`].
+    pub default_action: Option<String>,
+    /// The hitbox item filling the region's slots; `None` leaves them empty.
+    pub hitbox: Option<Hitbox>,
+    /// Repeater metadata for grouped codegen, if this region was emitted by a repeated template.
     pub repeat: Option<RepeatBindingIr>,
+    /// The authored element this region comes from, such as ``button `buy` ``.
+    pub source: String,
 }
 
 /// A dynamic inventory item region.
@@ -465,18 +456,6 @@ pub struct AnvilInputIr {
     pub item_model: Option<String>,
 }
 
-/// A static slot-frame primitive that may also claim backing slots without a
-/// generated Kotlin binding.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SlotRectIr {
-    /// Unique name within the window.
-    pub name: String,
-    /// Backing inventory slots covered by the primitive.
-    pub slots: Vec<InventorySlotRef>,
-    /// Claim/clear semantics.
-    pub claim: SlotRectClaim,
-}
-
 /// Metadata attached to flattened controls emitted from a repeater template.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RepeatBindingIr {
@@ -489,26 +468,52 @@ pub struct RepeatBindingIr {
     pub index: u32,
 }
 
-/// A runtime-selected group of visual cases.
+/// A runtime-selected group of cases, of which at most one is active.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SwitchIr {
-    /// Binding name of the active case value.
+    /// Unique switch key: its binding name, or `{binding}.{case path}` for a copy inside switch cases.
     pub name: String,
+    /// The binding a copy shares with the other copies; `None` when it equals [`Self::name`].
+    pub binding: Option<String>,
+    /// Whether this switch selects the named states of the control [`Self::name`] instead of a binding.
+    pub states: bool,
+    /// The case active while the switch is unbound; `None` means no case.
+    pub initial: Option<String>,
+    /// The authored element this switch comes from, for derived switches such as a button's states.
+    pub source: Option<String>,
     /// Cases in authoring order.
     pub cases: Vec<SwitchCaseIr>,
 }
 
-/// One case of a [`SwitchIr`]: the art and text regions drawn only while it is active.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// One case of a [`SwitchIr`]: everything drawn or claimed only while it is active.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SwitchCaseIr {
     /// Case value.
     pub value: String,
     /// Static draws of this case in paint order, kept out of the surface's static layer.
     pub draws: Vec<Draw>,
-    /// Names of the text regions (labels and dynamic slots) inside this case.
+    /// Names of the text regions (labels and dynamic slots) directly inside this case.
     pub slots: Vec<String>,
-    /// Names of the runtime sprite regions inside this case.
+    /// Names of the runtime sprite regions directly inside this case.
     pub sprite_slots: Vec<String>,
+    /// Names of the inventory regions directly inside this case.
+    pub regions: Vec<String>,
+    /// Names of the switches directly inside this case.
+    pub switches: Vec<String>,
+}
+
+/// One runtime-drawn layer; a surface's layers compose in authored tree order above its static chrome.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "name", rename_all = "snake_case")]
+pub enum Layer {
+    /// A text slot or static label.
+    Slot(String),
+    /// A runtime sprite slot.
+    SpriteSlot(String),
+    /// The baked art of a switch's active case.
+    Switch(String),
+    /// A collection's selected-cell sprite.
+    Collection(String),
 }
 
 /// A fully laid-out window, ready for the backend.
@@ -524,18 +529,18 @@ pub struct LaidOutWindow {
     pub slots: Vec<SlotIr>,
     /// Runtime sprite regions, document order.
     pub sprite_slots: Vec<SpriteSlotIr>,
-    /// Clickable regions, document order.
-    pub buttons: Vec<ButtonIr>,
+    /// Inventory regions, document order.
+    pub regions: Vec<RegionIr>,
     /// Dynamic inventory item regions, document order.
     pub items: Vec<ItemIr>,
     /// Dynamic repeated inventory item regions, document order.
     pub collections: Vec<CollectionIr>,
     /// Native text inputs, document order. Anvil surfaces support one.
     pub inputs: Vec<AnvilInputIr>,
-    /// Drawn slot-rectangle primitives with optional non-binding slot claims.
-    pub slot_rects: Vec<SlotRectIr>,
-    /// Runtime-selected visual cases, document order.
+    /// Runtime-selected cases, document order.
     pub switches: Vec<SwitchIr>,
+    /// Runtime layers in authored tree order.
+    pub layers: Vec<Layer>,
     /// Indexed binding families by name.
     pub indexed: BTreeMap<String, IndexedBinding>,
     /// Typed handles by id.
@@ -563,8 +568,10 @@ pub struct LaidOutHud {
     pub draws: Vec<Draw>,
     /// Text regions (dynamic slots and static labels), document order.
     pub slots: Vec<SlotIr>,
-    /// Runtime-selected visual cases, document order.
+    /// Runtime-selected cases, document order.
     pub switches: Vec<SwitchIr>,
+    /// Runtime layers in authored tree order.
+    pub layers: Vec<Layer>,
     /// Indexed binding families by name.
     pub indexed: BTreeMap<String, IndexedBinding>,
     /// Typed handles by id.

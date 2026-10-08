@@ -6,7 +6,7 @@ use crate::codegen::literals::kt_string;
 use crate::codegen::naming;
 use crate::codegen::writer::KotlinWriter;
 use crate::ir::{Handle, HandleKind, HandleRole, HandleUse, IndexedBinding};
-use crate::manifest::ButtonEntry;
+use crate::manifest::SwitchEntry;
 
 /// The members one handle declares.
 pub(super) struct HandleMember {
@@ -226,7 +226,7 @@ pub(super) fn constants(w: &mut KotlinWriter, handles: &[HandleMember]) {
 }
 
 /// Binds every use of `handles`; a button binds once, by its click handle, together with its `enabled` or `state`.
-pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], buttons: &BTreeMap<String, ButtonEntry>) {
+pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], switches: &BTreeMap<String, SwitchEntry>) {
     let mut modifiers: BTreeMap<&str, Vec<(&HandleMember, &HandleUse)>> = BTreeMap::new();
     for handle in handles {
         for use_ in &handle.handle.uses {
@@ -241,11 +241,11 @@ pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], buttons: &BTr
             if matches!(use_.role, HandleRole::Enabled | HandleRole::State) {
                 continue;
             }
-            let plain = !modifiers.contains_key(use_.entry.as_str()) && plain_click(handle, use_, buttons);
+            let plain = !modifiers.contains_key(use_.entry.as_str()) && plain_click(handle, use_, switches);
             if !handle.handle.shape.is_empty() && plain {
                 groups.entry((use_.role, use_.value.as_deref())).or_default().push(use_);
             } else {
-                bind_use(w, handle, use_, &literal_args(&use_.at), &kt_string(&use_.entry), buttons, &modifiers);
+                bind_use(w, handle, use_, &literal_args(&use_.at), &kt_string(&use_.entry), switches, &modifiers);
             }
         }
         for ((_, value), mut uses) in groups {
@@ -264,7 +264,7 @@ pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], buttons: &BTr
                 });
             if !canonical {
                 for use_ in uses {
-                    bind_use(w, handle, use_, &literal_args(&use_.at), &kt_string(&use_.entry), buttons, &modifiers);
+                    bind_use(w, handle, use_, &literal_args(&use_.at), &kt_string(&use_.entry), switches, &modifiers);
                 }
                 continue;
             }
@@ -273,14 +273,14 @@ pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], buttons: &BTr
             match shape.as_slice() {
                 [_] => {
                     w.open(format_args!("for (index in 0 until {}) {{", constants[0].0));
-                    bind_use(w, handle, first, "index", &format!("\"{id}[$index]{suffix}\""), buttons, &modifiers);
+                    bind_use(w, handle, first, "index", &format!("\"{id}[$index]{suffix}\""), switches, &modifiers);
                     w.close("}");
                 }
                 _ => {
                     w.open(format_args!("for (row in 0 until {}) {{", constants[0].0));
                     w.open(format_args!("for (column in 0 until {}) {{", constants[1].0));
                     let entry = format!("\"{id}[$row][$column]{suffix}\"");
-                    bind_use(w, handle, first, "row, column", &entry, buttons, &modifiers);
+                    bind_use(w, handle, first, "row, column", &entry, switches, &modifiers);
                     w.close("}");
                     w.close("}");
                 }
@@ -291,15 +291,18 @@ pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], buttons: &BTr
 
 /// Whether `use_` binds alone, so that one loop can bind every index: anything but a button whose art follows
 /// UI-owned state.
-fn plain_click(handle: &HandleMember, use_: &HandleUse, buttons: &BTreeMap<String, ButtonEntry>) -> bool {
-    use_.role != HandleRole::Click || art(handle, buttons.get(&use_.entry)).is_none()
+fn plain_click(handle: &HandleMember, use_: &HandleUse, switches: &BTreeMap<String, SwitchEntry>) -> bool {
+    use_.role != HandleRole::Click || art(handle, switches.get(&use_.entry)).is_none()
 }
 
 /// The runtime helper that draws a button's art from UI-owned state: `toggle` for a toggle with `on`/`off` states,
-/// `choice` for a selection click with `selected`/`unselected` states.
-fn art(handle: &HandleMember, button: Option<&ButtonEntry>) -> Option<&'static str> {
-    let has =
-        |a: &str, b: &str| button.is_some_and(|button| button.states.contains_key(a) && button.states.contains_key(b));
+/// `choice` for a selection click with `selected`/`unselected` states. `states` is the button's state switch.
+fn art(handle: &HandleMember, states: Option<&SwitchEntry>) -> Option<&'static str> {
+    let has = |a: &str, b: &str| {
+        states
+            .filter(|switch| switch.states)
+            .is_some_and(|switch| [a, b].iter().all(|value| switch.cases.iter().any(|case| case.value == *value)))
+    };
     match handle.handle.kind {
         HandleKind::Toggle if has("on", "off") => Some("toggle"),
         HandleKind::Selection if has("selected", "unselected") => Some("choice"),
@@ -314,7 +317,7 @@ fn bind_use(
     use_: &HandleUse,
     args: &str,
     entry: &str,
-    buttons: &BTreeMap<String, ButtonEntry>,
+    switches: &BTreeMap<String, SwitchEntry>,
     modifiers: &BTreeMap<&str, Vec<(&HandleMember, &HandleUse)>>,
 ) {
     let member = &handle.member;
@@ -334,7 +337,7 @@ fn bind_use(
         }
         HandleRole::Click => {
             let modifiers = modifiers.get(use_.entry.as_str()).map(Vec::as_slice).unwrap_or_default();
-            bind_button(w, handle, use_, args, entry, buttons.get(&use_.entry), modifiers);
+            bind_button(w, handle, use_, args, entry, switches.get(&use_.entry), modifiers);
         }
         HandleRole::Enabled | HandleRole::State => {}
     }
@@ -346,7 +349,7 @@ fn bind_button(
     click: &HandleUse,
     args: &str,
     entry: &str,
-    button: Option<&ButtonEntry>,
+    states: Option<&SwitchEntry>,
     modifiers: &[(&HandleMember, &HandleUse)],
 ) {
     let enabled = modifiers.iter().find(|(_, use_)| use_.role == HandleRole::Enabled);
@@ -354,11 +357,16 @@ fn bind_button(
     if let Some((owner, use_)) = state {
         w.line(format_args!("buttonState({entry}) {{ {}.value }}", owner.read(&literal_args(&use_.at))));
     }
-    if handle.handle.kind == HandleKind::Builtin && modifiers.is_empty() {
+    if handle.handle.kind == HandleKind::Builtin {
+        // A runtime action cannot be bound; its disabled state region carries no action, so it never routes clicks.
+        if let (None, Some((owner, use_))) = (state, enabled) {
+            let condition = owner.condition(&literal_args(&use_.at), use_.value.as_deref());
+            w.line(format_args!("buttonState({entry}) {{ if ({condition}) \"enabled\" else \"disabled\" }}"));
+        }
         return;
     }
     let handler = Handler::of(handle, click, args);
-    match (enabled, art(handle, button)) {
+    match (enabled, art(handle, states)) {
         (Some((owner, use_)), _) => {
             let condition = owner.condition(&literal_args(&use_.at), use_.value.as_deref());
             handler.call(w, &format!("enabledButton({entry}, {{ {condition} }}"), true);

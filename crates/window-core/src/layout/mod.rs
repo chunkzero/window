@@ -27,14 +27,14 @@ mod slots;
 mod target;
 mod visuals;
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use crate::Result;
 use crate::authoring::ParsedProject;
 use crate::geometry::{Insets, Point, Rect, Size};
 use crate::inventory::InventorySlotRef;
 use crate::ir::{
-    AnvilInputIr, ButtonIr, CollectionIr, Draw, ItemIr, LaidOutHud, LaidOutWindow, SlotIr, SlotRectIr, SpriteSlotIr,
+    AnvilInputIr, CollectionIr, Draw, ItemIr, LaidOutHud, LaidOutWindow, Layer, RegionIr, SlotIr, SpriteSlotIr,
     SwitchIr,
 };
 use crate::model::{Element, Hud, TextStyle, Window};
@@ -42,7 +42,7 @@ use crate::surface::Surface;
 use crate::text_font::{TextFont, TextFonts};
 use crate::vanilla;
 
-use self::controls::ControlSpec;
+use self::controls::{ControlBehavior, ControlSpec};
 use self::flow::Axis;
 use self::target::{HudTarget, LayoutTarget, WindowTarget};
 
@@ -94,6 +94,7 @@ fn solve_window(
         title_origin: surface.title_origin(),
     };
     let mut solver = Solver::new(project, texture_size, fonts, target);
+    solver.share_bindings(&window.children)?;
 
     if let Some(frame) = &window.frame {
         solver.emit_frame(frame, expanded(gui_rect, window.bleed), &format!("window frame `{frame}`"))?;
@@ -101,7 +102,7 @@ fn solve_window(
     // The window's children are laid out like a panel's content box: the full
     // GUI rect at origin (0, 0), padding 0.
     solver.layout_container_children(&window.children, gui_rect, Insets::default())?;
-    let Solved { draws, slots, sprite_slots, buttons, items, collections, inputs, slot_rects, switches, warnings } =
+    let Solved { draws, slots, sprite_slots, regions, items, collections, inputs, switches, layers, warnings } =
         solver.finish();
 
     Ok(LaidOutWindow {
@@ -110,12 +111,12 @@ fn solve_window(
         draws,
         slots,
         sprite_slots,
-        buttons,
+        regions,
         items,
         collections,
         inputs,
-        slot_rects,
         switches,
+        layers,
         indexed: window.indexed.clone(),
         handles: window.handles.clone(),
         warnings,
@@ -139,12 +140,13 @@ fn solve_hud(
         None => solver.children_extent(&hud.children)?,
     };
     solver.target = target(size);
+    solver.share_bindings(&hud.children)?;
     let rect = Rect::from_parts(Point::new(0, 0), size);
     if let Some(frame) = &hud.frame {
         solver.emit_frame(frame, expanded(rect, hud.bleed), &format!("hud frame `{frame}`"))?;
     }
     solver.layout_container_children(&hud.children, rect, Insets::default())?;
-    let Solved { draws, slots, switches, warnings, .. } = solver.finish();
+    let Solved { draws, slots, switches, layers, warnings, .. } = solver.finish();
 
     Ok(LaidOutHud {
         name: hud.name.clone(),
@@ -155,6 +157,7 @@ fn solve_hud(
         draws,
         slots,
         switches,
+        layers,
         indexed: hud.indexed.clone(),
         handles: hud.handles.clone(),
         warnings,
@@ -194,12 +197,12 @@ struct Solved {
     draws: Vec<Draw>,
     slots: Vec<SlotIr>,
     sprite_slots: Vec<SpriteSlotIr>,
-    buttons: Vec<ButtonIr>,
+    regions: Vec<RegionIr>,
     items: Vec<ItemIr>,
     collections: Vec<CollectionIr>,
     inputs: Vec<AnvilInputIr>,
-    slot_rects: Vec<SlotRectIr>,
     switches: Vec<SwitchIr>,
+    layers: Vec<Layer>,
     warnings: Vec<String>,
 }
 
@@ -211,24 +214,20 @@ struct Solver<'a, T> {
     draws: Vec<Draw>,
     slots: Vec<SlotIr>,
     sprite_slots: Vec<SpriteSlotIr>,
-    buttons: Vec<ButtonIr>,
+    regions: Vec<RegionIr>,
     items: Vec<ItemIr>,
     collections: Vec<CollectionIr>,
     inputs: Vec<AnvilInputIr>,
-    slot_rects: Vec<SlotRectIr>,
     switches: Vec<SwitchIr>,
+    layers: Vec<Layer>,
     warnings: Vec<String>,
     next_label: usize,
     names: HashSet<String>,
     active_repeat: Option<ActiveRepeat>,
-    active_case: Option<ActiveCase>,
-}
-
-/// The switch case being emitted and the bindings its switch shares across cases.
-#[derive(Clone, Debug)]
-struct ActiveCase {
-    value: String,
-    shared: HashSet<String>,
+    /// Bindings whose copies sit in mutually exclusive switch cases; each copy is keyed by its case path.
+    shared: BTreeSet<String>,
+    /// Values of the switch cases being emitted, outermost first.
+    case_path: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -259,17 +258,18 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             draws: Vec::new(),
             slots: Vec::new(),
             sprite_slots: Vec::new(),
-            buttons: Vec::new(),
+            regions: Vec::new(),
             items: Vec::new(),
             collections: Vec::new(),
             inputs: Vec::new(),
-            slot_rects: Vec::new(),
             switches: Vec::new(),
+            layers: Vec::new(),
             warnings: Vec::new(),
             next_label: 0,
             names: HashSet::new(),
             active_repeat: None,
-            active_case: None,
+            shared: BTreeSet::new(),
+            case_path: Vec::new(),
         }
     }
 
@@ -294,12 +294,12 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             draws: self.draws,
             slots: self.slots,
             sprite_slots: self.sprite_slots,
-            buttons: self.buttons,
+            regions: self.regions,
             items: self.items,
             collections: self.collections,
             inputs: self.inputs,
-            slot_rects: self.slot_rects,
             switches: self.switches,
+            layers: self.layers,
             warnings: self.warnings,
         }
     }
@@ -337,14 +337,35 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
                 self.place_panel(frame, Rect::from_parts(origin, *size), *padding, children)
             }
             Element::Button {
-                name, frame, size, slots, pattern, padding, default, tooltip, states, children, ..
+                name,
+                frame,
+                size,
+                slots,
+                pattern,
+                padding,
+                default_action,
+                tooltip,
+                states,
+                source,
+                children,
+                ..
             } => {
-                let control = ControlSpec::new(name, *size, slots.as_ref(), pattern.as_ref(), tooltip, states);
-                self.place_button(control, frame.as_deref(), *padding, *default, children, origin)
+                let kind = source.as_deref().unwrap_or("button");
+                let control = ControlSpec { kind, name, size: *size, slots: slots.as_ref(), pattern: pattern.as_ref() };
+                let behavior =
+                    ControlBehavior { tooltip: tooltip.as_ref(), states, default_action: default_action.as_deref() };
+                self.place_button(control, behavior, frame.as_deref(), *padding, children, origin)
             }
             Element::Hotspot { name, size, slots, pattern, tooltip, states, .. } => {
-                let control = ControlSpec::new(name, *size, slots.as_ref(), pattern.as_ref(), tooltip, states);
-                self.place_hotspot(control, origin)
+                let control = ControlSpec {
+                    kind: "hotspot",
+                    name,
+                    size: *size,
+                    slots: slots.as_ref(),
+                    pattern: pattern.as_ref(),
+                };
+                let behavior = ControlBehavior { tooltip: tooltip.as_ref(), states, default_action: None };
+                self.place_hotspot(control, behavior, origin)
             }
             Element::Item { name, slots, pattern, cell_slot } => {
                 self.place_item(name, slots.as_ref(), pattern.as_ref(), *cell_slot)
@@ -361,7 +382,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
                 self.place_anvil_input(name, initial, item_model.as_deref())
             }
             Element::SlotRects { name, frame, pattern, claim } => {
-                self.place_slot_rects(name, frame.as_deref(), pattern, *claim)
+                self.place_slot_rects(name, &format!("slot rects `{name}`"), frame.as_deref(), pattern, *claim)
             }
             Element::Repeater { name, pattern, frame, padding, children, cells } => {
                 self.place_repeater(name, pattern, frame.as_deref(), *padding, children, cells.as_ref())

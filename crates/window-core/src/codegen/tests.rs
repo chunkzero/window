@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use crate::ir::{Align, ButtonDefault, IndexedBinding, IndexedKind};
+use crate::ir::{Align, CLOSE_ACTION, IndexedBinding, IndexedKind};
 use crate::manifest::{
-    AnvilInputEntry, ButtonEntry, CollectionEntry, FontMetricsEntry, HudEntry, HudSurfaceEntry, ItemEntry, Manifest,
+    AnvilInputEntry, CollectionEntry, FontMetricsEntry, HudEntry, HudSurfaceEntry, ItemEntry, Manifest, RegionEntry,
     RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry,
     SwitchCaseEntry, SwitchEntry, VERSION, WindowEntry,
 };
@@ -32,13 +32,13 @@ fn window(container: &str, size: [u32; 2], title_origin: [i32; 2]) -> WindowEntr
         static_text: String::new(),
         slots: BTreeMap::new(),
         sprite_slots: BTreeMap::new(),
-        buttons: BTreeMap::new(),
+        regions: BTreeMap::new(),
         items: BTreeMap::new(),
         collections: BTreeMap::new(),
         inputs: BTreeMap::new(),
-        slot_rects: BTreeMap::new(),
         groups: BTreeMap::new(),
         switches: BTreeMap::new(),
+        layers: Vec::new(),
         indexed: BTreeMap::new(),
         handles: BTreeMap::new(),
     }
@@ -71,19 +71,19 @@ fn container(index: u32) -> SlotRefEntry {
     SlotRefEntry { area: SlotAreaEntry::Container, index }
 }
 
-fn button(x: i32, y: i32, width: u32, height: u32, slots: Vec<SlotRefEntry>) -> ButtonEntry {
-    ButtonEntry {
+/// A region whose clicks name the action `action`.
+fn button(action: &str, x: i32, y: i32, width: u32, height: u32, slots: Vec<SlotRefEntry>) -> RegionEntry {
+    RegionEntry {
         x,
         y,
         width,
         height,
         slots,
         fill_slots: None,
-        default: None,
-        action: true,
-        tooltip: None,
-        states: BTreeMap::new(),
-        sprite_font: None,
+        action: Some(action.into()),
+        default_action: None,
+        hitbox: None,
+        source: None,
     }
 }
 
@@ -100,24 +100,27 @@ fn shop_window() -> WindowEntry {
         ("entry_price_0".into(), slot(8, 54, 40, Align::Center, "window:y48", "#ffffff", None)),
         ("entry_price_1".into(), slot(62, 54, 40, Align::Center, "window:y48", "#ffffff", None)),
     ]);
-    shop.buttons = BTreeMap::from([
+    shop.regions = BTreeMap::from([
         (
             "entry_0".into(),
-            ButtonEntry {
+            RegionEntry {
                 fill_slots: Some(vec![container(19)]),
-                ..button(8, 54, 52, 34, vec![container(18), container(19)])
+                ..button("entry_0", 8, 54, 52, 34, vec![container(18), container(19)])
             },
         ),
         (
             "entry_1".into(),
-            ButtonEntry {
+            RegionEntry {
                 fill_slots: Some(vec![container(22)]),
-                ..button(62, 54, 52, 34, vec![container(21), container(22)])
+                ..button("entry_1", 62, 54, 52, 34, vec![container(21), container(22)])
             },
         ),
         (
             "exit".into(),
-            ButtonEntry { default: Some(ButtonDefault::Close), ..button(98, 54, 18, 18, vec![container(5)]) },
+            RegionEntry {
+                default_action: Some(CLOSE_ACTION.into()),
+                ..button("exit", 98, 54, 18, 18, vec![container(5)])
+            },
         ),
     ]);
     shop.items = BTreeMap::from([
@@ -146,7 +149,7 @@ fn shop_window() -> WindowEntry {
             slots: BTreeMap::from([("price".into(), vec!["entry_price_0".into(), "entry_price_1".into()])]),
             sprite_slots: BTreeMap::new(),
             items: BTreeMap::from([("icon".into(), vec!["entry_icon_0".into(), "entry_icon_1".into()])]),
-            buttons: vec!["entry_0".into(), "entry_1".into()],
+            actions: vec!["entry_0".into(), "entry_1".into()],
         },
     )]);
     shop
@@ -205,6 +208,7 @@ fn status_hud() -> HudEntry {
         slots: BTreeMap::from([("coins".into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
         shader: None,
         switches: BTreeMap::new(),
+        layers: Vec::new(),
         indexed: BTreeMap::new(),
         handles: BTreeMap::new(),
     }
@@ -325,15 +329,8 @@ fn collection_selections_alone_import_sprite_slot_types() {
 #[test]
 fn switches_bind_typed_enums_and_booleans() {
     let switch = |values: &[&str]| SwitchEntry {
-        cases: values
-            .iter()
-            .map(|value| SwitchCaseEntry {
-                value: value.to_string(),
-                static_text: String::new(),
-                slots: vec![],
-                sprite_slots: vec![],
-            })
-            .collect(),
+        cases: values.iter().map(|value| SwitchCaseEntry { value: value.to_string(), ..Default::default() }).collect(),
+        ..Default::default()
     };
     let mut shop = window("generic_9x3", [176, 166], [8, 6]);
     shop.switches =
@@ -356,18 +353,16 @@ fn switches_bind_typed_enums_and_booleans() {
 
 #[test]
 fn indexed_families_bind_one_member_in_loops() {
-    let case = |value: &str| SwitchCaseEntry {
-        value: value.into(),
-        static_text: String::new(),
-        slots: vec![],
-        sprite_slots: vec![],
-    };
+    let case = |value: &str| SwitchCaseEntry { value: value.into(), ..Default::default() };
     let mut hud = status_hud();
     for i in 0..3 {
         hud.slots.insert(format!("power[{i}]"), slot(0, 0, 9, Align::Left, "window:y0", "#ffffff", None));
     }
     for (i, j) in [(0, 0), (0, 1), (1, 0), (1, 1)] {
-        hud.switches.insert(format!("cell[{i}][{j}]"), SwitchEntry { cases: vec![case("off"), case("on")] });
+        hud.switches.insert(
+            format!("cell[{i}][{j}]"),
+            SwitchEntry { cases: vec![case("off"), case("on")], ..Default::default() },
+        );
     }
     hud.indexed = BTreeMap::from([
         ("power".into(), IndexedBinding { kind: IndexedKind::Slot, shape: vec![3] }),
@@ -436,13 +431,11 @@ fn sprite_slots_return_typed_runtime_sprites() {
 
     let mut shadowed = manifest.clone();
     let shop = shadowed.windows.get_mut("shop").unwrap();
-    let case = |value: &str| SwitchCaseEntry {
-        value: value.into(),
-        static_text: String::new(),
-        slots: vec![],
-        sprite_slots: vec![],
-    };
-    shop.switches = BTreeMap::from([("window_sprite".into(), SwitchEntry { cases: vec![case("a"), case("b")] })]);
+    let case = |value: &str| SwitchCaseEntry { value: value.into(), ..Default::default() };
+    shop.switches = BTreeMap::from([(
+        "window_sprite".into(),
+        SwitchEntry { cases: vec![case("a"), case("b")], ..Default::default() },
+    )]);
     let err = generate_kotlin(&shadowed, "golden", KotlinTarget::Agnostic).unwrap_err();
     assert!(err.to_string().contains("reserved WindowView member `WindowSprite`"), "{err}");
 }
@@ -470,6 +463,7 @@ fn hud_lifecycle_members_are_reserved() {
         slots: BTreeMap::from([("on_show".into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
         shader: None,
         switches: BTreeMap::new(),
+        layers: Vec::new(),
         indexed: BTreeMap::new(),
         handles: BTreeMap::new(),
     };
@@ -488,6 +482,7 @@ fn hud_slots_cannot_shadow_hud_view_members() {
             slots: BTreeMap::from([(name.into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
             shader: None,
             switches: BTreeMap::new(),
+            layers: Vec::new(),
             indexed: BTreeMap::new(),
             handles: BTreeMap::new(),
         };
@@ -516,4 +511,25 @@ fn fonts_with_identical_metrics_share_one_table() {
     assert_eq!(content.matches("private val fontMetrics").count(), 1);
     assert!(content.contains("\"window:small_caps/y0\" to fontMetrics0"));
     assert!(content.contains("\"window:small_caps/y9\" to fontMetrics0"));
+}
+
+#[test]
+fn runtime_actions_generate_no_member() {
+    let mut shop = shop_window();
+    shop.regions.insert(
+        "window:close".into(),
+        RegionEntry {
+            default_action: Some(CLOSE_ACTION.into()),
+            ..button(CLOSE_ACTION, 116, 54, 18, 18, vec![container(6)])
+        },
+    );
+    let manifest = manifest(BTreeMap::from([("shop".into(), shop)]), BTreeMap::new());
+
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.generated", KotlinTarget::Minestom).unwrap();
+    let view = file_contents(&files, "ShopView.kt");
+    assert!(view.contains("protected open fun onExit(click: Click): Unit = close()"), "{view}");
+    assert!(!view.contains("window:close") && !view.contains("onWindow"), "{view}");
+    let entries = file_contents(&files, "WindowEntries.kt");
+    assert!(entries.contains("action = \"window:close\",\n"), "{entries}");
+    assert!(entries.contains("defaultAction = \"window:close\",\n"), "{entries}");
 }

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use super::*;
 use crate::geometry::{Insets, Rect};
-use crate::ir::{Align, ButtonDefault, ButtonIr, ButtonState, ButtonTooltip, Draw, Rgb, SlotIr, TextureKey};
+use crate::ir::{Align, CLOSE_ACTION, Draw, Hitbox, RegionIr, Rgb, SlotIr, TextureKey, Tooltip};
 use crate::surface::{ContainerKind, Surface};
 
 mod huds;
@@ -50,12 +50,12 @@ fn bare_window(name: &str, kind: ContainerKind, draws: Vec<Draw>) -> LaidOutWind
         draws,
         slots: vec![],
         sprite_slots: vec![],
-        buttons: vec![],
+        regions: vec![],
         items: vec![],
         collections: vec![],
         inputs: vec![],
-        slot_rects: vec![],
         switches: vec![],
+        layers: vec![],
         indexed: BTreeMap::new(),
         handles: BTreeMap::new(),
         warnings: vec![],
@@ -102,23 +102,34 @@ fn sample_window() -> (LaidOutWindow, BTreeMap<String, Texture>) {
         text_slot("title", None, Rect::new(8, 6, 160, 8), Align::Center, Rgb::DEFAULT_TEXT),
         text_slot("buy_label", Some("Buy"), Rect::new(58, 30, 60, 8), Align::Center, Rgb { r: 0xff, g: 0xff, b: 0xff }),
     ];
-    window.buttons = vec![ButtonIr {
-        name: "buy".into(),
-        // Over container slots: rect at (8,18) covers slot 0.
-        rect: Rect::new(8, 18, 16, 16),
-        slots: None,
-        yielded_slots: Vec::new(),
-        default: Some(ButtonDefault::Close),
-        action: true,
-        tooltip: Some(ButtonTooltip { title: "Buy".into(), lines: vec!["Spend coins".into()] }),
-        states: BTreeMap::from([(
-            "disabled".into(),
-            ButtonState { item_model: Some("demo:gui/buy_disabled".into()), sprite: None, tooltip: None },
-        )]),
-        repeat: None,
+    // Over container slots: rect at (8,18) covers slot 0.
+    window.regions = vec![RegionIr {
+        action: Some("buy".into()),
+        default_action: Some(CLOSE_ACTION.into()),
+        hitbox: Some(Hitbox {
+            item_model: None,
+            tooltip: Some(Tooltip { title: "Buy".into(), lines: vec!["Spend coins".into()] }),
+        }),
+        ..region("buy", Rect::new(8, 18, 16, 16), None)
     }];
     window.warnings = vec!["overlay overflow".into()];
     (window, textures)
+}
+
+/// A region over `rect`, or over explicit `slots`, with no action or hitbox.
+fn region(name: &str, rect: Rect, slots: Option<Vec<crate::inventory::InventorySlotRef>>) -> RegionIr {
+    RegionIr {
+        name: name.into(),
+        rect,
+        slots,
+        yielded_slots: Vec::new(),
+        unowned: false,
+        action: None,
+        default_action: None,
+        hitbox: None,
+        repeat: None,
+        source: format!("button `{name}`"),
+    }
 }
 
 fn find<'a>(out: &'a CompileOutput, path: &str) -> &'a OutputFile {

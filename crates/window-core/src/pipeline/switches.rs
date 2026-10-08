@@ -42,16 +42,32 @@ impl CompileContext<'_> {
                     static_text,
                     slots: case.slots.clone(),
                     sprite_slots: case.sprite_slots.clone(),
+                    regions: case.regions.clone(),
+                    switches: case.switches.clone(),
                 });
             }
-            entries.insert(switch.name.clone(), SwitchEntry { cases: out });
+            let entry = SwitchEntry {
+                binding: switch.binding.clone(),
+                states: switch.states,
+                initial: switch.initial.clone(),
+                source: switch.source.clone(),
+                cases: out,
+            };
+            entries.insert(switch.name.clone(), entry);
         }
         Ok(entries)
     }
 }
 
-/// `name` as a resource path segment: an indexed entry such as `lamp[2]` becomes `lamp-2`, and a handle condition
-/// such as `mode?gear~2` becomes `mode-gear-2`, which no authored name can collide with.
+/// `name` as a resource path segment that no authored name or other entry name collides with: an indexed entry
+/// such as `lamp[2]` becomes `lamp-2`, a handle condition such as `mode?gear~2` becomes `mode-is-gear--2`, a
+/// selection click such as `mode=gear` becomes `mode-set-gear`, and a runtime action such as `window:close` becomes
+/// `window-close`.
 fn path_segment(name: &str) -> String {
-    name.replace(['[', '?', '~'], "-").replace(']', "")
+    name.replace('[', "-")
+        .replace(']', "")
+        .replace('?', "-is-")
+        .replace('=', "-set-")
+        .replace('~', "--")
+        .replace(':', "-")
 }

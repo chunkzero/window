@@ -1,6 +1,5 @@
 use super::*;
-use crate::inventory::{InventorySlotRef, SlotRectClaim};
-use crate::ir::SlotRectIr;
+use crate::inventory::InventorySlotRef;
 
 #[test]
 fn indexed_switch_art_uses_valid_resource_paths() {
@@ -130,26 +129,22 @@ fn manifest_parses_and_matches() {
     assert_eq!(label.color, "#ffffff");
     assert_eq!(label.text.as_deref(), Some("Buy"));
 
-    // Button mapped to container slot 0.
-    let buy = &shop.buttons["buy"];
+    // Region mapped to container slot 0.
+    let buy = &shop.regions["buy"];
     assert_eq!(buy.slots, vec![InventorySlotRef::container(0).into()]);
-    assert_eq!(buy.default, Some(ButtonDefault::Close));
-    assert!(buy.action);
-    assert_eq!(buy.tooltip.as_ref().unwrap().title, "Buy");
-    assert_eq!(buy.states["disabled"].item_model.as_deref(), Some("demo:gui/buy_disabled"));
+    assert_eq!(buy.action.as_deref(), Some("buy"));
+    assert_eq!(buy.default_action.as_deref(), Some(CLOSE_ACTION));
+    assert_eq!(buy.hitbox.as_ref().unwrap().tooltip.as_ref().unwrap().title, "Buy");
 }
 
 #[test]
 fn unowned_slot_rect_claims_skip_existing_controls() {
     let (mut w, textures) = sample_window();
-    w.slot_rects.push(SlotRectIr {
-        name: "fill".into(),
-        slots: vec![InventorySlotRef::container(0), InventorySlotRef::container(1), InventorySlotRef::player(0)],
-        claim: SlotRectClaim::Unowned,
-    });
+    let slots = vec![InventorySlotRef::container(0), InventorySlotRef::container(1), InventorySlotRef::player(0)];
+    w.regions.push(RegionIr { unowned: true, ..region("fill", Rect::default(), Some(slots)) });
 
     let out = compile_windows(&[w], &textures, "window").unwrap();
-    let fill = &out.manifest.windows["shop"].slot_rects["fill"];
+    let fill = &out.manifest.windows["shop"].regions["fill"];
     assert_eq!(fill.slots, vec![InventorySlotRef::container(1).into(), InventorySlotRef::player(0).into()]);
 }
 
@@ -166,7 +161,7 @@ fn output_is_byte_identical_across_runs() {
 fn button_over_no_slots_errors() {
     let (mut w, textures) = sample_window();
     // Move the button below the container and player grids (no overlap).
-    w.buttons[0].rect = Rect::new(52, 216, 72, 20);
+    w.regions[0].rect = Rect::new(52, 216, 72, 20);
     let err = compile_windows(&[w], &textures, "window").unwrap_err();
     match err {
         Error::Validation(msg) => assert!(msg.contains("shop") && msg.contains("buy")),
@@ -177,17 +172,7 @@ fn button_over_no_slots_errors() {
 #[test]
 fn overlapping_buttons_error() {
     let (mut w, textures) = sample_window();
-    w.buttons.push(ButtonIr {
-        name: "other".into(),
-        rect: Rect::new(8, 18, 16, 16),
-        slots: None,
-        yielded_slots: Vec::new(),
-        default: None,
-        action: true,
-        tooltip: None,
-        states: BTreeMap::new(),
-        repeat: None,
-    });
+    w.regions.push(region("other", Rect::new(8, 18, 16, 16), None));
 
     let err = compile_windows(&[w], &textures, "window").unwrap_err();
     match err {
@@ -294,7 +279,7 @@ fn anvil_inputs_hide_vanilla_anvil_art_and_share_their_slot_with_a_button() {
         let art = Texture::decode_png(find(&out, path).contents.as_bytes()).unwrap();
         assert!(art.rgba.chunks(4).all(|pixel| pixel[3] == 0), "{path}");
     }
-    let back = &out.manifest.windows["search"].buttons["back"];
+    let back = &out.manifest.windows["search"].regions["back"];
     assert_eq!((back.slots.len(), back.fill_slots.as_deref()), (1, Some(&[][..])));
     assert_eq!(out.manifest.windows["search"].inputs["query"].slot, back.slots[0]);
 }
@@ -317,14 +302,18 @@ fn switch_cases_bake_their_own_net_zero_glyphs() {
     let mut w = bare_window("shop", ContainerKind::Generic9x3, vec![badge(4)]);
     w.switches = vec![crate::ir::SwitchIr {
         name: "mode".into(),
+        binding: None,
+        states: false,
+        initial: None,
+        source: None,
         cases: vec![
             crate::ir::SwitchCaseIr {
                 value: "buy".into(),
                 draws: vec![badge(30)],
                 slots: vec!["price".into()],
-                sprite_slots: vec![],
+                ..Default::default()
             },
-            crate::ir::SwitchCaseIr { value: "sell".into(), draws: vec![], slots: vec![], sprite_slots: vec![] },
+            crate::ir::SwitchCaseIr { value: "sell".into(), ..Default::default() },
         ],
     }];
 
@@ -368,4 +357,22 @@ fn multi_line_slots_reserve_their_lines_and_a_font_per_line_position() {
     let err =
         compile_children(r#"[{"type":"slot","name":"n","width":9,"lines":2,"line_height":4294967295}]"#).unwrap_err();
     assert!(err.to_string().contains("`lines` span more than 1024 pixels"), "{err}");
+}
+
+#[test]
+fn regions_in_exclusive_cases_share_slots_and_real_overlaps_are_rejected() {
+    let buy = r#"{"type":"button","name":"buy","x":7,"y":17,"width":18,"height":18,"tooltip":"Buy",
+        "states":{"on":{"item_model":"demo:on"},"off":{}}}"#;
+    let out = compile_children(&format!("[{buy}]")).unwrap();
+    crate::validation::validate_compile_output(&out).assert_valid();
+    let shop = &out.manifest.windows["shop"];
+    let slots = |key: &str| shop.regions[key].slots.clone();
+    assert_eq!(slots("buy.on"), vec![InventorySlotRef::container(0).into()]);
+    assert_eq!((slots("buy.off"), slots("buy.default")), (slots("buy.on"), slots("buy.on")));
+    let state = &shop.switches["buy"];
+    assert_eq!((state.states, state.initial.as_deref()), (true, Some("default")));
+
+    let info = r#"{"type":"hotspot","name":"info","x":7,"y":17,"width":18,"height":18,"tooltip":"Info"}"#;
+    let err = compile_children(&format!("[{buy},{info}]")).unwrap_err();
+    assert!(err.to_string().contains("hotspot `info` and button `buy` both own container slot 0"), "{err}");
 }

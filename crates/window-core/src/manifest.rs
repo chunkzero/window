@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::inventory::{InventorySlotArea, InventorySlotRef};
-use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, Handle, IndexedBinding};
+use crate::ir::{Align, Handle, Hitbox, IndexedBinding, Layer};
 use crate::{Error, Result};
 
 mod hud;
@@ -16,7 +16,7 @@ mod hud;
 pub use hud::{HudEntry, HudShaderEntry, HudSurfaceEntry};
 
 /// Current compiled definition schema version.
-pub const VERSION: u32 = 6;
+pub const VERSION: u32 = 7;
 
 /// Root compiled pack definition.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -82,8 +82,9 @@ pub struct WindowEntry {
     /// Runtime sprite regions by name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub sprite_slots: BTreeMap<String, SpriteSlotEntry>,
-    /// Clickable regions by name.
-    pub buttons: BTreeMap<String, ButtonEntry>,
+    /// Inventory regions by key: slots claimed and filled with a hitbox item, and the action clicks name.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub regions: BTreeMap<String, RegionEntry>,
     /// Dynamic inventory item regions by name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub items: BTreeMap<String, ItemEntry>,
@@ -93,15 +94,16 @@ pub struct WindowEntry {
     /// Native inventory text inputs by name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub inputs: BTreeMap<String, AnvilInputEntry>,
-    /// Non-binding slot claims/fills by name.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub slot_rects: BTreeMap<String, SlotRectEntry>,
     /// Group metadata for flattened repeater controls.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub groups: BTreeMap<String, RepeatGroupEntry>,
-    /// Runtime-selected visual cases by binding name.
+    /// Runtime-selected cases by key. Switches named by a case's `switches` are active only while that case is.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub switches: BTreeMap<String, SwitchEntry>,
+    /// Every slot, sprite slot, switch, and selectable collection, once each, in authored tree order: the order the
+    /// runtime composes them above the static chrome.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layers: Vec<Layer>,
     /// Indexed binding families by name. Their flattened entries appear under their own names in `slots`,
     /// `sprite_slots`, and `switches`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -112,20 +114,35 @@ pub struct WindowEntry {
     pub handles: BTreeMap<String, Handle>,
 }
 
-/// Visual cases of which the runtime draws only the one its binding names.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Cases of which the runtime draws and claims only the one its binding names.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SwitchEntry {
+    /// The binding name when this switch is one case's copy of a binding shared across mutually exclusive switch
+    /// cases; the switch is then keyed `{binding}.{case path}`. Absent when the key is the binding name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding: Option<String>,
+    /// Whether this switch selects the named states of the control it is keyed by. Codegen declares no member for
+    /// it; `buttonState` and the toggle, choice, and enabled helpers select its case.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub states: bool,
+    /// The case active while the switch is unbound; absent means no case is active until it is bound.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial: Option<String>,
+    /// The authored element a derived switch comes from, such as ``tab `category_new` ``, for diagnostics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
     /// Cases in authoring order.
     pub cases: Vec<SwitchCaseEntry>,
 }
 
-/// One case of a [`SwitchEntry`].
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// One case of a [`SwitchEntry`]. It lists the entries directly inside it; entries of nested switches are listed by
+/// their own cases.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SwitchCaseEntry {
     /// Case value the binding returns to select this case.
     pub value: String,
-    /// Net-zero baked art of this case, drawn after the surface's static segment in [`Manifest::font`].
-    /// Window cases start and end at the title origin; HUD cases at the HUD's left edge.
+    /// Net-zero baked art of this case in [`Manifest::font`], drawn at the switch's position in
+    /// [`WindowEntry::layers`]. Window cases start and end at the title origin; HUD cases at the HUD's left edge.
     #[serde(rename = "static", default, skip_serializing_if = "String::is_empty")]
     pub static_text: String,
     /// Text regions drawn only while this case is active.
@@ -134,6 +151,12 @@ pub struct SwitchCaseEntry {
     /// Runtime sprite regions drawn only while this case is active.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sprite_slots: Vec<String>,
+    /// Inventory regions claimed only while this case is active.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub regions: Vec<String>,
+    /// Switches active only while this case is active.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub switches: Vec<String>,
 }
 
 /// Surface description.
@@ -318,9 +341,9 @@ pub struct SpriteSlotEntry {
     pub binding: Option<String>,
 }
 
-/// A clickable region.
+/// An inventory region: the slots it claims and fills with its hitbox item, and the action its clicks name.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ButtonEntry {
+pub struct RegionEntry {
     /// Left edge (GUI space).
     pub x: i32,
     /// Top edge (GUI space).
@@ -329,34 +352,32 @@ pub struct ButtonEntry {
     pub width: u32,
     /// Height in pixels.
     pub height: u32,
-    /// Backing inventory slots whose clicks route to this button.
+    /// Backing inventory slots whose clicks route to this region.
     pub slots: Vec<SlotRefEntry>,
-    /// Slots this button fills with its own hitbox/state item. Absent means
-    /// every slot in [`Self::slots`]; present means a strict subset, because a
-    /// repeater cell yielded the remaining slots to item controls that own the
-    /// real stack (and therefore the native hover tooltip) in those slots.
+    /// Slots this region fills with its hitbox item. Absent means every slot in [`Self::slots`]; present means a
+    /// strict subset, because a repeater cell yielded the remaining slots to item controls that own the real stack
+    /// (and therefore the native hover tooltip) in those slots, or the slot holds the anvil input's seed item.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill_slots: Option<Vec<SlotRefEntry>>,
-    /// Built-in default behavior, if any.
+    /// The action id a click names: the handler bound to it runs, else [`Self::default_action`]. Ids in the
+    /// `window:` namespace are runtime actions with no generated Kotlin member. Absent for hover-only and
+    /// claim-only regions.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub default: Option<ButtonDefault>,
-    /// Whether this region should generate/accept a click handler.
-    #[serde(default = "default_action", skip_serializing_if = "is_true")]
-    pub action: bool,
-    /// Default tooltip for this button/hotspot.
+    pub action: Option<String>,
+    /// The runtime action, such as `window:close`, run when no handler is bound to [`Self::action`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tooltip: Option<ButtonTooltip>,
-    /// Named item states for dynamic visual/tooltip toggles.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub states: BTreeMap<String, ButtonState>,
-    /// Generated sprite font used by visual states, when any state has a sprite.
+    pub default_action: Option<String>,
+    /// The hitbox item filling [`Self::filled_slots`]; absent leaves them empty.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sprite_font: Option<String>,
+    pub hitbox: Option<Hitbox>,
+    /// The authored element this region comes from, such as ``button `buy` ``, for diagnostics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
-impl ButtonEntry {
-    /// The slots this button paints with its own item: [`Self::fill_slots`] when
-    /// present, otherwise every click slot.
+impl RegionEntry {
+    /// The slots this region paints with its hitbox item: [`Self::fill_slots`] when present, otherwise every click
+    /// slot.
     pub fn filled_slots(&self) -> &[SlotRefEntry] {
         self.fill_slots.as_deref().unwrap_or(&self.slots)
     }
@@ -396,13 +417,6 @@ pub struct AnvilInputEntry {
     pub item_model: Option<String>,
 }
 
-/// A non-binding slot claim/fill region.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SlotRectEntry {
-    /// Backing inventory slots claimed/cleared by this primitive.
-    pub slots: Vec<SlotRefEntry>,
-}
-
 /// Group metadata for controls flattened from a repeater.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RepeatGroupEntry {
@@ -418,9 +432,9 @@ pub struct RepeatGroupEntry {
     /// index order.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub items: BTreeMap<String, Vec<String>>,
-    /// Root cell buttons, in index order.
+    /// The action of each cell's region, in index order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub buttons: Vec<String>,
+    pub actions: Vec<String>,
 }
 
 fn default_action() -> bool {
@@ -437,6 +451,52 @@ fn is_false(value: &bool) -> bool {
 
 fn is_zero(value: &u32) -> bool {
     *value == 0
+}
+
+/// The switch cases an entry sits in, outermost first, as `(switch key, case value)`.
+pub type CasePath = Vec<(String, String)>;
+
+/// The case path of every region inside a switch case. Regions outside any case are absent.
+pub fn region_case_paths(switches: &BTreeMap<String, SwitchEntry>) -> BTreeMap<String, CasePath> {
+    let mut parents: BTreeMap<&str, (&str, &str)> = BTreeMap::new();
+    for (key, switch) in switches {
+        for case in &switch.cases {
+            for child in &case.switches {
+                parents.insert(child, (key, &case.value));
+            }
+        }
+    }
+    let mut paths = BTreeMap::new();
+    for (key, switch) in switches {
+        let mut outer = Vec::new();
+        let mut child = key.as_str();
+        while let Some(&(parent, value)) = parents.get(child) {
+            outer.push((parent.to_string(), value.to_string()));
+            child = parent;
+        }
+        outer.reverse();
+        for case in &switch.cases {
+            let mut path = outer.clone();
+            path.push((key.clone(), case.value.clone()));
+            for region in &case.regions {
+                paths.insert(region.clone(), path.clone());
+            }
+        }
+    }
+    paths
+}
+
+/// Whether two case paths can never be active together: they pick different cases of one switch.
+pub fn exclusive_cases(a: &[(String, String)], b: &[(String, String)]) -> bool {
+    for (x, y) in a.iter().zip(b) {
+        if x.0 != y.0 {
+            return false;
+        }
+        if x.1 != y.1 {
+            return true;
+        }
+    }
+    false
 }
 
 impl Manifest {

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use window_core::authoring::{ParsedProject, project_from_json};
 use window_core::geometry::{Rect, Size};
-use window_core::ir::{Align, ButtonDefault, Draw};
+use window_core::ir::{Align, CLOSE_ACTION, Draw};
 use window_core::layout::solve;
 use window_core::surface::Surface;
 use window_core::text_font::TextFonts;
@@ -156,8 +156,8 @@ fn title_slot_rect_and_style() {
 fn quantity_row_flows_with_gap_and_cross_start() {
     let w = solved();
     // Row begins below title: y = 6 + 8 (title) + 6 (gap) = 20.
-    let minus = w.buttons.iter().find(|b| b.name == "minus").unwrap();
-    let plus = w.buttons.iter().find(|b| b.name == "plus").unwrap();
+    let minus = w.regions.iter().find(|b| b.name == "minus").unwrap();
+    let plus = w.regions.iter().find(|b| b.name == "plus").unwrap();
     let quantity = w.slots.iter().find(|s| s.name == "quantity").unwrap();
     assert_eq!(minus.rect, Rect::new(8, 20, 18, 18));
     // quantity after minus(18)+gap(4) → x=30; default cross align start → y=20.
@@ -185,13 +185,13 @@ fn coin_sprite_after_row() {
 fn buy_and_exit_buttons_stack() {
     let w = solved();
     // After coin (16 tall) + gap 6: buy y = 44 + 16 + 6 = 66.
-    let buy = w.buttons.iter().find(|b| b.name == "buy").unwrap();
+    let buy = w.regions.iter().find(|b| b.name == "buy").unwrap();
     assert_eq!(buy.rect, Rect::new(8, 66, 72, 20));
-    assert_eq!(buy.default, None);
+    assert_eq!(buy.default_action, None);
     // exit after buy (20 tall) + gap 6: y = 66 + 20 + 6 = 92.
-    let exit = w.buttons.iter().find(|b| b.name == "exit").unwrap();
+    let exit = w.regions.iter().find(|b| b.name == "exit").unwrap();
     assert_eq!(exit.rect, Rect::new(8, 92, 72, 20));
-    assert_eq!(exit.default, Some(ButtonDefault::Close));
+    assert_eq!(exit.default_action.as_deref(), Some(CLOSE_ACTION));
 }
 
 #[test]
@@ -238,7 +238,7 @@ fn all_buttons_map_into_container_slots() {
     let w = solved();
     let kind = window_core::surface::ContainerKind::Generic9x6;
     // Every button must overlap at least one container slot for clicks to land.
-    for b in &w.buttons {
+    for b in &w.regions {
         let overlap = kind.slots_overlapping(&b.rect);
         assert!(!overlap.is_empty(), "button `{}` at {:?} overlaps no container slot", b.name, b.rect);
     }

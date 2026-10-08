@@ -1,6 +1,7 @@
 // Compares `rpp build` times for the same UI written with JSX (`jsx/`) and with the function-style API (`fn/`).
 // Each style is built at 1x and at `--scale` (renamed copies of every window), cold, as a no-op cache replay, and
-// after an edit to every window source. Both styles must produce byte-identical packs and Kotlin bindings.
+// after an edit to every window source. Both styles must produce identical packs and Kotlin bindings, apart from
+// source labels.
 // Usage: node bench/authoring/bench.ts [--runs 21] [--scale 10] [--scenarios cold,noop,edit] [--cold-wasm].
 // `--cold-wasm` adds a cold scenario that also empties the compiled wasm cache. Builds always use the
 // bench-owned RPP_CACHE_DIR build/bench/rpp-cache, so the user-wide cache is never touched. Set RPP to use a
@@ -115,6 +116,19 @@ function build(dir: string, generated: number): Sample {
     return { wall, resolve: ms(/resolved in (\S+)/.exec(log)?.[1]), build: ms(/finished in (\S+)/.exec(log)?.[1]) };
 }
 
+/** File contents without source labels, which name each style's own constructors (`tab` vs `choice`). */
+function comparable(path: string): Buffer | string {
+    const bytes = readFileSync(path);
+    if (!/\.(json|kt)$/.test(path)) {
+        return bytes;
+    }
+    return bytes
+        .toString("utf8")
+        .replace(/"source":"[^"]*"/g, "")
+        .replace(/source = "[^"]*"/g, "")
+        .replace(/"pack_fingerprint":\{[^}]*\}/g, "");
+}
+
 function digest(dir: string): string {
     const hash = createHash("sha256");
     for (const sub of ["dist", "kotlin-out"]) {
@@ -127,7 +141,7 @@ function digest(dir: string): string {
             .map((entry) => join(entry.parentPath, entry.name))
             .sort();
         for (const path of files) {
-            hash.update(relative(dir, path)).update(readFileSync(path));
+            hash.update(relative(dir, path)).update(comparable(path));
         }
     }
     return hash.digest("hex");

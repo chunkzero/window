@@ -39,6 +39,8 @@ public data class RenderLayerTrace(
     @SerialName("net_cursor_delta") public val netCursorDelta: Int,
     @SerialName("sprite_id") public val spriteId: String? = null,
     public val glyph: String? = null,
+    /** The authored element a derived layer comes from, such as ``button `buy` ``. */
+    public val source: String? = null,
 ) {
     internal fun validate() {
         require(semanticId.length in 1..512) { "Invalid semantic layer id" }
@@ -52,6 +54,7 @@ public data class RenderLayerTrace(
         require(glyph == null || glyph.codePointCount(0, glyph.length) == 1) {
             "Sprite glyph must be one codepoint"
         }
+        require(source == null || source.length in 1..256) { "Invalid layer source" }
     }
 }
 

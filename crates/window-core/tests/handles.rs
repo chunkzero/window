@@ -333,3 +333,25 @@ fn handle_names_cannot_clash_with_generated_accessors_or_the_companion() {
     let message = error(&project(json!([window("a", "generic_9x1", json!([companion]))])));
     assert!(message.contains("reserved WindowView member `Companion`"), "{message}");
 }
+
+#[test]
+fn runtime_action_buttons_select_state_cases_without_a_handler() {
+    let close = |extra: Value| {
+        let mut button = json!({ "type": "button", "on_click": { "kind": "builtin", "id": "window:close" },
+            "states": { "enabled": {}, "disabled": {} }, "pattern": slots(0, 1) });
+        button.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+        button
+    };
+    let can_close = json!({ "kind": "flag", "id": "can_close" });
+    let files =
+        compile(&project(json!([window("gate", "generic_9x1", json!([close(json!({ "enabled": can_close }))]))])))
+            .unwrap();
+    let view = &files["GateView.kt"];
+    assert!(view.contains("buttonState(\"window:close\") { if (canClose()) \"enabled\" else \"disabled\" }"), "{view}");
+    assert!(!view.contains("enabledButton") && !view.contains("button(\"window:close\""), "{view}");
+    let entries = &files["WindowEntries.kt"];
+    let disabled = entries.split("\"window:close.disabled\" to").nth(1).unwrap().split("source =").next().unwrap();
+    assert!(disabled.contains("action = null") && disabled.contains("defaultAction = null"), "{disabled}");
+    let enabled = entries.split("\"window:close.enabled\" to").nth(1).unwrap().split("source =").next().unwrap();
+    assert!(enabled.contains("action = \"window:close\""), "{enabled}");
+}

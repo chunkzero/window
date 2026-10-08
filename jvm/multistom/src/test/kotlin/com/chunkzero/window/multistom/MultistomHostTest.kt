@@ -1,9 +1,9 @@
 package com.chunkzero.window.multistom
 
-import com.chunkzero.window.ButtonTooltip
 import com.chunkzero.window.Click
 import com.chunkzero.window.SlotArea
 import com.chunkzero.window.SlotRef
+import com.chunkzero.window.Tooltip
 import com.chunkzero.window.host.ContainerKind
 import com.chunkzero.window.host.ContainerListener
 import com.chunkzero.window.host.WindowItem
@@ -65,7 +65,7 @@ class MultistomHostTest :
         "hitboxes use their tooltip verbatim, or hide it" {
             val host = MultistomFixture().host
             val model = Key.key("window", "gui/hitbox")
-            val tooltip = ButtonTooltip(Component.text("Home"), listOf(Component.text("Go home")))
+            val tooltip = Tooltip(Component.text("Home"), listOf(Component.text("Go home")))
 
             val shown = host.item(WindowItem.Hitbox(model, tooltip))
             val hidden = host.item(WindowItem.Hitbox(model, null))
