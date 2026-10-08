@@ -16,7 +16,7 @@ mod hud;
 pub use hud::{HudEntry, HudShaderEntry, HudSurfaceEntry};
 
 /// Current compiled definition schema version.
-pub const VERSION: u32 = 7;
+pub const VERSION: u32 = 8;
 
 /// Root compiled pack definition.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -157,6 +157,12 @@ pub struct SwitchCaseEntry {
     /// Switches active only while this case is active.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub switches: Vec<String>,
+    /// Item regions filled only while this case is active.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<String>,
+    /// Collections filled, and clicked, only while this case is active.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub collections: Vec<String>,
 }
 
 /// Surface description.
@@ -257,6 +263,9 @@ pub struct SlotEntry {
     /// Present when content wraps onto more than one line.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lines: Option<SlotLinesEntry>,
+    /// The authored `debug_name` this slot comes from, for diagnostics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 impl SlotEntry {
@@ -339,6 +348,9 @@ pub struct SpriteSlotEntry {
     /// the slot is then keyed `{binding}.{case}`. Absent when the key is the binding name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding: Option<String>,
+    /// The authored `debug_name` this sprite slot comes from, for diagnostics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 /// An inventory region: the slots it claims and fills with its hitbox item, and the action its clicks name.
@@ -456,8 +468,17 @@ fn is_zero(value: &u32) -> bool {
 /// The switch cases an entry sits in, outermost first, as `(switch key, case value)`.
 pub type CasePath = Vec<(String, String)>;
 
-/// The case path of every region inside a switch case. Regions outside any case are absent.
-pub fn region_case_paths(switches: &BTreeMap<String, SwitchEntry>) -> BTreeMap<String, CasePath> {
+/// The case paths of the regions, items, and collections inside switch cases, each by name. Entries outside any
+/// case are absent.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CasePaths {
+    pub regions: BTreeMap<String, CasePath>,
+    pub items: BTreeMap<String, CasePath>,
+    pub collections: BTreeMap<String, CasePath>,
+}
+
+/// The case path of every region, item, and collection inside a switch case.
+pub fn case_paths(switches: &BTreeMap<String, SwitchEntry>) -> CasePaths {
     let mut parents: BTreeMap<&str, (&str, &str)> = BTreeMap::new();
     for (key, switch) in switches {
         for case in &switch.cases {
@@ -466,7 +487,7 @@ pub fn region_case_paths(switches: &BTreeMap<String, SwitchEntry>) -> BTreeMap<S
             }
         }
     }
-    let mut paths = BTreeMap::new();
+    let mut paths = CasePaths::default();
     for (key, switch) in switches {
         let mut outer = Vec::new();
         let mut child = key.as_str();
@@ -478,8 +499,13 @@ pub fn region_case_paths(switches: &BTreeMap<String, SwitchEntry>) -> BTreeMap<S
         for case in &switch.cases {
             let mut path = outer.clone();
             path.push((key.clone(), case.value.clone()));
-            for region in &case.regions {
-                paths.insert(region.clone(), path.clone());
+            let entries = [
+                (&mut paths.regions, &case.regions),
+                (&mut paths.items, &case.items),
+                (&mut paths.collections, &case.collections),
+            ];
+            for (paths, names) in entries {
+                paths.extend(names.iter().map(|name| (name.clone(), path.clone())));
             }
         }
     }

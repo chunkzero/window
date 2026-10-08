@@ -1,4 +1,4 @@
-import type { Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
+import type { Art, Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
 
 export interface WindowOptions {
     /** Namespace of the generated assets. Defaults to `window`. */
@@ -67,6 +67,7 @@ export type Compile = (
 
 export interface ProjectJson {
     themes?: Theme[];
+    sprites?: Record<string, Art>;
     windows: Window[];
     huds: Hud[];
     options: { hud_shaders: boolean; anvil_field_sprite?: string; experimental_anvil_updates?: boolean };
@@ -116,11 +117,18 @@ export function buildProject(
     packFormat: number,
 ): ProjectJson {
     const themes: Theme[] = [];
+    const sprites: Record<string, Art> = Object.create(null) as Record<string, Art>;
     const windows: Window[] = [];
     const huds: Hud[] = [];
     for (const doc of documents) {
         if (doc.theme !== undefined) {
             themes.push(doc.theme);
+        }
+        for (const [name, art] of Object.entries(doc.sprites ?? {})) {
+            if (Object.hasOwn(sprites, name)) {
+                throw new Error(`sprite catalog declares \`${name}\` twice`);
+            }
+            sprites[name] = art;
         }
         windows.push(...(doc.windows ?? []));
         huds.push(...(doc.huds ?? []));
@@ -133,6 +141,7 @@ export function buildProject(
     }
     return {
         ...(themes.length > 0 ? { themes } : {}),
+        ...(Object.keys(sprites).length > 0 ? { sprites: { ...sprites } } : {}),
         windows,
         huds,
         options: {
@@ -195,7 +204,32 @@ function entryDocuments(path: string, value: unknown): WindowDocument[] {
     if (!isFields(value)) {
         throw new Error(`${path} must export default defineWindows({ themes, windows, huds })`);
     }
-    return (["themes", "windows", "huds"] as const).flatMap((key) => listDocuments(path, key, value[key]));
+    const documents = (["themes", "windows", "huds"] as const).flatMap((key) => listDocuments(path, key, value[key]));
+    const sprites = value["sprites"];
+    if (sprites !== undefined) {
+        if (!isFields(sprites) || Array.isArray(sprites)) {
+            throw new Error(`${path}: defineWindows \`sprites\` must map names to art`);
+        }
+        documents.push({ sprites: sprites as Record<string, Art> });
+    }
+    return documents;
+}
+
+/** Every texture of inline art in `value`: an object with `art: "texture"` anywhere in the documents. */
+function inlineTextures(value: unknown, out: string[]): string[] {
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            inlineTextures(item, out);
+        }
+    } else if (isFields(value)) {
+        if (value["art"] === "texture" && typeof value["texture"] === "string") {
+            out.push(value["texture"]);
+        }
+        for (const field of Object.values(value)) {
+            inlineTextures(field, out);
+        }
+    }
+    return out;
 }
 
 /**
@@ -248,12 +282,14 @@ export function collectInputs(ctx: WindowContext): {
         addOnce(path);
         ctx.remove(path);
     }
-    for (const doc of documents) {
-        for (const sprite of Object.values(doc.theme?.sprites ?? {})) {
-            const path = resourceTexturePath(sprite.texture);
-            if (path !== undefined) {
-                addOnce(path);
-            }
+    const textures = documents.flatMap((doc) => [
+        ...Object.values(doc.theme?.sprites ?? {}).map((sprite) => sprite.texture),
+        ...inlineTextures(doc, []),
+    ]);
+    for (const texture of textures) {
+        const path = resourceTexturePath(texture);
+        if (path !== undefined) {
+            addOnce(path);
         }
     }
     return { documents, files, warnings };

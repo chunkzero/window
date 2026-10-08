@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::authoring::art::is_inline;
 use crate::ir::Rgb;
 use crate::manifest::{FontMetricsEntry, Manifest};
 use crate::pipeline::OutputFile;
@@ -107,7 +108,8 @@ pub(super) fn generate_sprite_ids(manifest: &Manifest, package_name: &str) -> Op
     let mut w = KotlinWriter::file(package_name, std::iter::empty::<&str>());
     w.doc("Runtime sprites of this Window pack, returned by sprite slot members.");
     w.open("public enum class WindowSprite(public val id: String) {");
-    for name in manifest.sprites.keys() {
+    // Inline art drawn by fixed sprite slots has no constant; Kotlin cannot select it.
+    for name in manifest.sprites.keys().filter(|name| !is_inline(name)) {
         w.line(format_args!("{}({}),", name.to_uppercase(), kt_string(name)));
     }
     w.close("}");

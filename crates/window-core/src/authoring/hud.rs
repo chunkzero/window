@@ -1,10 +1,11 @@
 use serde::Deserialize;
 
-use super::element::{ElementDto, collect_handles, convert_children, flatten_indexed};
+use super::art::{ArtRefDto, ArtUse, intern};
+use super::element::{ElementDto, collect_handles, convert_children, flatten_indexed, intern_art};
 use super::insets::InsetsDto;
 use crate::geometry::Size;
 use crate::ir::{HudChannel, HudShader};
-use crate::model::Hud;
+use crate::model::{Hud, Theme};
 use crate::{Error, Result};
 
 #[derive(Debug, Deserialize)]
@@ -17,10 +18,11 @@ pub(super) struct HudDto {
     height: Option<u32>,
     #[serde(default)]
     bleed: InsetsDto,
-    frame: Option<String>,
+    frame: Option<ArtRefDto>,
     shader: Option<HudShaderDto>,
     #[serde(default)]
     children: Vec<ElementDto>,
+    pub(super) debug_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,9 +54,15 @@ fn default_actionbar_source_bottom() -> i32 {
 }
 
 impl HudDto {
-    pub(super) fn into_hud(self) -> Result<Hud> {
-        let mut children = self.children;
+    pub(super) fn into_hud(mut self, theme: &mut Theme) -> Result<Hud> {
         let owner = format!("hud `{}`", self.name);
+        let in_hud = |error: Error| match error {
+            Error::Validation(message) => Error::Validation(format!("{owner}: {message}")),
+            other => other,
+        };
+        intern(theme, &mut self.frame, ArtUse::Frame).map_err(in_hud)?;
+        intern_art(&mut self.children, theme).map_err(in_hud)?;
+        let mut children = self.children;
         let handles = collect_handles(&mut children, &owner, true)?;
         let indexed = flatten_indexed(&mut children, &owner)?;
         let children = convert_children(children)?;
@@ -73,11 +81,12 @@ impl HudDto {
             channel: parse_hud_channel(&self.channel)?,
             size,
             bleed: self.bleed.into_insets(),
-            frame: self.frame,
+            frame: self.frame.map(|frame| frame.name()).transpose()?,
             shader: self.shader.map(HudShaderDto::into_shader).transpose()?,
             children,
             indexed,
             handles,
+            debug_name: self.debug_name,
         })
     }
 }

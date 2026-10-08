@@ -3,6 +3,7 @@ mod draws;
 mod flex;
 mod flow;
 mod patterns;
+mod primitives;
 mod switch;
 mod text;
 

@@ -225,7 +225,100 @@ also accept `"auto"`.
 - Text is at least 8px tall, fills its box's width, and is vertically centered in it. Static text measures its content;
   `<Text bind>` without `width` grows to fill a horizontal box and stretches across a vertical one.
 - Sprites and icons keep their size and are centered in their box.
-- Slot-bound controls cannot be placed inside a box; put them in a section.
+- A `<Region>`, `<Items>`, or `<Collection>` without its own slots covers its box and claims the inventory slots the box
+  covers. Buttons, hotspots, slot blocks, and repeaters cannot be placed inside a box; put them in a section.
+
+### Primitives
+
+Every window is built from a few primitives, which the components above are made of and which may be used directly:
+
+| primitive                                          | `raw` equivalent              | notes                                                                 |
+| -------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------- |
+| `<Window>`, `<Hud>`                                | `ui`, `hud`                   | roots                                                                 |
+| `<Box>`                                            | `box` (`flex`)                | flexbox or grid; `frame` is a theme name or [inline art](#inline-art) |
+| `<Text>` / `<Text bind>`                           | `text`                        | static text, or dynamic text bound by a `text` handle                 |
+| `<Image art>` / `<Image bind size>`                | `image`                       | art drawn at its own size, or a runtime sprite slot bound by a handle |
+| `<Switch bind><Case value>…</Case></Switch>`       | `switchOn(on, cases)`, `case` | `bind` is a binding name, a value or selection handle, or a condition |
+| `<Region onClick? tooltip? itemModel?>`            | `region`                      | slots that take clicks and show a hitbox item                         |
+| `<Items bind>`, `<Collection bind>`                | `items`, `collection`         | real item stacks                                                      |
+| `<Input bind>`                                     | `input`                       | the anvil's rename field                                              |
+| `<Section of="container" \| "player" \| "hotbar">` | `section(kind)`               | `<Container>`, `<Player>`, and `<Hotbar>` are shorthands              |
+
+- A region without `width` and `height` fills its parent box and claims the slots the box covers; in a section it claims
+  its `span`/`at` area. Its `onClick` is an `action`, `selection.set(value)`, `toggle`, or `builtin`; without one it
+  only shows its `tooltip` and hitbox item.
+- Switch cases may hold regions, items, and collections, including in nested switches. Their slots are claimed only
+  while their case is drawn, so regions and items in mutually exclusive cases may cover the same slots: a click routes
+  to the region of the case selected when it arrives, and the items swap with the case. Overlapping slots outside
+  mutually exclusive cases are a build error.
+- Every primitive takes `debugName`, which build errors name (``… (in `buy-hitbox`)``) and the inspector shows as the
+  source of the layers it draws.
+
+A tab group built from primitives draws the same art as `<Tabs>`:
+
+```tsx
+<Container>
+  {category.values.map((value) => (
+    <Box span={3} padding={1} debugName={`tab-${value}`}>
+      <Box frame={bevel} grow>
+        <Switch bind={category.is(value)} x={0} y={0}>
+          <Case value="true">
+            <Image art={tabSelected} />
+          </Case>
+          <Case value="false">
+            <Image art={tab} />
+          </Case>
+        </Switch>
+        <Region onClick={category.set(value)} tooltip={labels[value]} />
+      </Box>
+    </Box>
+  ))}
+</Container>
+```
+
+A section cell spans its slots' 18x18 boxes, while a button draws over their 16x16 interiors, hence the `padding`.
+
+### Inline art
+
+`texture(path, options?)` and `shape(style, options?)` author art in place of a theme name. A box, section, case,
+window, or HUD `frame` stretches it over its laid-out size; `<Image art>` draws it at its own size.
+
+```ts
+import { shape, texture } from "#plugins/window";
+
+export const bevel = shape({ kind: "button", fill: "#3a3a3a" }, { name: "industrial/button" });
+export const panel = texture("window/panel.png", { insets: 4 });
+export const coin = texture("window/coin.png");
+export const lamp = shape({ kind: "badge", fill: "#ffb20b", width: 8, height: 8 });
+```
+
+- `texture` takes a pack-source-relative path or a texture id such as `"example:item/coin.png"`, nine-slice `insets` for
+  frames, and `width`/`height` (set together) for images. `shape` takes a generated style, plus `width` and `height` to
+  draw it as an image.
+- Art is named by a hash of its content, prefixed by its optional `name`: `art/industrial-button-3fa2c1`. Identical art
+  is shared, and inline art never clashes with theme names.
+
+### Sprite catalog
+
+`defineWindows({ sprites })` names inline art that Kotlin selects at runtime. Each entry becomes a `WindowSprite`
+constant, and a `sprite` handle declared with `only` returns a generated enum of just those sprites:
+
+```ts
+export const lamp = sprite("lamp", { only: ["lamp_on", "lamp_off"] });
+
+export default defineWindows({
+  sprites: { lamp_on: texture("window/lamp_on.png"), lamp_off: texture("window/lamp_off.png") },
+  windows: [panel],
+});
+```
+
+```tsx
+<Image bind={lamp} size={8} />
+```
+
+The view declares `enum class LampSprite(val sprite: WindowSprite) { LAMP_ON, LAMP_OFF }` and
+`protected abstract fun lampSprite(): LampSprite?`. Catalog names follow theme sprite names and must not repeat one;
+every `only` entry must be a catalog or theme sprite.
 
 ### Components
 
@@ -287,11 +380,11 @@ export const title = text("title");
 | `value(id, values)`                   | `<Switch on>`, `<Button state>`, `.is(v)`                                    | `enum class Mode` and `protected abstract fun mode(): Mode`             |
 | `selection(id, values, { initial? })` | `<Tabs bind>`, `<Switch on>`, `<Button state>`, `.is`, `.set`                | `enum class Category`, `protected var category` and `onCategoryChanged` |
 | `text(id)`                            | `<Text bind>`                                                                | `protected abstract fun title(): Component`                             |
-| `sprite(id)`                          | `<Icon bind>`                                                                | `protected abstract fun iconSprite(): WindowSprite?`                    |
-| `items(id)`                           | `<Item bind>`                                                                | `protected abstract fun stack(): ItemStack?`                            |
+| `sprite(id, { only? })`               | `<Image bind>`, `<Icon bind>`                                                | `protected abstract fun iconSprite(): WindowSprite?`                    |
+| `items(id)`                           | `<Items bind>`, `<Item bind>`                                                | `protected abstract fun stack(): ItemStack?`                            |
 | `collection(id, { selectable? })`     | `<Collection bind>`                                                          | `protected abstract val products: WindowCollection<ItemStack>`          |
-| `action(id)`                          | `onClick` of a button or repeater                                            | `protected abstract fun onBuy(click: Click)`                            |
-| `input(id)`                           | `<AnvilInput bind>`                                                          | `protected abstract fun onQueryChanged(value: String)`                  |
+| `action(id)`                          | `onClick` of a button, region, or repeater                                   | `protected abstract fun onBuy(click: Click)`                            |
+| `input(id)`                           | `<Input bind>`, `<AnvilInput bind>`                                          | `protected abstract fun onQueryChanged(value: String)`                  |
 | `builtin("window:close")`             | `onClick`; `<Button close>` is shorthand                                     | none; the runtime closes the window                                     |
 
 - A view declares one member per handle its window or HUD uses and binds every use to it, so one handle may drive many
@@ -461,30 +554,35 @@ contract.
 
 The `raw` constructors:
 
-| constructor                   | children | required                                                                                 | optional                                                                                                                           |
-| ----------------------------- | -------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `panel(opts)`                 | yes      | `frame`, `width`, `height`                                                               | `x`, `y`, `padding`                                                                                                                |
-| `row(opts)` / `column(opts)`  | yes      | none                                                                                     | `x`, `y`, `gap`, `padding`, `align` (`"start"`, `"center"`, `"end"`)                                                               |
-| `sprite(name, opts)`          | no       | theme sprite name                                                                        | `x`, `y`                                                                                                                           |
-| `spriteSlot(name, opts)`      | no       | slot name, `width`, `height`                                                             | `x`, `y`, `align` (`"left"`, `"center"`, `"right"`)                                                                                |
-| `button(name, opts)`          | yes      | button name, and outside a section either `width`/`height` or `pattern`/`transform`      | `frame`, `x`, `y`, `slots`, `default: "close"`, `tooltip`, `states`, `padding`                                                     |
-| `hotspot(name, opts)`         | no       | hotspot name, `tooltip` or `states`, and outside a section `width`/`height` or a pattern | `x`, `y`, `slots`                                                                                                                  |
-| `item(name, opts)`            | no       | item name; outside a section `slots`, `pattern`, `transform`, or a repeater `cell_slot`  | none                                                                                                                               |
-| `collection(name, opts)`      | no       | collection name; outside a section `slots`, `pattern`, or `transform`                    | `frame`, `selected_sprite`, `action: false` for display-only collections                                                           |
-| `toggle(name, opts)`          | yes      | button options and `states.on` / `states.off`                                            | the same options as `button`                                                                                                       |
-| `choice(name, opts)`          | yes      | button options and `states.selected` / `states.unselected`                               | the same options as `button`                                                                                                       |
-| `anvilInput(name, opts)`      | no       | an `anvil` window and input name                                                         | `initial`, `item_model`                                                                                                            |
-| `slotRects(name, opts)`       | no       | name, and `pattern` or `transform`                                                       | `frame`, `claim: "none"`, `"all"`, or `"unowned"`                                                                                  |
-| `repeater(name, opts)`        | yes      | name, and `pattern` or `transform`                                                       | `frame`, `padding`                                                                                                                 |
-| `label(text, opts)`           | no       | text                                                                                     | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
-| `slot(name, opts)`            | no       | slot name                                                                                | the `label` options, `overflow`, `lines`, `line_height`; see [Text overflow](#text-overflow)                                       |
-| `switchOn(name, cases, opts)` | yes      | binding name and at least one case, keyed by value                                       | `x`, `y`; each case takes `frame`, `style`, `children`; see [Conditionals](#conditionals)                                          |
-| `show(when, opts)`            | yes      | Boolean binding name                                                                     | `x`, `y`, and the case options for the shown case                                                                                  |
-| `flex(opts)` / `grid(opts)`   | yes      | none                                                                                     | `x`, `y`, `frame`, `style`; `grid` sets `style.display: "grid"`; see [Flex layout](#flex-layout)                                   |
-| `section(kind, opts)`         | yes      | `"container"`, `"player"`, or `"hotbar"`                                                 | `frame`, `outset` (3 when `frame` is set), `claim`, `flow`; see [Slot sections](#slot-sections)                                    |
+| constructor                  | children | required                                                                                 | optional                                                                                                                           |
+| ---------------------------- | -------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `panel(opts)`                | yes      | `frame`, `width`, `height`                                                               | `x`, `y`, `padding`                                                                                                                |
+| `row(opts)` / `column(opts)` | yes      | none                                                                                     | `x`, `y`, `gap`, `padding`, `align` (`"start"`, `"center"`, `"end"`)                                                               |
+| `sprite(name, opts)`         | no       | theme sprite name                                                                        | `x`, `y`                                                                                                                           |
+| `image(art, opts)`           | no       | inline art or a theme sprite name; or a `sprite` handle with `width`, `height`           | `x`, `y`; with a handle the `spriteSlot` options                                                                                   |
+| `region(opts)`               | no       | none; fills its box, or set `width` and `height`                                         | `on_click` (a click handle), `tooltip`, `item_model`                                                                               |
+| `text(content, opts)`        | no       | text, or a `text` handle                                                                 | the `label` or `slot` options; `text.smallCaps` and `text.smallCapsMinimessage` convert text                                       |
+| `spriteSlot(name, opts)`     | no       | slot name, `width`, `height`                                                             | `x`, `y`, `align` (`"left"`, `"center"`, `"right"`)                                                                                |
+| `button(name, opts)`         | yes      | button name, and outside a section either `width`/`height` or `pattern`/`transform`      | `frame`, `x`, `y`, `slots`, `default: "close"`, `tooltip`, `states`, `padding`                                                     |
+| `hotspot(name, opts)`        | no       | hotspot name, `tooltip` or `states`, and outside a section `width`/`height` or a pattern | `x`, `y`, `slots`                                                                                                                  |
+| `item(name, opts)`, `items`  | no       | item name or `items` handle; outside a section and box a slot source or `cell_slot`      | none                                                                                                                               |
+| `collection(name, opts)`     | no       | collection name; outside a section `slots`, `pattern`, or `transform`                    | `frame`, `selected_sprite`, `action: false` for display-only collections                                                           |
+| `toggle(name, opts)`         | yes      | button options and `states.on` / `states.off`                                            | the same options as `button`                                                                                                       |
+| `choice(name, opts)`         | yes      | button options and `states.selected` / `states.unselected`                               | the same options as `button`                                                                                                       |
+| `anvilInput(name, opts)`     | no       | an `anvil` window and input name or `input` handle; `input` is an alias                  | `initial`, `item_model`                                                                                                            |
+| `slotRects(name, opts)`      | no       | name, and `pattern` or `transform`                                                       | `frame`, `claim: "none"`, `"all"`, or `"unowned"`                                                                                  |
+| `repeater(name, opts)`       | yes      | name, and `pattern` or `transform`                                                       | `frame`, `padding`                                                                                                                 |
+| `label(text, opts)`          | no       | text                                                                                     | `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`, `x`, `y` |
+| `slot(name, opts)`           | no       | slot name                                                                                | the `label` options, `overflow`, `lines`, `line_height`; see [Text overflow](#text-overflow)                                       |
+| `switchOn(on, cases, opts)`  | yes      | binding name or handle, and cases keyed by value or a list of `case(value, opts)`        | `x`, `y`; each case takes `frame`, `style`, `children`; see [Conditionals](#conditionals)                                          |
+| `show(when, opts)`           | yes      | Boolean binding name                                                                     | `x`, `y`, and the case options for the shown case                                                                                  |
+| `flex(opts)`, `box` / `grid` | yes      | none                                                                                     | `x`, `y`, `frame`, `style`; `grid` sets `style.display: "grid"`; see [Flex layout](#flex-layout)                                   |
+| `section(kind, opts)`        | yes      | `"container"`, `"player"`, or `"hotbar"`                                                 | `frame`, `outset` (3 when `frame` is set), `claim`, `flow`; see [Slot sections](#slot-sections)                                    |
 
 Every constructor except `anvilInput` and `section` also takes `layout`, its item layout inside a `flex`, `grid`, or
-`section` parent.
+`section` parent. The primitives (`flex`, `section`, `switchOn`, cases, `sprite`, `image`, `spriteSlot`, `text`,
+`label`, `slot`, `region`, `item`, `collection`, and `anvilInput`) take `debug_name`, and their `frame` and sprite
+options accept [inline art](#inline-art).
 
 Unpositioned button children are centered automatically. Static labels use their measured width; direct dynamic slots
 may omit their width and fill the button's padded content rect:
@@ -747,8 +845,10 @@ raw.show("on_sale", { children: [raw.sprite("sale_badge")] });
   `style` (flex style; `direction` defaults to `"column"`), and `children`; `switchOn` and `show` take `x`/`y` (set
   both), and `show` also takes the case options for its shown case. The JSX `text` prop, which cascades text styling to
   descendants, has no `raw` equivalent; style labels and slots directly.
-- Cases are visual: sprites, frames, labels, `<Text bind>`/`<Icon bind>` bindings, and other switches. A switch inside a
-  case is shown only while that case is. Slot-bound controls and switches inside repeaters are build errors.
+- Cases hold sprites, frames, labels, `<Text bind>`/`<Icon bind>` bindings, other switches, and the slot primitives
+  `<Region>`, `<Items>`, and `<Collection>`, which claim their slots only while their case is drawn (see
+  [Primitives](#primitives)). A switch inside a case is shown only while that case is. Buttons, hotspots, slot blocks,
+  repeaters, anvil inputs, and switches inside repeaters are build errors; build controls in cases from regions.
 - A `<Text bind>`, `<Icon bind>`, or `<Switch bind>` name may appear once in each of several mutually exclusive cases,
   including cases of nested switches: two cases are exclusive when they are different cases of one switch, or sit inside
   such cases. Each copy keeps its own position and style, which lets a shader HUD give one value a different color per

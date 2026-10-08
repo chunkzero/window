@@ -9,7 +9,7 @@ import com.chunkzero.window.manifest.SwitchEntry
  *
  * A switch's selected case is the one its binding last returned, else its `initial` case. A case is
  * active while it is selected and its switch is active; a switch nested in a case is active only
- * while that case is, and so are the slots, sprite slots, and regions a case lists.
+ * while that case is, and so are the slots, sprite slots, regions, items, and collections a case lists.
  */
 internal class Switches(
     /** The surface name used in semantic ids and messages, `window` or `hud`. */
@@ -30,6 +30,8 @@ internal class Switches(
     private val slotCases = HashMap<String, Case>()
     private val spriteSlotCases = HashMap<String, Case>()
     private val regionCases = HashMap<String, Case>()
+    private val itemCases = HashMap<String, Case>()
+    private val collectionCases = HashMap<String, Case>()
 
     /** The authored element owning each slot and sprite slot of a derived switch's cases. */
     private val sources = HashMap<String, String>()
@@ -46,6 +48,8 @@ internal class Switches(
                 for (name in case.slots) slotCases[name] = owner
                 for (name in case.spriteSlots) spriteSlotCases[name] = owner
                 for (name in case.regions) regionCases[name] = owner
+                for (name in case.items) itemCases[name] = owner
+                for (name in case.collections) collectionCases[name] = owner
                 val source = switch.source ?: continue
                 for (name in case.slots + case.spriteSlots) sources[name] = source
             }
@@ -118,14 +122,45 @@ internal class Switches(
 
     fun regionActive(name: String): Boolean = regionCases[name]?.let(::isActive) ?: true
 
+    fun itemActive(name: String): Boolean = itemCases[name]?.let(::isActive) ?: true
+
+    fun collectionActive(name: String): Boolean = collectionCases[name]?.let(::isActive) ?: true
+
     /**
-     * Whether region [name] is active when each state switch selects the case [current] returns for its key,
-     * instead of the case last rendered; a `null` result keeps the selected case.
+     * Reads the case each switch selects now rather than at its last render, for routing clicks: a state switch
+     * reads [state] for its key, and a bound switch evaluates its binding without dependency capture. A `null`
+     * result, or a binding that throws, keeps the selected case. Each switch is read at most once per lookup.
      */
+    fun current(state: (String) -> String?): (String) -> String? {
+        val values = HashMap<String, String?>()
+        return { key ->
+            if (key in values) {
+                values[key]
+            } else {
+                val switch = switches.getValue(key)
+                val value =
+                    if (switch.states) {
+                        state(key)
+                    } else {
+                        renders[switch.binding ?: key]?.let { render -> runCatching(render).getOrNull() }
+                    }
+                values[key] = value
+                value
+            }
+        }
+    }
+
+    /** Whether region [name] is active when each switch selects the case [current] returns for its key. */
     fun regionActive(
         name: String,
         current: (String) -> String?,
     ): Boolean = regionCases[name]?.let { isActive(it, current) } ?: true
+
+    /** Whether collection [name] is active when each switch selects the case [current] returns for its key. */
+    fun collectionActive(
+        name: String,
+        current: (String) -> String?,
+    ): Boolean = collectionCases[name]?.let { isActive(it, current) } ?: true
 
     private fun isActive(key: String): Boolean = parents[key]?.let(::isActive) ?: true
 
@@ -136,7 +171,7 @@ internal class Switches(
         current: (String) -> String?,
     ): Boolean {
         if (parents[case.switch]?.let { isActive(it, current) } == false) return false
-        val value = (if (switches.getValue(case.switch).states) current(case.switch) else null) ?: selected[case.switch]
+        val value = current(case.switch) ?: selected[case.switch]
         return value == case.value
     }
 

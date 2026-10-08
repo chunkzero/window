@@ -64,6 +64,7 @@ fn slot(x: i32, y: i32, width: u32, align: Align, font: &str, color: &str, text:
         binding: None,
         overflow: None,
         lines: None,
+        source: None,
     }
 }
 
@@ -137,6 +138,7 @@ fn shop_window() -> WindowEntry {
         font: "window:sprite_y11".into(),
         sprite: Some("slot_selected".into()),
         binding: None,
+        source: None,
     };
     shop.collections = BTreeMap::from([(
         "entries".into(),
@@ -414,6 +416,7 @@ fn sprite_slots_return_typed_runtime_sprites() {
             font: "window:sprite_y0".into(),
             sprite: None,
             binding: None,
+            source: None,
         },
     )]);
     let mut manifest = manifest(BTreeMap::from([("shop".into(), shop)]), BTreeMap::new());

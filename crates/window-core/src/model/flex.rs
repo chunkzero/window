@@ -1,7 +1,8 @@
 //! Taffy-solved layout containers authored through the JSX front end.
 
-use crate::geometry::{Insets, Point};
+use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
+use crate::ir::Tooltip;
 
 use super::Element;
 
@@ -18,6 +19,8 @@ pub struct FlexBox {
     /// Container style, including the box's own size.
     pub style: taffy::Style,
     pub children: Vec<LayoutChild>,
+    /// Authored name shown in errors and diagnostics.
+    pub debug_name: Option<String>,
 }
 
 /// A slot section laid out as a taffy grid with one track per inventory slot.
@@ -34,6 +37,8 @@ pub struct SlotSection {
     pub claim: SlotRectClaim,
     pub flow: taffy::GridAutoFlow,
     pub children: Vec<LayoutChild>,
+    /// Authored name shown in errors and diagnostics.
+    pub debug_name: Option<String>,
 }
 
 /// Visual cases stacked in one box that takes the largest case's size; the runtime draws only the case
@@ -45,6 +50,26 @@ pub struct Switch {
     /// Explicit position relative to the parent content origin; inside a box it positions absolutely.
     pub pos: Option<Point>,
     pub cases: Vec<SwitchCase>,
+    /// Authored name shown in errors and as the switch's diagnostic source.
+    pub debug_name: Option<String>,
+}
+
+/// An inventory region: the slots its rect covers take its clicks and show its hitbox item.
+///
+/// Without a size it fills its parent box; in a section it covers its grid area.
+#[derive(Clone, Debug)]
+pub struct Region {
+    /// The click entry it routes to, or `None` for a hover-only region, which layout names `region_N`.
+    pub name: Option<String>,
+    /// The runtime action run when no handler is bound to the click entry, such as `window:close`.
+    pub default_action: Option<String>,
+    /// Fixed size; `None` fills the parent box.
+    pub size: Option<Size>,
+    pub tooltip: Option<Tooltip>,
+    /// Item model of the hitbox item filling its slots.
+    pub item_model: Option<String>,
+    /// Authored name shown in errors and as the region's diagnostic source.
+    pub debug_name: Option<String>,
 }
 
 /// One case of a [`Switch`]: a box that fills the switch.

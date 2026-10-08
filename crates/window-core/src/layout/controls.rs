@@ -9,7 +9,7 @@ use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{
     AnvilInputIr, CollectionIr, Draw, Hitbox, ItemIr, Layer, RegionIr, RepeatBindingIr, SpriteSlotIr, SwitchIr, Tooltip,
 };
-use crate::model::{ControlState, Element, RepeaterCells};
+use crate::model::{ControlState, Element, Region, RepeaterCells};
 use crate::surface::ContainerKind;
 
 /// Where a button or hotspot sits: its authored kind, name, and slot placement.
@@ -205,24 +205,16 @@ impl<T: LayoutTarget> Solver<'_, T> {
             sprite: Some(sprite.to_string()),
             repeat: None,
             binding: None,
+            source: None,
         });
         Ok(())
     }
 
-    pub(super) fn place_item(
-        &mut self,
-        name: &str,
-        slots: Option<&Vec<InventorySlotRef>>,
-        pattern: Option<&SlotPattern>,
-        cell_slot: Option<u32>,
-    ) -> Result<Size> {
+    /// Emits item `name` over `slots`, resolved from its slot source or its laid-out rect.
+    pub(super) fn place_item(&mut self, name: &str, slots: Vec<InventorySlotRef>) -> Result<Size> {
         self.require_interaction(name)?;
         let actual_name = self.scoped_name(name);
         self.register_name(&actual_name)?;
-        let slots = match cell_slot {
-            Some(cell_slot) => vec![self.claim_cell_slot(name, cell_slot)?],
-            None => self.resolve_required_slots(name, slots, pattern)?,
-        };
         if slots.is_empty() {
             return Err(self.target.layout_err(format!("item `{name}` must define at least one slot")));
         }
@@ -230,11 +222,12 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(Size::new(0, 0))
     }
 
+    /// Emits collection `name` with one cell per slot of `slots`, resolved from its slot source or its laid-out
+    /// rect.
     pub(super) fn place_collection(
         &mut self,
         name: &str,
-        slots: Option<&Vec<InventorySlotRef>>,
-        pattern: Option<&SlotPattern>,
+        slots: Vec<InventorySlotRef>,
         frame: Option<&str>,
         selected_sprite: Option<String>,
         action: bool,
@@ -242,7 +235,6 @@ impl<T: LayoutTarget> Solver<'_, T> {
         self.require_interaction(name)?;
         let actual_name = self.scoped_name(name);
         self.register_name(&actual_name)?;
-        let slots = self.resolve_required_slots(name, slots, pattern)?;
         if slots.is_empty() {
             return Err(self.target.layout_err(format!("collection `{name}` must define at least one slot")));
         }
@@ -258,6 +250,52 @@ impl<T: LayoutTarget> Solver<'_, T> {
             repeat: self.repeat_binding(name),
         });
         Ok(Size::new(0, 0))
+    }
+
+    /// Emits `region` over `rect`. Its slots are `slots`, or else the inventory slots `rect` overlaps.
+    pub(super) fn place_region(
+        &mut self,
+        region: &Region,
+        rect: Rect,
+        slots: Option<Vec<InventorySlotRef>>,
+    ) -> Result<()> {
+        let name = match &region.name {
+            Some(name) => name.clone(),
+            None => {
+                let name = format!("region~{}", self.next_region);
+                self.next_region += 1;
+                name
+            }
+        };
+        self.require_interaction(&name)?;
+        let actual_name = self.scoped_name(&name);
+        self.register_name(&actual_name)?;
+        let source = match &region.debug_name {
+            Some(debug_name) => debug_name.clone(),
+            None => format!("region `{actual_name}`"),
+        };
+        self.check_inside_bounds(rect, &source)?;
+        let hitbox = (region.tooltip.is_some() || region.item_model.is_some())
+            .then(|| Hitbox { item_model: region.item_model.clone(), tooltip: region.tooltip.clone() });
+        self.regions.push(RegionIr {
+            action: region.name.is_some().then(|| actual_name.clone()),
+            repeat: self.repeat_binding(&name),
+            name: actual_name,
+            rect,
+            slots,
+            yielded_slots: Vec::new(),
+            unowned: false,
+            default_action: region.default_action.clone(),
+            hitbox,
+            source,
+        });
+        Ok(())
+    }
+
+    /// The inventory slots `rect` overlaps, for a slot-bound element laid out by a box.
+    pub(super) fn slots_under(&self, name: &str, rect: Rect) -> Result<Vec<InventorySlotRef>> {
+        let kind = self.target.container_kind().ok_or_else(|| self.target.interaction_err(name))?;
+        Ok(kind.slot_refs_overlapping(&rect))
     }
 
     pub(super) fn place_anvil_input(&mut self, name: &str, initial: &str, item_model: Option<&str>) -> Result<Size> {

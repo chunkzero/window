@@ -33,6 +33,7 @@ mod window;
 mod tests;
 
 use sprites::RuntimeSpriteAsset;
+pub(crate) use sprites::texture_source_path;
 
 /// Everything the engine needs to compile a Window project.
 #[derive(Clone, Debug)]

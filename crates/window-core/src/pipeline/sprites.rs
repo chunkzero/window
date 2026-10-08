@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use crate::authoring::ParsedProject;
+use crate::authoring::art::is_inline;
 use crate::compose::Texture;
 use crate::geometry::{Rect, Size};
 use crate::manifest::SpriteEntry;
@@ -43,6 +44,10 @@ pub(super) fn runtime_sprite_assets(
 ) -> Result<BTreeMap<String, RuntimeSpriteAsset>> {
     let mut sprites = BTreeMap::new();
     for (name, sprite) in &project.theme.sprites {
+        // Inline art drawn only into static art needs no runtime glyph.
+        if is_inline(name) && !project.theme.runtime_art.contains(name) {
+            continue;
+        }
         let asset = match sprite {
             SpriteDef::Texture { texture, size } if is_resource_texture_id(texture) => {
                 resource_sprite(name, texture, *size, textures)?
@@ -71,8 +76,8 @@ fn resource_sprite(
             "sprite `{name}` uses external texture `{texture}` and must set `width` and `height`"
         ))
     })?;
-    let metrics = resource_texture_source_path(texture)
-        .and_then(|path| textures.get(&path))
+    let metrics = textures
+        .get(&texture_source_path(texture))
         .map(|decoded| bitmap_metrics(decoded, size))
         .unwrap_or(GlyphMetrics { x_offset: 0, glyph_width: size.width, advance: size.width + 1 });
     Ok(RuntimeSpriteAsset::new(size, metrics, resource_texture_file(texture), None))
@@ -119,10 +124,13 @@ fn resource_texture_file(texture: &str) -> String {
     if texture.ends_with(".png") { texture.to_string() } else { format!("{texture}.png") }
 }
 
-fn resource_texture_source_path(texture: &str) -> Option<String> {
-    let (namespace, path) = texture.split_once(':')?;
+/// The pack-source path of a `namespace:path` texture id; other textures are already source paths.
+pub(crate) fn texture_source_path(texture: &str) -> String {
+    let Some((namespace, path)) = texture.split_once(':') else {
+        return texture.to_string();
+    };
     let path = if path.ends_with(".png") { path.to_string() } else { format!("{path}.png") };
-    Some(format!("assets/{namespace}/textures/{path}"))
+    format!("assets/{namespace}/textures/{path}")
 }
 
 fn sprite_file_stem(name: &str) -> String {

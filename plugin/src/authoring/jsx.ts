@@ -1,10 +1,13 @@
 import type { Child as JsxChild } from "#rpp/jsx";
 
-import { hud, ui } from "./elements.ts";
+import { hud, region, ui } from "./elements.ts";
 import { builtin, isRef, refJson } from "./handles.ts";
-import type { Action, ClickAction, Collection, Condition, Flag, Indexed, Input, Items, Ref, Shape } from "./handles.ts";
+import type { Action, ClickAction, Collection, Condition, Flag, Indexed, Ref, Shape } from "./handles.ts";
+import type { Input as InputHandle, Items as ItemsHandle } from "./handles.ts";
 import type { Selection, Sprite as SpriteHandle, Text as TextHandle, Toggle as ToggleHandle } from "./handles.ts";
 import type {
+    Art,
+    ArtRef,
     AutoLength,
     BindingIndex,
     ButtonDefault,
@@ -55,6 +58,15 @@ export interface TextProps {
     align?: TextAlign;
 }
 
+/** The authored name of a primitive, shown in errors and in the inspector. */
+export interface DebugProps {
+    debugName?: string;
+}
+
+function debug(props: DebugProps): Fields {
+    return props.debugName === undefined ? {} : { debug_name: props.debugName };
+}
+
 /** Layout of an element inside a box or a slot section. */
 export interface ItemProps {
     /** Flex grow factor; `true` is 1. */
@@ -81,8 +93,9 @@ export interface ItemProps {
     translate?: [number, number];
 }
 
-export interface BoxProps extends ItemProps {
-    frame?: string;
+export interface BoxProps extends ItemProps, DebugProps {
+    /** A theme frame name or inline art, stretched over the box's laid-out size. */
+    frame?: ArtRef;
     /** Explicit pixel position; inside another box this positions the box absolutely. */
     x?: number;
     y?: number;
@@ -108,7 +121,7 @@ export interface BoxProps extends ItemProps {
     children?: Child;
 }
 
-export interface TextElementProps extends TextProps, ItemProps {
+export interface TextElementProps extends TextProps, ItemProps, DebugProps {
     /** Dynamic text: a `text` handle, or a slot name. Without it, the children are static label text. */
     bind?: string | TextHandle;
     /** Places the bound slot in an indexed binding family. */
@@ -126,13 +139,55 @@ export interface TextElementProps extends TextProps, ItemProps {
     children?: Child;
 }
 
-export interface SpriteProps extends ItemProps {
+export interface SpriteProps extends ItemProps, DebugProps {
     name: string;
     x?: number;
     y?: number;
 }
 
-export interface IconProps extends ItemProps {
+interface ImagePlacement extends ItemProps, DebugProps {
+    x?: number;
+    y?: number;
+}
+
+/** Static art drawn at its own size. */
+export interface ImageArtProps extends ImagePlacement {
+    /** Inline art, or a theme sprite name. */
+    art: ArtRef;
+    bind?: never;
+    size?: never;
+    index?: never;
+    align?: never;
+}
+
+/** A runtime sprite slot the `sprite` handle `bind` fills. */
+export interface ImageBindProps extends ImagePlacement {
+    bind: SpriteHandle;
+    art?: never;
+    /** Slot size in pixels; a number is square. */
+    size: number | [number, number];
+    /** Places the sprite slot in an indexed binding family. */
+    index?: BindingIndex;
+    align?: TextAlign;
+}
+
+export type ImageProps = ImageArtProps | ImageBindProps;
+
+/**
+ * An inventory region: the slots it covers route clicks to `onClick` and show its hitbox item. Without `width` and
+ * `height` it fills its parent box, or in a section its grid area.
+ */
+export interface RegionProps extends ItemProps, DebugProps {
+    /** What a click does; omit for a hover-only region. */
+    onClick?: ClickAction;
+    tooltip?: string | Tooltip;
+    /** Item model of the hitbox item filling its slots. */
+    itemModel?: string;
+    width?: number;
+    height?: number;
+}
+
+export interface IconProps extends ItemProps, DebugProps {
     /** Runtime sprite: a `sprite` handle, or a sprite slot name. */
     bind: string | SpriteHandle;
     /** Places the sprite slot in an indexed binding family. */
@@ -148,10 +203,10 @@ export interface IconProps extends ItemProps {
 
 export interface StateProps {
     itemModel?: string;
-    /** Theme frame drawn over the button instead of its `frame` while this state is shown. */
-    frame?: string;
-    /** Theme sprite drawn at the button's top-left corner while this state is shown. */
-    sprite?: string;
+    /** Frame drawn over the button instead of its `frame` while this state is shown. */
+    frame?: ArtRef;
+    /** Sprite drawn at the button's top-left corner while this state is shown. */
+    sprite?: ArtRef;
     tooltip?: string | Tooltip;
 }
 
@@ -173,7 +228,7 @@ export interface ButtonProps<V extends string = string> extends ItemProps, SlotS
     disabled?: StateProps;
     /** A value or selection whose current value names the state shown; `states` holds one per value. */
     state?: Ref<"value" | "selection", V>;
-    frame?: string;
+    frame?: ArtRef;
     tooltip?: string | Tooltip;
     states?: Record<NoInfer<V>, StateProps>;
     /** Close the window on click: `onClick={builtin("window:close")}`, or with `name` a closing default handler. */
@@ -197,11 +252,11 @@ export interface ChoiceProps extends Omit<ButtonProps, "states" | "state" | "ena
 }
 
 interface TabsStyle extends ItemProps {
-    frame?: string;
+    frame?: ArtRef;
     /** Sprite drawn behind an unselected tab. */
-    sprite?: string;
+    sprite?: ArtRef;
     /** Sprite drawn behind the selected tab. */
-    selectedSprite?: string;
+    selectedSprite?: ArtRef;
     itemModel?: string;
     text?: TextProps;
 }
@@ -237,9 +292,12 @@ export interface CaseProps extends CaseBoxProps {
     value: string;
 }
 
-export interface SwitchProps extends ItemProps {
-    /** Binding name of the active case value. */
-    bind: string;
+export interface SwitchProps extends ItemProps, DebugProps {
+    /**
+     * What selects the case: a binding name, a value or selection handle whose value names it, or a condition
+     * selecting its `"true"` or `"false"` case.
+     */
+    bind: string | Ref<"value" | "selection"> | Condition;
     /** Places the switch in an indexed binding family; every entry must have the same case values. */
     index?: BindingIndex;
     x?: number;
@@ -249,7 +307,7 @@ export interface SwitchProps extends ItemProps {
 }
 
 /** A switch on a value or selection handle, with one case per value. */
-export interface SwitchOnProps<V extends string> extends ItemProps {
+export interface SwitchOnProps<V extends string> extends ItemProps, DebugProps {
     on: Ref<"value" | "selection", V>;
     x?: number;
     y?: number;
@@ -259,7 +317,7 @@ export interface SwitchOnProps<V extends string> extends ItemProps {
 }
 
 /** A switch on a flag or toggle handle, with a `true` and a `false` case. */
-export interface SwitchFlagProps extends ItemProps {
+export interface SwitchFlagProps extends ItemProps, DebugProps {
     on: Flag | ToggleHandle;
     x?: number;
     y?: number;
@@ -283,23 +341,23 @@ export interface HotspotProps extends ItemProps, SlotSource {
     states?: Record<string, StateProps>;
 }
 
-export interface ItemSlotProps extends ItemProps, SlotSource {
+export interface ItemSlotProps extends ItemProps, SlotSource, DebugProps {
     /** Item name for a string binding; set either `name` or `bind`. */
     name?: string;
     /** The `items` handle rendering this item. */
-    bind?: Items;
+    bind?: ItemsHandle;
     /** One-based slot inside the enclosing repeater cell. */
     cellSlot?: number;
 }
 
-export interface CollectionProps extends ItemProps, SlotSource {
+export interface CollectionProps extends ItemProps, SlotSource, DebugProps {
     /** Collection name for a string binding; set either `name` or `bind`. */
     name?: string;
     /** The `collection` handle supplying the cells. */
     bind?: Collection;
-    frame?: string;
+    frame?: ArtRef;
     /** Sprite marking the selected cell. */
-    selected?: string;
+    selected?: ArtRef;
     /** `false` for a display-only collection. */
     action?: boolean;
     /** Width in slots; defaults to the full section width. */
@@ -329,17 +387,17 @@ export interface SlotsProps extends ItemProps {
     claim?: SlotRectClaim;
 }
 
-export interface AnvilInputProps {
+export interface AnvilInputProps extends DebugProps {
     /** Input name for a string binding; set either `name` or `bind`. */
     name?: string;
     /** The `input` handle receiving the typed value. */
-    bind?: Input;
+    bind?: InputHandle;
     initial?: string;
     itemModel?: string;
 }
 
-export interface SectionProps {
-    frame?: string;
+export interface SectionProps extends DebugProps {
+    frame?: ArtRef;
     /** How far the frame extends past the slot boxes. Defaults to 3 when a frame is set. */
     outset?: Insets;
     /** Claim for slots no child owns. Defaults to "unowned". */
@@ -349,11 +407,16 @@ export interface SectionProps {
     children?: Child;
 }
 
-export interface WindowProps {
+/** A slot grid section: `of` names the container, the player's main inventory, or the hotbar. */
+export interface SectionOfProps extends SectionProps {
+    of: SlotSection;
+}
+
+export interface WindowProps extends DebugProps {
     name: string;
     container: ContainerKind;
     bleed?: Insets;
-    frame?: string;
+    frame?: ArtRef;
     text?: TextProps;
     children?: Child;
 }
@@ -375,7 +438,7 @@ export interface HudProps extends Omit<BoxProps, keyof ItemProps | "x" | "y" | "
     name: string;
     channel?: HudChannel;
     bleed?: Insets;
-    frame?: string;
+    frame?: ArtRef;
     /** Screen point the HUD is pinned to, through the generated core shaders. */
     anchor?: HudAnchor | { x: number; y: number };
     /** GUI-pixel nudge from the anchor. */
@@ -633,6 +696,7 @@ export function Box(props: BoxProps): Element {
         style,
         children: nodes(props.children),
         ...layout(props),
+        ...debug(props),
     });
     return cascade(node as Element, props.text);
 }
@@ -663,7 +727,7 @@ export function Spacer(props: ItemProps): Element {
 /** Static label text, or dynamic text with `bind`. */
 export function Text(props: TextElementProps): Element {
     const style = textFields(props);
-    const common = clean({ width: props.width, x: props.x, y: props.y, ...style, ...layout(props) });
+    const common = clean({ width: props.width, x: props.x, y: props.y, ...style, ...layout(props), ...debug(props) });
     const fit = { overflow: props.overflow, lines: props.lines, line_height: props.lineHeight };
     if (props.bind !== undefined) {
         return clean({
@@ -696,7 +760,47 @@ export function Text(props: TextElementProps): Element {
 /** A static theme sprite. */
 export function Sprite(props: SpriteProps): Element {
     requireName(props.name, "Sprite");
-    return clean({ type: "sprite", name: props.name, x: props.x, y: props.y, ...layout(props) }) as Element;
+    return clean({
+        type: "sprite",
+        name: props.name,
+        x: props.x,
+        y: props.y,
+        ...layout(props),
+        ...debug(props),
+    }) as Element;
+}
+
+/** Inline art or a theme sprite drawn at its own size, or with a `sprite` handle `bind` a runtime sprite slot. */
+export function Image(props: ImageProps): Element {
+    if (props.bind !== undefined) {
+        if (!isRef(props.bind) || props.bind.kind !== "sprite") {
+            throw new Error("<Image bind> requires a `sprite` handle");
+        }
+        return Icon({ ...props, bind: props.bind });
+    }
+    if (props.art === undefined) {
+        throw new Error("<Image> requires `art` or `bind`");
+    }
+    const source = typeof props.art === "string" ? { name: props.art } : { art: props.art satisfies Art };
+    return clean({ type: "sprite", ...source, x: props.x, y: props.y, ...layout(props), ...debug(props) }) as Element;
+}
+
+/**
+ * An inventory region: the slots it covers take its clicks and show its hitbox item. It fills its parent box, or in
+ * a section claims its `span`/`at` area; inside switch cases, regions claim their slots only while their case is drawn.
+ */
+export function Region(props: RegionProps): Element {
+    return region(
+        clean({
+            on_click: props.onClick,
+            tooltip: props.tooltip,
+            item_model: props.itemModel,
+            width: props.width,
+            height: props.height,
+            ...layout(props),
+            ...debug(props),
+        }),
+    ) as Element;
 }
 
 /** A runtime sprite slot, drawn above button and selection backgrounds. */
@@ -716,6 +820,7 @@ export function Icon(props: IconProps): Element {
         x: props.x,
         y: props.y,
         ...layout(props),
+        ...debug(props),
     }) as Element;
 }
 
@@ -728,8 +833,18 @@ function section(kind: SlotSection, props: SectionProps): Element {
         claim: props.claim,
         flow: props.flow,
         children: nodes(props.children),
+        ...debug(props),
     });
     return cascade(node as Element, props.text);
+}
+
+/** An inventory slot grid whose children auto-flow through it, one track per slot. */
+export function Section(props: SectionOfProps): Element {
+    const { of, ...rest } = props;
+    if (!["container", "player", "hotbar"].includes(of)) {
+        throw new Error('<Section of> must be "container", "player", or "hotbar"');
+    }
+    return section(of, rest);
 }
 
 /** The opened container's slot grid. Children auto-flow through it, one track per slot. */
@@ -892,12 +1007,13 @@ export function Case(props: CaseProps): CaseElement {
         frame: node.frame,
         style: node.style,
         children: node.children ?? [],
+        ...debug(props),
     }) as CaseElement;
 }
 
 /** A switch element drawing `cases`, bound by `binding`. */
 function switchNode(
-    props: ItemProps & { x?: number; y?: number; index?: BindingIndex; text?: TextProps },
+    props: ItemProps & DebugProps & { x?: number; y?: number; index?: BindingIndex; text?: TextProps },
     binding: Fields,
     cases: CaseElement[],
 ): Element {
@@ -909,15 +1025,16 @@ function switchNode(
         y: props.y,
         children: cases,
         ...layout(props),
+        ...debug(props),
     });
     return cascade(node as Element, props.text);
 }
 
 /**
  * Stacks its cases in one box sized to the largest case; the runtime draws only the active case. With `bind`, the
- * children are `<Case>` elements and the binding names the active one; with `on`, the children map each value of a
- * value or selection handle, or `true` and `false` of a flag or toggle, to its content. Cases are visual: art, text,
- * and icons, but no slot-bound controls.
+ * children are `<Case>` elements and the binding name or handle selects one; with `on`, the children map each value
+ * of a value or selection handle, or `true` and `false` of a flag or toggle, to its content. Cases may hold regions,
+ * items, and collections, which claim their slots only while their case is drawn.
  */
 export function Switch<V extends string>(props: SwitchProps | SwitchOnProps<V> | SwitchFlagProps): Element {
     if ("on" in props) {
@@ -931,14 +1048,13 @@ export function Switch<V extends string>(props: SwitchProps | SwitchOnProps<V> |
         const cases = values.map((value) => Case({ value, children: content[value] }));
         return switchNode(props, { handle: refJson(props.on) }, cases);
     }
-    requireName(props.bind, "Switch bind");
     const cases = renderNodes(props.children).map((node) => {
         if (!("type" in node) || node.type !== "case") {
             throw new Error("<Switch> children must be <Case> elements");
         }
         return node;
     });
-    return switchNode(props, { name: props.bind }, cases);
+    return switchNode(props, binding(props.bind, "Switch bind"), cases);
 }
 
 /** Draws its children only while the condition `when` is true; their space is always reserved. */
@@ -975,8 +1091,12 @@ export function Item(props: ItemSlotProps): Element {
         slots: props.slots,
         pattern: props.pattern,
         ...layout(props),
+        ...debug(props),
     }) as Element;
 }
+
+/** Real item stacks in the slots it covers: its parent box's, or in a section its `span`/`at` area. */
+export const Items: typeof Item = Item;
 
 /** A scrolling item collection; by default it spans the full section width. */
 export function Collection(props: CollectionProps): Element {
@@ -996,6 +1116,7 @@ export function Collection(props: CollectionProps): Element {
             ...props,
             ...(full ? { col: { start: 1, end: -1 } } : {}),
         }),
+        ...debug(props),
     }) as Element;
 }
 
@@ -1071,8 +1192,12 @@ export function AnvilInput(props: AnvilInputProps): Element {
         ...nameOrBind(props, "AnvilInput"),
         initial: props.initial,
         item_model: props.itemModel,
+        ...debug(props),
     }) as Element;
 }
+
+/** The anvil's native rename field, bound as a text input. */
+export const Input: typeof AnvilInput = AnvilInput;
 
 /** The title strip above the container grid, centering its children. */
 export function Header(props: BoxProps): Element {
@@ -1088,6 +1213,7 @@ export function Window(props: WindowProps): { windows: WindowDef[] } {
         bleed: props.bleed,
         frame: props.frame,
         children: nodes(props.children),
+        ...debug(props),
     }) as WindowDef;
     return cascade(ui(def), props.text);
 }
@@ -1110,12 +1236,13 @@ const ANCHORS: Record<HudAnchor, [number, number]> = {
  */
 export function Hud(props: HudProps): { huds: HudDef[] } {
     requireName(props.name, "Hud");
-    const { name, channel, bleed, frame, anchor, offset, sourceBottom, width, height, ...box } = props;
+    const { name, channel, bleed, frame, anchor, offset, sourceBottom, width, height, debugName, ...box } = props;
     const fixed = typeof width === "number" && typeof height === "number";
     if (!fixed && (width !== undefined || height !== undefined)) {
         throw new Error("<Hud> `width` and `height` must both be pixel numbers, or both be omitted");
     }
-    const root = Box({ direction: "column", ...box });
+    const named = debugName === undefined ? {} : { debugName };
+    const root = Box({ direction: "column", ...named, ...box });
     let shader: HudDef["shader"];
     if (anchor !== undefined) {
         const [x, y] = typeof anchor === "string" ? ANCHORS[anchor] : [anchor.x, anchor.y];
@@ -1136,6 +1263,7 @@ export function Hud(props: HudProps): { huds: HudDef[] } {
         width: fixed ? width : undefined,
         height: fixed ? height : undefined,
         children: [root],
+        ...debug(named),
     }) as HudDef;
     return hud(def);
 }

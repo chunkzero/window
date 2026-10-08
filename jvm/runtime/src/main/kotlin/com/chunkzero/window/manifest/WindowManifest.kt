@@ -49,7 +49,7 @@ public data class WindowManifest(
 ) {
     public companion object {
         /** The schema version this runtime reads. */
-        public const val VERSION: Int = 7
+        public const val VERSION: Int = 8
 
         private val json =
             Json {

@@ -307,3 +307,20 @@ fn indexed_families_repeat_only_along_exclusive_case_paths() {
     let err = super::project_from_json(nested(cases, power.clone()).as_bytes()).unwrap_err();
     assert!(err.to_string().contains("indexed binding `power` repeats index [0]"), "{err}");
 }
+
+#[test]
+fn item_and_collection_handles_repeat_across_exclusive_cases() {
+    let control = |kind: &str, handle: &str, id: &str| json!({ "type": kind, "handle": { "kind": handle, "id": id } });
+    let case = |value: &str| {
+        let children = [control("item", "items", "stack"), control("collection", "collection", "grid")];
+        json!({ "type": "case", "value": value, "children": children })
+    };
+    let children = json!([{ "type": "section", "section": "container", "claim": "none", "children": [
+        { "type": "switch", "name": "kind", "children": [case("good"), case("bad")] },
+    ] }]);
+    let laid = solve_one(themed(json!({}), children), &sizes(&[]));
+    let items: Vec<&str> = laid.items.iter().map(|item| item.name.as_str()).collect();
+    let collections: Vec<&str> = laid.collections.iter().map(|c| c.name.as_str()).collect();
+    assert_eq!(items, ["stack", "stack~2"]);
+    assert_eq!(collections, ["grid", "grid~2"]);
+}

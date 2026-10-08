@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use super::art::{ArtRefDto, ArtUse, intern};
+
 use crate::ir::Tooltip;
 use crate::model::ControlState;
 use crate::{Error, Result};
@@ -36,17 +38,23 @@ impl TooltipDto {
 #[serde(deny_unknown_fields)]
 pub(super) struct ButtonStateDto {
     item_model: Option<String>,
-    frame: Option<String>,
-    sprite: Option<String>,
+    frame: Option<ArtRefDto>,
+    sprite: Option<ArtRefDto>,
     tooltip: Option<TooltipDto>,
 }
 
 impl ButtonStateDto {
+    /// Interns the state's inline art into `theme`.
+    pub(super) fn intern_art(&mut self, theme: &mut crate::model::Theme) -> Result<()> {
+        intern(theme, &mut self.frame, ArtUse::Frame)?;
+        intern(theme, &mut self.sprite, ArtUse::Sprite)
+    }
+
     pub(super) fn into_state(self) -> Result<ControlState> {
         Ok(ControlState {
             item_model: self.item_model,
-            frame: self.frame,
-            sprite: self.sprite,
+            frame: self.frame.map(|frame| frame.name()).transpose()?,
+            sprite: self.sprite.map(|sprite| sprite.name()).transpose()?,
             tooltip: self.tooltip.map(TooltipDto::into_tooltip).transpose()?,
         })
     }

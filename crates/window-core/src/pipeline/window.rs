@@ -71,7 +71,10 @@ fn sprite_slots(
         let k = sprite_slot.rect.y - title_y;
         let font = ctx.sprite_font(k);
         let entry = sprite_slot_entry(font, &sprite_slot.rect, sprite_slot.align, sprite_slot.sprite.clone());
-        entries.insert(sprite_slot.name.clone(), SpriteSlotEntry { binding: sprite_slot.binding.clone(), ..entry });
+        entries.insert(
+            sprite_slot.name.clone(),
+            SpriteSlotEntry { binding: sprite_slot.binding.clone(), source: sprite_slot.source.clone(), ..entry },
+        );
         if let Some(sprite) = &sprite_slot.sprite {
             let subject = format!("sprite slot `{}`", sprite_slot.name);
             check_sprite_fits(ctx.runtime_sprites, &w.name, &subject, sprite, &sprite_slot.rect)?;
@@ -115,12 +118,23 @@ pub(super) fn slot_entry(
         binding: slot.binding.clone(),
         overflow: fit.ellipsis.then_some(TextOverflow::Ellipsis),
         lines,
+        source: slot.source.clone(),
     })
 }
 
 /// Build a [`SpriteSlotEntry`] covering `rect` drawn with `font`.
 pub(super) fn sprite_slot_entry(font: String, rect: &Rect, align: Align, sprite: Option<String>) -> SpriteSlotEntry {
-    SpriteSlotEntry { x: rect.x, y: rect.y, width: rect.width, height: rect.height, align, font, sprite, binding: None }
+    SpriteSlotEntry {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        align,
+        font,
+        sprite,
+        binding: None,
+        source: None,
+    }
 }
 
 fn surface_entry(surface: &Surface) -> SurfaceEntry {

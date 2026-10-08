@@ -6,7 +6,7 @@ use crate::inventory::{InventorySlotArea, InventorySlotRef};
 use crate::ir::{Align, CollectionIr, LaidOutWindow, RegionIr, RepeatBindingIr};
 use crate::manifest::{
     AnvilInputEntry, CasePath, CollectionEntry, ItemEntry, RegionEntry, RepeatGroupEntry, SlotRefEntry,
-    SpriteSlotEntry, SwitchEntry, exclusive_cases, region_case_paths,
+    SpriteSlotEntry, SwitchEntry, case_paths, exclusive_cases,
 };
 use crate::surface::{ContainerKind, Surface};
 use crate::{Error, Result};
@@ -24,7 +24,7 @@ pub(super) struct InventoryEntries {
 }
 
 /// Claim slots for every control: regions, items, collections, inputs, then regions claiming only unowned slots.
-/// Regions in mutually exclusive switch cases may claim the same slots.
+/// Controls in mutually exclusive switch cases may claim the same slots.
 pub(super) fn compile_inventory(
     ctx: &mut CompileContext<'_>,
     w: &LaidOutWindow,
@@ -32,20 +32,22 @@ pub(super) fn compile_inventory(
     title_y: i32,
 ) -> Result<InventoryEntries> {
     let Surface::Container(kind) = w.surface;
-    let paths = region_case_paths(switches);
+    let paths = case_paths(switches);
     let mut claims = SlotClaims { window: &w.name, kind, owners: BTreeMap::new() };
     let mut entries = InventoryEntries::default();
     let input_slot = (!w.inputs.is_empty()).then(|| InventorySlotRef::container(0));
     for region in w.regions.iter().filter(|region| !region.unowned) {
-        let path = paths.get(&region.name).cloned().unwrap_or_default();
+        let path = paths.regions.get(&region.name).cloned().unwrap_or_default();
         entries.regions.insert(region.name.clone(), region_entry(&mut claims, region, path, input_slot)?);
     }
     for item in &w.items {
-        let slots = claims.claim(&format!("item `{}`", item.name), &[], &item.slots)?;
+        let path = paths.items.get(&item.name).map(Vec::as_slice).unwrap_or_default();
+        let slots = claims.claim(&format!("item `{}`", item.name), path, &item.slots)?;
         entries.items.insert(item.name.clone(), ItemEntry { slots });
     }
     for collection in &w.collections {
-        let slots = claims.claim(&format!("collection `{}`", collection.name), &[], &collection.slots)?;
+        let path = paths.collections.get(&collection.name).map(Vec::as_slice).unwrap_or_default();
+        let slots = claims.claim(&format!("collection `{}`", collection.name), path, &collection.slots)?;
         let selection = collection_selection(ctx, &claims, collection, title_y)?;
         entries
             .collections
@@ -63,7 +65,8 @@ pub(super) fn compile_inventory(
         );
     }
     for region in w.regions.iter().filter(|region| region.unowned) {
-        let slots = claims.claim_unowned(&region.source, region.slots.as_deref().unwrap_or_default())?;
+        let path = paths.regions.get(&region.name).map(Vec::as_slice).unwrap_or_default();
+        let slots = claims.claim_unowned(&region.source, path, region.slots.as_deref().unwrap_or_default())?;
         if !slots.is_empty() {
             entries.regions.insert(region.name.clone(), RegionEntry { slots, ..base_entry(region) });
         }
@@ -106,15 +109,21 @@ impl SlotClaims<'_> {
         Ok(out)
     }
 
-    /// Claim only the slots no earlier control owns.
-    fn claim_unowned(&mut self, owner: &str, slots: &[InventorySlotRef]) -> Result<Vec<SlotRefEntry>> {
+    /// Claim only the slots no earlier control owns in a case that can be active with `path`.
+    fn claim_unowned(
+        &mut self,
+        owner: &str,
+        path: &[(String, String)],
+        slots: &[InventorySlotRef],
+    ) -> Result<Vec<SlotRefEntry>> {
         let mut out = Vec::new();
         for slot in slots {
             self.validate(owner, slot)?;
-            if self.owners.contains_key(slot) {
+            let owners = self.owners.entry(*slot).or_default();
+            if owners.iter().any(|(_, other)| !exclusive_cases(path, other)) {
                 continue;
             }
-            self.owners.insert(*slot, vec![(owner.to_string(), Vec::new())]);
+            owners.push((owner.to_string(), path.to_vec()));
             out.push((*slot).into());
         }
         Ok(out)

@@ -376,3 +376,26 @@ fn regions_in_exclusive_cases_share_slots_and_real_overlaps_are_rejected() {
     let err = compile_children(&format!("[{buy},{info}]")).unwrap_err();
     assert!(err.to_string().contains("hotspot `info` and button `buy` both own container slot 0"), "{err}");
 }
+
+fn compile_with_png(project: &str, path: &str) -> CompileOutput {
+    let png = solid(4, 4, [255, 0, 0, 255]).encode_png().unwrap();
+    let input = crate::pipeline::CompileInput::new(BTreeMap::from([(path.to_string(), png)]));
+    crate::pipeline::compile_project_json(project.as_bytes(), &input).unwrap()
+}
+
+#[test]
+fn inline_resource_texture_image_resolves_to_its_source_path() {
+    let project = r#"{"windows":[{"name":"shop","container":"generic_9x3","children":[
+      {"type":"sprite","art":{"art":"texture","texture":"demo:item/coin.png","width":4,"height":4},"x":8,"y":20}
+    ]}]}"#;
+    compile_with_png(project, "assets/demo/textures/item/coin.png");
+}
+
+#[test]
+fn inline_resource_texture_frame_resolves_to_its_source_path() {
+    let project = r#"{"windows":[{"name":"shop","container":"generic_9x3","children":[
+      {"type":"flex","frame":{"art":"texture","texture":"demo:item/coin.png","insets":1},"x":8,"y":20,
+       "style":{"width":12,"height":12}}
+    ]}]}"#;
+    compile_with_png(project, "assets/demo/textures/item/coin.png");
+}

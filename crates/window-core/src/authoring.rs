@@ -5,6 +5,7 @@
 //! intentionally close to the public model: frames and sprites live under
 //! `theme`, and windows carry a tree of typed elements.
 
+pub(crate) mod art;
 mod button;
 mod element;
 mod flex;

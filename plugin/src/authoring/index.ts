@@ -1,6 +1,8 @@
 export type * from "./types.ts";
 export * as raw from "./raw.ts";
 export { theme } from "./elements.ts";
+export { shape, texture } from "./art.ts";
+export type { ShapeStyle, TextureOptions } from "./art.ts";
 export {
     containerSlot,
     containerSlots,
@@ -52,10 +54,15 @@ export {
     Hotspot,
     Hud,
     Icon,
+    Image,
+    Input,
     Item,
+    Items,
     Player,
+    Region,
     Repeater,
     Row,
+    Section,
     Show,
     Slots,
     Spacer,
@@ -74,13 +81,19 @@ export type {
     Child,
     ChoiceProps,
     CollectionProps,
+    DebugProps,
     HotspotProps,
     HudAnchor,
     HudProps,
     IconProps,
+    ImageArtProps,
+    ImageBindProps,
+    ImageProps,
     ItemProps,
     ItemSlotProps,
+    RegionProps,
     RepeaterProps,
+    SectionOfProps,
     SectionProps,
     ShowProps,
     SlotsProps,

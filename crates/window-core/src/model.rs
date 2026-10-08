@@ -1,7 +1,7 @@
 //! The authored UI model, after authoring data has been decoded and before
 //! layout. See `docs/AUTHORING.md` for the source format.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
@@ -11,7 +11,7 @@ use crate::surface::ContainerKind;
 mod flex;
 mod generated;
 
-pub use flex::{FlexBox, ItemLayout, LayoutChild, SlotSection, Switch, SwitchCase};
+pub use flex::{FlexBox, ItemLayout, LayoutChild, Region, SlotSection, Switch, SwitchCase};
 pub use generated::{GeneratedKind, GeneratedStyle};
 
 /// All theme definitions across every theme document (names are global).
@@ -25,6 +25,9 @@ pub struct Theme {
     pub fonts: BTreeMap<String, FontDef>,
     /// Palette colors by name, emitted for runtime code.
     pub colors: BTreeMap<String, Rgb>,
+    /// Interned inline art sprites the runtime draws. Other inline art sprites are only baked into static art, so
+    /// they stay out of the runtime sprite catalog.
+    pub runtime_art: BTreeSet<String>,
 }
 
 /// A frame definition.
@@ -89,6 +92,8 @@ pub struct Window {
     pub indexed: BTreeMap<String, IndexedBinding>,
     /// Typed handles by id; their elements carry the entry names of their uses.
     pub handles: BTreeMap<String, Handle>,
+    /// Authored name shown in errors and diagnostics.
+    pub debug_name: Option<String>,
 }
 
 /// One authored HUD.
@@ -113,6 +118,8 @@ pub struct Hud {
     pub indexed: BTreeMap<String, IndexedBinding>,
     /// Typed handles by id; their elements carry the entry names of their uses.
     pub handles: BTreeMap<String, Handle>,
+    /// Authored name shown in errors and diagnostics.
+    pub debug_name: Option<String>,
 }
 
 /// Cross-axis alignment for `row`/`column` children.
@@ -266,6 +273,8 @@ pub enum Element {
         name: String,
         /// Explicit position (overrides flow).
         pos: Option<Point>,
+        /// Authored name shown in errors and diagnostics.
+        debug_name: Option<String>,
     },
     /// A runtime-selected sprite region. The compiler emits the sprite catalog
     /// into y-shifted fonts and the runtime binds this region by name.
@@ -280,6 +289,8 @@ pub enum Element {
         align: Align,
         /// Fixed sprite id, or `None` for a runtime-selected sprite.
         sprite: Option<String>,
+        /// Authored name shown in errors and diagnostics.
+        debug_name: Option<String>,
     },
     /// A clickable region with optional frame and visual children.
     Button {
@@ -341,6 +352,8 @@ pub enum Element {
         /// valid inside a [`Element::Repeater`], and mutually exclusive with
         /// `slots`/`pattern`.
         cell_slot: Option<u32>,
+        /// Authored name shown in errors and diagnostics.
+        debug_name: Option<String>,
     },
     /// A repeated dynamic item region with optional click handling.
     Collection {
@@ -356,6 +369,8 @@ pub enum Element {
         selected_sprite: Option<String>,
         /// Whether codegen/runtime should expect a click handler.
         action: bool,
+        /// Authored name shown in errors and diagnostics.
+        debug_name: Option<String>,
     },
     /// Native anvil rename-field binding. Only valid on an `anvil` surface.
     AnvilInput {
@@ -365,6 +380,8 @@ pub enum Element {
         initial: String,
         /// Optional item model used by the input-slot seed item.
         item_model: Option<String>,
+        /// Authored name shown in errors and diagnostics.
+        debug_name: Option<String>,
     },
     /// Draw one framed rectangle per slot in a pattern, optionally claiming
     /// backing slots without a Kotlin binding.
@@ -404,6 +421,8 @@ pub enum Element {
         pos: Option<Point>,
         /// Styling.
         style: TextStyle,
+        /// Authored name shown in errors and diagnostics.
+        debug_name: Option<String>,
     },
     /// A dynamic text region (becomes an abstract member in codegen).
     Slot {
@@ -418,7 +437,11 @@ pub enum Element {
         style: TextStyle,
         /// Runtime fitting of overflowing content.
         fit: TextFit,
+        /// Authored name shown in errors and diagnostics.
+        debug_name: Option<String>,
     },
+    /// An inventory region: the slots it covers take its clicks and show its hitbox item.
+    Region(Box<Region>),
     /// A taffy flexbox or grid box.
     Flex(Box<FlexBox>),
     /// A slot section laid out as a taffy grid of inventory slots.

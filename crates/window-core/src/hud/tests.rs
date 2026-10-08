@@ -39,6 +39,7 @@ fn shader_hud(name: &str, slot_name: &str) -> LaidOutHud {
             repeat: None,
             binding: None,
             fit: Default::default(),
+            source: None,
         }],
         switches: Vec::new(),
         layers: Vec::new(),

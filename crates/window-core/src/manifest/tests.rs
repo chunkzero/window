@@ -70,6 +70,7 @@ fn sample_title_slot() -> SlotEntry {
         binding: None,
         overflow: None,
         lines: None,
+        source: None,
     }
 }
 
@@ -134,8 +135,8 @@ fn rejects_unknown_version() {
 }
 
 #[test]
-fn region_case_paths_follow_nested_switches() {
-    let paths = region_case_paths(&sample_window().switches);
+fn case_paths_follow_nested_switches() {
+    let paths = case_paths(&sample_window().switches).regions;
     let on = &paths["buy.on"];
     assert_eq!(on, &vec![("mode".to_string(), "shop".to_string()), ("buy".to_string(), "on".to_string())]);
     assert!(exclusive_cases(on, &paths["buy.off"]));

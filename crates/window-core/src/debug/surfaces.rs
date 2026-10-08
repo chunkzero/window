@@ -92,14 +92,17 @@ fn tree_layers(
             Layer::Slot(name) => {
                 if let Some(slot) = entries.slots.get(name) {
                     out.push(DebugLayer {
-                        source: source(name),
+                        source: slot.source.clone().or_else(|| source(name)),
                         ..text_layer(manifest, name, slot, origin[1], net_advance)
                     });
                 }
             }
             Layer::SpriteSlot(name) => {
                 if let Some(slot) = entries.sprite_slots.get(name) {
-                    out.push(DebugLayer { source: source(name), ..sprite_layer(name, slot, origin[1], net_advance) });
+                    out.push(DebugLayer {
+                        source: slot.source.clone().or_else(|| source(name)),
+                        ..sprite_layer(name, slot, origin[1], net_advance)
+                    });
                 }
             }
             Layer::Switch(name) => {

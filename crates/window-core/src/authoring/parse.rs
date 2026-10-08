@@ -34,3 +34,24 @@ pub(super) fn validate_name(name: &str, kind: &str) -> Result<()> {
         Err(Error::Validation(format!("{kind} name `{name}` is invalid; must match ^[a-z][a-z0-9_]*$")))
     }
 }
+
+/// The snake_case name of a runtime sprite authored as `snake_case` or `camelCase`, such as `lamp_on` for `lampOn`.
+pub(super) fn sprite_key(name: &str, kind: &str) -> Result<String> {
+    let mut bytes = name.bytes();
+    let alphanumeric =
+        bytes.next().is_some_and(|b| b.is_ascii_lowercase()) && bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_');
+    let mixed = name.bytes().any(|b| b.is_ascii_uppercase()) && name.contains('_');
+    if !alphanumeric || mixed {
+        return Err(Error::Validation(format!(
+            "{kind} name `{name}` is invalid; must be snake_case (^[a-z][a-z0-9_]*$) or camelCase (^[a-z][a-zA-Z0-9]*$)"
+        )));
+    }
+    let mut key = String::with_capacity(name.len() + 2);
+    for c in name.chars() {
+        if c.is_ascii_uppercase() {
+            key.push('_');
+        }
+        key.push(c.to_ascii_lowercase());
+    }
+    Ok(key)
+}

@@ -218,6 +218,8 @@ pub struct SlotIr {
     pub binding: Option<String>,
     /// Runtime fitting of overflowing content; the default for static labels.
     pub fit: TextFit,
+    /// The `debug_name` of the nearest authored element this slot comes from.
+    pub source: Option<String>,
 }
 
 /// The kind of binding an [`IndexedBinding`] family flattens.
@@ -353,6 +355,9 @@ pub struct Handle {
     /// Whether a collection marks a selected cell.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub selectable: bool,
+    /// The catalog sprites a sprite handle may show; empty for any catalog sprite.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub only: Vec<String>,
     /// Every use, in authoring order.
     pub uses: Vec<HandleUse>,
 }
@@ -365,6 +370,7 @@ impl Handle {
             && self.shape == other.shape
             && self.initial == other.initial
             && self.selectable == other.selectable
+            && self.only == other.only
     }
 }
 
@@ -384,6 +390,8 @@ pub struct SpriteSlotIr {
     pub repeat: Option<RepeatBindingIr>,
     /// The binding this sprite slot shares with its copies in the other cases of one switch.
     pub binding: Option<String>,
+    /// The `debug_name` of the nearest authored element this sprite slot comes from.
+    pub source: Option<String>,
 }
 
 /// An inventory region: slots it claims and fills with its hitbox item, and the action its clicks name.
@@ -500,6 +508,10 @@ pub struct SwitchCaseIr {
     pub regions: Vec<String>,
     /// Names of the switches directly inside this case.
     pub switches: Vec<String>,
+    /// Names of the item regions directly inside this case.
+    pub items: Vec<String>,
+    /// Names of the collections directly inside this case.
+    pub collections: Vec<String>,
 }
 
 /// One runtime-drawn layer; a surface's layers compose in authored tree order above its static chrome.

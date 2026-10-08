@@ -30,7 +30,7 @@ struct FontDto {
 }
 
 #[derive(Debug, Deserialize)]
-struct FrameDto {
+pub(super) struct FrameDto {
     texture: Option<String>,
     insets: Option<InsetsDto>,
     #[serde(flatten)]
@@ -38,7 +38,7 @@ struct FrameDto {
 }
 
 #[derive(Debug, Deserialize)]
-struct SpriteDto {
+pub(super) struct SpriteDto {
     texture: Option<String>,
     width: Option<u32>,
     height: Option<u32>,
@@ -113,7 +113,7 @@ impl ThemeDto {
 }
 
 impl FrameDto {
-    fn into_frame(self) -> Result<Frame> {
+    pub(super) fn into_frame(self) -> Result<Frame> {
         if let Some(texture) = self.texture {
             self.generated.reject_for_texture("texture frame")?;
             return Ok(Frame::Texture { texture, insets: self.insets.unwrap_or_default().into_insets() });
@@ -129,7 +129,7 @@ impl FrameDto {
 }
 
 impl SpriteDto {
-    fn into_sprite(self) -> Result<SpriteDef> {
+    pub(super) fn into_sprite(self) -> Result<SpriteDef> {
         if let Some(texture) = self.texture {
             self.generated.reject_for_texture("texture sprite")?;
             let size = match (self.width, self.height) {

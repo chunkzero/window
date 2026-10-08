@@ -4,6 +4,7 @@ use crate::Result;
 use crate::geometry::{Insets, Point, Rect, Size};
 use crate::ir::{Align, Draw, Layer, RepeatBindingIr, SlotIr, SpriteSlotIr, TextureKey};
 use crate::model::{Element, Frame, SpriteDef, TextFit, TextStyle};
+use crate::pipeline::texture_source_path;
 
 impl<T: LayoutTarget> Solver<'_, T> {
     pub(super) fn place_panel(&mut self, frame: &str, rect: Rect, padding: u32, children: &[Element]) -> Result<Size> {
@@ -46,6 +47,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             sprite: sprite.map(str::to_string),
             repeat: self.repeat_binding(name),
             binding,
+            source: None,
         });
         Ok(rect.size())
     }
@@ -99,7 +101,9 @@ impl<T: LayoutTarget> Solver<'_, T> {
         let rect = Rect::from_parts(origin, self.sprite_size(name, def)?);
         self.warn_if_overflow(rect, &format!("sprite `{name}`"));
         self.draws.push(match def {
-            SpriteDef::Texture { texture, .. } => Draw::Sprite { texture: TextureKey(texture.clone()), dest: rect },
+            SpriteDef::Texture { texture, .. } => {
+                Draw::Sprite { texture: TextureKey(texture_source_path(texture)), dest: rect }
+            }
             SpriteDef::Generated { style, .. } => Draw::Generated { style: style.clone(), dest: rect },
         });
         Ok(rect)
@@ -128,7 +132,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 if tex_size.width < min_w || tex_size.height < min_h {
                     return Err(self.target.frame_too_small_err(frame, texture, tex_size, min_w, min_h));
                 }
-                Ok(Draw::NineSlice { texture: TextureKey(texture.clone()), insets: *insets, dest })
+                Ok(Draw::NineSlice { texture: TextureKey(texture_source_path(texture)), insets: *insets, dest })
             }
             Frame::Generated(style) => Ok(Draw::Generated { style: style.clone(), dest }),
         }
@@ -160,5 +164,6 @@ fn text_slot_ir(
         repeat,
         binding,
         fit,
+        source: None,
     }
 }

@@ -1,15 +1,20 @@
 use super::flow::Axis;
 use super::slots::cells_bounds;
 use super::target::LayoutTarget;
-use super::{Solver, pos_of};
+use super::{Solver, debug_name_of, pos_of};
 use crate::Result;
 use crate::geometry::{Insets, Size};
 use crate::inventory::SlotPattern;
 use crate::model::{Element, SpriteDef};
+use crate::pipeline::texture_source_path;
 
 impl<'a, T: LayoutTarget> Solver<'a, T> {
     /// The size an element occupies, independent of where it is placed.
     pub(super) fn measure(&self, el: &Element) -> Result<Size> {
+        self.measure_element(el).map_err(|error| error.with_debug_name(debug_name_of(el)))
+    }
+
+    fn measure_element(&self, el: &Element) -> Result<Size> {
         match el {
             Element::Panel { size, .. } => Ok(*size),
             Element::Button { name, size, pattern, .. } | Element::Hotspot { name, size, pattern, .. } => {
@@ -30,6 +35,10 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             }
             Element::Slot { name, width, fit, .. } => {
                 Ok(Size::new(self.required_slot_width(name, *width)?, fit.height()))
+            }
+            Element::Region(region) => {
+                self.require_interaction("region")?;
+                Ok(region.size.unwrap_or_default())
             }
             Element::Item { .. }
             | Element::Collection { .. }
@@ -97,7 +106,8 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
     }
 
     pub(super) fn intrinsic_texture_size(&self, texture: &str, referenced_by: &str) -> Result<Size> {
-        (self.texture_size)(texture).ok_or_else(|| self.target.missing_texture_err(texture, referenced_by))
+        (self.texture_size)(&texture_source_path(texture))
+            .ok_or_else(|| self.target.missing_texture_err(texture, referenced_by))
     }
 
     pub(super) fn required_slot_width(&self, name: &str, width: Option<u32>) -> Result<u32> {

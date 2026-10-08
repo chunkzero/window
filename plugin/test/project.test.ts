@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { defineWindows, raw, theme } from "../src/authoring/index.ts";
+import { defineWindows, raw, texture, theme } from "../src/authoring/index.ts";
 import type { WindowDocument } from "../src/authoring/types.ts";
 import { buildProject, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
 import type { CompileOutput, KotlinOptions, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
@@ -199,4 +199,26 @@ test("without an entry every module's default export is read, with a warning", (
     assert.deepEqual(documents, [shop]);
     assert.equal(warnings.length, 1);
     assert.match(warnings[0]!, /defineWindows/);
+});
+
+test("defineWindows sprites become the catalog and inline art textures are inputs", () => {
+    const lamp = texture("window:gui/lamp");
+    const window = raw.ui({
+        name: "w",
+        container: "generic_9x1",
+        children: [raw.flex({ frame: texture("window:gui/frame.png", { insets: 2 }) })],
+    });
+    const entry = defineWindows({ sprites: { lamp }, windows: [window] });
+    const files = { "assets/window/textures/gui/lamp.png": "png", "assets/window/textures/gui/frame.png": "png" };
+    const { ctx } = fake({ "window/index.ts": entry }, files);
+    const { documents, files: inputs } = collectInputs(ctx);
+    assert.deepEqual(buildProject(documents, {}, 84).sprites, { lamp });
+    assert.deepEqual(inputs.map((file) => file.path).sort(), Object.keys(files).sort());
+});
+
+test("sprite catalog names that match inherited properties are ordinary names", () => {
+    const art = texture("window:gui/lamp");
+    const documents: WindowDocument[] = [{ sprites: { constructor: art } }, { sprites: { toString: art } }];
+    assert.deepEqual(Object.keys(buildProject(documents, {}, 84).sprites ?? {}), ["constructor", "toString"]);
+    assert.throws(() => buildProject([documents[0]!, documents[0]!], {}, 84), /declares `constructor` twice/);
 });

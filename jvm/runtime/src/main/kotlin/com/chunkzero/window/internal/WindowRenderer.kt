@@ -124,10 +124,10 @@ internal class WindowRenderer<I : Any>(
         state: String,
     ): Boolean = switches.select(name, state).also { if (it) updateCases() }
 
-    /** Swaps the art and regions of switch cases whose activity changed. */
+    /** Swaps the art and inventory slots of switch cases whose activity changed. */
     private fun updateCases() {
         title.updateCases()
-        inventory.claimRegions()
+        inventory.claimCases()
     }
 
     private fun frame(): WindowFrame<I> = WindowFrame(title.compose(), inventory.drain())

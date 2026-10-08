@@ -55,7 +55,10 @@ export type ClickAction = Ref<"action" | "builtin" | "toggle"> | Set;
 export type Flag = Ref<"flag">;
 export type Toggle = Ref<"toggle">;
 export type Text = Ref<"text">;
-export type Sprite = Ref<"sprite">;
+/** A runtime sprite; `only` narrows it to some sprites of the `defineWindows` catalog. */
+export interface Sprite<O extends string = string> extends Ref<"sprite"> {
+    readonly only?: readonly O[];
+}
 export type Items = Ref<"items">;
 export type Collection = Ref<"collection">;
 export type Action = Ref<"action">;
@@ -85,7 +88,7 @@ type Fields = Record<string, unknown>;
 export function refJson(ref: { readonly kind: HandleKind; readonly id: string }): Fields {
     const out: Fields = { kind: ref.kind, id: ref.id };
     const fields = ref as unknown as Fields;
-    for (const key of ["values", "shape", "initial", "selectable", "at", "is", "set"]) {
+    for (const key of ["values", "shape", "initial", "selectable", "only", "at", "is", "set"]) {
         // An indexed handle's `at` is its entry selector, not an entry.
         if (fields[key] !== undefined && typeof fields[key] !== "function") {
             out[key] = fields[key];
@@ -218,12 +221,21 @@ export function text(id: string, options?: { shape?: Shape }): unknown {
     return shaped({ kind: "text", id } as Text, options?.shape, none);
 }
 
-/** A runtime sprite: `protected abstract fun iconSprite(): WindowSprite?`. */
+/**
+ * A runtime sprite: `protected abstract fun iconSprite(): WindowSprite?`. With `only`, it returns a generated enum of
+ * those `defineWindows` catalog sprites instead.
+ */
 export function sprite(id: string): Sprite;
+export function sprite<const O extends string>(id: string, options: { only: readonly [O, ...O[]] }): Sprite<O>;
 export function sprite<const S extends Shape>(id: string, options: { shape: S }): Indexed<Sprite, S>;
-export function sprite(id: string, options?: { shape?: Shape }): unknown {
+export function sprite<const O extends string, const S extends Shape>(
+    id: string,
+    options: { only: readonly [O, ...O[]]; shape: S },
+): Indexed<Sprite<O>, S>;
+export function sprite(id: string, options?: { only?: readonly string[]; shape?: Shape }): unknown {
     requireId(id, "sprite");
-    return shaped({ kind: "sprite", id } as Sprite, options?.shape, none);
+    const only = options?.only === undefined ? {} : { only: enumerated("sprite", id, options.only) };
+    return shaped({ kind: "sprite", id, ...only } as Sprite, options?.shape, none);
 }
 
 /** An inventory item: `protected abstract fun stack(): ItemStack?`. */
