@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { create, createTheme, defineVars, defineWindows, derive, mix, shape, variants } from "../src/authoring/ui.ts";
-import type { Color, Var } from "../src/authoring/ui.ts";
-import { value } from "../src/authoring/bind.ts";
-import * as raw from "../src/authoring/raw.ts";
+import { create, createTheme, defineVars, defineWindows, derive, mix, shape, variants } from "../src/ui/index.ts";
+import type { Color, Var } from "../src/ui/index.ts";
+import { value } from "../src/bind/index.ts";
+import * as raw from "../src/raw/index.ts";
 import { collectInputs } from "../src/project.ts";
-import { Box, Case, Hud, Image, Switch, Text, Window } from "../src/authoring/jsx.ts";
-import type { Element } from "../src/authoring/types.ts";
+import { Box, Case, Hud, Image, Switch, Text, Window } from "../src/ui/components.ts";
+import type { Element } from "../src/ui/document.ts";
 
 const colors = defineVars({ face: "#0994c6", text: "#ffffff" });
 const sizes = defineVars({ pad: 2 });

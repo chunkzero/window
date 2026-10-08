@@ -1,6 +1,7 @@
-import { root } from "./authoring/elements.ts";
-import { resolveTokens } from "./authoring/tokens.ts";
-import type { Art, Hud, TextFont, Window, WindowDocument } from "./authoring/types.ts";
+import { root } from "./ui/elements.ts";
+import { resolveTokens } from "./ui/tokens.ts";
+import type { Hud, Window, WindowDocument } from "./ui/document.ts";
+import type { Art, TextFont } from "./ui/types.ts";
 
 export interface WindowOptions {
     /** Namespace of the generated assets. Defaults to `window`. */

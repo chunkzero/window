@@ -1,5 +1,45 @@
 /** The JSX primitives, window definitions, slot helpers, art, styles, and tokens. */
-export type * from "./types.ts";
+export type {
+    Art,
+    ArtName,
+    ArtRef,
+    AutoLength,
+    ContainerKind,
+    Edges,
+    FixedLength,
+    FlexAlign,
+    FlexJustify,
+    GeneratedKind,
+    GridFlow,
+    GridLine,
+    HudChannel,
+    HudShader,
+    HudShaderPoint,
+    Insets,
+    InsetsEdges,
+    Length,
+    ShapeArt,
+    SlotArea,
+    SlotGridPattern,
+    SlotGridPatternOptions,
+    SlotList,
+    SlotPattern,
+    SlotPatternInput,
+    SlotRange,
+    SlotRectClaim,
+    SlotRectPattern,
+    SlotRectPatternOptions,
+    SlotRef,
+    SlotSection,
+    SlotSlotsPattern,
+    SlotSlotsPatternOptions,
+    TextAlign,
+    TextFont,
+    TextOverflow,
+    TextureArt,
+    Tooltip,
+} from "./types.ts";
+export type { Element, LabelOptions, SlotOptions, TextStyleOptions, WindowDocument } from "./document.ts";
 export { shape, texture } from "./art.ts";
 export type { ShapeStyle, TextureOptions } from "./art.ts";
 export { createTheme, defineVars, derive, mix } from "./tokens.ts";
@@ -31,7 +71,20 @@ export {
 } from "./inventory.ts";
 export { defineWindows } from "./windows.ts";
 export type { WindowsDefinition } from "./windows.ts";
-export { Box, Case, Collection, Hud, Image, Input, Items, Region, Section, Switch, Text, Window } from "./jsx.ts";
+export {
+    Box,
+    Case,
+    Collection,
+    Hud,
+    Image,
+    Input,
+    Items,
+    Region,
+    Section,
+    Switch,
+    Text,
+    Window,
+} from "./components.ts";
 export type {
     BoxProps,
     CaseProps,
@@ -55,4 +108,4 @@ export type {
     TextElementProps,
     TextProps,
     WindowProps,
-} from "./jsx.ts";
+} from "./components.ts";

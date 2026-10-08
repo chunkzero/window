@@ -1,8 +1,8 @@
-import { defineWindows, shape, texture } from "../src/authoring/ui.ts";
-import { action, builtin, flag, input, items, selection, sprite, text, toggle, value } from "../src/authoring/bind.ts";
-import type { Indexed, TextHandle } from "../src/authoring/bind.ts";
-import * as raw from "../src/authoring/raw.ts";
-import { Box, Case, Hud, Image, Items, Region, Section, Switch, Text, Window } from "../src/authoring/jsx.ts";
+import { defineWindows, shape, texture } from "../src/ui/index.ts";
+import { action, builtin, flag, input, items, selection, sprite, text, toggle, value } from "../src/bind/index.ts";
+import type { Indexed, TextHandle } from "../src/bind/index.ts";
+import * as raw from "../src/raw/index.ts";
+import { Box, Case, Hud, Image, Items, Region, Section, Switch, Text, Window } from "../src/ui/components.ts";
 
 const recess = shape({ kind: "slot", fill: "#102040" });
 const price = text("price");

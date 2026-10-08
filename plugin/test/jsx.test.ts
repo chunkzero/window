@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { Fragment, createElement, jsx } from "../.rpp/sdk/jsx.ts";
-import { shape, texture } from "../src/authoring/ui.ts";
-import { builtin, collection, selection, sprite, text, toggle, value } from "../src/authoring/bind.ts";
-import * as raw from "../src/authoring/raw.ts";
-import { Box, Case, Collection, Hud, Image, Region, Section, Switch, Text, Window } from "../src/authoring/jsx.ts";
+import { shape, texture } from "../src/ui/index.ts";
+import { builtin, collection, selection, sprite, text, toggle, value } from "../src/bind/index.ts";
+import * as raw from "../src/raw/index.ts";
+import { Box, Case, Collection, Hud, Image, Region, Section, Switch, Text, Window } from "../src/ui/components.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
     const child = Box({ children: Text({ children: "Hello" }) });

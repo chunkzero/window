@@ -1,8 +1,8 @@
-import * as industrial from "../src/authoring/theme/industrial/index.ts";
-import { create, createTheme, defineVars, derive, mix, shape, variants } from "../src/authoring/ui.ts";
-import type { BoxStyle, Color, Var, Variants } from "../src/authoring/ui.ts";
-import { action, collection, flag, items, selection, value } from "../src/authoring/bind.ts";
-import * as raw from "../src/authoring/raw.ts";
+import * as industrial from "../src/theme/industrial/index.ts";
+import { create, createTheme, defineVars, derive, mix, shape, variants } from "../src/ui/index.ts";
+import type { BoxStyle, Color, Var, Variants } from "../src/ui/index.ts";
+import { action, collection, flag, items, selection, value } from "../src/bind/index.ts";
+import * as raw from "../src/raw/index.ts";
 import {
     Box,
     Case,
@@ -15,7 +15,7 @@ import {
     Switch,
     Text,
     Window,
-} from "../src/authoring/jsx.ts";
+} from "../src/ui/components.ts";
 
 const colors = defineVars({ face: "#0994c6", text: "#ffffff" });
 const sizes = defineVars({ pad: 2 });

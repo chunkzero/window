@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import * as industrial from "../src/authoring/theme/industrial/index.ts";
-import { createTheme } from "../src/authoring/ui.ts";
-import { action, collection, flag, items, selection, toggle } from "../src/authoring/bind.ts";
-import { Image, Window } from "../src/authoring/jsx.ts";
-import { resolveTokens } from "../src/authoring/tokens.ts";
-import type { Element } from "../src/authoring/types.ts";
+import * as industrial from "../src/theme/industrial/index.ts";
+import { createTheme } from "../src/ui/index.ts";
+import { action, collection, flag, items, selection, toggle } from "../src/bind/index.ts";
+import { Image, Window } from "../src/ui/components.ts";
+import { resolveTokens } from "../src/ui/tokens.ts";
+import type { Element } from "../src/ui/document.ts";
 
 type Node = Record<string, unknown> & { children?: Node[] };
 
@@ -123,6 +123,13 @@ test("a collection style overrides the default frame, and an explicit frame over
     assert.equal((frame({}) as { name: string }).name, "industrial/slot");
     assert.equal(frame({ style: { frame: "custom" } }), "custom");
     assert.equal(frame({ style: { frame: "custom" }, frame: "explicit" }), "explicit");
+});
+
+test("explicitly undefined props keep their defaults", () => {
+    const [cell] = ofType(industrial.Collection({ bind: collection("shop"), selected: undefined }), "collection");
+    assert.equal((cell?.selected_sprite as { name: string }).name, "industrial/slot-selected");
+    const repeater = industrial.Repeater({ cell: [2, 1], columns: 3, rows: 1, span: undefined });
+    assert.deepEqual(ofType(repeater, "flex")[0]?.layout, { column: { span: 6 }, row: { span: 1 } });
 });
 
 test("tabs rendered from plain text get the text as their tooltip", () => {

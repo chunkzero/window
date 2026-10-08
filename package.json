@@ -6,11 +6,12 @@
     "fmt": "oxfmt --write .",
     "fmt:check": "oxfmt --check .",
     "check:ts": "tsc -p plugin && tsc -p plugin/test",
-    "test:ts": "node --test plugin/test/*.test.ts",
+    "test:ts": "node --import ./plugin/test/register.ts --test plugin/test/*.test.ts",
     "golden": "node scripts/golden.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.0",
+    "oxc-transform": "0.153.0",
     "oxfmt": "0.67.0",
     "typescript": "7.0.2"
   },

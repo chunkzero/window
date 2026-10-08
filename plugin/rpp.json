@@ -5,10 +5,10 @@
   "entry": "src/plugin.ts",
   "config": "src/config.ts",
   "exports": {
-    "./bind": "src/authoring/bind.ts",
-    "./ui": "src/authoring/ui.ts",
-    "./raw": "src/authoring/raw.ts",
-    "./theme/industrial": "src/authoring/theme/industrial/index.ts"
+    "./bind": "src/bind/index.ts",
+    "./ui": "src/ui/index.ts",
+    "./raw": "src/raw/index.ts",
+    "./theme/industrial": "src/theme/industrial/index.ts"
   },
   "components": {
     "compiler": "window.wasm"
