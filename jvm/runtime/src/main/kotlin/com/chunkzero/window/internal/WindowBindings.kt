@@ -1,8 +1,8 @@
 package com.chunkzero.window.internal
 
-import com.chunkzero.window.ButtonTooltip
 import com.chunkzero.window.Click
 import com.chunkzero.window.IndexedClick
+import com.chunkzero.window.Tooltip
 import com.chunkzero.window.WindowCollection
 import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.WindowScope
@@ -180,7 +180,7 @@ internal class WindowBindings<I : Any>(
 
     override fun tooltip(
         name: String,
-        tooltip: ButtonTooltip?,
+        tooltip: Tooltip?,
     ) {
         requireBindable(name)
         val item = tooltip?.let { buildItem(definition.tooltipHitbox(it)) }

@@ -1,7 +1,7 @@
 package com.chunkzero.window.internal
 
-import com.chunkzero.window.ButtonTooltip
 import com.chunkzero.window.SlotRef
+import com.chunkzero.window.Tooltip
 import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
@@ -34,7 +34,7 @@ internal class WindowInventory<I : Any>(
     private val claimed = LinkedHashSet<String>()
 
     /** Parsed manifest tooltips; components are immutable, so they are shared across renders. */
-    private val tooltips = HashMap<TooltipEntry, ButtonTooltip>()
+    private val tooltips = HashMap<TooltipEntry, Tooltip>()
 
     private var inputRevisions = 0
     private val items = LinkedHashMap<SlotRef, I?>()
@@ -172,9 +172,9 @@ internal class WindowInventory<I : Any>(
         for (slot in entry.regions.getValue(name).filledSlots) items[slot.toApi()] = item
     }
 
-    private fun tooltip(source: TooltipEntry): ButtonTooltip =
+    private fun tooltip(source: TooltipEntry): Tooltip =
         tooltips.getOrPut(source) {
-            ButtonTooltip(
+            Tooltip(
                 parseTooltipLine(source.title, NamedTextColor.WHITE),
                 source.lines.map { parseTooltipLine(it, NamedTextColor.GRAY) },
             )

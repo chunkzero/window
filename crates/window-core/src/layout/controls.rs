@@ -7,8 +7,7 @@ use crate::Result;
 use crate::geometry::{Insets, Point, Rect, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{
-    AnvilInputIr, ButtonTooltip, CollectionIr, Draw, Hitbox, ItemIr, Layer, RegionIr, RepeatBindingIr, SpriteSlotIr,
-    SwitchIr,
+    AnvilInputIr, CollectionIr, Draw, Hitbox, ItemIr, Layer, RegionIr, RepeatBindingIr, SpriteSlotIr, SwitchIr, Tooltip,
 };
 use crate::model::{ControlState, Element, RepeaterCells};
 use crate::surface::ContainerKind;
@@ -25,7 +24,7 @@ pub(super) struct ControlSpec<'e> {
 
 /// What a button or hotspot shows and does: its hitbox tooltip, named states, and default runtime action.
 pub(super) struct ControlBehavior<'e> {
-    pub(super) tooltip: Option<&'e ButtonTooltip>,
+    pub(super) tooltip: Option<&'e Tooltip>,
     pub(super) states: &'e BTreeMap<String, ControlState>,
     pub(super) default_action: Option<&'e str>,
 }

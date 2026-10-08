@@ -184,7 +184,7 @@ public interface WindowScope<I : Any> {
      */
     public fun tooltip(
         name: String,
-        tooltip: ButtonTooltip?,
+        tooltip: Tooltip?,
     )
 
     /**

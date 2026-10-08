@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::ir::{ButtonTooltip, Hitbox, Layer};
+use crate::ir::{Hitbox, Layer, Tooltip};
 use crate::manifest::{
     AnvilInputEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry, RegionEntry,
     RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry,
@@ -167,7 +167,7 @@ fn optional_hitbox_expr(hitbox: Option<&Hitbox>, level: usize) -> String {
         .finish()
 }
 
-fn optional_tooltip_expr(tooltip: Option<&ButtonTooltip>, level: usize) -> String {
+fn optional_tooltip_expr(tooltip: Option<&Tooltip>, level: usize) -> String {
     let Some(tooltip) = tooltip else {
         return "null".into();
     };

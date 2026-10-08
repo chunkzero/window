@@ -1,7 +1,7 @@
 package com.chunkzero.window.internal
 
-import com.chunkzero.window.ButtonTooltip
 import com.chunkzero.window.SlotRef
+import com.chunkzero.window.Tooltip
 import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
@@ -87,7 +87,7 @@ internal class WindowRenderer<I : Any>(
 
     fun setTooltip(
         name: String,
-        tooltip: ButtonTooltip?,
+        tooltip: Tooltip?,
     ): SlotWrites<I> = setButtonItem(name, tooltip?.let { buildItem(definition.tooltipHitbox(it)) })
 
     /** Switches button [name] to [state]; null when it already has that state. */

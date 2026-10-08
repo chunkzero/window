@@ -539,7 +539,7 @@ raw.hotspot("cost_help", {
 
 `tooltip` may be a string or `{ title: "...", lines: [...] }`. Runtime code can switch a button to a named state with
 `buttonState("rebirth", "ready")`, bind a reactive two-state toggle with `toggle(...)`, or set a rich Adventure tooltip
-from Kotlin with `tooltip("rebirth", ButtonTooltip(...))`. A button's state is either bound in `bind()` or set with
+from Kotlin with `tooltip("rebirth", Tooltip(...))`. A button's state is either bound in `bind()` or set with
 `buttonState(name, state)`, never both; the imperative call throws for a bound button.
 
 `toggle` and `choice` are authoring-time contracts over buttons: they require the conventional state names that the

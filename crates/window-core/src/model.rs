@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
-use crate::ir::{Align, ButtonTooltip, Handle, HudChannel, HudShader, IndexedBinding, Rgb};
+use crate::ir::{Align, Handle, HudChannel, HudShader, IndexedBinding, Rgb, Tooltip};
 use crate::surface::ContainerKind;
 
 mod flex;
@@ -215,7 +215,7 @@ pub struct ControlState {
     /// Theme sprite drawn at the control's top-left corner.
     pub sprite: Option<String>,
     /// Tooltip override.
-    pub tooltip: Option<ButtonTooltip>,
+    pub tooltip: Option<Tooltip>,
 }
 
 /// An element of the authored tree.
@@ -302,7 +302,7 @@ pub enum Element {
         /// The runtime action run when no click handler is bound, such as `window:close`.
         default_action: Option<String>,
         /// Default tooltip shown when hovering the button.
-        tooltip: Option<ButtonTooltip>,
+        tooltip: Option<Tooltip>,
         /// Named states, each drawn and hovered only while selected.
         states: BTreeMap<String, ControlState>,
         /// The authored widget kind this button comes from, such as `tab`; `None` for a plain button.
@@ -325,7 +325,7 @@ pub enum Element {
         /// `width`/`height` are omitted, the hotspot rect.
         pattern: Option<SlotPattern>,
         /// Default tooltip shown when hovering the hotspot.
-        tooltip: Option<ButtonTooltip>,
+        tooltip: Option<Tooltip>,
         /// Named states, each hovered only while selected.
         states: BTreeMap<String, ControlState>,
     },

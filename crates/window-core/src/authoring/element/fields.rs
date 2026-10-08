@@ -6,7 +6,7 @@ use crate::authoring::parse::{reject_unexpected_fields, validate_name};
 use crate::authoring::patterns::parse_slot_refs;
 use crate::geometry::{Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
-use crate::ir::{Align, ButtonTooltip, CLOSE_ACTION, Rgb};
+use crate::ir::{Align, CLOSE_ACTION, Rgb, Tooltip};
 use crate::model::{ControlState, CrossAlign, TextFit, TextStyle};
 use crate::{Error, Result, text_font};
 
@@ -317,7 +317,7 @@ impl ElementDto {
         }
     }
 
-    pub(super) fn tooltip(&self) -> Result<Option<ButtonTooltip>> {
+    pub(super) fn tooltip(&self) -> Result<Option<Tooltip>> {
         self.tooltip.clone().map(TooltipDto::into_tooltip).transpose()
     }
 

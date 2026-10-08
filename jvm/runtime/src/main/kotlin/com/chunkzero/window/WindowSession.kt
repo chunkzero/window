@@ -230,7 +230,7 @@ internal open class ContainerWindowSession<I : Any>(
 
     internal fun setTooltip(
         name: String,
-        tooltip: ButtonTooltip?,
+        tooltip: Tooltip?,
     ) = deliver(renderer.setTooltip(name, tooltip))
 
     private fun handleClick(click: Click) {

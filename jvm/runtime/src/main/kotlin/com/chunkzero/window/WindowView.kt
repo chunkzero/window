@@ -146,7 +146,7 @@ public abstract class WindowView<I : Any>(
     /** Sets or clears a tooltip on the invisible hitbox item for a button/hotspot. */
     protected fun tooltip(
         name: String,
-        tooltip: ButtonTooltip?,
+        tooltip: Tooltip?,
     ) {
         requireSession().setTooltip(name, tooltip)
     }

@@ -114,7 +114,7 @@ pub const CLOSE_ACTION: &str = "window:close";
 
 /// Tooltip content for a region's hitbox item.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ButtonTooltip {
+pub struct Tooltip {
     /// Tooltip title/name.
     pub title: String,
     /// Additional lore lines.
@@ -130,7 +130,7 @@ pub struct Hitbox {
     pub item_model: Option<String>,
     /// Hover tooltip.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tooltip: Option<ButtonTooltip>,
+    pub tooltip: Option<Tooltip>,
 }
 
 /// A texture reference: the pack-source-relative path of a PNG.

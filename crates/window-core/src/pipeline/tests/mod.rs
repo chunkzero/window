@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use super::*;
 use crate::geometry::{Insets, Rect};
-use crate::ir::{Align, ButtonTooltip, CLOSE_ACTION, Draw, Hitbox, RegionIr, Rgb, SlotIr, TextureKey};
+use crate::ir::{Align, CLOSE_ACTION, Draw, Hitbox, RegionIr, Rgb, SlotIr, TextureKey, Tooltip};
 use crate::surface::{ContainerKind, Surface};
 
 mod huds;
@@ -108,7 +108,7 @@ fn sample_window() -> (LaidOutWindow, BTreeMap<String, Texture>) {
         default_action: Some(CLOSE_ACTION.into()),
         hitbox: Some(Hitbox {
             item_model: None,
-            tooltip: Some(ButtonTooltip { title: "Buy".into(), lines: vec!["Spend coins".into()] }),
+            tooltip: Some(Tooltip { title: "Buy".into(), lines: vec!["Spend coins".into()] }),
         }),
         ..region("buy", Rect::new(8, 18, 16, 16), None)
     }];

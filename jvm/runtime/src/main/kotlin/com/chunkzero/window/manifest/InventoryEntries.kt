@@ -120,7 +120,7 @@ public data class RepeatGroupEntry(
     val actions: List<String> = emptyList(),
 )
 
-/** Manifest tooltip text as MiniMessage templates; the runtime parses it into a `ButtonTooltip`. */
+/** Manifest tooltip text as MiniMessage templates; the runtime parses it into a `Tooltip`. */
 @Serializable
 public data class TooltipEntry(
     /** Tooltip title/name template. */

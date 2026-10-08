@@ -1,9 +1,9 @@
 package com.chunkzero.window.host.testkit
 
-import com.chunkzero.window.ButtonTooltip
 import com.chunkzero.window.Click
 import com.chunkzero.window.SlotArea
 import com.chunkzero.window.SlotRef
+import com.chunkzero.window.Tooltip
 import com.chunkzero.window.host.ContainerKind
 import com.chunkzero.window.host.ContainerListener
 import com.chunkzero.window.host.WindowItem
@@ -500,7 +500,7 @@ public abstract class HostConformance<I : Any>(
 
         "equal item descriptions build equal items" {
             val host = fixture().host
-            val tooltip = ButtonTooltip(Component.text("title"), listOf(Component.text("line")))
+            val tooltip = Tooltip(Component.text("title"), listOf(Component.text("line")))
 
             host.item(WindowItem.Hitbox(MODEL, tooltip)) shouldBe host.item(WindowItem.Hitbox(MODEL, tooltip))
             host.item(WindowItem.AnvilSeed(MODEL, "text", 3)) shouldBe host.item(WindowItem.AnvilSeed(MODEL, "text", 3))
@@ -508,7 +508,7 @@ public abstract class HostConformance<I : Any>(
 
         "hitboxes differ by model and tooltip" {
             val host = fixture().host
-            val tooltip = ButtonTooltip(Component.text("title"))
+            val tooltip = Tooltip(Component.text("title"))
 
             host.item(WindowItem.Hitbox(MODEL, null)) shouldNotBe
                 host.item(WindowItem.Hitbox(Key.key("test", "other"), null))
@@ -542,7 +542,7 @@ private fun player(index: Int) = SlotRef(SlotArea.PLAYER, index)
 
 /** A distinct item named [name]. */
 private fun <I : Any> HostFixture<I>.hitbox(name: String): I =
-    host.item(WindowItem.Hitbox(Key.key("test", name), ButtonTooltip(Component.text(name))))
+    host.item(WindowItem.Hitbox(Key.key("test", name), Tooltip(Component.text(name))))
 
 /** What the client shows in its open screen. */
 private data class Screen<I : Any>(

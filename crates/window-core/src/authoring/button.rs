@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::ir::ButtonTooltip;
+use crate::ir::Tooltip;
 use crate::model::ControlState;
 use crate::{Error, Result};
 
@@ -20,10 +20,10 @@ pub(super) struct TooltipObjectDto {
 }
 
 impl TooltipDto {
-    pub(super) fn into_tooltip(self) -> Result<ButtonTooltip> {
+    pub(super) fn into_tooltip(self) -> Result<Tooltip> {
         let tooltip = match self {
-            TooltipDto::Title(title) => ButtonTooltip { title, lines: Vec::new() },
-            TooltipDto::Object(TooltipObjectDto { title, lines }) => ButtonTooltip { title, lines },
+            TooltipDto::Title(title) => Tooltip { title, lines: Vec::new() },
+            TooltipDto::Object(TooltipObjectDto { title, lines }) => Tooltip { title, lines },
         };
         if tooltip.title.is_empty() {
             return Err(Error::Validation("tooltip title must not be empty".into()));
