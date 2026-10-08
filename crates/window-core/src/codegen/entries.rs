@@ -65,7 +65,7 @@ pub(super) fn slot_entry_expr(slot: &SlotEntry, level: usize) -> String {
         .arg("text", optional_string_expr(slot.text.as_ref()))
         .arg("shaderMarker", optional_string_expr(slot.shader_marker.as_ref()))
         .arg("shaderColor", optional_string_expr(slot.shader_color.as_ref()));
-    let call = with_binding(call, slot.binding.as_ref());
+    let call = with_source(with_binding(call, slot.binding.as_ref()), slot.source.as_ref());
     let call = match slot.overflow {
         Some(TextOverflow::Ellipsis) => call.arg("overflow", "TextOverflow.ELLIPSIS"),
         None => call,
@@ -105,7 +105,15 @@ pub(super) fn sprite_slot_entry_expr(slot: &SpriteSlotEntry, level: usize) -> St
         .arg("align", align_expr(slot.align))
         .arg("font", kt_string(&slot.font))
         .arg("sprite", optional_string_expr(slot.sprite.as_ref()));
-    with_binding(call, slot.binding.as_ref()).finish()
+    with_source(with_binding(call, slot.binding.as_ref()), slot.source.as_ref()).finish()
+}
+
+/// Adds the `source` argument only to slots an authored `debug_name` labels.
+fn with_source(call: Call, source: Option<&String>) -> Call {
+    match source {
+        Some(source) => call.arg("source", kt_string(source)),
+        None => call,
+    }
 }
 
 /// Adds the `binding` argument only to slots that share a binding across switch cases.
@@ -226,14 +234,20 @@ pub(super) fn switch_entry_expr(switch: &SwitchEntry, level: usize) -> String {
 }
 
 fn switch_case_entry_expr(case: &SwitchCaseEntry, level: usize) -> String {
-    Call::new("SwitchCaseEntry", level)
+    let mut call = Call::new("SwitchCaseEntry", level)
         .arg("value", kt_string(&case.value))
         .arg("static", kt_string(&case.static_text))
         .arg("slots", string_list_expr(&case.slots))
         .arg("spriteSlots", string_list_expr(&case.sprite_slots))
         .arg("regions", string_list_expr(&case.regions))
-        .arg("switches", string_list_expr(&case.switches))
-        .finish()
+        .arg("switches", string_list_expr(&case.switches));
+    if !case.items.is_empty() {
+        call = call.arg("items", string_list_expr(&case.items));
+    }
+    if !case.collections.is_empty() {
+        call = call.arg("collections", string_list_expr(&case.collections));
+    }
+    call.finish()
 }
 
 /// A `listOf` of layers, each `LayerEntry(LayerKind.X, "name")`.

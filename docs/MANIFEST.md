@@ -22,7 +22,7 @@ a state switch with one region per state.
 
 ```jsonc
 {
-  "version": 7,
+  "version": 8,
   "namespace": "window",
   "font": "window:ui", // font id of the main (static + spacer) font
 
@@ -137,6 +137,7 @@ a state switch with one region per state.
           "align": "center",
           "font": "window:sprite_y39",
           "sprite": "icon_tool", // optional fixed sprite; absent ⇒ runtime binding
+          "source": "tool-icon", // optional: the nearest authored `debugName`, for diagnostics
         },
         // A state's sprite: a fixed image at the button's top-left, drawn while its case is active.
         "buy.disabled": {
@@ -278,12 +279,12 @@ a state switch with one region per state.
       },
 
       // Runtime-selected cases by key. Only the active case's net-zero `static`
-      // art, slots, sprite slots, regions, and switches are drawn or claimed.
+      // art, slots, sprite slots, regions, items, collections, and switches are drawn or claimed.
       "switches": {
         "mode": {
           "cases": [
             { "value": "buy", "static": "󰀀…", "slots": ["price"], "switches": ["stock"] },
-            { "value": "sell", "static": "󰀀…", "slots": ["label_3", "payout"] },
+            { "value": "sell", "static": "󰀀…", "slots": ["label_3", "payout"], "items": ["featured"] },
           ],
         },
         // Nested in case `buy` of `mode`: active only while `mode` is `buy`.
@@ -410,6 +411,9 @@ Notes:
 - A slot's vertical placement is fully encoded in its `font`; `y` is informational (and used by codegen/tooling).
 - Runtime sprite slot vertical placement is likewise encoded in `sprite_slots.*.font`. The sprite glyph comes from
   `sprites.<id>.glyph`, and the generated `sprite_y...` font repeats that glyph at the slot's vertical ascent.
+- `sprites` holds theme sprites, the `defineWindows` sprite catalog, and inline art that the runtime draws (a state
+  sprite or a collection's selected sprite). Inline art is keyed `art/{name}-{hash}`, or `art/{hash}` without a name,
+  where `hash` is a hex prefix of the art's content hash; codegen gives these no `WindowSprite` constant.
 - `bold` changes text advance by `bold_advance` per rendered character. Italic, underline, strikethrough, and obfuscated
   are style defaults but do not change cursor measurement.
 - `regions.*.slots`, `items.*.slots`, `collections.*.slots`, and `inputs.*.slot` are typed slot references.
@@ -418,15 +422,15 @@ Notes:
   writes them and restored when the menu closes.
 - Button and hotspot regions may be authored without slots; Window infers every container/player slot overlapped by
   their rectangle. If no slot overlaps, the build fails. Items and collections require slots resolved from authoring
-  `slots`, `pattern`, `transform`, or — inside a repeater — `cell_slot`.
+  `slots`, `pattern`, `transform`, — inside a repeater — `cell_slot`, or the slots their parent box covers.
 - Slot _ownership_ and slot _routing_ are separate contracts. Exactly one active control fills any given slot:
   `regions.*.fill_slots` (defaulting to `regions.*.slots`), `items.*.slots`, `collections.*.slots`, and `inputs.*.slot`
   must be disjoint. Independently, the `slots` of regions with an `action` and of action collections must be disjoint,
-  because a slot can only route its clicks to one control. Regions in mutually exclusive switch cases are exempt from
-  both: two regions are exclusive when their case paths (the cases enclosing them, outermost first) pick different cases
-  of the same switch. A repeater cell relies on the ownership/routing split: it routes all of its slots while an item
-  control fills one of them. A region over an anvil input's slot uses it too, and may leave `fill_slots` empty. The
-  runtime writes the hitbox into `fill_slots` of every active region and routes `slots`.
+  because a slot can only route its clicks to one control. Regions, items, and collections in mutually exclusive switch
+  cases are exempt from both: two entries are exclusive when their case paths (the cases enclosing them, outermost
+  first) pick different cases of the same switch. A repeater cell relies on the ownership/routing split: it routes all
+  of its slots while an item control fills one of them. A region over an anvil input's slot uses it too, and may leave
+  `fill_slots` empty. The runtime writes the hitbox into `fill_slots` of every active region and routes `slots`.
 - `regions.*.action` names the handler a click runs. The runtime runs the handler bound to that id, else
   `default_action`; a region without `action` ignores clicks. Ids in the `window:` namespace (`window:close`) are
   runtime actions: codegen declares no member for them, and they always carry the same `default_action`, so they work
@@ -444,7 +448,8 @@ Notes:
 - `handles` is optional metadata for codegen on windows and HUDs; runtimes ignore it. `kind` is `flag`, `toggle`,
   `value`, `selection`, `text`, `sprite`, `items`, `collection`, `action`, `input`, or `builtin`. `values` lists a value
   or selection's values, `shape` an indexed handle's extents, `initial` a toggle's (`"true"`/`"false"`) or selection's
-  initial value, and `selectable` whether a collection marks a selected cell. Each use names the entry it binds: a
+  initial value, `selectable` whether a collection marks a selected cell, and `only` the sprites a sprite handle
+  returns, which codegen generates as an enum of those `WindowSprite` constants. Each use names the entry it binds: a
   `slot`, `sprite_slot`, `item`, `collection`, `input`, `switch`, or a button's `click`, `enabled`, or `state`. `at` is
   the index read from an indexed handle, and `value` the value a condition compares with or a click sets. A use is keyed
   `{id}`, then `[{i}]` per index, `={value}` for a click that sets a value, or `?{value}` for a condition, with `~2`,
@@ -454,11 +459,12 @@ Notes:
 - `switches` is optional on windows and HUDs. At most one case of a switch is active: the case whose `value` the
   switch's binding returns, else `initial`, else none. A switch named in a case's `switches` is nested: it and
   everything in its cases are active only while that case is. A case lists only the entries directly inside it. The
-  runtime draws the active cases' `static` at the switch's position in `layers`, leaves out the slots and sprite slots
-  of inactive cases, and claims only the regions of active cases, so changing a case swaps the hitbox items and click
-  routes of its regions. Each case's `static` is net-zero: window cases start and end at `title_origin.x`, HUD cases at
-  the HUD's left edge. Codegen binds a `Boolean` when the case values are exactly `true` and `false`, otherwise an enum
-  of the values.
+  runtime draws the active cases' `static` at the switch's position in `layers`, leaves out the slots, sprite slots, and
+  collection selections of inactive cases, and claims only the regions, `items`, and `collections` of active cases, so
+  changing a case swaps the items and click routes of its slots. A click routes by the cases selected when it arrives:
+  the runtime reads each enclosing switch's binding or state at click time rather than waiting for the next render. Each
+  case's `static` is net-zero: window cases start and end at `title_origin.x`, HUD cases at the HUD's left edge. Codegen
+  binds a `Boolean` when the case values are exactly `true` and `false`, otherwise an enum of the values.
 - A switch with `states: true` selects the named states of the control it is keyed by (a button or hotspot); its cases
   are the states plus `default` (the control's plain tooltip), and `initial` is `default`. Codegen declares no member
   for it: the `toggle`, `choice`, and `enabled` helpers and `buttonState(name, state)` select its case.
@@ -481,7 +487,8 @@ Notes:
 - `tooltip` may be absent, or an object with `title` and optional `lines`. Authoring accepts a string shorthand, but the
   compiled definition always uses the object form.
 - `source` on regions and switches names the authored element they come from, such as ``tab `category=all` ``, for
-  diagnostics.
+  diagnostics. On slots and sprite slots, and on regions and switches authored as primitives, it is the `debugName` of
+  the nearest authored element that sets one.
 - Authored slot, button, item, and collection names match `^[a-z][a-z0-9_]*$` and are unique per window across all maps
   (codegen turns them into members of one class). Derived keys add `.`, `[`, `]`, `?`, `=`, `~`, or `:`.
 - HUD slot names follow the same pattern and are unique per HUD.

@@ -1,3 +1,5 @@
+use serde_json::json;
+
 use super::project_from_json;
 use crate::geometry::{Insets, Size};
 use crate::inventory::InventorySlotRef;
@@ -441,4 +443,47 @@ fn flattens_indexed_bindings() {
         let err = project_from_json(window(&children).as_bytes()).unwrap_err();
         assert!(err.to_string().contains(message), "{err}");
     }
+}
+
+#[test]
+fn inline_art_is_shared_by_content_and_named_by_hash() {
+    let button = json!({ "art": "shape", "kind": "button", "name": "industrial/button" });
+    let project = project_from_json(
+        json!({
+            "theme": { "frames": { "button": { "kind": "button" } } },
+            "windows": [{ "name": "w", "container": "generic_9x3", "children": [
+                { "type": "flex", "frame": button, "x": 0, "y": 0, "style": { "width": 20, "height": 10 } },
+                { "type": "flex", "frame": button, "x": 0, "y": 20, "style": { "width": 30, "height": 10 } },
+                { "type": "flex", "frame": { "art": "shape", "kind": "panel" }, "x": 0, "y": 40,
+                  "style": { "width": 10, "height": 10 } },
+                { "type": "flex", "frame": "button", "x": 0, "y": 60, "style": { "width": 10, "height": 10 } },
+            ] }],
+        })
+        .to_string()
+        .as_bytes(),
+    )
+    .unwrap();
+    let frames: Vec<&str> = project.theme.frames.keys().map(String::as_str).collect();
+    let [hashed, named, theme] = frames.as_slice() else { panic!("three frames: {frames:?}") };
+    assert_eq!(*theme, "button");
+    assert!(named.starts_with("art/industrial-button-") && named.len() == "art/industrial-button-".len() + 6);
+    assert!(hashed.starts_with("art/") && hashed.len() == "art/".len() + 6, "{hashed}");
+    assert_eq!(project.theme.frames[*named], project.theme.frames["button"]);
+}
+
+#[test]
+fn sprite_catalog_holds_inline_art_under_its_key() {
+    let lamp = |fill: &str| json!({ "art": "shape", "kind": "badge", "width": 4, "height": 4, "fill": fill });
+    let project = project_from_json(
+        json!({ "sprites": { "lamp_on": lamp("#00ff00"), "lamp_off": lamp("#ff0000") }, "windows": [] })
+            .to_string()
+            .as_bytes(),
+    )
+    .unwrap();
+    assert!(matches!(project.theme.sprites["lamp_on"], SpriteDef::Generated { .. }));
+    assert!(project.theme.sprites.contains_key("lamp_off"));
+    let err = project_from_json(json!({ "sprites": { "lamp": "coin" }, "windows": [] }).to_string().as_bytes())
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("lamp"), "{err}");
 }

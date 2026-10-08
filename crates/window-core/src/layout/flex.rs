@@ -10,7 +10,7 @@ use taffy::style_helpers::{TaffyAuto, TaffyGridLine, TaffyGridSpan, TaffyMaxCont
 use taffy::{AvailableSpace, Dimension, FlexDirection, GridPlacement, LengthPercentageAuto, Line, NodeId, TaffyTree};
 
 use super::target::LayoutTarget;
-use super::{Solver, pos_of};
+use super::{Solver, debug_name_of, pos_of};
 use crate::geometry::{Point, Rect, Size};
 use crate::inventory::{SlotGridPattern, SlotPattern, SlotRectClaim, SlotRectPattern};
 use crate::ir::{Layer, SwitchCaseIr, SwitchIr};
@@ -62,6 +62,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             Element::Switch(switch) if switch.pos.is_none() => {
                 self.place_switch(switch, origin, Some(content.size()))?;
             }
+            _ if fills_box(child) => self.place_leaf(child, content)?,
             _ => {
                 self.place(child, origin)?;
             }
@@ -136,7 +137,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         tree.new_with_children(style, &cases).map_err(|e| self.taffy_err(e))
     }
 
-    /// Rejects slot-bound controls inside `switch`'s cases.
+    /// Rejects widgets that cannot be inside `switch`'s cases.
     fn check_switch(&self, switch: &Switch) -> Result<()> {
         for case in &switch.cases {
             for child in &case.body.children {
@@ -152,9 +153,22 @@ impl<T: LayoutTarget> Solver<'_, T> {
     /// width also grows along a horizontal parent. Other leaves keep their measured size.
     fn add_leaf(&self, tree: &mut Tree, el: &Element, item: &ItemLayout, horizontal: bool) -> Result<NodeId> {
         let mut style = taffy::Style { flex_shrink: 0.0, ..Default::default() };
-        let size = self.leaf_size(el)?;
         match el {
+            _ if fills_box(el) => {
+                style.position = taffy::Position::Absolute;
+                style.inset = taffy::Rect {
+                    left: LengthPercentageAuto::length(0.0),
+                    right: LengthPercentageAuto::length(0.0),
+                    top: LengthPercentageAuto::length(0.0),
+                    bottom: LengthPercentageAuto::length(0.0),
+                };
+            }
+            // Placed by their own slots, not by the box.
+            Element::Item { .. } | Element::Collection { .. } | Element::AnvilInput { .. } | Element::Section(_) => {
+                style.position = taffy::Position::Absolute;
+            }
             Element::Label { .. } | Element::Slot { .. } => {
+                let size = self.leaf_size(el)?;
                 let unsized_slot = matches!(el, Element::Slot { width: None, .. });
                 let width = if unsized_slot { Dimension::AUTO } else { length(size.width as f32) };
                 style.size = taffy::Size { width, height: Dimension::AUTO };
@@ -164,6 +178,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 }
             }
             _ => {
+                let size = self.leaf_size(el)?;
                 style.size = taffy::Size { width: length(size.width as f32), height: length(size.height as f32) };
             }
         }
@@ -183,15 +198,20 @@ impl<T: LayoutTarget> Solver<'_, T> {
             | Element::SpriteSlot { .. }
             | Element::Panel { .. }
             | Element::Row { .. }
-            | Element::Column { .. } => self.measure(el),
+            | Element::Column { .. }
+            | Element::Region(_) => self.measure(el),
             other => Err(self.target.layout_err(format!(
-                "{} cannot be laid out inside a flex box; place slot-bound elements in a section",
+                "{} cannot be laid out inside a flex box; place it in a section, or build it from regions",
                 describe(other)
             ))),
         }
     }
 
     fn emit_box(&mut self, tree: &Tree, id: NodeId, node: &FlexBox, parent: Point) -> Result<Rect> {
+        self.named(node.debug_name.as_deref(), |s| s.emit_box_contents(tree, id, node, parent))
+    }
+
+    fn emit_box_contents(&mut self, tree: &Tree, id: NodeId, node: &FlexBox, parent: Point) -> Result<Rect> {
         let rect = self.node_rect(tree, id, parent)?;
         if let Some(frame) = &node.frame {
             self.emit_frame(frame, rect, &format!("flex frame `{frame}`"))?;
@@ -219,6 +239,10 @@ impl<T: LayoutTarget> Solver<'_, T> {
     /// Emits each case box over the switch rect, collecting its draws and the regions directly inside it into its
     /// own case.
     fn emit_switch(&mut self, tree: &Tree, id: NodeId, switch: &Switch, parent: Point) -> Result<Rect> {
+        self.named(switch.debug_name.as_deref(), |s| s.emit_switch_cases(tree, id, switch, parent))
+    }
+
+    fn emit_switch_cases(&mut self, tree: &Tree, id: NodeId, switch: &Switch, parent: Point) -> Result<Rect> {
         if let Some(repeat) = self.active_repeat.as_ref().filter(|repeat| repeat.scoped) {
             return Err(self
                 .target
@@ -238,19 +262,27 @@ impl<T: LayoutTarget> Solver<'_, T> {
             self.case_path.pop();
             cases.push(emitted?);
         }
-        self.switches.push(SwitchIr { name: key, binding, states: false, initial: None, source: None, cases });
+        let source = switch.debug_name.clone();
+        self.switches.push(SwitchIr { name: key, binding, states: false, initial: None, source, cases });
         Ok(rect)
     }
 
-    /// Runs `emit` as switch case `value`: its draws, and the slots, sprite slots, regions, and switches it emits
-    /// outside any nested switch, become the case.
+    /// Runs `emit` as switch case `value`: its draws, and the slots, sprite slots, regions, items, collections, and
+    /// switches it emits outside any nested switch, become the case.
     pub(super) fn emit_case(
         &mut self,
         value: &str,
         emit: impl FnOnce(&mut Self) -> Result<()>,
     ) -> Result<SwitchCaseIr> {
         let outer_draws = std::mem::take(&mut self.draws);
-        let starts = (self.slots.len(), self.sprite_slots.len(), self.regions.len(), self.switches.len());
+        let starts = (
+            self.slots.len(),
+            self.sprite_slots.len(),
+            self.regions.len(),
+            self.switches.len(),
+            self.items.len(),
+            self.collections.len(),
+        );
         let emitted = emit(self);
         let draws = std::mem::replace(&mut self.draws, outer_draws);
         emitted?;
@@ -274,12 +306,21 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 inner(|c| &c.regions),
             ),
             switches: direct(nested.iter().map(|switch| &switch.name).collect(), inner(|c| &c.switches)),
+            items: direct(self.items[starts.4..].iter().map(|item| &item.name).collect(), inner(|c| &c.items)),
+            collections: direct(
+                self.collections[starts.5..].iter().map(|collection| &collection.name).collect(),
+                inner(|c| &c.collections),
+            ),
         })
     }
 
     /// Emits a leaf in its solved box: text takes the box width and is vertically centered, and other
     /// elements keep their size, centered in the box.
     fn place_leaf(&mut self, el: &Element, rect: Rect) -> Result<()> {
+        self.named(debug_name_of(el), |s| s.place_leaf_in(el, rect))
+    }
+
+    fn place_leaf_in(&mut self, el: &Element, rect: Rect) -> Result<()> {
         let centered_y = |height: u32| rect.y + (rect.height as i32 - height as i32).div_euclid(2);
         match el {
             Element::Label { text, style, .. } => {
@@ -287,6 +328,20 @@ impl<T: LayoutTarget> Solver<'_, T> {
             }
             Element::Slot { name, style, fit, .. } => {
                 self.place_slot(name, Some(rect.width), style, *fit, Point::new(rect.x, centered_y(fit.height())))?;
+            }
+            Element::Region(region) => {
+                let slots = self.slots_under("region", rect)?;
+                self.place_region(region, rect, Some(slots))?;
+            }
+            Element::Item { name, .. } if fills_box(el) => {
+                self.require_interaction(name)?;
+                let slots = self.slots_under(name, rect)?;
+                self.place_item(name, slots)?;
+            }
+            Element::Collection { name, frame, selected_sprite, action, .. } if fills_box(el) => {
+                self.require_interaction(name)?;
+                let slots = self.slots_under(name, rect)?;
+                self.place_collection(name, slots, frame.as_deref(), selected_sprite.clone(), *action)?;
             }
             other => {
                 let size = self.measure(other)?;
@@ -434,12 +489,22 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 width: dims.width,
                 height: dims.height,
             });
-            self.place_slot_rects(&format!("{label}_section"), &format!("{label} section"), None, &all, section.claim)?;
+            let base = format!("{label}_section");
+            // Sections in switch cases may repeat, one per case.
+            let name = match self.case_path.is_empty() {
+                true => base,
+                false => (2..).map(|n| format!("{base}~{n}")).find(|name| !self.names.contains(name)).expect("free"),
+            };
+            self.place_slot_rects(&name, &format!("{label} section"), None, &all, section.claim)?;
         }
         Ok(Size::new(0, 0))
     }
 
     fn place_on_area(&mut self, el: &Element, area: &SlotRectPattern, translate: Point) -> Result<()> {
+        self.named(debug_name_of(el), |s| s.place_on_area_in(el, area, translate))
+    }
+
+    fn place_on_area_in(&mut self, el: &Element, area: &SlotRectPattern, translate: Point) -> Result<()> {
         let interior = self
             .target
             .container_kind()
@@ -459,12 +524,20 @@ impl<T: LayoutTarget> Solver<'_, T> {
             | Element::Item { .. }
             | Element::Collection { .. }
             | Element::SlotRects { .. }
-            | Element::Repeater { .. } => {
+            | Element::Repeater { .. }
+            | Element::Region(_) => {
                 if translate != Point::default() {
                     return Err(self.target.layout_err(format!(
                         "{} is slot-bound and cannot be translated; translate its visual children instead",
                         describe(el)
                     )));
+                }
+                if let Element::Region(region) = el {
+                    let pattern = SlotPattern::Rect(area.clone());
+                    let slots = self.resolve_pattern_slots("region", &pattern)?;
+                    let rect = self.pattern_bounds("region", &pattern)?;
+                    self.place_region(region, rect, Some(slots))?;
+                    return Ok(());
                 }
                 let anchored = anchor_pattern(el, area);
                 self.place(&anchored, cell.origin())?;
@@ -618,26 +691,44 @@ fn describe(el: &Element) -> String {
         Element::Column { .. } => "column".into(),
         Element::Flex(_) => "flex box".into(),
         Element::Switch(switch) => format!("switch `{}`", switch.name),
+        Element::Region(region) => match (&region.debug_name, &region.name) {
+            (Some(name), _) | (None, Some(name)) => format!("region `{name}`"),
+            (None, None) => "region".into(),
+        },
+    }
+}
+
+/// Whether `el` is slot-bound and takes its slots from its laid-out rect, which fills its parent box: an unsized
+/// region, or an item or collection without a slot source.
+fn fills_box(el: &Element) -> bool {
+    match el {
+        Element::Region(region) => region.size.is_none(),
+        Element::Item { slots: None, pattern: None, cell_slot: None, .. }
+        | Element::Collection { slots: None, pattern: None, .. } => true,
+        _ => false,
     }
 }
 
 /// Why `el`, inside a case of switch `switch`, is not allowed there.
 fn case_conflict(el: &Element, switch: &str) -> Option<String> {
     let children: &[Element] = match el {
-        Element::Button { .. }
-        | Element::Hotspot { .. }
-        | Element::Item { .. }
-        | Element::Collection { .. }
-        | Element::AnvilInput { .. }
-        | Element::SlotRects { .. }
-        | Element::Repeater { .. }
-        | Element::Section(_) => {
+        Element::Button { .. } | Element::Hotspot { .. } | Element::SlotRects { .. } | Element::Repeater { .. } => {
             return Some(format!(
-                "{} cannot be inside switch `{switch}`: switch cases are visual only, so place slot-bound \
-                 controls outside the switch",
+                "{} cannot be inside switch `{switch}`: place it outside the switch, or build it from regions, \
+                 which switch cases may hold",
                 describe(el)
             ));
         }
+        Element::AnvilInput { .. } => {
+            return Some(format!(
+                "{} cannot be inside switch `{switch}`: the anvil's rename field is always shown",
+                describe(el)
+            ));
+        }
+        Element::Section(section) => {
+            return section.children.iter().find_map(|c| case_conflict(&c.element, switch));
+        }
+        Element::Item { .. } | Element::Collection { .. } | Element::Region(_) => return None,
         Element::Switch(inner) => {
             return inner
                 .cases

@@ -16,6 +16,8 @@ pub(super) struct HandleMember {
     pub(super) member: String,
     /// The generated enum of a value or selection handle.
     pub(super) enum_name: Option<String>,
+    /// The generated enum of a sprite handle narrowed with `only`.
+    pub(super) sprite_enum: Option<String>,
     /// The `on…Changed` hook of UI-owned state.
     pub(super) hook: Option<String>,
     /// The shape constants: `<ID>_SIZE`, or `<ID>_ROWS` and `<ID>_COLUMNS`; a collection's `<ID>_SIZE` is its
@@ -70,6 +72,10 @@ impl HandleMember {
         if let Some(name) = &enum_name {
             claim(name, format!("{kind} `{id}` enum"))?;
         }
+        let sprite_enum = (!handle.only.is_empty()).then(|| format!("{}Sprite", naming::type_name(id)));
+        if let Some(name) = &sprite_enum {
+            claim(name, format!("{kind} `{id}` enum"))?;
+        }
         let hook = matches!(handle.kind, HandleKind::Toggle | HandleKind::Selection)
             .then(|| format!("{}Changed", naming::button_member(id)));
         if let Some(hook) = &hook {
@@ -85,7 +91,7 @@ impl HandleMember {
         for (constant, _) in &constants {
             claim(constant, format!("{kind} `{id}` shape constant"))?;
         }
-        Ok(Self { id: id.into(), handle: handle.clone(), member, enum_name, hook, constants })
+        Ok(Self { id: id.into(), handle: handle.clone(), member, enum_name, sprite_enum, hook, constants })
     }
 
     /// Whether the view needs `import` for any of `handles`.
@@ -125,6 +131,16 @@ impl HandleMember {
             w.close("}");
             w.blank();
         }
+        if let Some(name) = &self.sprite_enum {
+            w.doc(format_args!("The sprites `{id}` shows."));
+            w.open(format_args!("public enum class {name}(public val sprite: WindowSprite) {{"));
+            for sprite in &self.handle.only {
+                let constant = sprite.to_uppercase();
+                w.line(format_args!("{constant}(WindowSprite.{constant}),"));
+            }
+            w.close("}");
+            w.blank();
+        }
         let enum_name = self.enum_name.as_deref().unwrap_or_default();
         let abstract_fun = |w: &mut KotlinWriter, doc: String, signature: String| {
             w.doc(doc);
@@ -140,7 +156,8 @@ impl HandleMember {
                 abstract_fun(w, format!("Render the `{id}` text."), format!("{member}({params}): Component"))
             }
             HandleKind::Sprite => {
-                abstract_fun(w, format!("Render the `{id}` sprite."), format!("{member}({params}): WindowSprite?"))
+                let ty = self.sprite_enum.as_deref().unwrap_or("WindowSprite");
+                abstract_fun(w, format!("Render the `{id}` sprite."), format!("{member}({params}): {ty}?"))
             }
             HandleKind::Items => {
                 abstract_fun(w, format!("Render the `{id}` item."), format!("{member}({params}): {item}?"))
@@ -323,7 +340,10 @@ fn bind_use(
     let member = &handle.member;
     match use_.role {
         HandleRole::Slot => w.line(format_args!("slot({entry}) {{ {member}({args}) }}")),
-        HandleRole::SpriteSlot => w.line(format_args!("sprite({entry}) {{ {member}({args})?.id }}")),
+        HandleRole::SpriteSlot => {
+            let sprite = if handle.sprite_enum.is_some() { "?.sprite" } else { "" };
+            w.line(format_args!("sprite({entry}) {{ {member}({args}){sprite}?.id }}"));
+        }
         HandleRole::Item => w.line(format_args!("item({entry}) {{ {member}({args}) }}")),
         HandleRole::Collection => w.line(format_args!("collection({entry}, {member})")),
         HandleRole::Input => w.line(format_args!("anvilInput({entry}, ::{member})")),

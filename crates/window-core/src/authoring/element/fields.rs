@@ -12,9 +12,9 @@ use crate::{Error, Result, text_font};
 
 const PANEL_FIELDS: &[&str] = &["type", "frame", "width", "height", "x", "y", "padding", "children"];
 const STACK_FIELDS: &[&str] = &["type", "x", "y", "gap", "padding", "align", "children"];
-const SPRITE_FIELDS: &[&str] = &["type", "name", "x", "y"];
+const SPRITE_FIELDS: &[&str] = &["type", "name", "art", "x", "y", "debug_name"];
 const SPRITE_SLOT_FIELDS: &[&str] =
-    &["type", "name", "handle", "index", "x", "y", "width", "height", "align", "sprite"];
+    &["type", "name", "handle", "index", "x", "y", "width", "height", "align", "sprite", "debug_name"];
 const BUTTON_FIELDS: &[&str] = &[
     "type",
     "name",
@@ -38,10 +38,10 @@ const BUTTON_FIELDS: &[&str] = &[
 ];
 const HOTSPOT_FIELDS: &[&str] =
     &["type", "name", "width", "height", "x", "y", "slots", "pattern", "transform", "tooltip", "states"];
-const ITEM_FIELDS: &[&str] = &["type", "name", "handle", "slots", "pattern", "transform", "cell_slot"];
+const ITEM_FIELDS: &[&str] = &["type", "name", "handle", "slots", "pattern", "transform", "cell_slot", "debug_name"];
 const COLLECTION_FIELDS: &[&str] =
-    &["type", "name", "handle", "frame", "selected_sprite", "slots", "pattern", "transform", "action"];
-const ANVIL_INPUT_FIELDS: &[&str] = &["type", "name", "handle", "initial", "item_model"];
+    &["type", "name", "handle", "frame", "selected_sprite", "slots", "pattern", "transform", "action", "debug_name"];
+const ANVIL_INPUT_FIELDS: &[&str] = &["type", "name", "handle", "initial", "item_model", "debug_name"];
 const SLOT_RECTS_FIELDS: &[&str] = &["type", "name", "frame", "pattern", "transform", "claim"];
 const REPEATER_FIELDS: &[&str] =
     &["type", "name", "on_click", "frame", "pattern", "transform", "padding", "children", "cells"];
@@ -61,11 +61,13 @@ const LABEL_FIELDS: &[&str] = &[
     "obfuscated",
     "font",
     "small_caps",
+    "debug_name",
 ];
-const FLEX_FIELDS: &[&str] = &["type", "x", "y", "frame", "style", "children"];
-const SWITCH_FIELDS: &[&str] = &["type", "name", "handle", "index", "x", "y", "children"];
-const CASE_FIELDS: &[&str] = &["type", "value", "frame", "style", "children"];
-const SECTION_FIELDS: &[&str] = &["type", "section", "frame", "outset", "claim", "flow", "children"];
+const FLEX_FIELDS: &[&str] = &["type", "x", "y", "frame", "style", "children", "debug_name"];
+const SWITCH_FIELDS: &[&str] = &["type", "name", "handle", "index", "x", "y", "children", "debug_name"];
+const CASE_FIELDS: &[&str] = &["type", "value", "frame", "style", "children", "debug_name"];
+const SECTION_FIELDS: &[&str] = &["type", "section", "frame", "outset", "claim", "flow", "children", "debug_name"];
+const REGION_FIELDS: &[&str] = &["type", "on_click", "tooltip", "item_model", "width", "height", "debug_name"];
 const SLOT_FIELDS: &[&str] = &[
     "type",
     "name",
@@ -87,6 +89,7 @@ const SLOT_FIELDS: &[&str] = &[
     "overflow",
     "lines",
     "line_height",
+    "debug_name",
 ];
 /// Tallest box a wrapped text slot may span, in pixels.
 const MAX_TEXT_HEIGHT: u32 = 1024;
@@ -111,6 +114,7 @@ fn allowed_fields(kind: &str) -> Option<&'static [&'static str]> {
         "section" => SECTION_FIELDS,
         "switch" => SWITCH_FIELDS,
         "case" => CASE_FIELDS,
+        "region" => REGION_FIELDS,
         _ => return None,
     })
 }
@@ -136,7 +140,7 @@ impl ElementDto {
     pub(super) fn required(&self, field: &str) -> Result<String> {
         match field {
             "name" => self.name.clone(),
-            "frame" => self.frame.clone(),
+            "frame" => self.frame.as_ref().map(|frame| frame.name()).transpose()?,
             "text" => self.text.clone(),
             "value" => self.value.clone(),
             _ => None,

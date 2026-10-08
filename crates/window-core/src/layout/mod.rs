@@ -189,7 +189,32 @@ fn pos_of(el: &Element) -> Option<Point> {
         | Element::AnvilInput { .. }
         | Element::SlotRects { .. }
         | Element::Repeater { .. }
+        | Element::Region(_)
         | Element::Section(_) => None,
+    }
+}
+
+/// The authored debug name of `el`, if it has one.
+fn debug_name_of(el: &Element) -> Option<&str> {
+    match el {
+        Element::Sprite { debug_name, .. }
+        | Element::SpriteSlot { debug_name, .. }
+        | Element::Item { debug_name, .. }
+        | Element::Collection { debug_name, .. }
+        | Element::AnvilInput { debug_name, .. }
+        | Element::Label { debug_name, .. }
+        | Element::Slot { debug_name, .. } => debug_name.as_deref(),
+        Element::Region(region) => region.debug_name.as_deref(),
+        Element::Flex(node) => node.debug_name.as_deref(),
+        Element::Section(section) => section.debug_name.as_deref(),
+        Element::Switch(switch) => switch.debug_name.as_deref(),
+        Element::Panel { .. }
+        | Element::Row { .. }
+        | Element::Column { .. }
+        | Element::Button { .. }
+        | Element::Hotspot { .. }
+        | Element::SlotRects { .. }
+        | Element::Repeater { .. } => None,
     }
 }
 
@@ -222,6 +247,7 @@ struct Solver<'a, T> {
     layers: Vec<Layer>,
     warnings: Vec<String>,
     next_label: usize,
+    next_region: usize,
     names: HashSet<String>,
     active_repeat: Option<ActiveRepeat>,
     /// Bindings whose copies sit in mutually exclusive switch cases; each copy is keyed by its case path.
@@ -266,6 +292,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             layers: Vec::new(),
             warnings: Vec::new(),
             next_label: 0,
+            next_region: 0,
             names: HashSet::new(),
             active_repeat: None,
             shared: BTreeSet::new(),
@@ -332,6 +359,25 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
 
     /// Place `el` with its box top-left at `origin`, emitting IR for it and its subtree.
     fn place(&mut self, el: &Element, origin: Point) -> Result<Size> {
+        self.named(debug_name_of(el), |s| s.place_element(el, origin))
+    }
+
+    /// Runs `emit` for an element with `debug_name`: its errors name the element, and so do the text and sprite
+    /// slots it emits that no nested element named.
+    fn named<R>(&mut self, debug_name: Option<&str>, emit: impl FnOnce(&mut Self) -> Result<R>) -> Result<R> {
+        let starts = (self.slots.len(), self.sprite_slots.len());
+        let out = emit(self).map_err(|error| error.with_debug_name(debug_name))?;
+        if let Some(name) = debug_name {
+            let sources = self.slots[starts.0..].iter_mut().map(|slot| &mut slot.source);
+            let sprite_sources = self.sprite_slots[starts.1..].iter_mut().map(|slot| &mut slot.source);
+            for source in sources.chain(sprite_sources) {
+                source.get_or_insert_with(|| name.to_string());
+            }
+        }
+        Ok(out)
+    }
+
+    fn place_element(&mut self, el: &Element, origin: Point) -> Result<Size> {
         match el {
             Element::Panel { frame, size, padding, children, .. } => {
                 self.place_panel(frame, Rect::from_parts(origin, *size), *padding, children)
@@ -367,18 +413,27 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
                 let behavior = ControlBehavior { tooltip: tooltip.as_ref(), states, default_action: None };
                 self.place_hotspot(control, behavior, origin)
             }
-            Element::Item { name, slots, pattern, cell_slot } => {
-                self.place_item(name, slots.as_ref(), pattern.as_ref(), *cell_slot)
+            Element::Item { name, slots, pattern, cell_slot, .. } => {
+                self.require_interaction(name)?;
+                let slots = match cell_slot {
+                    Some(cell_slot) => vec![self.claim_cell_slot(name, *cell_slot)?],
+                    None => self.resolve_required_slots(name, slots.as_ref(), pattern.as_ref())?,
+                };
+                self.place_item(name, slots)
             }
-            Element::Collection { name, slots, pattern, frame, selected_sprite, action } => self.place_collection(
-                name,
-                slots.as_ref(),
-                pattern.as_ref(),
-                frame.as_deref(),
-                selected_sprite.clone(),
-                *action,
-            ),
-            Element::AnvilInput { name, initial, item_model } => {
+            Element::Collection { name, slots, pattern, frame, selected_sprite, action, .. } => {
+                self.require_interaction(name)?;
+                let slots = self.resolve_required_slots(name, slots.as_ref(), pattern.as_ref())?;
+                self.place_collection(name, slots, frame.as_deref(), selected_sprite.clone(), *action)
+            }
+            Element::Region(region) => {
+                let size = region.size.ok_or_else(|| {
+                    self.target.layout_err("a region without `width` and `height` must fill a box or section area")
+                })?;
+                self.place_region(region, Rect::from_parts(origin, size), None)?;
+                Ok(size)
+            }
+            Element::AnvilInput { name, initial, item_model, .. } => {
                 self.place_anvil_input(name, initial, item_model.as_deref())
             }
             Element::SlotRects { name, frame, pattern, claim } => {

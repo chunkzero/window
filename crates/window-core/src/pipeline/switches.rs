@@ -44,6 +44,8 @@ impl CompileContext<'_> {
                     sprite_slots: case.sprite_slots.clone(),
                     regions: case.regions.clone(),
                     switches: case.switches.clone(),
+                    items: case.items.clone(),
+                    collections: case.collections.clone(),
                 });
             }
             let entry = SwitchEntry {

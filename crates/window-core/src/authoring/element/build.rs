@@ -1,12 +1,18 @@
 use super::{ElementDto, convert_children, convert_layout_children};
+use crate::authoring::art::ArtRefDto;
 use crate::authoring::flex::parse_auto_flow;
 use crate::authoring::parse::validate_name;
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
-use crate::model::{Element, FlexBox, RepeaterCells, SlotSection, Switch, SwitchCase};
+use crate::model::{Element, FlexBox, Region, RepeaterCells, SlotSection, Switch, SwitchCase};
 use crate::{Error, Result};
 
 impl ElementDto {
     pub(in crate::authoring) fn into_element(self) -> Result<Element> {
+        let debug_name = self.debug_name.clone();
+        self.build().map_err(|error| error.with_debug_name(debug_name.as_deref()))
+    }
+
+    fn build(self) -> Result<Element> {
         self.validate_fields()?;
         match self.kind.as_str() {
             "panel" => self.build_panel(),
@@ -26,6 +32,7 @@ impl ElementDto {
             "flex" => self.build_flex(),
             "section" => self.build_section(),
             "switch" => self.build_switch(),
+            "region" => self.build_region(),
             "case" => Err(Error::Validation("case element is only valid as a direct child of a switch".into())),
             other => Err(Error::Validation(format!("unknown element type `{other}`"))),
         }
@@ -62,7 +69,12 @@ impl ElementDto {
     }
 
     fn build_sprite(self) -> Result<Element> {
-        Ok(Element::Sprite { name: self.required("name")?, pos: self.pos()? })
+        let name = match (&self.name, &self.art) {
+            (Some(_), Some(_)) => return Err(Error::Validation("sprite element sets both `name` and `art`".into())),
+            (None, Some(art)) => art.name()?,
+            _ => self.required("name")?,
+        };
+        Ok(Element::Sprite { name, pos: self.pos()?, debug_name: self.debug_name })
     }
 
     fn build_sprite_slot(self) -> Result<Element> {
@@ -71,14 +83,15 @@ impl ElementDto {
             size: self.size()?,
             pos: self.pos()?,
             align: self.text_align()?,
-            sprite: self.sprite.clone(),
+            sprite: art_name(&self.sprite)?,
+            debug_name: self.debug_name,
         })
     }
 
     fn build_button(self) -> Result<Element> {
         Ok(Element::Button {
             name: self.required("name")?,
-            frame: self.frame.clone(),
+            frame: art_name(&self.frame)?,
             pos: self.pos()?,
             size: self.optional_size()?,
             slots: self.slots()?,
@@ -110,6 +123,7 @@ impl ElementDto {
             slots: self.slots()?,
             pattern: self.pattern()?,
             cell_slot: self.cell_slot()?,
+            debug_name: self.debug_name,
         })
     }
 
@@ -118,9 +132,10 @@ impl ElementDto {
             name: self.required("name")?,
             slots: self.slots()?,
             pattern: self.pattern()?,
-            frame: self.frame.clone(),
-            selected_sprite: self.selected_sprite.clone(),
+            frame: art_name(&self.frame)?,
+            selected_sprite: art_name(&self.selected_sprite)?,
             action: self.action.unwrap_or(true),
+            debug_name: self.debug_name,
         })
     }
 
@@ -129,13 +144,14 @@ impl ElementDto {
             name: self.required("name")?,
             initial: self.initial.unwrap_or_default(),
             item_model: self.item_model,
+            debug_name: self.debug_name,
         })
     }
 
     fn build_slot_rects(self) -> Result<Element> {
         Ok(Element::SlotRects {
             name: self.required("name")?,
-            frame: self.frame.clone(),
+            frame: art_name(&self.frame)?,
             pattern: self.required_pattern()?,
             claim: self.claim()?,
         })
@@ -155,7 +171,7 @@ impl ElementDto {
         Ok(Element::Repeater {
             name,
             pattern,
-            frame: self.frame,
+            frame: art_name(&self.frame)?,
             padding: self.padding,
             children: convert_children(self.children)?,
             cells,
@@ -168,6 +184,7 @@ impl ElementDto {
             width: self.width,
             pos: self.pos()?,
             style: self.text_style()?,
+            debug_name: self.debug_name,
         })
     }
 
@@ -178,15 +195,17 @@ impl ElementDto {
             pos: self.pos()?,
             style: self.text_style()?,
             fit: self.text_fit()?,
+            debug_name: self.debug_name,
         })
     }
 
     fn build_flex(self) -> Result<Element> {
         Ok(Element::Flex(Box::new(FlexBox {
             pos: self.pos()?,
-            frame: self.frame.clone(),
+            frame: art_name(&self.frame)?,
             style: self.style.clone().unwrap_or_default().into_style()?,
             children: convert_layout_children(self.children)?,
+            debug_name: self.debug_name,
         })))
     }
 
@@ -205,11 +224,12 @@ impl ElementDto {
         let claim = if self.claim.is_some() { self.claim()? } else { SlotRectClaim::Unowned };
         Ok(Element::Section(Box::new(SlotSection {
             section,
-            frame: self.frame.clone(),
+            frame: art_name(&self.frame)?,
             outset: self.outset.map(|o| o.into_insets()).unwrap_or_default(),
             claim,
             flow: self.flow.as_deref().map(parse_auto_flow).transpose()?.unwrap_or_default(),
             children: convert_layout_children(self.children)?,
+            debug_name: self.debug_name,
         })))
     }
 
@@ -237,17 +257,36 @@ impl ElementDto {
             if cases.iter().any(|c| c.value == value) {
                 return Err(Error::Validation(format!("switch `{name}` has duplicate case `{value}`")));
             }
+            let debug_name = case.debug_name.clone();
             let body = FlexBox {
                 pos: None,
-                frame: case.frame.clone(),
+                frame: art_name(&case.frame).map_err(|error| error.with_debug_name(debug_name.as_deref()))?,
                 style: case.style.clone().unwrap_or_default().into_style()?,
-                children: convert_layout_children(case.children)?,
+                children: convert_layout_children(case.children)
+                    .map_err(|error| error.with_debug_name(debug_name.as_deref()))?,
+                debug_name,
             };
             cases.push(SwitchCase { value, body });
         }
         if cases.is_empty() {
             return Err(Error::Validation(format!("switch `{name}` requires at least one case")));
         }
-        Ok(Element::Switch(Box::new(Switch { name, pos, cases })))
+        Ok(Element::Switch(Box::new(Switch { name, pos, cases, debug_name: self.debug_name })))
     }
+
+    fn build_region(self) -> Result<Element> {
+        Ok(Element::Region(Box::new(Region {
+            default_action: self.default_action()?,
+            size: self.optional_size()?,
+            tooltip: self.tooltip()?,
+            item_model: self.item_model.clone(),
+            name: self.name,
+            debug_name: self.debug_name,
+        })))
+    }
+}
+
+/// The theme or interned name `art` refers to.
+fn art_name(art: &Option<ArtRefDto>) -> Result<Option<String>> {
+    art.as_ref().map(ArtRefDto::name).transpose()
 }

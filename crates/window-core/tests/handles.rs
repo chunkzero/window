@@ -355,3 +355,30 @@ fn runtime_action_buttons_select_state_cases_without_a_handler() {
     let enabled = entries.split("\"window:close.enabled\" to").nth(1).unwrap().split("source =").next().unwrap();
     assert!(enabled.contains("action = \"window:close\""), "{enabled}");
 }
+
+#[test]
+fn sprite_handles_narrowed_with_only_return_their_own_enum() {
+    let lamp = |fill: &str| json!({ "art": "shape", "kind": "badge", "width": 8, "height": 8, "fill": fill });
+    let slot = |only: Value| {
+        json!({ "type": "sprite_slot", "handle": { "kind": "sprite", "id": "lamp", "only": only },
+                "x": 8, "y": 6, "width": 8, "height": 8 })
+    };
+    let catalog = |only: Value| {
+        let mut project = project(json!([window("panel", "generic_9x1", json!([slot(only)]))]));
+        project["sprites"] = json!({ "lamp_on": lamp("#00ff00"), "lamp_off": lamp("#ff0000") });
+        project
+    };
+    let files = compile(&catalog(json!(["lamp_on", "lamp_off"]))).unwrap();
+    assert_lines(&files["WindowSprite.kt"], &["LAMP_ON(\"lamp_on\"),", "LAMP_OFF(\"lamp_off\"),"]);
+    assert_lines(
+        &files["PanelView.kt"],
+        &[
+            "public enum class LampSprite(public val sprite: WindowSprite) {",
+            "LAMP_ON(WindowSprite.LAMP_ON),",
+            "protected abstract fun lampSprite(): LampSprite?",
+            "sprite(\"lamp\") { lampSprite()?.sprite?.id }",
+        ],
+    );
+    let message = error(&catalog(json!(["lamp_on", "lamp_dim"])));
+    assert!(message.contains("lamp_dim"), "{message}");
+}

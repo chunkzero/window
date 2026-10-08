@@ -46,6 +46,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             sprite: sprite.map(str::to_string),
             repeat: self.repeat_binding(name),
             binding,
+            source: None,
         });
         Ok(rect.size())
     }
@@ -160,5 +161,6 @@ fn text_slot_ir(
         repeat,
         binding,
         fit,
+        source: None,
     }
 }

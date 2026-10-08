@@ -45,3 +45,20 @@ pub enum Error {
     #[error("manifest: {0}")]
     Manifest(String),
 }
+
+impl Error {
+    /// This error, naming the authored element `debug_name` it comes from.
+    pub(crate) fn with_debug_name(self, debug_name: Option<&str>) -> Self {
+        let Some(debug_name) = debug_name else {
+            return self;
+        };
+        let suffix = format!(" (in `{debug_name}`)");
+        let append = |message: String| if message.ends_with(&suffix) { message } else { message + &suffix };
+        match self {
+            Error::Validation(message) => Error::Validation(append(message)),
+            Error::Layout { window, message } => Error::Layout { window, message: append(message) },
+            Error::Texture { path, message } => Error::Texture { path, message: append(message) },
+            other => other,
+        }
+    }
+}

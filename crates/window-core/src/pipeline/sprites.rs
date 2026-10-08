@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use crate::authoring::ParsedProject;
+use crate::authoring::art::is_inline;
 use crate::compose::Texture;
 use crate::geometry::{Rect, Size};
 use crate::manifest::SpriteEntry;
@@ -43,6 +44,10 @@ pub(super) fn runtime_sprite_assets(
 ) -> Result<BTreeMap<String, RuntimeSpriteAsset>> {
     let mut sprites = BTreeMap::new();
     for (name, sprite) in &project.theme.sprites {
+        // Inline art drawn only into static art needs no runtime glyph.
+        if is_inline(name) && !project.theme.runtime_art.contains(name) {
+            continue;
+        }
         let asset = match sprite {
             SpriteDef::Texture { texture, size } if is_resource_texture_id(texture) => {
                 resource_sprite(name, texture, *size, textures)?

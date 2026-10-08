@@ -24,6 +24,8 @@ pub(in crate::authoring) struct HandleRefDto {
     #[serde(default)]
     selectable: bool,
     #[serde(default)]
+    only: Vec<String>,
+    #[serde(default)]
     at: Vec<u32>,
     is: Option<String>,
     set: Option<String>,
@@ -84,7 +86,7 @@ impl Collector<'_> {
         if let (Some(role), Some(handle)) = (role, dto.handle.clone()) {
             self.primary(dto, role, &handle, scope)?;
         }
-        if dto.kind == "button" {
+        if dto.kind == "button" || dto.kind == "region" {
             self.button(dto, scope)?;
         }
         let mut inner = scope.clone();
@@ -145,7 +147,7 @@ impl Collector<'_> {
         Ok(())
     }
 
-    /// Names a button after its click handle and records its click, enabled, and state uses.
+    /// Names a button or region after its click handle and records its click, enabled, and state uses.
     fn button(&mut self, dto: &mut ElementDto, scope: &Scope) -> Result<()> {
         let Some(click) = dto.on_click.clone() else {
             if dto.enabled.is_some() || dto.state.is_some() {
@@ -304,6 +306,15 @@ impl Collector<'_> {
         if handle.selectable && kind != HandleKind::Collection {
             return Err(self.err(format!("{} `{id}` cannot be `selectable`", kind.id())));
         }
+        if !handle.only.is_empty() && kind != HandleKind::Sprite {
+            return Err(self.err(format!("{} `{id}` cannot take `only`; only sprite handles narrow", kind.id())));
+        }
+        for (i, sprite) in handle.only.iter().enumerate() {
+            validate_name(sprite, &format!("sprite `{id}` `only` entry"))?;
+            if handle.only[..i].contains(sprite) {
+                return Err(self.err(format!("sprite `{id}` lists `{sprite}` twice in `only`")));
+            }
+        }
         let check_value = |value: &Option<String>, field: &str| -> Result<()> {
             match value {
                 Some(value) if !handle.values.contains(value) => {
@@ -330,6 +341,7 @@ impl Collector<'_> {
             shape: handle.shape.clone(),
             initial,
             selectable: handle.selectable,
+            only: handle.only.clone(),
             uses: Vec::new(),
         };
         match self.handles.get(id) {

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use super::ValidationReport;
 use super::groups::validate_groups;
 use crate::manifest::{
-    CasePath, Manifest, RegionEntry, SlotAreaEntry, SlotRefEntry, WindowEntry, exclusive_cases, region_case_paths,
+    CasePath, CasePaths, Manifest, RegionEntry, SlotAreaEntry, SlotRefEntry, WindowEntry, case_paths, exclusive_cases,
 };
 use crate::surface::ContainerKind;
 
@@ -18,12 +18,14 @@ pub(super) fn validate_inventory(manifest: &Manifest, report: &mut ValidationRep
             continue;
         };
         let mut claims = SlotClaims { window_name, kind, owners: BTreeMap::new(), routes: BTreeMap::new() };
-        validate_regions(window, &mut claims, report);
+        let paths = case_paths(&window.switches);
+        validate_regions(window, &paths, &mut claims, report);
         for (name, item) in &window.items {
-            claims.own(&format!("item `{name}`"), &[], &item.slots, report);
+            let path = paths.items.get(name).map(Vec::as_slice).unwrap_or_default();
+            claims.own(&format!("item `{name}`"), path, &item.slots, report);
         }
         validate_inputs(window, &mut claims, report);
-        validate_collections(window, &mut claims, report);
+        validate_collections(window, &paths, &mut claims, report);
         validate_groups(window_name, window, report);
     }
 }
@@ -79,10 +81,9 @@ impl SlotClaims<'_> {
     }
 }
 
-fn validate_regions(window: &WindowEntry, claims: &mut SlotClaims, report: &mut ValidationReport) {
-    let paths = region_case_paths(&window.switches);
+fn validate_regions(window: &WindowEntry, paths: &CasePaths, claims: &mut SlotClaims, report: &mut ValidationReport) {
     for (name, region) in &window.regions {
-        let path = paths.get(name).map(Vec::as_slice).unwrap_or_default();
+        let path = paths.regions.get(name).map(Vec::as_slice).unwrap_or_default();
         let owner = format!("region `{name}`");
         claims.own(&owner, path, region.filled_slots(), report);
         validate_fill_slots(window, claims.window_name, name, region, report);
@@ -153,14 +154,20 @@ fn validate_inputs(window: &WindowEntry, claims: &mut SlotClaims, report: &mut V
     }
 }
 
-fn validate_collections(window: &WindowEntry, claims: &mut SlotClaims, report: &mut ValidationReport) {
+fn validate_collections(
+    window: &WindowEntry,
+    paths: &CasePaths,
+    claims: &mut SlotClaims,
+    report: &mut ValidationReport,
+) {
     for (name, collection) in &window.collections {
-        claims.own(&format!("collection `{name}`"), &[], &collection.slots, report);
+        let path = paths.collections.get(name).map(Vec::as_slice).unwrap_or_default();
+        claims.own(&format!("collection `{name}`"), path, &collection.slots, report);
         if !collection.action {
             continue;
         }
         for slot in &collection.slots {
-            claims.route(*slot, &[], &format!("collection `{name}`"), report);
+            claims.route(*slot, path, &format!("collection `{name}`"), report);
         }
     }
 }

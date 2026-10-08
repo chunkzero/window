@@ -7,12 +7,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Deserialize;
 
+use super::art::{ArtRefDto, ArtUse, intern};
 use super::button::{ButtonStateDto, TooltipDto};
 use super::flex::{FlexStyleDto, ItemLayoutDto};
 use super::insets::InsetsDto;
 use super::parse::json_object_fields;
 use super::patterns::{SlotPatternDto, SlotRectPatternDto, SlotRefDto};
-use crate::model::{Element, LayoutChild};
+use crate::model::{Element, LayoutChild, Theme};
 use crate::{Error, Result};
 
 use handles::HandleRefDto;
@@ -25,13 +26,14 @@ pub(super) struct ElementDto {
     kind: String,
     name: Option<String>,
     index: Option<Vec<u32>>,
-    frame: Option<String>,
+    frame: Option<ArtRefDto>,
+    art: Option<ArtRefDto>,
     text: Option<String>,
     value: Option<String>,
     initial: Option<String>,
     item_model: Option<String>,
-    sprite: Option<String>,
-    selected_sprite: Option<String>,
+    sprite: Option<ArtRefDto>,
+    selected_sprite: Option<ArtRefDto>,
     default: Option<String>,
     source: Option<String>,
     slots: Option<Vec<SlotRefDto>>,
@@ -72,6 +74,7 @@ pub(super) struct ElementDto {
     enabled: Option<HandleRefDto>,
     state: Option<HandleRefDto>,
     cells: Option<Vec<Vec<ElementDto>>>,
+    debug_name: Option<String>,
     /// Cell button names of a repeater with `cells`, assigned while collecting handles.
     cell_buttons: Vec<String>,
     /// Whether the cells of a repeater with `cells` route clicks to a handler.
@@ -92,13 +95,14 @@ struct ElementShapeDto {
     kind: String,
     name: Option<String>,
     index: Option<IndexDto>,
-    frame: Option<String>,
+    frame: Option<ArtRefDto>,
+    art: Option<ArtRefDto>,
     text: Option<String>,
     value: Option<String>,
     initial: Option<String>,
     item_model: Option<String>,
-    sprite: Option<String>,
-    selected_sprite: Option<String>,
+    sprite: Option<ArtRefDto>,
+    selected_sprite: Option<ArtRefDto>,
     default: Option<String>,
     source: Option<String>,
     #[serde(default)]
@@ -152,6 +156,7 @@ struct ElementShapeDto {
     enabled: Option<HandleRefDto>,
     state: Option<HandleRefDto>,
     cells: Option<Vec<Vec<ElementDto>>>,
+    debug_name: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for ElementDto {
@@ -177,6 +182,7 @@ impl ElementDto {
                 IndexDto::Many(index) => index,
             }),
             frame: shape.frame,
+            art: shape.art,
             text: shape.text,
             value: shape.value,
             initial: shape.initial,
@@ -223,10 +229,29 @@ impl ElementDto {
             enabled: shape.enabled,
             state: shape.state,
             cells: shape.cells,
+            debug_name: shape.debug_name,
             cell_buttons: Vec::new(),
             cell_action: false,
         }
     }
+}
+
+/// Interns the inline art of `children` and their subtrees into `theme`.
+pub(super) fn intern_art(children: &mut [ElementDto], theme: &mut Theme) -> Result<()> {
+    for child in children {
+        intern(theme, &mut child.frame, ArtUse::Frame)?;
+        intern(theme, &mut child.art, ArtUse::Image)?;
+        intern(theme, &mut child.sprite, ArtUse::Sprite)?;
+        intern(theme, &mut child.selected_sprite, ArtUse::Sprite)?;
+        for state in child.states.values_mut() {
+            state.intern_art(theme)?;
+        }
+        intern_art(&mut child.children, theme)?;
+        for cell in child.cells.iter_mut().flatten() {
+            intern_art(cell, theme)?;
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn convert_children(children: Vec<ElementDto>) -> Result<Vec<Element>> {

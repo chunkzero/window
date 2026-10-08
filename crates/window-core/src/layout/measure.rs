@@ -31,6 +31,10 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             Element::Slot { name, width, fit, .. } => {
                 Ok(Size::new(self.required_slot_width(name, *width)?, fit.height()))
             }
+            Element::Region(region) => {
+                self.require_interaction("region")?;
+                Ok(region.size.unwrap_or_default())
+            }
             Element::Item { .. }
             | Element::Collection { .. }
             | Element::AnvilInput { .. }
