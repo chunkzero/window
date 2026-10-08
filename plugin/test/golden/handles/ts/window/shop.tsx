@@ -1,23 +1,7 @@
-import {
-    Box,
-    Button,
-    Collection,
-    Container,
-    Header,
-    Hotbar,
-    Icon,
-    Player,
-    Row,
-    Show,
-    Sprite,
-    Switch,
-    Tabs,
-    Text,
-    Toggle,
-    Window,
-} from "#plugins/window";
+import { Box, Image, Switch, Text, Window, industrial } from "#plugins/window";
 import type { ToggleHandle } from "#plugins/window";
 
+import { coin, icons, ventSlot } from "./art.ts";
 import {
     affordable,
     balance,
@@ -52,16 +36,17 @@ const sortTooltips = { featured: "Top picks first", price: "Price sort", name: "
 /** A raised toggle with a lamp at its left and its label centered in the remaining width. */
 function LampToggle(props: { bind: ToggleHandle; title: string; tooltip: string }) {
     return (
-        <Toggle
+        <industrial.Toggle
             bind={props.bind}
             span={3}
-            frame="button"
             on={{ tooltip: props.tooltip + " on" }}
             off={{ tooltip: props.tooltip + " off" }}
         >
-            <Switch on={props.bind}>{{ true: <Sprite name="lamp_on" />, false: <Sprite name="lamp_off" /> }}</Switch>
+            <Switch on={props.bind}>
+                {{ true: <Image art={industrial.art.lampOn} />, false: <Image art={industrial.art.lampOff} /> }}
+            </Switch>
             <Text>{props.title}</Text>
-        </Toggle>
+        </industrial.Toggle>
     );
 }
 
@@ -76,120 +61,105 @@ export default (
     <Window
         name="shop"
         container="generic_9x6"
-        frame="shell"
+        frame={industrial.art.shell}
         bleed={{ top: 1, right: 4, bottom: 7, left: 4 }}
         text={{ color: "#ffffff", shadow: true, smallCaps: true }}
     >
-        <Header padding={{ top: 3 }} align="start">
-            <Box frame="recess" width={116} height={12} justify="center" align="center">
+        <industrial.Header padding={{ top: 3 }} align="start">
+            <Box frame={industrial.art.recess} width={116} height={12} justify="center" align="center">
                 <Text>Foundry Exchange</Text>
             </Box>
-        </Header>
+        </industrial.Header>
 
-        <Box frame="panel" x={4} y={136} width={168} height={82} />
-        <Box frame="hazard_bar" x={-4} y={223} width={184} height={6} />
-        <Row x={52} y={131} gap={4}>
+        <Box frame={industrial.art.panel} x={4} y={136} width={168} height={82} />
+        <Box frame={industrial.art.hazardBar} x={-4} y={223} width={184} height={6} />
+        <industrial.Row x={52} y={131} gap={4}>
             {Array.from({ length: 8 }, () => (
-                <Sprite name="vent_slot" />
+                <Image art={ventSlot} />
             ))}
-        </Row>
+        </industrial.Row>
         {rivets.map(([x, y]) => (
-            <Sprite name="rivet" x={x} y={y} />
+            <Image art={industrial.art.rivet} x={x} y={y} />
         ))}
 
-        <Container frame="panel" outset={{ top: 2, right: 3, bottom: 3, left: 3 }}>
-            <Tabs
-                bind={category}
-                span={3}
-                sprite="tab"
-                selectedSprite="tab_selected"
-                tooltip={(value) => categoryTooltips[value]}
-            >
+        <industrial.Container frame={industrial.art.panel} outset={{ top: 2, right: 3, bottom: 3, left: 3 }}>
+            <industrial.Tabs bind={category} span={3} tooltip={(value) => categoryTooltips[value]}>
                 {(_, i) => <Text bind={categoryLabel.at(i)} />}
-            </Tabs>
+            </industrial.Tabs>
 
-            <Collection bind={products} rows={3} frame="slot" selected="slot_selected" />
+            <industrial.Collection bind={products} rows={3} />
 
-            <Button
+            <industrial.Button
                 onClick={previous}
                 enabled={canPrevious}
                 span={3}
-                frame="button"
                 tooltip="Previous page"
-                disabled={{ tooltip: "Previous page unavailable", sprite: "action_disabled" }}
+                disabled={{ tooltip: "Previous page unavailable" }}
             >
                 <Text bind={previousLabel} />
-            </Button>
-            <Row span={3} frame="recess">
+            </industrial.Button>
+            <industrial.Row span={3} frame={industrial.art.recess}>
                 <Text bind={page} align="center" />
-            </Row>
-            <Button
+            </industrial.Row>
+            <industrial.Button
                 onClick={next}
                 enabled={canNext}
                 span={3}
-                frame="button"
                 tooltip="Next page"
-                disabled={{ tooltip: "Next page unavailable", sprite: "action_disabled" }}
+                disabled={{ tooltip: "Next page unavailable" }}
             >
                 <Text bind={nextLabel} />
-            </Button>
+            </industrial.Button>
 
-            <Row span={9} frame="recess" padding={{ left: 5, right: 4 }} gap={4}>
+            <industrial.Row span={9} frame={industrial.art.recess} padding={{ left: 5, right: 4 }} gap={4}>
                 <Text bind={selectedName} color="#ffb20b" />
                 <Text bind={price} width={40} align="right" />
-                <Show when={hasPrice}>
-                    <Sprite name="coin" />
-                </Show>
-            </Row>
-        </Container>
+                <industrial.Show when={hasPrice}>
+                    <Image art={coin} />
+                </industrial.Show>
+            </industrial.Row>
+        </industrial.Container>
 
-        <Player>
-            <Tabs
-                bind={sort}
-                span={3}
-                sprite="tab"
-                selectedSprite="tab_selected"
-                tooltip={(value) => sortTooltips[value]}
-            >
+        <industrial.Player>
+            <industrial.Tabs bind={sort} span={3} tooltip={(value) => sortTooltips[value]}>
                 {(_, i) => <Text bind={sortLabel.at(i)} />}
-            </Tabs>
+            </industrial.Tabs>
 
             <LampToggle bind={favorites} title="Favs" tooltip="Favorites only" />
             <LampToggle bind={affordable} title="Afford" tooltip="Affordable only" />
-            <Button onClick={search} span={2} frame="button" tooltip="Search the catalog">
+            <industrial.Button onClick={search} span={2} tooltip="Search the catalog">
                 Find
-            </Button>
-            <Button
+            </industrial.Button>
+            <industrial.Button
                 onClick={clearSearch}
                 enabled={hasQuery}
-                frame="button"
                 tooltip="Clear search"
-                disabled={{ tooltip: "Clear search unavailable", sprite: "clear_search_disabled" }}
+                disabled={{ tooltip: "Clear search unavailable" }}
             >
-                <Icon bind="clear_search_icon" size={[8, 6]} sprite="icon_clear" />
-            </Button>
+                <Image art={icons.clear} />
+            </industrial.Button>
 
-            <Row span={9} frame="recess" padding={{ left: 5, right: 4 }} gap={4}>
+            <industrial.Row span={9} frame={industrial.art.recess} padding={{ left: 5, right: 4 }} gap={4}>
                 <Text bind={status} color="#bceeff" />
                 <Text bind={balance} width={48} align="right" color="#ffb20b" />
-                <Sprite name="coin" />
-            </Row>
-        </Player>
+                <Image art={coin} />
+            </industrial.Row>
+        </industrial.Player>
 
-        <Hotbar>
-            <Button
+        <industrial.Hotbar>
+            <industrial.Button
                 onClick={buy}
                 enabled={canBuy}
                 span={6}
-                frame="button_accent"
+                frame={industrial.art.buttonAccent}
                 tooltip="Buy selected item"
-                disabled={{ tooltip: "Buy selected item unavailable", sprite: "buy_disabled" }}
+                disabled={{ tooltip: "Buy selected item unavailable" }}
             >
                 <Text bind={buyLabel} color="#2a1200" shadow={false} />
-            </Button>
-            <Button close span={3} frame="button" tooltip="Close market">
+            </industrial.Button>
+            <industrial.Button close span={3} tooltip="Close market">
                 Exit
-            </Button>
-        </Hotbar>
+            </industrial.Button>
+        </industrial.Hotbar>
     </Window>
 );
