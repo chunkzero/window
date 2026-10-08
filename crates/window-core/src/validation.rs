@@ -23,7 +23,6 @@ mod artifacts;
 mod bitmap;
 mod debug_check;
 mod fonts;
-mod groups;
 mod inventory;
 mod json;
 mod main_font;

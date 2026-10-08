@@ -1,54 +1,18 @@
 use super::Solver;
 use super::target::LayoutTarget;
 use crate::Result;
-use crate::geometry::{Insets, Point, Rect, Size};
-use crate::ir::{Align, Draw, Layer, RepeatBindingIr, SlotIr, SpriteSlotIr, TextureKey};
-use crate::model::{Element, Frame, SpriteDef, TextFit, TextStyle};
+use crate::geometry::{Point, Rect, Size};
+use crate::ir::{Align, Draw, Layer, SlotIr, SpriteSlotIr, TextureKey};
+use crate::model::{Frame, SpriteDef, TextFit, TextStyle};
 use crate::pipeline::texture_source_path;
 
 impl<T: LayoutTarget> Solver<'_, T> {
-    pub(super) fn place_panel(&mut self, frame: &str, rect: Rect, padding: u32, children: &[Element]) -> Result<Size> {
-        self.emit_frame(frame, rect, &format!("panel frame `{frame}`"))?;
-        self.layout_container_children(children, rect, Insets::uniform(padding))?;
-        Ok(rect.size())
-    }
-
-    pub(super) fn place_sprite_slot(
-        &mut self,
-        name: &str,
-        rect: Rect,
-        align: Align,
-        sprite: Option<&str>,
-    ) -> Result<Size> {
+    pub(super) fn place_sprite_slot(&mut self, name: &str, rect: Rect, align: Align) -> Result<Size> {
         self.require_sprite_slots(name)?;
-        // Fixed sprites need no binding, so they never join one shared across switch cases.
-        let binding = self.case_binding(name).filter(|_| sprite.is_none());
-        let actual_name = if binding.is_none() && self.repeat_binding(name).is_none() {
-            name.to_string()
-        } else {
-            self.scoped_name(name)
-        };
-        self.register_name(&actual_name)?;
+        self.register_name(name)?;
         self.check_inside_bounds(rect, &format!("sprite slot `{name}`"))?;
-        if let Some(sprite) = sprite {
-            let sprite_size = self.sprite_size(sprite, self.sprite_def(sprite)?)?;
-            if sprite_size.width > rect.width || sprite_size.height > rect.height {
-                return Err(self.target.layout_err(format!(
-                    "fixed sprite `{sprite}` does not fit sprite slot `{name}` ({}x{} in {}x{})",
-                    sprite_size.width, sprite_size.height, rect.width, rect.height
-                )));
-            }
-        }
-        self.layers.push(Layer::SpriteSlot(actual_name.clone()));
-        self.sprite_slots.push(SpriteSlotIr {
-            name: actual_name,
-            rect,
-            align,
-            sprite: sprite.map(str::to_string),
-            repeat: self.repeat_binding(name),
-            binding,
-            source: None,
-        });
+        self.layers.push(Layer::SpriteSlot(name.to_string()));
+        self.sprite_slots.push(SpriteSlotIr { name: name.to_string(), rect, align, source: None });
         Ok(rect.size())
     }
 
@@ -71,7 +35,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             self.warn_if_static_text_overflow(text, measured, w, &name);
         }
         self.layers.push(Layer::Slot(name.clone()));
-        self.slots.push(text_slot_ir(name, Some(text.to_string()), rect, style, None, None, TextFit::default()));
+        self.slots.push(text_slot_ir(name, Some(text.to_string()), rect, style, TextFit::default()));
         Ok(rect.size())
     }
 
@@ -85,21 +49,18 @@ impl<T: LayoutTarget> Solver<'_, T> {
     ) -> Result<Size> {
         let width = self.required_slot_width(name, width)?;
         let rect = Rect::from_parts(origin, Size::new(width, fit.height()));
-        let actual_name = self.scoped_name(name);
-        self.register_name(&actual_name)?;
+        self.register_name(name)?;
         self.check_text_constraints(rect, name, true)?;
         self.text_font(style)?;
-        let repeat = self.repeat_binding(name);
-        let binding = self.case_binding(name);
-        self.layers.push(Layer::Slot(actual_name.clone()));
-        self.slots.push(text_slot_ir(actual_name, None, rect, style, repeat, binding, fit));
+        self.layers.push(Layer::Slot(name.to_string()));
+        self.slots.push(text_slot_ir(name.to_string(), None, rect, style, fit));
         Ok(rect.size())
     }
 
     pub(super) fn emit_sprite(&mut self, name: &str, origin: Point) -> Result<Rect> {
         let def = self.sprite_def(name)?;
         let rect = Rect::from_parts(origin, self.sprite_size(name, def)?);
-        self.warn_if_overflow(rect, &format!("sprite `{name}`"));
+        self.warn_if_overflow(rect, &format!("image `{name}`"));
         self.draws.push(match def {
             SpriteDef::Texture { texture, .. } => {
                 Draw::Sprite { texture: TextureKey(texture_source_path(texture)), dest: rect }
@@ -109,22 +70,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(rect)
     }
 
+    /// Draws `frame` stretched over `dest`, after checking the frame and warning about overflow.
     pub(super) fn emit_frame(&mut self, frame: &str, dest: Rect, referenced_by: &str) -> Result<()> {
-        let draw = self.frame_draw(frame, dest, referenced_by)?;
-        self.draws.push(draw);
-        Ok(())
-    }
-
-    /// The draw of `frame` stretched over `dest`, after checking the frame and warning about overflow.
-    pub(super) fn frame_draw(&mut self, frame: &str, dest: Rect, referenced_by: &str) -> Result<Draw> {
         let project = self.project;
-        let def = project
-            .theme
-            .frames
-            .get(frame)
-            .ok_or_else(|| self.target.layout_err(format!("unknown frame `{frame}`")))?;
+        let def =
+            project.art.frames.get(frame).ok_or_else(|| self.target.layout_err(format!("unknown frame `{frame}`")))?;
         self.warn_if_overflow(dest, referenced_by);
-        match def {
+        let draw = match def {
             Frame::Texture { texture, insets } => {
                 let tex_size = self.intrinsic_texture_size(texture, referenced_by)?;
                 let min_w = insets.left + insets.right + 1;
@@ -132,27 +84,21 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 if tex_size.width < min_w || tex_size.height < min_h {
                     return Err(self.target.frame_too_small_err(frame, texture, tex_size, min_w, min_h));
                 }
-                Ok(Draw::NineSlice { texture: TextureKey(texture_source_path(texture)), insets: *insets, dest })
+                Draw::NineSlice { texture: TextureKey(texture_source_path(texture)), insets: *insets, dest }
             }
-            Frame::Generated(style) => Ok(Draw::Generated { style: style.clone(), dest }),
-        }
+            Frame::Generated(style) => Draw::Generated { style: style.clone(), dest },
+        };
+        self.draws.push(draw);
+        Ok(())
     }
 }
 
-fn text_slot_ir(
-    name: String,
-    text: Option<String>,
-    rect: Rect,
-    style: &TextStyle,
-    repeat: Option<RepeatBindingIr>,
-    binding: Option<String>,
-    fit: TextFit,
-) -> SlotIr {
+fn text_slot_ir(name: String, text: Option<String>, rect: Rect, style: &TextStyle, fit: TextFit) -> SlotIr {
     SlotIr {
         name,
         text,
         rect,
-        align: style.align.unwrap_or(Align::Left),
+        align: style.align,
         color: style.color,
         shadow: style.shadow,
         bold: style.bold,
@@ -161,8 +107,6 @@ fn text_slot_ir(
         strikethrough: style.strikethrough,
         obfuscated: style.obfuscated,
         font: style.font.clone(),
-        repeat,
-        binding,
         fit,
         source: None,
     }

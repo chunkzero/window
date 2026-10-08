@@ -25,7 +25,7 @@ fn bundled_small_caps_measures_its_glyphs_and_falls_back_to_vanilla() {
 }
 
 #[test]
-fn theme_fonts_replace_the_bundled_small_caps() {
+fn project_fonts_replace_the_bundled_small_caps() {
     let textures = BTreeMap::from([
         ("window/fonts/tiny.png".to_string(), sheet(4, 8, &[(0, 0), (2, 7), (3, 7)])),
         ("window/fonts/tall.png".to_string(), sheet(4, 16, &[(0, 0), (2, 0)])),

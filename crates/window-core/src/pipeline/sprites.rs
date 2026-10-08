@@ -1,9 +1,8 @@
-//! Runtime theme sprites: decoded assets, manifest entries, and fit checks.
+//! Runtime sprites: decoded assets, manifest entries, and fit checks.
 
 use std::collections::BTreeMap;
 
 use crate::authoring::ParsedProject;
-use crate::authoring::art::is_inline;
 use crate::compose::Texture;
 use crate::geometry::{Rect, Size};
 use crate::manifest::SpriteEntry;
@@ -43,11 +42,9 @@ pub(super) fn runtime_sprite_assets(
     namespace: &str,
 ) -> Result<BTreeMap<String, RuntimeSpriteAsset>> {
     let mut sprites = BTreeMap::new();
-    for (name, sprite) in &project.theme.sprites {
-        // Inline art drawn only into static art needs no runtime glyph.
-        if is_inline(name) && !project.theme.runtime_art.contains(name) {
-            continue;
-        }
+    let art = &project.art;
+    // Sprites drawn only into static art need no runtime glyph.
+    for (name, sprite) in art.sprites.iter().filter(|(name, _)| art.runtime.contains(*name)) {
         let asset = match sprite {
             SpriteDef::Texture { texture, size } if is_resource_texture_id(texture) => {
                 resource_sprite(name, texture, *size, textures)?

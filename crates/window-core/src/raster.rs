@@ -1,4 +1,4 @@
-//! Procedural theme rasterization backed by tiny-skia.
+//! Generated art rasterization backed by tiny-skia.
 //!
 //! This module is the only place that knows about tiny-skia's premultiplied
 //! pixel storage. It returns Window's straight-alpha [`Texture`] type so the
@@ -17,7 +17,7 @@ use shapes::{
     Edge, RoundedRect, draw_rounded_edge, fade, fill_rect, fill_round_rect, fill_slanted_quad, paint, stroke_rect,
 };
 
-/// Render a generated theme style at `size`.
+/// Render a generated art style at `size`.
 pub fn render(style: &GeneratedStyle, size: Size) -> Result<Texture> {
     if size.width == 0 || size.height == 0 {
         return Ok(Texture::transparent(size.width, size.height));

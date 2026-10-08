@@ -1,5 +1,5 @@
 //! Anvil input windows: a static title, a hole in the art so the client's rename box shows through,
-//! hidden vanilla anvil art, and optional themed vanilla field sprites.
+//! hidden vanilla anvil art, and an optional restyled vanilla field sprite.
 
 use std::collections::BTreeMap;
 
@@ -35,7 +35,7 @@ pub(super) fn hidden_vanilla_art() -> Result<Vec<OutputFile>> {
         .collect()
 }
 
-/// Emits theme `sprite` as vanilla's enabled and disabled anvil text-field sprites.
+/// Emits catalog `sprite` as vanilla's enabled and disabled anvil text-field sprites.
 pub(super) fn field_sprites(
     runtime_sprites: &BTreeMap<String, RuntimeSpriteAsset>,
     sprite: &str,
@@ -65,7 +65,7 @@ pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut 
         return Ok(());
     }
     let slots = w.slots.iter().filter(|slot| slot.text.is_none()).map(|slot| &slot.name);
-    let sprites = w.sprite_slots.iter().filter(|slot| slot.sprite.is_none()).map(|slot| &slot.name);
+    let sprites = w.sprite_slots.iter().map(|slot| &slot.name);
     let collections = w.collections.iter().filter(|collection| collection.selected_sprite.is_some());
     // A switch whose cases only swap regions changes inventory items, not the title.
     let drawing = w.switches.iter().filter(|switch| {

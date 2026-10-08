@@ -1,12 +1,13 @@
 //! View members declared by typed handles, and the bindings of every entry that uses them.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::codegen::literals::kt_string;
 use crate::codegen::naming;
 use crate::codegen::writer::KotlinWriter;
-use crate::ir::{Handle, HandleKind, HandleRole, HandleUse, IndexedBinding};
-use crate::manifest::SwitchEntry;
+use crate::ir::{Handle, HandleKind, HandleRole, HandleUse, indexed_entry};
+
+use super::Taken;
 
 /// The members one handle declares.
 pub(super) struct HandleMember {
@@ -40,9 +41,28 @@ fn jvm_accessors(property: &str) -> (String, Option<String>) {
 }
 
 impl HandleMember {
+    /// The members of every handle of a view class named `class_name`; `cells` gives a collection handle's cell
+    /// count. Rejects invalid, `reserved`, or colliding member names.
+    pub(super) fn all(
+        class_name: &str,
+        reserved: &[&str],
+        handles: &BTreeMap<String, Handle>,
+        cells: impl Fn(&str) -> Option<u32>,
+    ) -> crate::Result<Vec<Self>> {
+        let mut taken = Taken::new();
+        handles
+            .iter()
+            .map(|(id, handle)| {
+                Self::new(id, handle, cells(id), |member, source| {
+                    naming::check_member(member, &source, class_name, reserved, &mut taken)
+                })
+            })
+            .collect()
+    }
+
     /// Names the members of `handle`; `cells` is a collection's cell count, and `claim` rejects invalid or colliding
     /// names.
-    pub(super) fn new(
+    fn new(
         id: &str,
         handle: &Handle,
         cells: Option<u32>,
@@ -109,15 +129,6 @@ impl HandleMember {
         .into_iter()
         .filter_map(|(used, import)| used.then_some(import))
         .collect()
-    }
-
-    /// The manifest entries this handle's uses bind, which inference must skip.
-    pub(super) fn entries(&self) -> impl Iterator<Item = &str> {
-        self.handle
-            .uses
-            .iter()
-            .filter(|use_| !matches!(use_.role, HandleRole::Enabled | HandleRole::State))
-            .map(|use_| use_.entry.as_str())
     }
 
     pub(super) fn declare(&self, w: &mut KotlinWriter, item: &str) {
@@ -242,27 +253,15 @@ pub(super) fn constants(w: &mut KotlinWriter, handles: &[HandleMember]) {
     w.close("}");
 }
 
-/// Binds every use of `handles`; a button binds once, by its click handle, together with its `enabled` or `state`.
-pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], switches: &BTreeMap<String, SwitchEntry>) {
-    let mut modifiers: BTreeMap<&str, Vec<(&HandleMember, &HandleUse)>> = BTreeMap::new();
-    for handle in handles {
-        for use_ in &handle.handle.uses {
-            if matches!(use_.role, HandleRole::Enabled | HandleRole::State) {
-                modifiers.entry(use_.entry.as_str()).or_default().push((handle, use_));
-            }
-        }
-    }
+/// Binds every use of `handles`; an indexed handle whose uses cover every index binds them in a loop.
+pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember]) {
     for handle in handles {
         let mut groups: BTreeMap<(HandleRole, Option<&str>), Vec<&HandleUse>> = BTreeMap::new();
         for use_ in &handle.handle.uses {
-            if matches!(use_.role, HandleRole::Enabled | HandleRole::State) {
-                continue;
-            }
-            let plain = !modifiers.contains_key(use_.entry.as_str()) && plain_click(handle, use_, switches);
-            if !handle.handle.shape.is_empty() && plain {
-                groups.entry((use_.role, use_.value.as_deref())).or_default().push(use_);
+            if handle.handle.shape.is_empty() {
+                bind_use(w, handle, use_, "", &kt_string(&use_.entry));
             } else {
-                bind_use(w, handle, use_, &literal_args(&use_.at), &kt_string(&use_.entry), switches, &modifiers);
+                groups.entry((use_.role, use_.value.as_deref())).or_default().push(use_);
             }
         }
         for ((_, value), mut uses) in groups {
@@ -276,12 +275,11 @@ pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], switches: &BT
             let all = indices(shape);
             let canonical = uses.len() == all.len()
                 && uses.iter().zip(&all).all(|(use_, index)| {
-                    use_.at == *index
-                        && use_.entry == format!("{}{suffix}", IndexedBinding::entry_name(&handle.id, index))
+                    use_.at == *index && use_.entry == format!("{}{suffix}", indexed_entry(&handle.id, index))
                 });
             if !canonical {
                 for use_ in uses {
-                    bind_use(w, handle, use_, &literal_args(&use_.at), &kt_string(&use_.entry), switches, &modifiers);
+                    bind_use(w, handle, use_, &literal_args(&use_.at), &kt_string(&use_.entry));
                 }
                 continue;
             }
@@ -290,14 +288,14 @@ pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], switches: &BT
             match shape.as_slice() {
                 [_] => {
                     w.open(format_args!("for (index in 0 until {}) {{", constants[0].0));
-                    bind_use(w, handle, first, "index", &format!("\"{id}[$index]{suffix}\""), switches, &modifiers);
+                    bind_use(w, handle, first, "index", &format!("\"{id}[$index]{suffix}\""));
                     w.close("}");
                 }
                 _ => {
                     w.open(format_args!("for (row in 0 until {}) {{", constants[0].0));
                     w.open(format_args!("for (column in 0 until {}) {{", constants[1].0));
                     let entry = format!("\"{id}[$row][$column]{suffix}\"");
-                    bind_use(w, handle, first, "row, column", &entry, switches, &modifiers);
+                    bind_use(w, handle, first, "row, column", &entry);
                     w.close("}");
                     w.close("}");
                 }
@@ -306,37 +304,8 @@ pub(super) fn bind(w: &mut KotlinWriter, handles: &[HandleMember], switches: &BT
     }
 }
 
-/// Whether `use_` binds alone, so that one loop can bind every index: anything but a button whose art follows
-/// UI-owned state.
-fn plain_click(handle: &HandleMember, use_: &HandleUse, switches: &BTreeMap<String, SwitchEntry>) -> bool {
-    use_.role != HandleRole::Click || art(handle, switches.get(&use_.entry)).is_none()
-}
-
-/// The runtime helper that draws a button's art from UI-owned state: `toggle` for a toggle with `on`/`off` states,
-/// `choice` for a selection click with `selected`/`unselected` states. `states` is the button's state switch.
-fn art(handle: &HandleMember, states: Option<&SwitchEntry>) -> Option<&'static str> {
-    let has = |a: &str, b: &str| {
-        states
-            .filter(|switch| switch.states)
-            .is_some_and(|switch| [a, b].iter().all(|value| switch.cases.iter().any(|case| case.value == *value)))
-    };
-    match handle.handle.kind {
-        HandleKind::Toggle if has("on", "off") => Some("toggle"),
-        HandleKind::Selection if has("selected", "unselected") => Some("choice"),
-        _ => None,
-    }
-}
-
 /// Binds one use at `args`, the Kotlin arguments of its index, to the manifest entry the expression `entry` names.
-fn bind_use(
-    w: &mut KotlinWriter,
-    handle: &HandleMember,
-    use_: &HandleUse,
-    args: &str,
-    entry: &str,
-    switches: &BTreeMap<String, SwitchEntry>,
-    modifiers: &BTreeMap<&str, Vec<(&HandleMember, &HandleUse)>>,
-) {
+fn bind_use(w: &mut KotlinWriter, handle: &HandleMember, use_: &HandleUse, args: &str, entry: &str) {
     let member = &handle.member;
     match use_.role {
         HandleRole::Slot => w.line(format_args!("slot({entry}) {{ {member}({args}) }}")),
@@ -355,59 +324,9 @@ fn bind_use(
             };
             w.line(format_args!("switch({entry}) {{ {value} }}"));
         }
-        HandleRole::Click => {
-            let modifiers = modifiers.get(use_.entry.as_str()).map(Vec::as_slice).unwrap_or_default();
-            bind_button(w, handle, use_, args, entry, switches.get(&use_.entry), modifiers);
-        }
-        HandleRole::Enabled | HandleRole::State => {}
-    }
-}
-
-fn bind_button(
-    w: &mut KotlinWriter,
-    handle: &HandleMember,
-    click: &HandleUse,
-    args: &str,
-    entry: &str,
-    states: Option<&SwitchEntry>,
-    modifiers: &[(&HandleMember, &HandleUse)],
-) {
-    let enabled = modifiers.iter().find(|(_, use_)| use_.role == HandleRole::Enabled);
-    let state = modifiers.iter().find(|(_, use_)| use_.role == HandleRole::State);
-    if let Some((owner, use_)) = state {
-        w.line(format_args!("buttonState({entry}) {{ {}.value }}", owner.read(&literal_args(&use_.at))));
-    }
-    if handle.handle.kind == HandleKind::Builtin {
-        // A runtime action cannot be bound; its disabled state region carries no action, so it never routes clicks.
-        if let (None, Some((owner, use_))) = (state, enabled) {
-            let condition = owner.condition(&literal_args(&use_.at), use_.value.as_deref());
-            w.line(format_args!("buttonState({entry}) {{ if ({condition}) \"enabled\" else \"disabled\" }}"));
-        }
-        return;
-    }
-    let handler = Handler::of(handle, click, args);
-    match (enabled, art(handle, states)) {
-        (Some((owner, use_)), _) => {
-            let condition = owner.condition(&literal_args(&use_.at), use_.value.as_deref());
-            handler.call(w, &format!("enabledButton({entry}, {{ {condition} }}"), true);
-        }
-        (None, Some("toggle")) => handler.call(w, &format!("toggle({entry}, {{ {} }}", handle.member), false),
-        (None, Some(_)) => {
-            let value = handle.constant(click.value.as_deref().unwrap_or_default());
-            let (var, hook) = (&handle.member, handle.hook.as_deref().unwrap_or_default());
-            let body = [
-                format!("if ({var} != _value) {{"),
-                format!("    {var} = _value"),
-                format!("    {hook}(_value)"),
-                "}".to_string(),
-            ];
-            Handler::Body("_value, _ -> ", body.to_vec()).call(
-                w,
-                &format!("choice({entry}, {value}, {{ {var} }}"),
-                false,
-            );
-        }
-        (None, None) => handler.call(w, &format!("button({entry}"), false),
+        // A runtime action cannot be bound; the runtime runs it.
+        HandleRole::Click if handle.handle.kind == HandleKind::Builtin => {}
+        HandleRole::Click => Handler::of(handle, use_, args).call(w, &format!("button({entry}")),
     }
 }
 
@@ -448,14 +367,13 @@ impl Handler {
                     ],
                 )
             }
-            _ => Self::Body("_ -> ", vec!["close()".to_string()]),
+            _ => unreachable!("only action, toggle, and selection handles take clicks"),
         }
     }
 
-    /// Writes `call` (an unclosed argument list) completed with this handler, as `handler =` when `named`.
-    fn call(self, w: &mut KotlinWriter, call: &str, named: bool) {
+    /// Writes `call` (an unclosed argument list) completed with this handler.
+    fn call(self, w: &mut KotlinWriter, call: &str) {
         match self {
-            Self::Reference(reference) if named => w.line(format_args!("{call}, handler = {reference})")),
             Self::Reference(reference) => w.line(format_args!("{call}, {reference})")),
             Self::Body(params, lines) => {
                 w.open(format!("{call}) {{ {params}").trim_end());
@@ -488,9 +406,4 @@ fn indices(shape: &[u32]) -> Vec<Vec<u32>> {
         [rows, columns] => (0..*rows).flat_map(|i| (0..*columns).map(move |j| vec![i, j])).collect(),
         _ => Vec::new(),
     }
-}
-
-/// The entries of `handles`' uses, which inference must skip.
-pub(super) fn covered(handles: &[HandleMember]) -> BTreeSet<String> {
-    handles.iter().flat_map(|handle| handle.entries().map(str::to_string)).collect()
 }

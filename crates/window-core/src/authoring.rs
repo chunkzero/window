@@ -1,12 +1,11 @@
 //! TypeScript-authored project model.
 //!
 //! The rpp plugin loads `window/**/*.ts` definitions, merges their exported values,
-//! JSON-encodes the result, and hands it to this module. The accepted JSON is
-//! intentionally close to the public model: frames and sprites live under
-//! `theme`, and windows carry a tree of typed elements.
+//! JSON-encodes the result, and hands it to this module. Windows and HUDs carry a
+//! tree of typed elements whose art is authored inline; the project adds the
+//! runtime sprite catalog and the text fonts.
 
 pub(crate) mod art;
-mod button;
 mod element;
 mod flex;
 mod hud;
@@ -14,20 +13,25 @@ mod insets;
 mod parse;
 mod patterns;
 mod project;
-mod theme;
+mod style;
+mod tooltip;
 
 #[cfg(test)]
 mod tests;
 
+use std::collections::BTreeMap;
+
 use self::project::ProjectDto;
-use crate::model::{Hud, Theme, Window};
+use crate::model::{Art, FontDef, Hud, Window};
 use crate::{Error, Result};
 
 /// Everything parsed from a TypeScript-authored Window project.
 #[derive(Clone, Debug, Default)]
 pub struct ParsedProject {
-    /// Merged theme definitions (global names; duplicates are errors).
-    pub theme: Theme,
+    /// Every frame and sprite the project draws, by interned name.
+    pub art: Art,
+    /// Text fonts by name, which text selects with `font`.
+    pub fonts: BTreeMap<String, FontDef>,
     /// All windows (duplicate window names are errors).
     pub windows: Vec<Window>,
     /// All HUDs (duplicate HUD names are errors).
@@ -43,7 +47,7 @@ pub struct ParsedProject {
 pub struct BuildOptions {
     /// Whether to emit generated core shader overrides for HUD relocation.
     pub hud_shaders: bool,
-    /// 110x16 theme sprite that restyles vanilla's anvil text field pack-wide.
+    /// 110x16 catalog sprite that restyles vanilla's anvil text field pack-wide.
     pub anvil_field_sprite: Option<String>,
     /// Allow anvil input windows to change their title at runtime. Experimental: each change reopens
     /// the anvil, which races the player's typing.
@@ -60,6 +64,6 @@ pub struct PackTarget {
 /// Parse the plugin's JSON project payload into the authored model.
 pub fn project_from_json(bytes: &[u8]) -> Result<ParsedProject> {
     let dto: ProjectDto = serde_json::from_slice(bytes)
-        .map_err(|error| Error::Parse { path: "window lua project".into(), message: error.to_string() })?;
+        .map_err(|error| Error::Parse { path: "window project".into(), message: error.to_string() })?;
     dto.into_project()
 }

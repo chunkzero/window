@@ -1,33 +1,14 @@
+//! The frame and sprite definitions inside inline art values.
+
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
 use super::insets::InsetsDto;
-use super::parse::validate_name;
 use crate::geometry::Size;
 use crate::ir::Rgb;
-use crate::model::{FontDef, Frame, GeneratedKind, GeneratedStyle, SpriteDef, Theme};
+use crate::model::{Frame, GeneratedKind, GeneratedStyle, SpriteDef};
 use crate::{Error, Result};
-
-#[derive(Debug, Default, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct ThemeDto {
-    #[serde(default)]
-    frames: BTreeMap<String, FrameDto>,
-    #[serde(default)]
-    sprites: BTreeMap<String, SpriteDto>,
-    #[serde(default)]
-    fonts: BTreeMap<String, FontDto>,
-    #[serde(default)]
-    colors: BTreeMap<String, String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct FontDto {
-    texture: String,
-    chars: Vec<String>,
-}
 
 #[derive(Debug, Deserialize)]
 pub(super) struct FrameDto {
@@ -63,53 +44,6 @@ struct GeneratedStyleDto {
     stripe_width: Option<u32>,
     #[serde(flatten)]
     extra: BTreeMap<String, serde_json::Value>,
-}
-
-impl ThemeDto {
-    /// Adds this document's frames, sprites, fonts, and colors to `theme`; names are global across documents.
-    pub(super) fn merge_into(self, theme: &mut Theme) -> Result<()> {
-        for (name, frame) in self.frames {
-            validate_name(&name, "frame")?;
-            if theme.frames.contains_key(&name) {
-                return Err(Error::Validation(format!("duplicate frame name `{name}`")));
-            }
-            if theme.sprites.contains_key(&name) {
-                return Err(Error::Validation(format!("frame name `{name}` collides with a sprite of the same name")));
-            }
-            theme.frames.insert(name, frame.into_frame()?);
-        }
-
-        for (name, sprite) in self.sprites {
-            validate_name(&name, "sprite")?;
-            if theme.sprites.contains_key(&name) {
-                return Err(Error::Validation(format!("duplicate sprite name `{name}`")));
-            }
-            if theme.frames.contains_key(&name) {
-                return Err(Error::Validation(format!("sprite name `{name}` collides with a frame of the same name")));
-            }
-            theme.sprites.insert(name, sprite.into_sprite()?);
-        }
-
-        for (name, font) in self.fonts {
-            validate_name(&name, "font")?;
-            if theme.fonts.contains_key(&name) {
-                return Err(Error::Validation(format!("duplicate font name `{name}`")));
-            }
-            theme.fonts.insert(name, FontDef { texture: font.texture, chars: font.chars });
-        }
-
-        for (name, color) in self.colors {
-            validate_name(&name, "color")?;
-            if theme.colors.contains_key(&name) {
-                return Err(Error::Validation(format!("duplicate color name `{name}`")));
-            }
-            let rgb = Rgb::parse_hex(&color).ok_or_else(|| {
-                Error::Validation(format!("theme color `{name}` has invalid value `{color}`; expected #rrggbb"))
-            })?;
-            theme.colors.insert(name, rgb);
-        }
-        Ok(())
-    }
 }
 
 impl FrameDto {
@@ -207,7 +141,7 @@ impl GeneratedStyleDto {
     }
 
     fn into_style(self, default_kind: GeneratedKind) -> Result<GeneratedStyle> {
-        reject_extra_fields(&self.extra, "generated theme asset")?;
+        reject_extra_fields(&self.extra, "generated art")?;
         let kind = self.kind.as_deref().map(parse_generated_kind).transpose()?.unwrap_or(default_kind);
         let mut style = GeneratedStyle::defaults(kind);
         if let Some(fill) = self.fill {
@@ -237,8 +171,7 @@ impl GeneratedStyleDto {
         if let Some(indicator_color) = self.indicator_color {
             if !matches!(kind, GeneratedKind::Panel | GeneratedKind::Button | GeneratedKind::Slot) {
                 return Err(Error::Validation(
-                    "generated theme asset field `indicator_color` only applies to panel, button, and slot kinds"
-                        .into(),
+                    "generated art field `indicator_color` only applies to panel, button, and slot kinds".into(),
                 ));
             }
             style.indicator_color = Some(parse_rgb(&indicator_color, "indicator_color")?);
@@ -264,14 +197,13 @@ fn parse_generated_kind(value: &str) -> Result<GeneratedKind> {
         "hazard" | "hazard_bar" => Ok(GeneratedKind::HazardBar),
         "vent" => Ok(GeneratedKind::Vent),
         "badge" | "corner_cap" => Ok(GeneratedKind::Badge),
-        other => Err(Error::Validation(format!("generated theme asset has unknown kind `{other}`"))),
+        other => Err(Error::Validation(format!("generated art has unknown kind `{other}`"))),
     }
 }
 
 fn parse_rgb(value: &str, field: &str) -> Result<Rgb> {
-    Rgb::parse_hex(value).ok_or_else(|| {
-        Error::Validation(format!("generated theme asset has invalid {field} `{value}`; expected #rrggbb"))
-    })
+    Rgb::parse_hex(value)
+        .ok_or_else(|| Error::Validation(format!("generated art has invalid {field} `{value}`; expected #rrggbb")))
 }
 
 fn reject_extra_fields(extra: &BTreeMap<String, serde_json::Value>, context: &str) -> Result<()> {

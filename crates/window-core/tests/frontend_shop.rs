@@ -1,127 +1,72 @@
-//! End-to-end frontend test: a realistic TypeScript-authored shop window parsed and
-//! solved into the layout IR, asserting exact rects, draw order, generated
-//! label names, button mappings, and the text-alignment metadata.
+//! End-to-end frontend test: a shop window built from primitives, parsed and solved into the layout IR, asserting
+//! exact rects, draw order, generated label names, region mappings, and text alignment.
 
 use std::collections::HashMap;
 
+use serde_json::{Value, json};
 use window_core::authoring::{ParsedProject, project_from_json};
 use window_core::geometry::{Rect, Size};
 use window_core::ir::{Align, CLOSE_ACTION, Draw};
 use window_core::layout::solve;
 use window_core::surface::Surface;
 use window_core::text_font::TextFonts;
-use window_core::vanilla;
 
 fn textures(entries: &[(&str, u32, u32)]) -> impl Fn(&str) -> Option<Size> {
     let map: HashMap<String, Size> = entries.iter().map(|(p, w, h)| (p.to_string(), Size::new(*w, *h))).collect();
     move |p: &str| map.get(p).copied()
 }
 
+/// A framed, fixed-size box whose region runs `click` and whose label is centered.
+fn button(click: Value, width: u32, height: u32, label: Value) -> Value {
+    json!({
+        "type": "flex",
+        "frame": { "art": "texture", "texture": "window/sprites/button.png", "insets": 4 },
+        "style": { "width": width, "height": height, "justify": "center", "align": "center" },
+        "children": [{ "type": "region", "on_click": click }, label],
+    })
+}
+
+fn action(id: &str) -> Value {
+    json!({ "kind": "action", "id": id })
+}
+
 fn project() -> ParsedProject {
-    let doc = r##"{
-      "theme": {
-        "frames": {
-          "panel": { "texture": "window/sprites/panel.png", "insets": 8 },
-          "button": { "texture": "window/sprites/button.png", "insets": 4 }
-        },
-        "sprites": {
-          "coin": { "texture": "window/sprites/coin.png" }
-        }
-      },
+    let white = |text: &str| json!({ "type": "label", "text": text, "color": "#ffffff" });
+    let doc = json!({
       "windows": [{
         "name": "shop",
         "container": "generic_9x6",
         "children": [{
-          "type": "panel",
-          "frame": "panel",
+          "type": "flex",
+          "frame": { "art": "texture", "texture": "window/sprites/panel.png", "insets": 8 },
           "x": 0,
           "y": 0,
-          "width": 176,
-          "height": 222,
+          "style": { "width": 176, "height": 222, "padding": { "left": 8, "top": 6 } },
           "children": [{
-            "type": "column",
-            "x": 8,
-            "y": 6,
-            "gap": 6,
+            "type": "flex",
+            "style": { "direction": "column", "gap": 6, "align": "start" },
             "children": [
+              { "type": "slot", "handle": { "kind": "text", "id": "title" }, "width": 160, "align": "center",
+                "color": "#ffd700" },
               {
-                "type": "slot",
-                "name": "title",
-                "width": 160,
-                "align": "center",
-                "color": "#ffd700"
-              },
-              {
-                "type": "row",
-                "gap": 4,
+                "type": "flex",
+                "style": { "gap": 4, "align": "start" },
                 "children": [
-                  {
-                    "type": "button",
-                    "name": "minus",
-                    "frame": "button",
-                    "width": 18,
-                    "height": 18,
-                    "children": [{
-                      "type": "label",
-                      "text": "-",
-                      "align": "center",
-                      "color": "#ffffff"
-                    }]
-                  },
-                  {
-                    "type": "slot",
-                    "name": "quantity",
-                    "width": 40,
-                    "align": "center"
-                  },
-                  {
-                    "type": "button",
-                    "name": "plus",
-                    "frame": "button",
-                    "width": 18,
-                    "height": 18,
-                    "children": [{
-                      "type": "label",
-                      "text": "+",
-                      "align": "center",
-                      "color": "#ffffff"
-                    }]
-                  }
+                  button(action("minus"), 18, 18, white("-")),
+                  { "type": "slot", "handle": { "kind": "text", "id": "quantity" }, "width": 40, "align": "center" },
+                  button(action("plus"), 18, 18, white("+")),
                 ]
               },
-              { "type": "sprite", "name": "coin" },
-              {
-                "type": "button",
-                "name": "buy",
-                "frame": "button",
-                "width": 72,
-                "height": 20,
-                "children": [{
-                  "type": "label",
-                  "text": "Buy",
-                  "align": "center",
-                  "color": "#ffffff"
-                }]
-              },
-              {
-                "type": "button",
-                "name": "exit",
-                "frame": "button",
-                "width": 72,
-                "height": 20,
-                "default": "close",
-                "children": [{
-                  "type": "label",
-                  "text": "Close",
-                  "align": "center"
-                }]
-              }
+              { "type": "sprite", "art": { "art": "texture", "texture": "window/sprites/coin.png" } },
+              button(action("buy"), 72, 20, white("Buy")),
+              button(json!({ "kind": "builtin", "id": CLOSE_ACTION }), 72, 20,
+                json!({ "type": "label", "text": "Close" })),
             ]
           }]
         }]
       }]
-    }"##;
-    project_from_json(doc.as_bytes()).expect("parse")
+    });
+    project_from_json(doc.to_string().as_bytes()).expect("parse")
 }
 
 fn solved() -> window_core::ir::LaidOutWindow {
@@ -145,7 +90,6 @@ fn surface_and_identity() {
 fn title_slot_rect_and_style() {
     let w = solved();
     let title = w.slots.iter().find(|s| s.name == "title").unwrap();
-    // column content origin = (8,6); title is first child.
     assert_eq!(title.rect, Rect::new(8, 6, 160, 8));
     assert_eq!(title.align, Align::Center);
     assert_eq!(title.color.to_hex(), "#ffd700");
@@ -153,23 +97,14 @@ fn title_slot_rect_and_style() {
 }
 
 #[test]
-fn quantity_row_flows_with_gap_and_cross_start() {
+fn rows_and_columns_flow_with_their_gaps() {
     let w = solved();
-    // Row begins below title: y = 6 + 8 (title) + 6 (gap) = 20.
-    let minus = w.regions.iter().find(|b| b.name == "minus").unwrap();
-    let plus = w.regions.iter().find(|b| b.name == "plus").unwrap();
+    let region = |name: &str| w.regions.iter().find(|r| r.name == name).unwrap().rect;
+    // The row starts below the title: y = 6 + 8 + 6.
+    assert_eq!(region("minus"), Rect::new(8, 20, 18, 18));
     let quantity = w.slots.iter().find(|s| s.name == "quantity").unwrap();
-    assert_eq!(minus.rect, Rect::new(8, 20, 18, 18));
-    // quantity after minus(18)+gap(4) → x=30; default cross align start → y=20.
     assert_eq!(quantity.rect, Rect::new(30, 20, 40, 8));
-    // plus after quantity(40)+gap(4) → x=74.
-    assert_eq!(plus.rect, Rect::new(74, 20, 18, 18));
-}
-
-#[test]
-fn coin_sprite_after_row() {
-    let w = solved();
-    // Row height = max child height = 18. Next column child y = 20 + 18 + 6 = 44.
+    assert_eq!(region("plus"), Rect::new(74, 20, 18, 18));
     let coin = w
         .draws
         .iter()
@@ -179,30 +114,18 @@ fn coin_sprite_after_row() {
         })
         .expect("coin sprite draw");
     assert_eq!(coin, Rect::new(8, 44, 16, 16));
-}
-
-#[test]
-fn buy_and_exit_buttons_stack() {
-    let w = solved();
-    // After coin (16 tall) + gap 6: buy y = 44 + 16 + 6 = 66.
-    let buy = w.regions.iter().find(|b| b.name == "buy").unwrap();
-    assert_eq!(buy.rect, Rect::new(8, 66, 72, 20));
-    assert_eq!(buy.default_action, None);
-    // exit after buy (20 tall) + gap 6: y = 66 + 20 + 6 = 92.
-    let exit = w.regions.iter().find(|b| b.name == "exit").unwrap();
-    assert_eq!(exit.rect, Rect::new(8, 92, 72, 20));
-    assert_eq!(exit.default_action.as_deref(), Some(CLOSE_ACTION));
+    assert_eq!(region("buy"), Rect::new(8, 66, 72, 20));
+    let close = w.regions.iter().find(|r| r.name == CLOSE_ACTION).unwrap();
+    assert_eq!((close.rect, close.default_action.as_deref()), (Rect::new(8, 92, 72, 20), Some(CLOSE_ACTION)));
 }
 
 #[test]
 fn draw_order_parents_before_children() {
     let w = solved();
-    // First draw is the panel frame (drawn before its children's frames).
     match &w.draws[0] {
         Draw::NineSlice { texture, .. } => assert!(texture.0.contains("panel")),
         other => panic!("expected panel frame first, got {other:?}"),
     }
-    // Total NineSlice draws: panel + 4 button frames = 5.
     let nine = w.draws.iter().filter(|d| matches!(d, Draw::NineSlice { .. })).count();
     assert_eq!(nine, 5);
 }
@@ -210,42 +133,18 @@ fn draw_order_parents_before_children() {
 #[test]
 fn labels_get_generated_names_in_document_order() {
     let w = solved();
-    let labels: Vec<&str> = w.slots.iter().filter(|s| s.text.is_some()).map(|s| s.name.as_str()).collect();
-    assert_eq!(labels, ["label_0", "label_1", "label_2", "label_3"]);
-    // Their texts, in order: "-", "+", "Buy", "Close".
-    let texts: Vec<&str> = w.slots.iter().filter_map(|s| s.text.as_deref()).collect();
-    assert_eq!(texts, ["-", "+", "Buy", "Close"]);
-}
-
-#[test]
-fn label_default_color_when_unspecified() {
-    let w = solved();
-    // The "Close" label has no color → default #404040.
+    let labels: Vec<(&str, &str)> =
+        w.slots.iter().filter_map(|s| Some((s.name.as_str(), s.text.as_deref()?))).collect();
+    assert_eq!(labels, [("label_0", "-"), ("label_1", "+"), ("label_2", "Buy"), ("label_3", "Close")]);
     let close = w.slots.iter().find(|s| s.text.as_deref() == Some("Close")).unwrap();
     assert_eq!(close.color.to_hex(), "#404040");
 }
 
 #[test]
-fn buy_label_centered_width_matches_text() {
+fn every_region_maps_into_container_slots() {
     let w = solved();
-    let buy = w.slots.iter().find(|s| s.text.as_deref() == Some("Buy")).unwrap();
-    assert_eq!(buy.rect.width, vanilla::text_visible_width("Buy"));
-    assert_eq!(buy.align, Align::Center);
-}
-
-#[test]
-fn all_buttons_map_into_container_slots() {
-    let w = solved();
-    let kind = window_core::surface::ContainerKind::Generic9x6;
-    // Every button must overlap at least one container slot for clicks to land.
-    for b in &w.regions {
-        let overlap = kind.slots_overlapping(&b.rect);
-        assert!(!overlap.is_empty(), "button `{}` at {:?} overlaps no container slot", b.name, b.rect);
+    for region in &w.regions {
+        assert!(region.slots.as_ref().is_some_and(|slots| !slots.is_empty()), "region `{}`", region.name);
     }
-}
-
-#[test]
-fn no_warnings_for_in_bounds_shop() {
-    let w = solved();
     assert!(w.warnings.is_empty(), "unexpected warnings: {:?}", w.warnings);
 }

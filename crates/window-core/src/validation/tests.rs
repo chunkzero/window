@@ -16,15 +16,16 @@ fn project() -> &'static str {
         "name": "validation",
         "container": "generic_9x3",
         "children": [
-          {"type":"panel","frame":"panel","width":32,"height":16,"x":8,"y":0},
-          {"type":"slot","name":"title","width":30,"x":9,"y":5},
-          {"type":"button","name":"buy","width":16,"height":16,"x":8,"y":18}
+          {"type":"flex","x":8,"y":0,"style":{"width":32,"height":16},"frame":{
+            "art":"shape", "kind":"panel", "fill":"#123456", "border_color":"#abcdef",
+            "border_width":1, "radius":0, "inset_depth":0
+          }},
+          {"type":"slot","handle":{"kind":"text","id":"title"},"width":30,"x":9,"y":5},
+          {"type":"flex","x":8,"y":18,"children":[
+            {"type":"region","on_click":{"kind":"action","id":"buy"},"width":16,"height":16}
+          ]}
         ]
-      }],
-      "theme": {"frames": {"panel": {
-        "kind":"panel", "fill":"#123456", "border_color":"#abcdef",
-        "border_width":1, "radius":0, "inset_depth":0
-      }}}
+      }]
     }"##
 }
 
@@ -197,7 +198,7 @@ fn catches_corrupt_anvil_input_slot() {
           "windows": [{
             "name": "search",
             "container": "anvil",
-            "children": [{ "type": "anvil_input", "name": "query" }]
+            "children": [{ "type": "anvil_input", "handle": { "kind": "input", "id": "query" } }]
           }]
         }"#,
     );

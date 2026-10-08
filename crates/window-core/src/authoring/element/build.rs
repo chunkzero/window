@@ -1,9 +1,9 @@
-use super::{ElementDto, convert_children, convert_layout_children};
+use super::{ElementDto, convert_layout_children};
 use crate::authoring::art::ArtRefDto;
 use crate::authoring::flex::parse_auto_flow;
 use crate::authoring::parse::validate_name;
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
-use crate::model::{Element, FlexBox, Region, RepeaterCells, SlotSection, Switch, SwitchCase};
+use crate::model::{Element, FlexBox, Region, SlotSection, Switch, SwitchCase};
 use crate::{Error, Result};
 
 impl ElementDto {
@@ -15,18 +15,11 @@ impl ElementDto {
     fn build(self) -> Result<Element> {
         self.validate_fields()?;
         match self.kind.as_str() {
-            "panel" => self.build_panel(),
-            "row" => self.build_row(),
-            "column" => self.build_column(),
             "sprite" => self.build_sprite(),
             "sprite_slot" => self.build_sprite_slot(),
-            "button" => self.build_button(),
-            "hotspot" => self.build_hotspot(),
             "item" => self.build_item(),
             "collection" => self.build_collection(),
             "anvil_input" => self.build_anvil_input(),
-            "slot_rects" => self.build_slot_rects(),
-            "repeater" => self.build_repeater(),
             "label" => self.build_label(),
             "slot" => self.build_slot(),
             "flex" => self.build_flex(),
@@ -38,98 +31,32 @@ impl ElementDto {
         }
     }
 
-    fn build_panel(self) -> Result<Element> {
-        Ok(Element::Panel {
-            frame: self.required("frame")?,
-            pos: self.pos()?,
-            size: self.size()?,
-            padding: self.padding,
-            children: convert_children(self.children)?,
-        })
-    }
-
-    fn build_row(self) -> Result<Element> {
-        Ok(Element::Row {
-            pos: self.pos()?,
-            gap: self.gap,
-            padding: self.padding,
-            align: self.cross_align()?,
-            children: convert_children(self.children)?,
-        })
-    }
-
-    fn build_column(self) -> Result<Element> {
-        Ok(Element::Column {
-            pos: self.pos()?,
-            gap: self.gap,
-            padding: self.padding,
-            align: self.cross_align()?,
-            children: convert_children(self.children)?,
-        })
-    }
-
     fn build_sprite(self) -> Result<Element> {
-        let name = match (&self.name, &self.art) {
-            (Some(_), Some(_)) => return Err(Error::Validation("sprite element sets both `name` and `art`".into())),
-            (None, Some(art)) => art.name()?,
-            _ => self.required("name")?,
-        };
-        Ok(Element::Sprite { name, pos: self.pos()?, debug_name: self.debug_name })
+        Ok(Element::Sprite { name: self.required("art")?, pos: self.pos()?, debug_name: self.debug_name })
     }
 
     fn build_sprite_slot(self) -> Result<Element> {
         Ok(Element::SpriteSlot {
-            name: self.required("name")?,
+            name: self.entry()?,
             size: self.size()?,
             pos: self.pos()?,
             align: self.text_align()?,
-            sprite: art_name(&self.sprite)?,
             debug_name: self.debug_name,
-        })
-    }
-
-    fn build_button(self) -> Result<Element> {
-        Ok(Element::Button {
-            name: self.required("name")?,
-            frame: art_name(&self.frame)?,
-            pos: self.pos()?,
-            size: self.optional_size()?,
-            slots: self.slots()?,
-            pattern: self.pattern()?,
-            padding: self.padding,
-            default_action: self.default_action()?,
-            tooltip: self.tooltip()?,
-            states: self.states()?,
-            source: self.source.clone(),
-            children: convert_children(self.children)?,
-        })
-    }
-
-    fn build_hotspot(self) -> Result<Element> {
-        Ok(Element::Hotspot {
-            name: self.required("name")?,
-            pos: self.pos()?,
-            size: self.optional_size()?,
-            slots: self.slots()?,
-            pattern: self.pattern()?,
-            tooltip: self.tooltip()?,
-            states: self.states()?,
         })
     }
 
     fn build_item(self) -> Result<Element> {
         Ok(Element::Item {
-            name: self.required("name")?,
+            name: self.entry()?,
             slots: self.slots()?,
             pattern: self.pattern()?,
-            cell_slot: self.cell_slot()?,
             debug_name: self.debug_name,
         })
     }
 
     fn build_collection(self) -> Result<Element> {
         Ok(Element::Collection {
-            name: self.required("name")?,
+            name: self.entry()?,
             slots: self.slots()?,
             pattern: self.pattern()?,
             frame: art_name(&self.frame)?,
@@ -141,40 +68,10 @@ impl ElementDto {
 
     fn build_anvil_input(self) -> Result<Element> {
         Ok(Element::AnvilInput {
-            name: self.required("name")?,
+            name: self.entry()?,
             initial: self.initial.unwrap_or_default(),
             item_model: self.item_model,
             debug_name: self.debug_name,
-        })
-    }
-
-    fn build_slot_rects(self) -> Result<Element> {
-        Ok(Element::SlotRects {
-            name: self.required("name")?,
-            frame: art_name(&self.frame)?,
-            pattern: self.required_pattern()?,
-            claim: self.claim()?,
-        })
-    }
-
-    fn build_repeater(self) -> Result<Element> {
-        let name = self.required("name")?;
-        let pattern = self.required_pattern()?;
-        let cells = match self.cells {
-            Some(cells) => Some(RepeaterCells {
-                children: cells.into_iter().map(convert_children).collect::<Result<_>>()?,
-                buttons: self.cell_buttons.clone(),
-                action: self.cell_action,
-            }),
-            None => None,
-        };
-        Ok(Element::Repeater {
-            name,
-            pattern,
-            frame: art_name(&self.frame)?,
-            padding: self.padding,
-            children: convert_children(self.children)?,
-            cells,
         })
     }
 
@@ -190,7 +87,7 @@ impl ElementDto {
 
     fn build_slot(self) -> Result<Element> {
         Ok(Element::Slot {
-            name: self.required("name")?,
+            name: self.entry()?,
             width: self.width,
             pos: self.pos()?,
             style: self.text_style()?,
@@ -234,11 +131,7 @@ impl ElementDto {
     }
 
     fn build_switch(self) -> Result<Element> {
-        let name = self.required("name")?;
-        // Indexed and handle switches are named by their family or handle, which were validated already.
-        if self.index.is_none() && self.handle.is_none() {
-            validate_name(&name, "switch")?;
-        }
+        let name = self.entry()?;
         let pos = self.pos()?;
         let mut cases: Vec<SwitchCase> = Vec::with_capacity(self.children.len());
         for case in self.children {
@@ -276,17 +169,17 @@ impl ElementDto {
 
     fn build_region(self) -> Result<Element> {
         Ok(Element::Region(Box::new(Region {
-            default_action: self.default_action()?,
             size: self.optional_size()?,
             tooltip: self.tooltip()?,
-            item_model: self.item_model.clone(),
+            default_action: self.default_action,
+            item_model: self.item_model,
             name: self.name,
             debug_name: self.debug_name,
         })))
     }
 }
 
-/// The theme or interned name `art` refers to.
+/// The interned name of `art`.
 fn art_name(art: &Option<ArtRefDto>) -> Result<Option<String>> {
     art.as_ref().map(ArtRefDto::name).transpose()
 }

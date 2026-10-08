@@ -1,12 +1,16 @@
 use serde_json::json;
 
-use super::{project, sizes, solve, solve_one, window};
+use super::{panel, project, sizes, solve, solve_one, text, window};
 use crate::geometry::Rect;
 use crate::inventory::InventorySlotRef;
 use crate::ir::Align;
 
-fn button_slots(laid: &crate::ir::LaidOutWindow, name: &str) -> Vec<InventorySlotRef> {
+fn region_slots(laid: &crate::ir::LaidOutWindow, name: &str) -> Vec<InventorySlotRef> {
     laid.regions.iter().find(|b| b.name == name).and_then(|b| b.slots.clone()).expect("region slots")
+}
+
+fn region(id: &str, layout: serde_json::Value) -> serde_json::Value {
+    json!({ "type": "region", "on_click": { "kind": "action", "id": id }, "layout": layout })
 }
 
 #[test]
@@ -16,37 +20,39 @@ fn section_children_auto_flow_through_slot_tracks() {
             "type": "section",
             "section": "container",
             "children": [
-                { "type": "button", "name": "a", "layout": { "column": { "span": 3 } } },
-                { "type": "button", "name": "b", "layout": { "column": { "span": 7 } } },
-                { "type": "button", "name": "c", "layout": { "column": 9, "row": 3 } },
+                region("a", json!({ "column": { "span": 3 } })),
+                region("b", json!({ "column": { "span": 7 } })),
+                region("c", json!({ "column": 9, "row": 3 })),
             ],
         }])),
         &sizes(&[]),
     );
-    assert_eq!(button_slots(&laid, "a"), (0..3).map(InventorySlotRef::container).collect::<Vec<_>>());
+    assert_eq!(region_slots(&laid, "a"), (0..3).map(InventorySlotRef::container).collect::<Vec<_>>());
     // `b` does not fit beside `a`, so it wraps to the next row.
-    assert_eq!(button_slots(&laid, "b"), (9..16).map(InventorySlotRef::container).collect::<Vec<_>>());
-    assert_eq!(button_slots(&laid, "c"), vec![InventorySlotRef::container(26)]);
+    assert_eq!(region_slots(&laid, "b"), (9..16).map(InventorySlotRef::container).collect::<Vec<_>>());
+    assert_eq!(region_slots(&laid, "c"), vec![InventorySlotRef::container(26)]);
     let claim = laid.regions.iter().find(|r| r.name == "container_section").expect("section claim");
     assert_eq!(claim.slots.as_ref().map(Vec::len), Some(27));
 }
 
 #[test]
 fn section_patterns_are_relative_to_their_area() {
+    let item = |id: &str, pattern: serde_json::Value| json!({ "type": "item", "handle": { "kind": "items", "id": id }, "pattern": pattern });
     let laid = solve_one(
         window(json!([{
             "type": "section",
             "section": "player",
             "claim": "none",
             "children": [
-                { "type": "slot_rects", "name": "skip", "pattern": { "x": 0, "y": 0, "width": 4, "height": 1 } },
-                { "type": "button", "name": "go", "pattern": { "x": 1, "y": 0, "width": 2, "height": 1 } },
+                item("skip", json!({ "x": 0, "y": 0, "width": 4, "height": 1 })),
+                item("go", json!({ "x": 1, "y": 0, "width": 2, "height": 1 })),
             ],
         }])),
         &sizes(&[]),
     );
     // `go` auto-places after the 4-slot block with a 3x1 area and covers its last two slots.
-    assert_eq!(button_slots(&laid, "go"), vec![InventorySlotRef::player(14), InventorySlotRef::player(15)]);
+    let go = laid.items.iter().find(|item| item.name == "go").expect("item");
+    assert_eq!(go.slots, vec![InventorySlotRef::player(14), InventorySlotRef::player(15)]);
     assert!(laid.regions.iter().all(|r| r.name != "player_section"));
 }
 
@@ -57,14 +63,14 @@ fn section_overflow_is_an_error() {
             "type": "section",
             "section": "hotbar",
             "children": [
-                { "type": "button", "name": "a", "layout": { "column": { "span": 6 } } },
-                { "type": "button", "name": "b", "layout": { "column": { "span": 6 } } },
+                region("a", json!({ "column": { "span": 6 } })),
+                region("b", json!({ "column": { "span": 6 } })),
             ],
         }])),
         &sizes(&[]),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("button `b` does not fit the hotbar section"), "{err}");
+    assert!(err.to_string().contains("region `b` does not fit the hotbar section"), "{err}");
 }
 
 #[test]
@@ -77,8 +83,8 @@ fn flex_text_fills_and_centers_in_its_box() {
             "style": { "width": 100, "height": 20, "direction": "row", "gap": 4, "padding": 2 },
             "children": [
                 { "type": "label", "text": "Hi" },
-                { "type": "slot", "name": "value", "align": "right" },
-                { "type": "slot", "name": "fixed", "width": 10, "layout": { "translate": [0, 1] } },
+                { "type": "slot", "handle": text("value"), "align": "right" },
+                { "type": "slot", "handle": text("fixed"), "width": 10, "layout": { "translate": [0, 1] } },
             ],
         }])),
         &sizes(&[]),
@@ -98,7 +104,6 @@ fn flex_text_fills_and_centers_in_its_box() {
 fn auto_sized_box_fills_a_section_cell_and_draws_its_frame() {
     let laid = solve_one(
         project(json!({
-            "theme": { "frames": { "f": { "kind": "panel" } } },
             "windows": [{
                 "name": "s",
                 "container": "generic_9x3",
@@ -107,9 +112,9 @@ fn auto_sized_box_fills_a_section_cell_and_draws_its_frame() {
                     "section": "container",
                     "children": [{
                         "type": "flex",
-                        "frame": "f",
+                        "frame": panel(),
                         "layout": { "column": { "start": 2, "span": 3 }, "row": 2 },
-                        "children": [{ "type": "slot", "name": "v" }],
+                        "children": [{ "type": "slot", "handle": text("v") }],
                     }],
                 }],
             }],
@@ -132,8 +137,8 @@ fn hud_without_size_fits_its_content() {
                 "type": "flex",
                 "style": { "direction": "column", "padding": 3, "gap": 2 },
                 "children": [
-                    { "type": "slot", "name": "a", "width": 40 },
-                    { "type": "slot", "name": "b", "width": 20 },
+                    { "type": "slot", "handle": text("a"), "width": 40 },
+                    { "type": "slot", "handle": text("b"), "width": 20 },
                 ],
             }],
         }],
@@ -144,26 +149,13 @@ fn hud_without_size_fits_its_content() {
 }
 
 #[test]
-fn slot_bound_elements_are_rejected_inside_flex() {
-    let err = solve(
-        &window(json!([{
-            "type": "flex",
-            "children": [{ "type": "button", "name": "a", "width": 16, "height": 16 }],
-        }])),
-        &sizes(&[]),
-    )
-    .unwrap_err();
-    assert!(err.to_string().contains("button `a` cannot be laid out inside a flex box"), "{err}");
-}
-
-#[test]
 fn section_visual_translation_moves_the_subtree_in_pixels() {
     let laid = solve_one(
         window(json!([{
             "type": "section", "section": "container", "claim": "none",
             "children": [{
                 "type": "flex", "layout": { "column": { "span": 3 }, "translate": [2, 1] },
-                "children": [{ "type": "slot", "name": "value" }],
+                "children": [{ "type": "slot", "handle": text("value") }],
             }],
         }])),
         &sizes(&[]),
@@ -177,7 +169,7 @@ fn section_patterns_must_fit_their_authored_grid_area() {
         &window(json!([{
             "type": "section", "section": "container",
             "children": [{
-                "type": "button", "name": "wide",
+                "type": "item", "handle": { "kind": "items", "id": "wide" },
                 "pattern": { "x": 0, "y": 0, "width": 3, "height": 1 },
                 "layout": { "column": { "span": 1 } },
             }],
@@ -191,9 +183,9 @@ fn section_patterns_must_fit_their_authored_grid_area() {
 #[test]
 fn section_rejects_implicit_negative_tracks_and_oversized_patterns() {
     let children = [
-        json!({ "type": "button", "name": "bad", "layout": { "column": -11 } }),
-        json!({ "type": "button", "name": "bad", "layout": { "column": { "span": 65535 } } }),
-        json!({ "type": "button", "name": "bad", "pattern": { "x": 4294967295u32, "y": 0, "width": 2, "height": 1 } }),
+        region("bad", json!({ "column": -11 })),
+        region("bad", json!({ "column": { "span": 65535 } })),
+        json!({ "type": "item", "handle": { "kind": "items", "id": "bad" }, "pattern": { "x": 4294967295u32, "y": 0, "width": 2, "height": 1 } }),
     ];
     for child in children {
         let err =
@@ -209,7 +201,7 @@ fn section_rejects_pixel_layout_that_would_change_slot_ownership() {
         let err = solve(
             &window(json!([{
                 "type": "section", "section": "container",
-                "children": [{ "type": "button", "name": "bad", "layout": layout }],
+                "children": [region("bad", layout)],
             }])),
             &sizes(&[]),
         )

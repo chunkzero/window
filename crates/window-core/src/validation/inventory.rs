@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use super::ValidationReport;
-use super::groups::validate_groups;
 use crate::manifest::{
     CasePath, CasePaths, Manifest, RegionEntry, SlotAreaEntry, SlotRefEntry, WindowEntry, case_paths, exclusive_cases,
 };
@@ -26,13 +25,11 @@ pub(super) fn validate_inventory(manifest: &Manifest, report: &mut ValidationRep
         }
         validate_inputs(window, &mut claims, report);
         validate_collections(window, &paths, &mut claims, report);
-        validate_groups(window_name, window, report);
     }
 }
 
-/// Slot ownership tracks the slot a control fills; routing is a separate,
-/// also-exclusive map so a repeater cell can route a slot it no longer fills. Regions in mutually exclusive switch
-/// cases may share both.
+/// Slot ownership tracks the slot a control fills; routing is a separate, also-exclusive map so a region can route a
+/// slot it does not fill, such as the anvil input's. Regions in mutually exclusive switch cases may share both.
 struct SlotClaims<'a> {
     window_name: &'a str,
     kind: ContainerKind,

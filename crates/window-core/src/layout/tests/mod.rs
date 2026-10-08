@@ -1,7 +1,6 @@
 mod controls;
 mod draws;
 mod flex;
-mod flow;
 mod patterns;
 mod primitives;
 mod switch;
@@ -13,7 +12,7 @@ use serde_json::{Value, json};
 
 use crate::authoring::{ParsedProject, project_from_json};
 use crate::geometry::{Rect, Size};
-use crate::ir::{Align, Draw, LaidOutWindow, Layer, Rgb};
+use crate::ir::{Draw, LaidOutWindow, Layer, Rgb};
 use crate::{text_font, vanilla};
 
 /// Solve `project` with the bundled text fonts.
@@ -41,15 +40,24 @@ fn window(children: Value) -> ParsedProject {
     }))
 }
 
-fn themed(theme: Value, children: Value) -> ParsedProject {
+fn tall(children: Value) -> ParsedProject {
     project(json!({
-        "theme": theme,
         "windows": [{
             "name": "s",
             "container": "generic_9x6",
             "children": children,
         }],
     }))
+}
+
+/// Generated panel frame art.
+fn panel() -> Value {
+    json!({ "art": "shape", "kind": "panel" })
+}
+
+/// A text handle `id`.
+fn text(id: &str) -> Value {
+    json!({ "kind": "text", "id": id })
 }
 
 fn solve_one(project: ParsedProject, tx: &dyn Fn(&str) -> Option<Size>) -> LaidOutWindow {

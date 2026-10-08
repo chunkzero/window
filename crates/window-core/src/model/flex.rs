@@ -8,8 +8,8 @@ use super::Element;
 
 /// A flexbox or grid box. Its children are sized and positioned by taffy.
 ///
-/// An auto-sized box placed directly in a known content box (the window, a HUD, a panel, a button, a
-/// repeater cell, or a section cell) fills that box; elsewhere it takes its max-content size.
+/// An auto-sized box placed directly in a known content box (the window, a HUD, or a section cell) fills that box;
+/// elsewhere it takes its max-content size.
 #[derive(Clone, Debug)]
 pub struct FlexBox {
     /// Explicit position relative to the parent content origin; inside another box it positions absolutely.
@@ -41,11 +41,11 @@ pub struct SlotSection {
     pub debug_name: Option<String>,
 }
 
-/// Visual cases stacked in one box that takes the largest case's size; the runtime draws only the case
-/// named by the `name` binding.
+/// Cases stacked in one box that takes the largest case's size; the runtime draws only the case its handle
+/// selects.
 #[derive(Clone, Debug)]
 pub struct Switch {
-    /// Binding name of the active case value.
+    /// Entry name of the switch, after the handle selecting its case.
     pub name: String,
     /// Explicit position relative to the parent content origin; inside a box it positions absolutely.
     pub pos: Option<Point>,
@@ -59,9 +59,9 @@ pub struct Switch {
 /// Without a size it fills its parent box; in a section it covers its grid area.
 #[derive(Clone, Debug)]
 pub struct Region {
-    /// The click entry it routes to, or `None` for a hover-only region, which layout names `region_N`.
+    /// The click entry it routes to, or `None` for a hover-only region, which layout names `region~N`.
     pub name: Option<String>,
-    /// The runtime action run when no handler is bound to the click entry, such as `window:close`.
+    /// The runtime action its clicks run, such as `window:close`, for a region bound to a builtin.
     pub default_action: Option<String>,
     /// Fixed size; `None` fills the parent box.
     pub size: Option<Size>,

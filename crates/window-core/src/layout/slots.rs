@@ -2,15 +2,9 @@ use super::Solver;
 use super::target::LayoutTarget;
 use crate::Result;
 use crate::error::Error;
-use crate::geometry::{Point, Rect, Size};
+use crate::geometry::Rect;
 use crate::inventory::{InventorySlotRef, InventorySlotSection, SlotGridPattern, SlotPattern};
-use crate::ir::RepeatBindingIr;
 use crate::surface::ContainerKind;
-
-pub(super) struct ResolvedControl {
-    pub(super) rect: Rect,
-    pub(super) slots: Option<Vec<InventorySlotRef>>,
-}
 
 pub(super) struct PatternCell {
     pub(super) rect: Rect,
@@ -31,29 +25,6 @@ fn section_label(section: InventorySlotSection) -> &'static str {
 }
 
 impl<T: LayoutTarget> Solver<'_, T> {
-    /// Resolves a control's rect (explicit size, else pattern bounds) and backing
-    /// slots (explicit slots, else pattern slots).
-    pub(super) fn resolve_control_rect_and_slots(
-        &self,
-        name: &str,
-        origin: Point,
-        size: Option<Size>,
-        slots: Option<&Vec<InventorySlotRef>>,
-        pattern: Option<&SlotPattern>,
-    ) -> Result<ResolvedControl> {
-        let pattern_slots = pattern.map(|pattern| self.resolve_pattern_slots(name, pattern)).transpose()?;
-        let rect = match (size, pattern) {
-            (Some(size), _) => Rect::from_parts(origin, size),
-            (None, Some(pattern)) => self.pattern_bounds(name, pattern)?,
-            (None, None) => {
-                return Err(self.target.layout_err(format!(
-                    "control `{name}` requires `width` and `height` unless it uses `pattern` or `transform`"
-                )));
-            }
-        };
-        Ok(ResolvedControl { rect, slots: slots.cloned().or(pattern_slots) })
-    }
-
     pub(super) fn resolve_required_slots(
         &self,
         name: &str,
@@ -137,57 +108,5 @@ impl<T: LayoutTarget> Solver<'_, T> {
         let kind = self.target.container_kind().ok_or_else(|| self.target.slot_pattern_err(name))?;
         kind.slot_ref_rect(slot)
             .ok_or_else(|| self.target.layout_err(format!("slot pattern for `{name}` references a hidden slot")))
-    }
-
-    /// Resolves a one-based `cell_slot` against the enclosing repeater cell and
-    /// records it as yielded, so the cell button stops filling that slot.
-    pub(super) fn claim_cell_slot(&mut self, name: &str, cell_slot: u32) -> Result<InventorySlotRef> {
-        let Some(repeat) = self.active_repeat.as_mut() else {
-            return Err(self.target.layout_err(format!(
-                "item `{name}` uses `cell_slot` outside a repeater; use `slots`, `pattern`, or \
-                 `transform` for an absolute slot"
-            )));
-        };
-        let cell_size = repeat.slots.len();
-        let Some(slot) = cell_slot.checked_sub(1).and_then(|zero_based| repeat.slots.get(zero_based as usize)).copied()
-        else {
-            let group = repeat.group.clone();
-            return Err(self.target.layout_err(format!(
-                "item `{name}` sets `cell_slot` {cell_slot}, but repeater `{group}` has \
-                 {cell_size} slot(s) per cell (valid range 1..={cell_size})"
-            )));
-        };
-        if repeat.yielded.contains(&slot) {
-            let group = repeat.group.clone();
-            return Err(self.target.layout_err(format!(
-                "item `{name}` sets `cell_slot` {cell_slot}, which another item already claims in \
-                 repeater `{group}`"
-            )));
-        }
-        repeat.yielded.push(slot);
-        Ok(slot)
-    }
-
-    /// The emitted name for `name`: prefixed by the active repeater group and suffixed by its cell index, or
-    /// `{name}.{case path}` for a binding shared across mutually exclusive switch cases.
-    pub(super) fn scoped_name(&self, name: &str) -> String {
-        match (self.active_repeat.as_ref().filter(|repeat| repeat.scoped), self.case_binding(name)) {
-            (Some(repeat), _) => format!("{}_{}_{}", repeat.group, name, repeat.index),
-            (None, Some(binding)) => format!("{binding}.{}", self.case_path.join(".")),
-            (None, None) => name.to_string(),
-        }
-    }
-
-    /// The binding `name` shares across switch cases, when it is shared and emitted inside a case.
-    pub(super) fn case_binding(&self, name: &str) -> Option<String> {
-        (!self.case_path.is_empty() && self.shared.contains(name)).then(|| name.to_string())
-    }
-
-    pub(super) fn repeat_binding(&self, field: &str) -> Option<RepeatBindingIr> {
-        self.active_repeat.as_ref().filter(|repeat| repeat.scoped).map(|repeat| RepeatBindingIr {
-            group: repeat.group.clone(),
-            field: Some(field.to_string()),
-            index: repeat.index,
-        })
     }
 }

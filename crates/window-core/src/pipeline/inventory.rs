@@ -1,12 +1,12 @@
-//! Inventory-backed controls: slot ownership, button routing, and repeat groups.
+//! Inventory-backed controls: slot ownership and region routing.
 
 use std::collections::BTreeMap;
 
 use crate::inventory::{InventorySlotArea, InventorySlotRef};
-use crate::ir::{Align, CollectionIr, LaidOutWindow, RegionIr, RepeatBindingIr};
+use crate::ir::{Align, CollectionIr, LaidOutWindow, RegionIr};
 use crate::manifest::{
-    AnvilInputEntry, CasePath, CollectionEntry, ItemEntry, RegionEntry, RepeatGroupEntry, SlotRefEntry,
-    SpriteSlotEntry, SwitchEntry, case_paths, exclusive_cases,
+    AnvilInputEntry, CasePath, CollectionEntry, ItemEntry, RegionEntry, SlotRefEntry, SpriteSlotEntry, SwitchEntry,
+    case_paths, exclusive_cases,
 };
 use crate::surface::{ContainerKind, Surface};
 use crate::{Error, Result};
@@ -170,9 +170,8 @@ fn base_entry(region: &RegionIr) -> RegionEntry {
     }
 }
 
-/// Click routes cover every backing slot; the region only fills (and owns) the slots it has not yielded to a
-/// repeater-cell item control or the anvil input, which keeps its seed item in `input_slot`. Fill slots are `None`
-/// when they equal the routed slots.
+/// Click routes cover every backing slot; the region only fills (and owns) the slots other than `input_slot`, where
+/// the anvil input keeps its seed item. Fill slots are `None` when they equal the routed slots.
 fn region_entry(
     claims: &mut SlotClaims<'_>,
     region: &RegionIr,
@@ -184,17 +183,7 @@ fn region_entry(
     if slot_refs.is_empty() {
         return Err(Error::Validation(format!("window `{window}`: {owner} overlaps no inventory slot")));
     }
-    let routes_input = input_slot.is_some_and(|input| slot_refs.contains(&input));
-    let fill_refs: Vec<InventorySlotRef> = slot_refs
-        .iter()
-        .copied()
-        .filter(|slot| !region.yielded_slots.contains(slot) && Some(*slot) != input_slot)
-        .collect();
-    if fill_refs.is_empty() && !routes_input {
-        return Err(Error::Validation(format!(
-            "window `{window}`: {owner} yielded every backing slot; leave at least one slot for its own hitbox item"
-        )));
-    }
+    let fill_refs: Vec<InventorySlotRef> = slot_refs.iter().copied().filter(|slot| Some(*slot) != input_slot).collect();
     let fill_slots = claims.claim(owner, &path, &fill_refs)?;
     let mut slots = Vec::with_capacity(slot_refs.len());
     for slot in &slot_refs {
@@ -240,74 +229,4 @@ fn collection_selection(
             sprite_slot_entry(font, rect, Align::Left, Some(sprite.clone()))
         })
         .collect())
-}
-
-/// Group repeated controls by repeater, indexed by cell.
-pub(super) fn repeat_groups(window: &LaidOutWindow) -> BTreeMap<String, RepeatGroupEntry> {
-    let mut groups: BTreeMap<String, RepeatGroupEntry> = BTreeMap::new();
-    for slot in &window.slots {
-        if slot.text.is_some() {
-            continue;
-        }
-        if let Some(repeat) = &slot.repeat
-            && let Some(field) = &repeat.field
-        {
-            let group = repeat_group(&mut groups, repeat);
-            set_indexed_name(&mut group.slots, field, repeat.index, slot.name.clone());
-        }
-    }
-    for sprite_slot in &window.sprite_slots {
-        if sprite_slot.sprite.is_some() {
-            continue;
-        }
-        if let Some(repeat) = &sprite_slot.repeat
-            && let Some(field) = &repeat.field
-        {
-            let group = repeat_group(&mut groups, repeat);
-            set_indexed_name(&mut group.sprite_slots, field, repeat.index, sprite_slot.name.clone());
-        }
-    }
-    for item in &window.items {
-        if let Some(repeat) = &item.repeat
-            && let Some(field) = &repeat.field
-        {
-            let group = repeat_group(&mut groups, repeat);
-            set_indexed_name(&mut group.items, field, repeat.index, item.name.clone());
-        }
-    }
-    for region in &window.regions {
-        let Some(action) = &region.action else {
-            continue;
-        };
-        if let Some(repeat) = &region.repeat
-            && repeat.field.is_none()
-        {
-            let group = repeat_group(&mut groups, repeat);
-            ensure_len(&mut group.actions, repeat.index);
-            group.actions[repeat.index as usize] = action.clone();
-        }
-    }
-    groups
-}
-
-fn repeat_group<'a>(
-    groups: &'a mut BTreeMap<String, RepeatGroupEntry>,
-    repeat: &RepeatBindingIr,
-) -> &'a mut RepeatGroupEntry {
-    let group = groups.entry(repeat.group.clone()).or_default();
-    group.count = group.count.max(repeat.index + 1);
-    group
-}
-
-fn set_indexed_name(fields: &mut BTreeMap<String, Vec<String>>, field: &str, index: u32, name: String) {
-    let names = fields.entry(field.to_string()).or_default();
-    ensure_len(names, index);
-    names[index as usize] = name;
-}
-
-fn ensure_len(values: &mut Vec<String>, index: u32) {
-    let len = index as usize + 1;
-    if values.len() < len {
-        values.resize(len, String::new());
-    }
 }

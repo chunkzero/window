@@ -2,11 +2,10 @@ use super::*;
 use crate::pipeline::{CompileInput, OutputFile, compile_project_json};
 
 const PROJECT: &str = r##"{
-  "theme":{"frames":{"panel":{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0}}},
   "windows":[{"name":"sample","container":"generic_9x3","children":[
-    {"type":"panel","frame":"panel","x":8,"y":0,"width":16,"height":16},
+    {"type":"flex","frame":{"art":"shape","kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0},"x":8,"y":0,"style":{"width":16,"height":16}},
     {"type":"label","text":"Hi","x":8,"y":20,"width":30},
-    {"type":"slot","name":"value","x":8,"y":30,"width":30}
+    {"type":"slot","handle":{"kind":"text","id":"value"},"x":8,"y":30,"width":30}
   ]}]
 }"##;
 
@@ -57,15 +56,14 @@ fn descriptor_is_byte_identical_when_rebuilt() {
 fn hud_descriptor_distinguishes_shared_and_independent_fixed_width_overlays() {
     let project = r##"{
       "options":{"hud_shaders":true},"target":{"pack_format":84},
-      "theme":{"frames":{"panel":{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0}}},
-      "huds":[
+          "huds":[
         {"name":"shared","channel":"actionbar","width":40,"height":12,"children":[
-          {"type":"panel","frame":"panel","x":0,"y":0,"width":8,"height":8},
-          {"type":"slot","name":"value","x":2,"y":2,"width":20}
+          {"type":"flex","frame":{"art":"shape","kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0},"x":0,"y":0,"style":{"width":8,"height":8}},
+          {"type":"slot","handle":{"kind":"text","id":"value"},"x":2,"y":2,"width":20}
         ]},
         {"name":"shader","channel":"actionbar","width":48,"height":12,
          "shader":{"source_bottom":59,"origin":{"x":0.5,"y":0.0},"anchor":{"x":0.5,"y":0.0}},
-         "children":[{"type":"slot","name":"value","x":3,"y":2,"width":20}]}
+         "children":[{"type":"slot","handle":{"kind":"text","id":"value"},"x":3,"y":2,"width":20}]}
       ]
     }"##;
     let output = compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();

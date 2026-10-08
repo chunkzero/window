@@ -48,13 +48,7 @@ impl CompileContext<'_> {
                     collections: case.collections.clone(),
                 });
             }
-            let entry = SwitchEntry {
-                binding: switch.binding.clone(),
-                states: switch.states,
-                initial: switch.initial.clone(),
-                source: switch.source.clone(),
-                cases: out,
-            };
+            let entry = SwitchEntry { source: switch.source.clone(), cases: out };
             entries.insert(switch.name.clone(), entry);
         }
         Ok(entries)

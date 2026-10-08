@@ -4,7 +4,7 @@
 //! every element keeps its usual validation. Leaves are fixed-size taffy nodes measured from fonts and
 //! sprites; text is vertically centered in its box and fills its width, and fixed-size art is centered.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use taffy::style_helpers::{TaffyAuto, TaffyGridLine, TaffyGridSpan, TaffyMaxContent, length};
 use taffy::{AvailableSpace, Dimension, FlexDirection, GridPlacement, LengthPercentageAuto, Line, NodeId, TaffyTree};
@@ -204,12 +204,9 @@ impl<T: LayoutTarget> Solver<'_, T> {
             | Element::Slot { .. }
             | Element::Sprite { .. }
             | Element::SpriteSlot { .. }
-            | Element::Panel { .. }
-            | Element::Row { .. }
-            | Element::Column { .. }
             | Element::Region(_) => self.measure(el),
             other => Err(self.target.layout_err(format!(
-                "{} cannot be laid out inside a flex box; place it in a section, or build it from regions",
+                "{} cannot be laid out inside a flex box; give it a slot source or place it in a section",
                 describe(other)
             ))),
         }
@@ -251,37 +248,26 @@ impl<T: LayoutTarget> Solver<'_, T> {
     }
 
     fn emit_switch_cases(&mut self, tree: &Tree, id: NodeId, switch: &Switch, parent: Point) -> Result<Rect> {
-        if let Some(repeat) = self.active_repeat.as_ref().filter(|repeat| repeat.scoped) {
-            return Err(self
-                .target
-                .layout_err(format!("switch `{}` cannot be inside repeater `{}`", switch.name, repeat.group)));
-        }
-        let key = self.scoped_name(&switch.name);
-        let binding = self.case_binding(&switch.name);
-        self.register_name(&key)?;
-        self.layers.push(Layer::Switch(key.clone()));
+        self.register_name(&switch.name)?;
+        self.layers.push(Layer::Switch(switch.name.clone()));
         let rect = self.node_rect(tree, id, parent)?;
         let ids = tree.children(id).map_err(|e| self.taffy_err(e))?;
         let mut cases = Vec::with_capacity(switch.cases.len());
         for (case, case_id) in switch.cases.iter().zip(ids) {
-            self.case_path.push(case.value.clone());
+            self.case_depth += 1;
             let emitted =
                 self.emit_case(&case.value, |s| s.emit_box(tree, case_id, &case.body, rect.origin()).map(|_| ()));
-            self.case_path.pop();
+            self.case_depth -= 1;
             cases.push(emitted?);
         }
         let source = switch.debug_name.clone();
-        self.switches.push(SwitchIr { name: key, binding, states: false, initial: None, source, cases });
+        self.switches.push(SwitchIr { name: switch.name.clone(), source, cases });
         Ok(rect)
     }
 
     /// Runs `emit` as switch case `value`: its draws, and the slots, sprite slots, regions, items, collections, and
     /// switches it emits outside any nested switch, become the case.
-    pub(super) fn emit_case(
-        &mut self,
-        value: &str,
-        emit: impl FnOnce(&mut Self) -> Result<()>,
-    ) -> Result<SwitchCaseIr> {
+    fn emit_case(&mut self, value: &str, emit: impl FnOnce(&mut Self) -> Result<()>) -> Result<SwitchCaseIr> {
         let outer_draws = std::mem::take(&mut self.draws);
         let starts = (
             self.slots.len(),
@@ -499,11 +485,11 @@ impl<T: LayoutTarget> Solver<'_, T> {
             });
             let base = format!("{label}_section");
             // Sections in switch cases may repeat, one per case.
-            let name = match self.case_path.is_empty() {
-                true => base,
-                false => (2..).map(|n| format!("{base}~{n}")).find(|name| !self.names.contains(name)).expect("free"),
+            let name = match self.case_depth {
+                0 => base,
+                _ => (2..).map(|n| format!("{base}~{n}")).find(|name| !self.names.contains(name)).expect("free"),
             };
-            self.place_slot_rects(&name, &format!("{label} section"), None, &all, section.claim)?;
+            self.place_claim(&name, &format!("{label} section"), &all, section.claim)?;
         }
         Ok(Size::new(0, 0))
     }
@@ -527,13 +513,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             interior.height + 2,
         );
         match el {
-            Element::Button { .. }
-            | Element::Hotspot { .. }
-            | Element::Item { .. }
-            | Element::Collection { .. }
-            | Element::SlotRects { .. }
-            | Element::Repeater { .. }
-            | Element::Region(_) => {
+            Element::Item { .. } | Element::Collection { .. } | Element::Region(_) => {
                 if translate != Point::default() {
                     return Err(self.target.layout_err(format!(
                         "{} is slot-bound and cannot be translated; translate its visual children instead",
@@ -566,20 +546,16 @@ impl<T: LayoutTarget> Solver<'_, T> {
     }
 }
 
-/// The default grid span of a section child, or `None` when it is not placed on the grid: controls
-/// with explicit slots or a `slots` pattern, and anvil inputs.
+/// The default grid span of a section child, or `None` when it is not placed on the grid: items and
+/// collections with explicit slots or a `slots` pattern, and anvil inputs.
 fn grid_span(el: &Element) -> Result<Option<Size>> {
     let pattern = match el {
-        Element::Button { slots: Some(_), .. }
-        | Element::Hotspot { slots: Some(_), .. }
-        | Element::Item { slots: Some(_), .. }
+        Element::Item { slots: Some(_), .. }
         | Element::Collection { slots: Some(_), .. }
-        | Element::AnvilInput { .. } => return Ok(None),
-        Element::Button { pattern, .. }
-        | Element::Hotspot { pattern, .. }
-        | Element::Item { pattern, .. }
-        | Element::Collection { pattern, .. } => pattern.as_ref(),
-        Element::SlotRects { pattern, .. } | Element::Repeater { pattern, .. } => Some(pattern),
+        | Element::AnvilInput { .. } => {
+            return Ok(None);
+        }
+        Element::Item { pattern, .. } | Element::Collection { pattern, .. } => pattern.as_ref(),
         _ => None,
     };
     let size = match pattern {
@@ -626,7 +602,7 @@ fn validate_section_axis(line: &Line<GridPlacement>, tracks: u32) -> Result<()> 
     Ok(())
 }
 
-/// Moves a control's area-relative pattern onto `area`; an unpatterned control covers the whole area.
+/// Moves an item's or collection's area-relative pattern onto `area`; an unpatterned one covers the whole area.
 fn anchor_pattern(el: &Element, area: &SlotRectPattern) -> Element {
     let anchor = |pattern: Option<&SlotPattern>| -> SlotPattern {
         match pattern {
@@ -647,13 +623,8 @@ fn anchor_pattern(el: &Element, area: &SlotRectPattern) -> Element {
         }
     };
     let mut out = el.clone();
-    match &mut out {
-        Element::Button { pattern, .. }
-        | Element::Hotspot { pattern, .. }
-        | Element::Item { pattern, .. }
-        | Element::Collection { pattern, .. } => *pattern = Some(anchor(pattern.as_ref())),
-        Element::SlotRects { pattern, .. } | Element::Repeater { pattern, .. } => *pattern = anchor(Some(pattern)),
-        _ => {}
+    if let Element::Item { pattern, .. } | Element::Collection { pattern, .. } = &mut out {
+        *pattern = Some(anchor(pattern.as_ref()));
     }
     out
 }
@@ -682,21 +653,14 @@ fn section_name(section: &SlotSection) -> &'static str {
 
 fn describe(el: &Element) -> String {
     match el {
-        Element::Button { name, .. } => format!("button `{name}`"),
-        Element::Hotspot { name, .. } => format!("hotspot `{name}`"),
         Element::Item { name, .. } => format!("item `{name}`"),
         Element::Collection { name, .. } => format!("collection `{name}`"),
         Element::AnvilInput { name, .. } => format!("anvil input `{name}`"),
-        Element::SlotRects { name, .. } => format!("slot rects `{name}`"),
-        Element::Repeater { name, .. } => format!("repeater `{name}`"),
         Element::Slot { name, .. } => format!("slot `{name}`"),
         Element::SpriteSlot { name, .. } => format!("sprite slot `{name}`"),
-        Element::Sprite { name, .. } => format!("sprite `{name}`"),
+        Element::Sprite { name, .. } => format!("image `{name}`"),
         Element::Label { text, .. } => format!("label `{text}`"),
         Element::Section(section) => format!("{} section", section_name(section)),
-        Element::Panel { .. } => "panel".into(),
-        Element::Row { .. } => "row".into(),
-        Element::Column { .. } => "column".into(),
         Element::Flex(_) => "flex box".into(),
         Element::Switch(switch) => format!("switch `{}`", switch.name),
         Element::Region(region) => match (&region.debug_name, &region.name) {
@@ -711,158 +675,25 @@ fn describe(el: &Element) -> String {
 fn fills_box(el: &Element) -> bool {
     match el {
         Element::Region(region) => region.size.is_none(),
-        Element::Item { slots: None, pattern: None, cell_slot: None, .. }
-        | Element::Collection { slots: None, pattern: None, .. } => true,
+        Element::Item { slots: None, pattern: None, .. } | Element::Collection { slots: None, pattern: None, .. } => {
+            true
+        }
         _ => false,
     }
 }
 
 /// Why `el`, inside a case of switch `switch`, is not allowed there.
 fn case_conflict(el: &Element, switch: &str) -> Option<String> {
-    let children: &[Element] = match el {
-        Element::Button { .. } | Element::Hotspot { .. } | Element::SlotRects { .. } | Element::Repeater { .. } => {
-            return Some(format!(
-                "{} cannot be inside switch `{switch}`: place it outside the switch, or build it from regions, \
-                 which switch cases may hold",
-                describe(el)
-            ));
-        }
-        Element::AnvilInput { .. } => {
-            return Some(format!(
-                "{} cannot be inside switch `{switch}`: the anvil's rename field is always shown",
-                describe(el)
-            ));
-        }
-        Element::Section(section) => {
-            return section.children.iter().find_map(|c| case_conflict(&c.element, switch));
-        }
-        Element::Item { .. } | Element::Collection { .. } | Element::Region(_) => return None,
+    match el {
+        Element::AnvilInput { .. } => Some(format!(
+            "{} cannot be inside switch `{switch}`: the anvil's rename field is always shown",
+            describe(el)
+        )),
+        Element::Section(section) => section.children.iter().find_map(|c| case_conflict(&c.element, switch)),
         Element::Switch(inner) => {
-            return inner
-                .cases
-                .iter()
-                .flat_map(|case| &case.body.children)
-                .find_map(|c| case_conflict(&c.element, switch));
+            inner.cases.iter().flat_map(|case| &case.body.children).find_map(|c| case_conflict(&c.element, switch))
         }
-        Element::Flex(node) => return node.children.iter().find_map(|c| case_conflict(&c.element, switch)),
-        Element::Panel { children, .. } | Element::Row { children, .. } | Element::Column { children, .. } => children,
-        Element::Sprite { .. } | Element::SpriteSlot { .. } | Element::Label { .. } | Element::Slot { .. } => &[],
-    };
-    children.iter().find_map(|c| case_conflict(c, switch))
-}
-
-/// One authored use of a binding name: its kind and the switch cases it sits in, outermost first, each as
-/// `(switch occurrence, switch name, case value)`. A switch also records its case values, sorted.
-struct Occurrence<'e> {
-    kind: &'static str,
-    cases: Vec<&'e str>,
-    path: Vec<(usize, &'e str, &'e str)>,
-}
-
-/// Whether two case paths can never be active together: they pick different cases of one switch occurrence.
-fn exclusive(a: &[(usize, &str, &str)], b: &[(usize, &str, &str)]) -> bool {
-    for (x, y) in a.iter().zip(b) {
-        if x.0 != y.0 {
-            return false;
-        }
-        if x.2 != y.2 {
-            return true;
-        }
-    }
-    false
-}
-
-impl<T: LayoutTarget> Solver<'_, T> {
-    /// Finds the bindings whose every use sits in a mutually exclusive switch case, so that each copy is keyed by its
-    /// case path and shares the binding, and reserves their names.
-    pub(super) fn share_bindings(&mut self, children: &[Element]) -> Result<()> {
-        let mut found: BTreeMap<&str, Vec<Occurrence<'_>>> = BTreeMap::new();
-        let mut switches = 0;
-        for child in children {
-            collect_bindings(child, &mut Vec::new(), &mut switches, &mut found);
-        }
-        for (name, uses) in &found {
-            if uses.len() < 2 {
-                continue;
-            }
-            let pairs = || (0..uses.len()).flat_map(|i| (i + 1..uses.len()).map(move |j| (&uses[i], &uses[j])));
-            if pairs().all(|(a, b)| exclusive(&a.path, &b.path)) {
-                if let Some((a, b)) = pairs().find(|(a, b)| a.kind != b.kind) {
-                    let switch = a.path.iter().zip(&b.path).find(|(x, y)| x.2 != y.2).map_or("", |(x, _)| x.1);
-                    return Err(self.target.layout_err(format!(
-                        "binding `{name}` is a {} in one case of switch `{switch}` and a {} in another",
-                        a.kind, b.kind
-                    )));
-                }
-                if let Some((a, b)) = pairs().find(|(a, b)| a.cases != b.cases) {
-                    return Err(self.target.layout_err(format!(
-                        "switch `{name}` is shared across exclusive cases but has cases [{}] in one and [{}] in \
-                         another; shared copies must have the same set of case values",
-                        a.cases.join(", "),
-                        b.cases.join(", ")
-                    )));
-                }
-                self.shared.insert(name.to_string());
-            } else if pairs().any(|(a, b)| exclusive(&a.path, &b.path)) {
-                let (a, b) = pairs().find(|(a, b)| !exclusive(&a.path, &b.path)).expect("a pair is not exclusive");
-                let common = a.path.iter().zip(&b.path).take_while(|(x, y)| x == y).last().map(|(x, _)| x);
-                return Err(self.target.layout_err(match common {
-                    Some((_, switch, case)) => {
-                        format!("binding `{name}` appears more than once in case `{case}` of switch `{switch}`")
-                    }
-                    None => {
-                        let switch = a.path.first().or(b.path.first()).map_or("", |x| x.1);
-                        format!("binding `{name}` appears both inside and outside the cases of switch `{switch}`")
-                    }
-                }));
-            }
-        }
-        for name in self.shared.clone() {
-            self.register_name(&name)?;
-        }
-        Ok(())
-    }
-}
-
-/// Records the text slot, runtime sprite slot, and switch bindings in `el` whose names are not scoped by a
-/// repeater, with the case path `path` of each.
-fn collect_bindings<'e>(
-    el: &'e Element,
-    path: &mut Vec<(usize, &'e str, &'e str)>,
-    switches: &mut usize,
-    found: &mut BTreeMap<&'e str, Vec<Occurrence<'e>>>,
-) {
-    let mut record = |name: &'e str, kind: &'static str, cases: Vec<&'e str>, path: &[(usize, &'e str, &'e str)]| {
-        found.entry(name).or_default().push(Occurrence { kind, cases, path: path.to_vec() });
-    };
-    let children: Vec<&Element> = match el {
-        Element::Slot { name, .. } => return record(name, "text slot", Vec::new(), path),
-        Element::SpriteSlot { name, sprite: None, .. } => return record(name, "sprite slot", Vec::new(), path),
-        Element::Switch(switch) => {
-            let mut cases: Vec<&str> = switch.cases.iter().map(|case| case.value.as_str()).collect();
-            cases.sort_unstable();
-            record(&switch.name, "switch", cases, path);
-            let id = *switches;
-            *switches += 1;
-            for case in &switch.cases {
-                path.push((id, &switch.name, &case.value));
-                for child in &case.body.children {
-                    collect_bindings(&child.element, path, switches, found);
-                }
-                path.pop();
-            }
-            return;
-        }
-        Element::Flex(node) => node.children.iter().map(|child| &child.element).collect(),
-        Element::Section(section) => section.children.iter().map(|child| &child.element).collect(),
-        Element::Panel { children, .. }
-        | Element::Row { children, .. }
-        | Element::Column { children, .. }
-        | Element::Button { children, .. } => children.iter().collect(),
-        Element::Repeater { cells: Some(cells), .. } => cells.children.iter().flatten().collect(),
-        _ => Vec::new(),
-    };
-    for child in children {
-        collect_bindings(child, path, switches, found);
+        Element::Flex(node) => node.children.iter().find_map(|c| case_conflict(&c.element, switch)),
+        _ => None,
     }
 }
