@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { action, createTheme, flag, industrial, items, selection, toggle } from "../src/authoring/index.ts";
-import { Window } from "../src/authoring/jsx.ts";
+import { action, collection, createTheme, flag, industrial, items, selection, toggle } from "../src/authoring/index.ts";
+import { Image, Window } from "../src/authoring/jsx.ts";
 import { resolveTokens } from "../src/authoring/tokens.ts";
 import type { Element } from "../src/authoring/types.ts";
 
@@ -102,4 +102,34 @@ test("a repeater's item slot shows the cell's item and leaves its clicks to the 
             [34, 16, { position: "absolute", top: 0, left: 18 }],
         );
     }
+});
+
+test("a theme over the rivet colors recolors the rivet", () => {
+    const rivet = (overrides: object) =>
+        JSON.stringify(
+            Window({
+                name: "rivets",
+                container: "generic_9x3",
+                theme: createTheme(industrial.colors, overrides),
+                children: [Image({ art: industrial.art.rivet })],
+            }),
+        );
+    assert.ok(rivet({ rivet: "#ff0000" }).includes("#ff0000"));
+    assert.ok(!rivet({}).includes("#ff0000"));
+});
+
+test("a collection style overrides the default frame, and an explicit frame overrides the style", () => {
+    const frame = (props: object) =>
+        ofType(industrial.Collection({ bind: collection("shop"), ...props }), "collection")[0]?.frame;
+    assert.equal((frame({}) as { name: string }).name, "industrial/slot");
+    assert.equal(frame({ style: { frame: "custom" } }), "custom");
+    assert.equal(frame({ style: { frame: "custom" }, frame: "explicit" }), "explicit");
+});
+
+test("tabs rendered from plain text get the text as their tooltip", () => {
+    const tabs = industrial.Tabs({ bind: selection("category", ["all", "gear"]), children: (value) => value });
+    assert.deepEqual(
+        ofType(tabs, "region").map((region) => region.tooltip),
+        ["all", "all", "gear", "gear"],
+    );
 });

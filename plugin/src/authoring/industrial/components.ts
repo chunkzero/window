@@ -230,11 +230,20 @@ export interface TabsProps<V extends string> extends Omit<ControlProps, "tooltip
     children: ((value: V, index: number) => Child) | Child;
 }
 
-/** A tab's tooltip: its own, or the text of its top-level labels. */
+/** A tab's tooltip: its own, or the text of its top-level labels and plain text. */
 function labelText(children: Child): string | undefined {
-    const text = flat(children)
-        .flatMap((child) => (child["type"] === "label" ? [child["text"] as string] : []))
-        .join(" ");
+    const parts: string[] = [];
+    const visit = (child: unknown): void => {
+        if (Array.isArray(child)) {
+            child.forEach(visit);
+        } else if (typeof child === "string" || typeof child === "number") {
+            parts.push(String(child).trim());
+        } else if (typeof child === "object" && child !== null && (child as Element)["type"] === "label") {
+            parts.push((child as { text: string }).text);
+        }
+    };
+    visit(children);
+    const text = parts.filter((part) => part !== "").join(" ");
     return text === "" ? undefined : text;
 }
 
@@ -289,7 +298,11 @@ export interface CollectionProps extends Omit<CollectionPrimitiveProps, "name" |
 
 /** A scrolling item collection drawn as industrial slots; by default it spans the full section width. */
 export function Collection(props: CollectionProps): Element {
-    return CollectionPrimitive({ frame: styles.collection.frame, selected: styles.collection.selected, ...props });
+    return CollectionPrimitive({
+        selected: styles.collection.selected,
+        ...props,
+        style: [{ frame: styles.collection.frame }, props.style],
+    });
 }
 
 /** The opened container's slot grid. */

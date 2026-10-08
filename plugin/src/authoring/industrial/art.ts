@@ -21,6 +21,9 @@ const defaults = {
     hazard: "#ffb20b",
     hazardStripe: "#141a2e",
     lamp: "#8dff5a",
+    rivet: "#6f88ba",
+    rivetHighlight: "#eef5ff",
+    rivetShadow: "#0a1433",
 } as const;
 
 /** Industrial's colors; `createTheme(industrial.colors, { … })` recolors every industrial art value under it. */
@@ -121,7 +124,7 @@ export interface IndustrialArt {
     hud: Var<ShapeArt>;
     hazardBar: Var<ShapeArt>;
     /** 5x5. */
-    rivet: ShapeArt;
+    rivet: Var<ShapeArt>;
     /** 4x4. */
     lampOn: Var<ShapeArt>;
     /** 4x4. */
@@ -189,21 +192,24 @@ export const art: IndustrialArt = {
             { name: "industrial/hazard-bar" },
         );
     }),
-    rivet: shape(
-        {
-            kind: "button",
-            width: 5,
-            height: 5,
-            fill: "#6f88ba",
-            border_color: "#6f88ba",
-            border_width: 0,
-            radius: 3,
-            inset_depth: 1,
-            highlight_color: "#eef5ff",
-            shadow_color: "#0a1433",
-        },
-        { name: "industrial/rivet" },
-    ),
+    rivet: derive((get) => {
+        const fill = get(colors.rivet);
+        return shape(
+            {
+                kind: "button",
+                width: 5,
+                height: 5,
+                fill,
+                border_color: fill,
+                border_width: 0,
+                radius: 3,
+                inset_depth: 1,
+                highlight_color: get(colors.rivetHighlight),
+                shadow_color: get(colors.rivetShadow),
+            },
+            { name: "industrial/rivet" },
+        );
+    }),
     lampOn: lamp((get) => get(colors.lamp), "industrial/lamp-on"),
     lampOff: lamp((get) => mix(get(colors.disabled), get(colors.border), 0.4), "industrial/lamp-off"),
     slotSelected: sunken(colors.selected, {

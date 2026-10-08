@@ -532,15 +532,16 @@ const ember = createTheme(industrial.colors, { panel: "#8c3a1c", button: "#c0503
 <Box theme={ember}>…</Box>;
 ```
 
-| var                           | `presets.industrial` option                     |
-| ----------------------------- | ----------------------------------------------- |
-| `border`, `highlight`         | `border_color`, `highlight_color`               |
-| `shell`, `panel`, `recess`    | `shell_fill`, `panel_fill`, `recess_fill`       |
-| `slot`, `button`              | `slot_fill`, `button_fill`                      |
-| `selected`, `disabled`        | `selected_fill`, `disabled_fill`                |
-| `accent`, `danger`, `confirm` | `accent_color`, `danger_color`, `confirm_color` |
-| `hud`, `lamp`                 | `hud_fill`, `lamp_color`                        |
-| `hazard`, `hazardStripe`      | `stripe_fill`, `stripe_color`                   |
+| var                                      | `presets.industrial` option                     |
+| ---------------------------------------- | ----------------------------------------------- |
+| `border`, `highlight`                    | `border_color`, `highlight_color`               |
+| `shell`, `panel`, `recess`               | `shell_fill`, `panel_fill`, `recess_fill`       |
+| `slot`, `button`                         | `slot_fill`, `button_fill`                      |
+| `selected`, `disabled`                   | `selected_fill`, `disabled_fill`                |
+| `accent`, `danger`, `confirm`            | `accent_color`, `danger_color`, `confirm_color` |
+| `hud`, `lamp`                            | `hud_fill`, `lamp_color`                        |
+| `hazard`, `hazardStripe`                 | `stripe_fill`, `stripe_color`                   |
+| `rivet`, `rivetHighlight`, `rivetShadow` | none (the preset has no rivet options)          |
 
 Art Kotlin selects at runtime, such as lamp images for a `sprite` handle, goes in the [sprite catalog](#sprite-catalog).
 
