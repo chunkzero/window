@@ -1,4 +1,19 @@
-import { action, defineWindows, flag, raw, selection, text, theme, toggle, value } from "../src/authoring/index.ts";
+import {
+    action,
+    defineWindows,
+    flag,
+    input,
+    items,
+    raw,
+    selection,
+    shape,
+    sprite,
+    text,
+    texture,
+    theme,
+    toggle,
+    value,
+} from "../src/authoring/index.ts";
 import type { Indexed, TextHandle } from "../src/authoring/index.ts";
 import {
     Box,
@@ -6,7 +21,11 @@ import {
     Case,
     Container,
     Hud,
+    Image,
+    Items,
+    Region,
     Row,
+    Section,
     Show,
     Sprite,
     Switch,
@@ -129,3 +148,58 @@ const setterCondition = <Show when={category.set("all")} />;
 // @ts-expect-error A comparison is not a click.
 const comparedClick = <Button onClick={category.is("all")} />;
 void [comparedSwitch, setterState, setterCondition, comparedClick];
+
+const coin = texture("window/coin.png");
+const bevel = shape({ kind: "button", fill: "#3a3a3a" }, { name: "industrial/button" });
+const icon = sprite("icon", { only: ["lamp_on", "lamp_off"] });
+const primitives = (
+    <Window name="primitives" container="generic_9x3" frame={bevel}>
+        <Section of="container">
+            <Box span={3} frame={bevel} debugName="tab-all">
+                <Switch bind={category.is("all")}>
+                    <Case value="true">
+                        <Image art={coin} />
+                    </Case>
+                    <Case value="false" />
+                </Switch>
+                <Region onClick={category.set("all")} tooltip="All" />
+            </Box>
+            <Switch bind={mode} span={2}>
+                <Case value="buy">
+                    <Region onClick={action("buy")} />
+                </Case>
+                <Case value="sell">
+                    <Items bind={items("stack")} />
+                </Case>
+            </Switch>
+        </Section>
+        <Image bind={icon} size={8} x={4} y={4} />
+        <Image art="coin" x={20} y={4} />
+    </Window>
+);
+const catalog = defineWindows({ sprites: { lamp_on: coin, lamp_off: bevel }, windows: [primitives] });
+// @ts-expect-error An image draws art or a sprite handle, not both.
+const artAndBind = <Image art={coin} bind={icon} size={8} />;
+// @ts-expect-error A bound image needs its slot size.
+const unsizedBind = <Image bind={icon} />;
+// @ts-expect-error `only` names the sprites a handle returns.
+const iconOnly: readonly "lamp_on"[] | undefined = icon.only;
+// @ts-expect-error A section names its grid.
+const unknownSection = <Section of="armor" />;
+// @ts-expect-error The catalog holds inline art, not theme names.
+const namedCatalog = defineWindows({ sprites: { coin: "coin" } });
+void [catalog, artAndBind, unsizedBind, iconOnly, unknownSection, namedCatalog];
+
+const rawPrimitives = raw.box({
+    frame: bevel,
+    children: [
+        raw.image(coin),
+        raw.image(icon, { width: 8, height: 8 }),
+        raw.region({ on_click: action("buy"), debug_name: "buy" }),
+        raw.text("Label"),
+        raw.text(text("title")),
+        raw.switchOn(mode, [raw.case("buy", { children: [raw.items(items("stack"))] }), raw.case("sell")]),
+        raw.section("hotbar", { children: [raw.input(input("query"))] }),
+    ],
+});
+void rawPrimitives;

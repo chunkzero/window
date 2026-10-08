@@ -2,8 +2,23 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { Fragment, createElement, jsx } from "../.rpp/sdk/jsx.ts";
-import { action, flag, selection, sprite, text, toggle, value } from "../src/authoring/index.ts";
-import { Box, Button, Case, Collection, Icon, Repeater, Show, Switch, Tab, Tabs, Text } from "../src/authoring/jsx.ts";
+import { action, flag, selection, shape, sprite, text, texture, toggle, value } from "../src/authoring/index.ts";
+import {
+    Box,
+    Button,
+    Case,
+    Collection,
+    Icon,
+    Image,
+    Region,
+    Repeater,
+    Section,
+    Show,
+    Switch,
+    Tab,
+    Tabs,
+    Text,
+} from "../src/authoring/jsx.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
     const child = Box({ children: Text({ children: "Hello" }) });
@@ -196,4 +211,65 @@ test("a repeater rendered per cell reads indexed handles", () => {
 
 test("an icon with a handle bind rejects a fixed sprite", () => {
     assert.throws(() => Icon({ bind: sprite("icon"), sprite: "icon_clear", size: 8 }), /fixed `sprite`/);
+});
+
+test("primitives serialize inline art, regions, sections, and debug names", () => {
+    const bevel = shape({ kind: "button", fill: "#3a3a3a" }, { name: "industrial/button" });
+    assert.deepEqual(bevel, { kind: "button", fill: "#3a3a3a", name: "industrial/button", art: "shape" });
+    assert.deepEqual(texture("window/coin.png", { insets: 2 }), {
+        art: "texture",
+        texture: "window/coin.png",
+        insets: 2,
+    });
+    assert.throws(() => texture("window/coin.png", { width: 4 }), /together/);
+
+    const category = selection("category", ["all", "gear"]);
+    const tab = Section({
+        of: "container",
+        children: Box({
+            span: 3,
+            frame: bevel,
+            debugName: "tab-all",
+            children: [
+                Switch({
+                    bind: category.is("all"),
+                    children: [Case({ value: "true", children: Image({ art: bevel }) }), Case({ value: "false" })],
+                }),
+                Region({ onClick: category.set("all"), tooltip: "All" }),
+            ],
+        }),
+    });
+    assert.equal(tab.type, "section");
+    assert.equal(tab.section, "container");
+    const box = tab.children?.[0];
+    assert.ok(box?.type === "flex");
+    assert.equal(box.frame, bevel);
+    assert.equal(box.debug_name, "tab-all");
+    const [toggle, region] = box.children ?? [];
+    assert.ok(toggle?.type === "switch");
+    assert.deepEqual(fields(toggle).handle, {
+        kind: "selection",
+        id: "category",
+        values: ["all", "gear"],
+        initial: "all",
+        is: "all",
+    });
+    assert.deepEqual(toggle.children[0]?.children, [{ type: "sprite", art: bevel }]);
+    assert.deepEqual(region, {
+        type: "region",
+        on_click: { kind: "selection", id: "category", values: ["all", "gear"], initial: "all", set: "all" },
+        tooltip: "All",
+    });
+});
+
+test("an image binds a sprite handle as a sized runtime slot", () => {
+    const lamp = sprite("lamp", { only: ["lamp_on", "lamp_off"] });
+    assert.deepEqual(Image({ bind: lamp, size: [8, 6], debugName: "lamp" }), {
+        type: "sprite_slot",
+        handle: { kind: "sprite", id: "lamp", only: ["lamp_on", "lamp_off"] },
+        width: 8,
+        height: 6,
+        debug_name: "lamp",
+    });
+    assert.deepEqual(Image({ art: "coin" }), { type: "sprite", name: "coin" });
 });

@@ -1,3 +1,5 @@
+import type { ClickAction } from "./handles.ts";
+
 export type CrossAlign = "start" | "center" | "end";
 export type TextAlign = "left" | "center" | "right";
 export type ButtonDefault = "close";
@@ -140,10 +142,10 @@ export interface Tooltip {
 export interface ButtonState {
     /** Item model id, e.g. "example:gui/shop_button_active". */
     item_model?: string;
-    /** Theme frame drawn over the button instead of its `frame` in this state. */
-    frame?: string;
-    /** Theme sprite name drawn at the button's top-left corner in this state. */
-    sprite?: string;
+    /** Frame drawn over the button instead of its `frame` in this state. */
+    frame?: ArtRef;
+    /** Sprite drawn at the button's top-left corner in this state. */
+    sprite?: ArtRef;
     tooltip?: string | Tooltip;
 }
 
@@ -205,6 +207,46 @@ export interface GeneratedSprite extends GeneratedStyle {
 }
 
 export type SpriteDef = BitmapSprite | GeneratedSprite;
+
+/** The optional name of inline art, which prefixes its content-hashed resource name. */
+export interface ArtName {
+    /** Must match ^[a-z0-9][a-z0-9_/-]*$; `industrial/button` names the art `art/industrial-button-<hash>`. */
+    name?: string;
+}
+
+/** Inline bitmap art: `texture(path, options)`. */
+export interface TextureArt extends ArtName {
+    readonly art: "texture";
+    /** Pack-source-relative texture path, or a texture id such as "example:item/coin.png". */
+    texture: string;
+    /** Nine-slice inset pixels, used where the art stretches over a box. */
+    insets?: Insets;
+    /** Size drawn as an image; set with `height`, or omit both for the texture's own size. */
+    width?: number;
+    height?: number;
+}
+
+/** Inline generated art: `shape(style, options)`. */
+export interface ShapeArt extends GeneratedStyle, ArtName {
+    readonly art: "shape";
+    /** Size drawn as an image; a frame stretches over its box instead. */
+    width?: number;
+    height?: number;
+}
+
+/**
+ * Art authored in place: a box frame stretched over its laid-out size, or an image drawn at its own size. Identical
+ * art is shared, and it never clashes with theme names.
+ */
+export type Art = TextureArt | ShapeArt;
+
+/** A theme frame or sprite name, or inline art. */
+export type ArtRef = string | Art;
+
+/** The authored name of an element, shown in errors and in the inspector. */
+export interface DebugName {
+    debug_name?: string;
+}
 
 /**
  * A bitmap text font: a glyph sheet of 8px-tall cells that each `chars` row maps, left to right. Cells sit on the text
@@ -300,7 +342,7 @@ export interface FlexItemOptions {
 }
 
 export interface PanelOptions extends FlexItemOptions {
-    frame: string;
+    frame: ArtRef;
     width: number;
     height: number;
     x?: number;
@@ -320,7 +362,7 @@ export interface LayoutOptions extends FlexItemOptions {
 export type RowOptions = LayoutOptions;
 export type ColumnOptions = LayoutOptions;
 
-export interface SpriteOptions extends FlexItemOptions {
+export interface SpriteOptions extends FlexItemOptions, DebugName {
     x?: number;
     y?: number;
 }
@@ -332,7 +374,7 @@ export interface SpriteOptions extends FlexItemOptions {
  */
 export type BindingIndex = number | readonly [number, number];
 
-export interface SpriteSlotOptions extends FlexItemOptions {
+export interface SpriteSlotOptions extends FlexItemOptions, DebugName {
     /** Places this sprite slot in an indexed binding family. */
     index?: BindingIndex;
     x?: number;
@@ -345,7 +387,7 @@ export interface SpriteSlotOptions extends FlexItemOptions {
 }
 
 export interface ButtonOptions extends FlexItemOptions {
-    frame?: string;
+    frame?: ArtRef;
     /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
     width?: number;
     /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
@@ -395,7 +437,7 @@ export interface HotspotOptions extends FlexItemOptions {
     states?: Record<string, ButtonState>;
 }
 
-export interface ItemOptions extends FlexItemOptions {
+export interface ItemOptions extends FlexItemOptions, DebugName {
     /** Backing inventory slots populated by this item. Integers mean container slots. */
     slots?: SlotList;
     /** Slot-space pattern for backing slots. */
@@ -406,11 +448,11 @@ export interface ItemOptions extends FlexItemOptions {
     cell_slot?: number;
 }
 
-export interface CollectionOptions extends FlexItemOptions {
+export interface CollectionOptions extends FlexItemOptions, DebugName {
     /** Optional frame drawn once around every collection cell. */
-    frame?: string;
-    /** Optional theme sprite drawn over the 18x18 box of the cell the runtime marks selected. */
-    selected_sprite?: string;
+    frame?: ArtRef;
+    /** Optional sprite drawn over the 18x18 box of the cell the runtime marks selected. */
+    selected_sprite?: ArtRef;
     /** Ordered backing inventory slots for this collection. Integers mean container slots. */
     slots?: SlotList;
     /** Slot-space pattern for backing slots. */
@@ -421,7 +463,7 @@ export interface CollectionOptions extends FlexItemOptions {
     action?: boolean;
 }
 
-export interface AnvilInputOptions {
+export interface AnvilInputOptions extends DebugName {
     /** Initial contents of the vanilla anvil rename field. */
     initial?: string;
     /** Optional item model for the input-slot seed item. */
@@ -451,7 +493,7 @@ export interface RepeaterOptions extends FlexItemOptions {
     children?: Element[];
 }
 
-export interface TextOptions extends TextStyleOptions, FlexItemOptions {
+export interface TextOptions extends TextStyleOptions, FlexItemOptions, DebugName {
     /** Required for dynamic slots except direct, unpositioned button children, which fill the button content width. */
     width?: number;
     x?: number;
@@ -486,7 +528,10 @@ export interface ColumnElement extends ColumnOptions {
 }
 export interface SpriteElement extends SpriteOptions {
     type: "sprite";
-    name: string;
+    /** A theme sprite name; set either `name` or `art`. */
+    name?: string;
+    /** Inline art drawn at its own size. */
+    art?: Art;
 }
 export interface SpriteSlotElement extends SpriteSlotOptions {
     type: "sprite_slot";
@@ -529,6 +574,24 @@ export interface LabelElement extends LabelOptions {
 export interface SlotElement extends SlotOptions {
     type: "slot";
     name: string;
+}
+
+/**
+ * An inventory region: the slots its rect covers route clicks to `on_click` and show its hitbox item. Without a size
+ * it fills its parent box, or in a section its grid area. Switch cases may hold regions over the same slots.
+ */
+export interface RegionOptions extends FlexItemOptions, DebugName {
+    /** What a click does; omit for a hover-only region. */
+    on_click?: ClickAction;
+    tooltip?: string | Tooltip;
+    /** Item model of the hitbox item filling its slots. */
+    item_model?: string;
+    /** Fixed size, set together; omit both to fill the parent box. */
+    width?: number;
+    height?: number;
+}
+export interface RegionElement extends RegionOptions {
+    type: "region";
 }
 
 /** A CSS length: pixels, a percentage, or a sizing keyword. */
@@ -589,11 +652,12 @@ export interface ItemLayout {
     translate?: [number, number];
 }
 
-export interface FlexOptions extends FlexItemOptions {
+export interface FlexOptions extends FlexItemOptions, DebugName {
     /** Explicit pixel position; inside another flex box this positions the box absolutely. */
     x?: number;
     y?: number;
-    frame?: string;
+    /** Frame stretched over the box's laid-out size. */
+    frame?: ArtRef;
     style?: FlexStyle;
     children?: Element[];
 }
@@ -602,8 +666,8 @@ export interface FlexElement extends FlexOptions {
     type: "flex";
 }
 
-export interface SectionOptions {
-    frame?: string;
+export interface SectionOptions extends DebugName {
+    frame?: ArtRef;
     /** How far the frame extends past the slot boxes. `section()` defaults it to 3 when a frame is set. */
     outset?: Insets;
     /** Claim for section slots no child owns. Defaults to "unowned". */
@@ -618,14 +682,14 @@ export interface SectionElement extends SectionOptions {
 }
 
 /** A case of `switchOn`, or the shown case of `show`: a flex box that stretches to the switch unless sized. */
-export interface CaseOptions {
-    frame?: string;
+export interface CaseOptions extends DebugName {
+    frame?: ArtRef;
     /** Box layout; `direction` defaults to `"column"`. */
     style?: FlexStyle;
     children?: Element[];
 }
 
-export interface SwitchOptions extends FlexItemOptions {
+export interface SwitchOptions extends FlexItemOptions, DebugName {
     /** Places this switch in an indexed binding family; every entry must have the same case values. */
     index?: BindingIndex;
     x?: number;
@@ -635,11 +699,11 @@ export interface SwitchOptions extends FlexItemOptions {
 export type ShowOptions = CaseOptions & SwitchOptions;
 
 /** One case of a switch: a flex box that fills the switch. */
-export interface CaseElement {
+export interface CaseElement extends DebugName {
     type: "case";
     /** Value the switch binding returns to draw this case. */
     value: string;
-    frame?: string;
+    frame?: ArtRef;
     style?: FlexStyle;
     children?: Element[];
 }
@@ -670,6 +734,7 @@ export type Element = (
     | RepeaterElement
     | LabelElement
     | SlotElement
+    | RegionElement
     | FlexElement
     | SectionElement
     | SwitchElement
@@ -681,7 +746,7 @@ export interface Window {
     /** Visual overflow allowed outside the container GUI. */
     bleed?: Insets;
     /** Frame drawn first, over the GUI rect grown by `bleed`. */
-    frame?: string;
+    frame?: ArtRef;
     children?: Element[];
 }
 
@@ -694,13 +759,15 @@ export interface Hud {
     /** Visual overflow allowed outside the HUD canvas. */
     bleed?: Insets;
     /** Frame drawn first, over the HUD rect grown by `bleed`. */
-    frame?: string;
+    frame?: ArtRef;
     shader?: HudShader;
     children?: Element[];
 }
 
 export interface WindowDocument {
     theme?: Theme;
+    /** Runtime sprites by name, generated into Kotlin's `WindowSprite`. */
+    sprites?: Record<string, Art>;
     windows?: Window[];
     huds?: Hud[];
     window?: Window;

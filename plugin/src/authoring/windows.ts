@@ -1,4 +1,4 @@
-import type { Hud, Theme, Window } from "./types.ts";
+import type { Art, Hud, Theme, Window } from "./types.ts";
 
 /**
  * The project's themes, windows, and HUDs, as `window/index.ts(x)` default-exports them. Lists may nest, so a
@@ -11,6 +11,11 @@ export interface WindowsDefinition {
     windows?: readonly unknown[];
     /** `<Hud>` and `hud()` documents, or HUD definitions. */
     huds?: readonly unknown[];
+    /**
+     * Runtime sprites by name: inline art Kotlin selects through the generated `WindowSprite`, such as
+     * `{ lamp_on: texture("window/lamp_on.png") }`. A `sprite` handle's `only` names some of them.
+     */
+    sprites?: Readonly<Record<string, Art>>;
 }
 
 /**
@@ -21,6 +26,7 @@ type Entries<L, D> = { readonly [K in keyof L]: Entry<L[K], D> };
 type Entry<E, D> = {} extends E ? E : E extends readonly unknown[] ? Entries<E, D> : E extends D ? E : D;
 
 type Checked<T extends WindowsDefinition> = {
+    sprites?: Readonly<Record<string, Art>>;
     themes?: Entries<T["themes"], Theme | { theme: Theme }>;
     windows?: Entries<T["windows"], Window | { windows: Window[] }>;
     huds?: Entries<T["huds"], Hud | { huds: Hud[] }>;
