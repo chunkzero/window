@@ -12,7 +12,9 @@ import com.chunkzero.window.manifest.WindowEntry
  * Routes clicks on typed backing slots to the active region or the collection cell that receives them.
  *
  * An action collection cell takes precedence over a region covering the same slot. Regions in
- * mutually exclusive cases may share slots; a click routes to the one whose case is active.
+ * mutually exclusive cases may share slots; a click routes to the one whose case is active. A state
+ * switch's case is read from its provider at click time, so a click between a state change and the
+ * next render routes by the current state.
  */
 internal class SlotRoutes(
     private val entry: WindowEntry,
@@ -43,7 +45,13 @@ internal class SlotRoutes(
             handler(IndexedClick(click.slot, cell.index, click.shift, click.right))
             return
         }
-        val name = regions[click.slot]?.firstOrNull(bindings.switches::regionActive) ?: return
+        val states = HashMap<String, String>()
+        val name =
+            regions[click.slot]?.firstOrNull { region ->
+                bindings.switches.regionActive(region) { key ->
+                    states.getOrPut(key) { bindings.buttonStates.getValue(key)() }
+                }
+            } ?: return
         val region = entry.regions.getValue(name)
         val handler = bindings.buttonHandlers[region.action]
         if (handler != null) {

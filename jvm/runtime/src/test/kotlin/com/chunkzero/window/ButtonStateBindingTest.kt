@@ -157,4 +157,89 @@ class ButtonStateBindingTest :
             handle.clickContainer(2)
             handle.closed shouldBe true
         }
+
+        "runtime action buttons route clicks by the current state before the next render" {
+            val close =
+                TestManifests.stateButton(
+                    "window:close",
+                    listOf(2),
+                    mapOf(
+                        "enabled" to HitboxEntry(itemModel = "demo:gui/enabled"),
+                        "disabled" to HitboxEntry(itemModel = "demo:gui/disabled"),
+                    ),
+                )
+            val regions =
+                close.regions.mapValues { (key, region) ->
+                    if (key.endsWith(".disabled")) {
+                        region.copy(action = null)
+                    } else {
+                        region.copy(defaultAction = "window:close")
+                    }
+                }
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    regions = regions,
+                    switches = mapOf("window:close" to close.switch),
+                )
+            val host = FakeHost()
+            val view =
+                object : TestView(manifest, host) {
+                    var canClose by state(false)
+
+                    override fun WindowScope<Any>.bind() {
+                        buttonState("window:close") { if (canClose) "enabled" else "disabled" }
+                    }
+                }
+            val handle = host.container
+            view.open()
+
+            handle.model(2) shouldBe "demo:gui/disabled"
+            view.canClose = true
+            handle.clickContainer(2)
+            handle.closed shouldBe true
+        }
+
+        "runtime action buttons ignore clicks after being disabled before the next render" {
+            val close =
+                TestManifests.stateButton(
+                    "window:close",
+                    listOf(2),
+                    mapOf(
+                        "enabled" to HitboxEntry(itemModel = "demo:gui/enabled"),
+                        "disabled" to HitboxEntry(itemModel = "demo:gui/disabled"),
+                    ),
+                )
+            val regions =
+                close.regions.mapValues { (key, region) ->
+                    if (key.endsWith(".disabled")) {
+                        region.copy(action = null)
+                    } else {
+                        region.copy(defaultAction = "window:close")
+                    }
+                }
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    regions = regions,
+                    switches = mapOf("window:close" to close.switch),
+                )
+            val host = FakeHost()
+            val view =
+                object : TestView(manifest, host) {
+                    var canClose by state(false)
+
+                    override fun WindowScope<Any>.bind() {
+                        buttonState("window:close") { if (canClose) "enabled" else "disabled" }
+                    }
+                }
+            val handle = host.container
+            view.canClose = true
+            view.open()
+
+            handle.model(2) shouldBe "demo:gui/enabled"
+            view.canClose = false
+            handle.clickContainer(2)
+            handle.closed shouldBe false
+        }
     })
