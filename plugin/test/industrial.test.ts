@@ -191,3 +191,13 @@ test("an industrial window without its inventory claims it and ends below the co
     assert.equal(label?.["font"], "custom");
     assert.equal("small_caps" in label! || "smallCaps" in label!, false);
 });
+
+test("a prompt has a back button only with onBack", () => {
+    const prompt = (props: object) =>
+        industrial.Prompt({ name: "p", bind: input("query"), onConfirm: action("confirm"), ...props }).windows;
+    const clicks = (windows: unknown) =>
+        ofType(windows, "region").map((region) => (region.on_click as { id: string }).id);
+    assert.equal(ofType(prompt({}), "anvil_input").length, 1);
+    assert.deepEqual(clicks(prompt({})), ["confirm"]);
+    assert.deepEqual(clicks(prompt({ onBack: action("back") })), ["back", "confirm"]);
+});
