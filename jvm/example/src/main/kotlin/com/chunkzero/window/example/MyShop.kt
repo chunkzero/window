@@ -3,7 +3,6 @@ package com.chunkzero.window.example
 import com.chunkzero.window.Click
 import com.chunkzero.window.WindowCollection
 import com.chunkzero.window.example.generated.ShopView
-import com.chunkzero.window.example.generated.WindowSprite
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
@@ -20,7 +19,7 @@ class MyShop(
     private var feedback by state<String?>(null)
     private var query by state(initialQuery)
 
-    private val catalog = list(cells = CATALOG_CELLS, key = Product::id) { visibleProducts() }
+    private val catalog = list(cells = PRODUCTS_SIZE, key = Product::id) { visibleProducts() }
 
     override val products: WindowCollection<ItemStack> =
         catalog.items(Product::toItemStack) { product, _ ->
@@ -34,10 +33,6 @@ class MyShop(
         tabLabel(CATEGORY_LABELS[index], Category.entries[index] == category)
 
     override fun sortLabel(index: Int): Component = tabLabel(SORT_LABELS[index], Sort.entries[index] == sort)
-
-    override fun favoritesLampSprite(): WindowSprite = lamp(favorites)
-
-    override fun affordableLampSprite(): WindowSprite = lamp(affordable)
 
     override fun canPrevious(): Boolean = catalog.canPrevious()
 
@@ -151,12 +146,8 @@ class MyShop(
         label: String,
         enabled: Boolean,
     ): Component = if (enabled) Component.text(label, NamedTextColor.WHITE) else Component.text(label, DISABLED_TEXT)
-
-    private fun lamp(on: Boolean): WindowSprite = if (on) WindowSprite.LAMP_ON else WindowSprite.LAMP_OFF
 }
 
-/** The `products` collection's cells: three rows of the container. */
-private const val CATALOG_CELLS = 27
 private val CATEGORY_LABELS = listOf("All", "Gear", "Magic")
 private val SORT_LABELS = listOf("Top", "Price", "Name")
 private val DISABLED_TEXT = TextColor.color(0x5fb0d4)

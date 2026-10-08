@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { Fragment, createElement, jsx } from "../.rpp/sdk/jsx.ts";
-import { action, flag, selection, text, value } from "../src/authoring/index.ts";
+import { action, flag, selection, text, toggle, value } from "../src/authoring/index.ts";
 import { Box, Button, Case, Collection, Repeater, Show, Switch, Tab, Tabs, Text } from "../src/authoring/jsx.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
@@ -146,6 +146,23 @@ test("selection helpers carry the compared or assigned value", () => {
     assert.deepEqual(
         cases.children.map((c) => c.value),
         ["buy", "sell"],
+    );
+    const tooltips = Tabs({
+        bind: category,
+        tooltip: (value) => `Show ${value}`,
+        itemModel: (value) => `tab_${value}`,
+        selectedSprite: "tab_selected",
+        children: (_, i) => Text({ bind: text("label", { shape: [2] }).at(i) }),
+    });
+    assert.deepEqual(fields(tooltips[1]!)["states"], {
+        selected: { item_model: "tab_gear", sprite: "tab_selected", tooltip: "Show gear" },
+        unselected: { item_model: "tab_gear", tooltip: "Show gear" },
+    });
+    const lamp = Switch({ on: toggle("lamp"), children: { true: Text({ children: "On" }), false: null } });
+    assert.ok(lamp.type === "switch");
+    assert.deepEqual(
+        lamp.children.map((c) => c.value),
+        ["true", "false"],
     );
     assert.throws(() => category.set("magic" as "all"), /not one of its values/);
     assert.throws(() => Switch({ on: mode, children: { buy: null, sell: null, rent: null } }), /`rent`/);

@@ -18,9 +18,6 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
     /** Called after a click changes `affordable`; assigning it does not call this. */
     protected open fun onAffordableChanged(value: Boolean) {}
 
-    /** Render the `affordable_lamp` sprite. */
-    protected abstract fun affordableLampSprite(): WindowSprite?
-
     /** Render the `balance` text. */
     protected abstract fun balance(): Component
 
@@ -63,9 +60,6 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
 
     /** Called after a click changes `favorites`; assigning it does not call this. */
     protected open fun onFavoritesChanged(value: Boolean) {}
-
-    /** Render the `favorites_lamp` sprite. */
-    protected abstract fun favoritesLampSprite(): WindowSprite?
 
     /** The `has_price` flag. */
     protected abstract fun hasPrice(): Boolean
@@ -124,7 +118,7 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
             affordable = !affordable
             onAffordableChanged(affordable)
         }
-        sprite("affordable_lamp") { affordableLampSprite()?.id }
+        switch("affordable~2") { affordable.toString() }
         slot("balance") { balance() }
         enabledButton("buy", { canBuy() }, handler = ::onBuy)
         slot("buy_label") { buyLabel() }
@@ -154,7 +148,7 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
             favorites = !favorites
             onFavoritesChanged(favorites)
         }
-        sprite("favorites_lamp") { favoritesLampSprite()?.id }
+        switch("favorites~2") { favorites.toString() }
         switch("has_price") { hasPrice().toString() }
         enabledButton("next", { canNext() }, handler = ::onNext)
         slot("next_label") { nextLabel() }
@@ -192,6 +186,8 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
     public companion object {
         /** A shape dimension of `category_label`. */
         public const val CATEGORY_LABEL_SIZE: Int = 3
+        /** The number of cells of `products`. */
+        public const val PRODUCTS_SIZE: Int = 27
         /** A shape dimension of `sort_label`. */
         public const val SORT_LABEL_SIZE: Int = 3
     }

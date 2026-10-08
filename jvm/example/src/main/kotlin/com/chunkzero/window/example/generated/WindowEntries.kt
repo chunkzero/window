@@ -612,15 +612,6 @@ internal object WindowEntries {
                         ),
                     ),
                     spriteSlots = mapOf(
-                        "affordable_lamp" to SpriteSlotEntry(
-                            x = 71,
-                            y = 163,
-                            width = 4,
-                            height = 4,
-                            align = Align.LEFT,
-                            font = "window:sprite_y157",
-                            sprite = null,
-                        ),
                         "clear_search_icon" to SpriteSlotEntry(
                             x = 156,
                             y = 162,
@@ -629,15 +620,6 @@ internal object WindowEntries {
                             align = Align.LEFT,
                             font = "window:sprite_y156",
                             sprite = "icon_clear",
-                        ),
-                        "favorites_lamp" to SpriteSlotEntry(
-                            x = 21,
-                            y = 163,
-                            width = 4,
-                            height = 4,
-                            align = Align.LEFT,
-                            font = "window:sprite_y157",
-                            sprite = null,
                         ),
                     ),
                     buttons = mapOf(
@@ -1674,6 +1656,38 @@ internal object WindowEntries {
                     ),
                     groups = emptyMap(),
                     switches = mapOf(
+                        "affordable~2" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "true",
+                                    static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uE9A2\uDB80\uDC04\uDB80\uDC08",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "false",
+                                    static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0C\uDB80\uDC0B\uF686\uDB80\uDC04\uDB80\uDC08",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                ),
+                            ),
+                        ),
+                        "favorites~2" to SwitchEntry(
+                            cases = listOf(
+                                SwitchCaseEntry(
+                                    value = "true",
+                                    static = "\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uE964\uDB80\uDC06\uDB80\uDC09",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                ),
+                                SwitchCaseEntry(
+                                    value = "false",
+                                    static = "\uDB80\uDC0E\uDB80\uDC0D\uDB80\uDC0B\uF016\uDB80\uDC06\uDB80\uDC09",
+                                    slots = emptyList(),
+                                    spriteSlots = emptyList(),
+                                ),
+                            ),
+                        ),
                         "has_price" to SwitchEntry(
                             cases = listOf(
                                 SwitchCaseEntry(

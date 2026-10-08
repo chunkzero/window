@@ -36,7 +36,7 @@ pub(super) fn generate_window(
 pub(super) fn generate_hud(name: &str, hud: &HudEntry, package_name: &str, target: KotlinTarget) -> Result<OutputFile> {
     let class_name = naming::hud_class_name(name);
     let mut members = Members::new(&class_name, naming::HUD_RESERVED_MEMBERS);
-    let handles = members.handles(&hud.handles)?;
+    let handles = members.handles(&hud.handles, &BTreeMap::new())?;
     let handled = handles::covered(&handles);
     members.indexed(&hud.indexed, &hud.switches)?;
     for (slot, entry) in &hud.slots {

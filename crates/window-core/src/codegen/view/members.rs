@@ -154,7 +154,7 @@ impl<'a> Members<'a> {
     /// indexed families, then ungrouped slots, sprites, buttons, items, collections, and anvil inputs.
     pub(super) fn of_window(class_name: &'a str, window: &WindowEntry) -> Result<(Vec<HandleMember>, Vec<Member>)> {
         let mut members = Self::new(class_name, &[]);
-        let handles = members.handles(&window.handles)?;
+        let handles = members.handles(&window.handles, &window.collections)?;
         for (name, group) in &window.groups {
             members.group(name, group)?;
         }
@@ -197,10 +197,18 @@ impl<'a> Members<'a> {
     }
 
     /// One member set per handle; the entries their uses bind are left out of inference.
-    pub(super) fn handles(&mut self, handles: &BTreeMap<String, Handle>) -> Result<Vec<HandleMember>> {
+    /// The members of `handles`; a collection handle's uses in `collections` give its cell count.
+    pub(super) fn handles(
+        &mut self,
+        handles: &BTreeMap<String, Handle>,
+        collections: &BTreeMap<String, CollectionEntry>,
+    ) -> Result<Vec<HandleMember>> {
         let members = handles
             .iter()
-            .map(|(id, handle)| HandleMember::new(id, handle, |member, source| self.claim(member, source)))
+            .map(|(id, handle)| {
+                let cells = cell_count(handle, collections);
+                HandleMember::new(id, handle, cells, |member, source| self.claim(member, source))
+            })
             .collect::<Result<Vec<_>>>()?;
         self.handled = covered(&members);
         Ok(members)
@@ -356,4 +364,11 @@ fn entry_names(family: &str, shape: &[u32]) -> Vec<String> {
 
 fn non_empty(sources: &[String]) -> Vec<String> {
     sources.iter().filter(|source| !source.is_empty()).cloned().collect()
+}
+
+/// The cell count shared by every collection a collection handle binds; `None` when they differ.
+fn cell_count(handle: &Handle, collections: &BTreeMap<String, CollectionEntry>) -> Option<u32> {
+    let mut counts = handle.uses.iter().filter_map(|use_| collections.get(&use_.entry)).map(|c| c.slots.len() as u32);
+    let first = counts.next()?;
+    counts.all(|count| count == first).then_some(first)
 }

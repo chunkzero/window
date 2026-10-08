@@ -1,4 +1,4 @@
-import { Hud, Row, Sprite, Switch, Text, text, value } from "#plugins/window";
+import { Hud, Row, Sprite, Switch, Text, flag, text } from "#plugins/window";
 import type { TextHandle, TextProps } from "#plugins/window";
 
 const coins = text("coins");
@@ -13,7 +13,7 @@ const altitude = text("altitude");
 const objective = text("objective");
 const stock = text("stock");
 const hint = text("hint");
-const waveProgress = value("wave_progress", ["on", "off"], { shape: [10] });
+const waveProgress = flag("wave_progress", { shape: [10] });
 
 const white = "#ffffff";
 const style: TextProps = { shadow: true, smallCaps: true, color: white };
@@ -84,7 +84,7 @@ export default [
         <Row gap={1}>
             {Array.from({ length: 10 }, (_, i) => (
                 <Switch on={waveProgress.at(i)}>
-                    {{ on: <Sprite name="lamp_on" />, off: <Sprite name="lamp_off" /> }}
+                    {{ true: <Sprite name="lamp_on" />, false: <Sprite name="lamp_off" /> }}
                 </Switch>
             ))}
         </Row>

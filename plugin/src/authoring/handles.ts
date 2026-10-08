@@ -34,7 +34,7 @@ export interface Ref<K extends HandleKind = HandleKind, V extends string = strin
 
 /** An indexed handle; select an entry with `.at()`. */
 export type Indexed<R extends Ref, S extends Shape> = Omit<R, "indexed" | "is" | "set"> & {
-    readonly shape: S;
+    readonly shape: Readonly<S>;
     readonly indexed?: true;
     at(...index: IndexOf<S>): R;
 };

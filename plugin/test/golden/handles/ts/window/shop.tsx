@@ -1,7 +1,6 @@
 import {
     Box,
     Button,
-    Choice,
     Collection,
     Container,
     Header,
@@ -11,15 +10,16 @@ import {
     Row,
     Show,
     Sprite,
+    Switch,
+    Tabs,
     Text,
     Toggle,
     Window,
 } from "#plugins/window";
-import type { Indexed, SelectionHandle, SpriteHandle, TextHandle, ToggleHandle } from "#plugins/window";
+import type { ToggleHandle } from "#plugins/window";
 
 import {
     affordable,
-    affordableLamp,
     balance,
     buy,
     buyLabel,
@@ -30,7 +30,6 @@ import {
     categoryLabel,
     clearSearch,
     favorites,
-    favoritesLamp,
     hasPrice,
     hasQuery,
     next,
@@ -47,26 +46,11 @@ import {
     status,
 } from "./handles.ts";
 
-/** One tab per value of `bind`, labelled by the matching entry of `label`. */
-function SelectionTabs<V extends string>(props: {
-    bind: SelectionHandle<V>;
-    label: Indexed<TextHandle, readonly [number]>;
-    tooltips: Record<V, string>;
-}) {
-    return props.bind.values.map((value, i) => (
-        <Choice
-            onClick={props.bind.set(value)}
-            span={3}
-            selected={{ tooltip: props.tooltips[value], sprite: "tab_selected" }}
-            unselected={{ tooltip: props.tooltips[value], sprite: "tab" }}
-        >
-            <Text bind={props.label.at(i)} />
-        </Choice>
-    ));
-}
+const categoryTooltips = { all: "All items", gear: "Gear", magic: "Magic" };
+const sortTooltips = { featured: "Top picks first", price: "Price sort", name: "Name sort" };
 
 /** A raised toggle with a lamp at its left and its label centered in the remaining width. */
-function LampToggle(props: { bind: ToggleHandle; lamp: SpriteHandle; title: string; tooltip: string }) {
+function LampToggle(props: { bind: ToggleHandle; title: string; tooltip: string }) {
     return (
         <Toggle
             bind={props.bind}
@@ -75,7 +59,7 @@ function LampToggle(props: { bind: ToggleHandle; lamp: SpriteHandle; title: stri
             on={{ tooltip: props.tooltip + " on" }}
             off={{ tooltip: props.tooltip + " off" }}
         >
-            <Icon bind={props.lamp} size={4} />
+            <Switch on={props.bind}>{{ true: <Sprite name="lamp_on" />, false: <Sprite name="lamp_off" /> }}</Switch>
             <Text>{props.title}</Text>
         </Toggle>
     );
@@ -114,11 +98,15 @@ export default (
         ))}
 
         <Container frame="panel" outset={{ top: 2, right: 3, bottom: 3, left: 3 }}>
-            <SelectionTabs
+            <Tabs
                 bind={category}
-                label={categoryLabel}
-                tooltips={{ all: "All items", gear: "Gear", magic: "Magic" }}
-            />
+                span={3}
+                sprite="tab"
+                selectedSprite="tab_selected"
+                tooltip={(value) => categoryTooltips[value]}
+            >
+                {(_, i) => <Text bind={categoryLabel.at(i)} />}
+            </Tabs>
 
             <Collection bind={products} rows={3} frame="slot" selected="slot_selected" />
 
@@ -156,14 +144,18 @@ export default (
         </Container>
 
         <Player>
-            <SelectionTabs
+            <Tabs
                 bind={sort}
-                label={sortLabel}
-                tooltips={{ featured: "Top picks first", price: "Price sort", name: "Name sort" }}
-            />
+                span={3}
+                sprite="tab"
+                selectedSprite="tab_selected"
+                tooltip={(value) => sortTooltips[value]}
+            >
+                {(_, i) => <Text bind={sortLabel.at(i)} />}
+            </Tabs>
 
-            <LampToggle bind={favorites} lamp={favoritesLamp} title="Favs" tooltip="Favorites only" />
-            <LampToggle bind={affordable} lamp={affordableLamp} title="Afford" tooltip="Affordable only" />
+            <LampToggle bind={favorites} title="Favs" tooltip="Favorites only" />
+            <LampToggle bind={affordable} title="Afford" tooltip="Affordable only" />
             <Button onClick={search} span={2} frame="button" tooltip="Search the catalog">
                 Find
             </Button>

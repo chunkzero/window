@@ -1,4 +1,4 @@
-import { action, collection, flag, input, selection, sprite, text, toggle } from "#plugins/window";
+import { action, collection, flag, input, selection, text, toggle } from "#plugins/window";
 
 // Shop
 export const category = selection("category", ["all", "gear", "magic"]);
@@ -8,8 +8,6 @@ export const sortLabel = text("sort_label", { shape: [3] });
 
 export const favorites = toggle("favorites");
 export const affordable = toggle("affordable");
-export const favoritesLamp = sprite("favorites_lamp");
-export const affordableLamp = sprite("affordable_lamp");
 
 export const products = collection("products", { selectable: true });
 export const previous = action("previous");

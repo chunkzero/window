@@ -18,15 +18,18 @@ pub(super) struct HandleMember {
     pub(super) enum_name: Option<String>,
     /// The `on…Changed` hook of UI-owned state.
     pub(super) hook: Option<String>,
-    /// The shape constants: `<ID>_SIZE`, or `<ID>_ROWS` and `<ID>_COLUMNS`.
+    /// The shape constants: `<ID>_SIZE`, or `<ID>_ROWS` and `<ID>_COLUMNS`; a collection's `<ID>_SIZE` is its
+    /// cell count.
     pub(super) constants: Vec<(String, u32)>,
 }
 
 impl HandleMember {
-    /// Names the members of `handle`; `claim` rejects invalid or colliding names.
+    /// Names the members of `handle`; `cells` is a collection's cell count, and `claim` rejects invalid or colliding
+    /// names.
     pub(super) fn new(
         id: &str,
         handle: &Handle,
+        cells: Option<u32>,
         mut claim: impl FnMut(&str, String) -> crate::Result<()>,
     ) -> crate::Result<Self> {
         let kind = handle.kind.id();
@@ -50,9 +53,10 @@ impl HandleMember {
             claim(hook, format!("{kind} `{id}` change hook"))?;
         }
         let upper = id.to_uppercase();
-        let constants = match handle.shape.as_slice() {
-            [size] => vec![(format!("{upper}_SIZE"), *size)],
-            [rows, columns] => vec![(format!("{upper}_ROWS"), *rows), (format!("{upper}_COLUMNS"), *columns)],
+        let constants = match (handle.shape.as_slice(), cells) {
+            ([size], _) => vec![(format!("{upper}_SIZE"), *size)],
+            ([rows, columns], _) => vec![(format!("{upper}_ROWS"), *rows), (format!("{upper}_COLUMNS"), *columns)],
+            (_, Some(cells)) if handle.kind == HandleKind::Collection => vec![(format!("{upper}_SIZE"), cells)],
             _ => Vec::new(),
         };
         for (constant, _) in &constants {
@@ -188,7 +192,10 @@ pub(super) fn constants(w: &mut KotlinWriter, handles: &[HandleMember]) {
     w.open("public companion object {");
     for handle in handles {
         for (constant, value) in &handle.constants {
-            w.doc(format_args!("A shape dimension of `{}`.", handle.id));
+            match handle.handle.kind {
+                HandleKind::Collection => w.doc(format_args!("The number of cells of `{}`.", handle.id)),
+                _ => w.doc(format_args!("A shape dimension of `{}`.", handle.id)),
+            }
             w.line(format_args!("public const val {constant}: Int = {value}"));
         }
     }

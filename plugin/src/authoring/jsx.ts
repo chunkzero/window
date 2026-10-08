@@ -2,7 +2,7 @@ import type { Child as JsxChild } from "#rpp/jsx";
 
 import { hud, ui } from "./elements.ts";
 import { builtin, isRef, refJson } from "./handles.ts";
-import type { Action, ClickAction, Collection, Condition, Indexed, Input, Items, Ref, Shape } from "./handles.ts";
+import type { Action, ClickAction, Collection, Condition, Flag, Indexed, Input, Items, Ref, Shape } from "./handles.ts";
 import type { Selection, Sprite as SpriteHandle, Text as TextHandle, Toggle as ToggleHandle } from "./handles.ts";
 import type {
     AutoLength,
@@ -210,9 +210,14 @@ export interface TabsProps extends TabsStyle {
 }
 
 /** One tab per value of `bind`, rendered by `children`; a click selects its value. */
-export interface TabsBindProps<V extends string> extends TabsStyle {
+export interface TabsBindProps<V extends string> extends Omit<TabsStyle, "itemModel"> {
     bind: Selection<V>;
-    children: (value: V) => Child;
+    /** Each tab's tooltip; defaults to the text of its labels. */
+    tooltip?: (value: V) => string | Tooltip;
+    /** Every tab's item model, or each tab's. */
+    itemModel?: string | ((value: V) => string);
+    /** Renders the tab of `value`, the `index`th of the selection's values. */
+    children: (value: V, index: number) => Child;
 }
 
 export interface TabProps {
@@ -248,6 +253,15 @@ export interface SwitchOnProps<V extends string> extends ItemProps {
     text?: TextProps;
     /** The content of each case, keyed by value; every value needs one. */
     children: { readonly [K in NoInfer<V>]: Child };
+}
+
+/** A switch on a flag or toggle handle, with a `true` and a `false` case. */
+export interface SwitchFlagProps extends ItemProps {
+    on: Flag | ToggleHandle;
+    x?: number;
+    y?: number;
+    text?: TextProps;
+    children: { readonly true: Child; readonly false: Child };
 }
 
 /** Box props apply to the shown case; item props place the switch. */
@@ -834,8 +848,17 @@ function tab(props: TabsStyle, choice: Fields, tooltip: string | Tooltip | undef
  */
 export function Tabs<V extends string>(props: TabsProps | TabsBindProps<V>): Element[] {
     if ("bind" in props) {
-        const { bind, children, ...style } = props;
-        return bind.values.map((value) => tab(style, { onClick: bind.set(value) }, undefined, nodes(children(value))));
+        const { bind, children, tooltip, itemModel, ...style } = props;
+        return bind.values.map((value, i) => {
+            const model = typeof itemModel === "function" ? itemModel(value) : itemModel;
+            const choice = { onClick: bind.set(value) };
+            return tab(
+                { ...style, ...clean({ itemModel: model }) },
+                choice,
+                tooltip?.(value),
+                nodes(children(value, i)),
+            );
+        });
     }
     requireName(props.name, "Tabs");
     const { name, children, ...style } = props;
@@ -885,17 +908,19 @@ function switchNode(
 /**
  * Stacks its cases in one box sized to the largest case; the runtime draws only the active case. With `bind`, the
  * children are `<Case>` elements and the binding names the active one; with `on`, the children map each value of a
- * value or selection handle to its content. Cases are visual: art, text, and icons, but no slot-bound controls.
+ * value or selection handle, or `true` and `false` of a flag or toggle, to its content. Cases are visual: art, text,
+ * and icons, but no slot-bound controls.
  */
-export function Switch<V extends string>(props: SwitchProps | SwitchOnProps<V>): Element {
+export function Switch<V extends string>(props: SwitchProps | SwitchOnProps<V> | SwitchFlagProps): Element {
     if ("on" in props) {
         const content = props.children as Record<string, Child>;
-        const values: readonly string[] = props.on.values ?? [];
+        const boolean = props.on.kind === "flag" || props.on.kind === "toggle";
+        const values: readonly string[] = boolean ? ["true", "false"] : (props.on.values ?? []);
         const extra = Object.keys(content).find((key) => !values.includes(key));
         if (extra !== undefined) {
             throw new Error(`<Switch on={${props.on.id}}> has a case \`${extra}\` that is not one of its values`);
         }
-        const cases = (props.on.values ?? []).map((value) => Case({ value, children: content[value] }));
+        const cases = values.map((value) => Case({ value, children: content[value] }));
         return switchNode(props, { handle: refJson(props.on) }, cases);
     }
     requireName(props.bind, "Switch bind");

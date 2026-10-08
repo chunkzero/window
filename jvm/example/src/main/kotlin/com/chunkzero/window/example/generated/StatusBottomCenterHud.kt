@@ -10,19 +10,13 @@ public abstract class StatusBottomCenterHud : HudView(WindowHudDefinitions.statu
     /** Render the `hint` text. */
     protected abstract fun hint(): Component
 
-    /** The values of `wave_progress`. */
-    public enum class WaveProgress(public val value: String) {
-        ON("on"),
-        OFF("off"),
-    }
-
-    /** The `wave_progress` value. */
-    protected abstract fun waveProgress(index: Int): WaveProgress
+    /** The `wave_progress` flag. */
+    protected abstract fun waveProgress(index: Int): Boolean
 
     final override fun HudScope.bind() {
         slot("hint") { hint() }
         for (index in 0 until WAVE_PROGRESS_SIZE) {
-            switch("wave_progress[$index]") { waveProgress(index).value }
+            switch("wave_progress[$index]") { waveProgress(index).toString() }
         }
     }
 

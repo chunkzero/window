@@ -1,4 +1,5 @@
-import { action, flag, selection, value } from "../src/authoring/index.ts";
+import { action, defineWindows, flag, selection, text, theme, toggle, value } from "../src/authoring/index.ts";
+import type { Indexed, TextHandle } from "../src/authoring/index.ts";
 import {
     Box,
     Button,
@@ -87,3 +88,27 @@ const wrongRank = lamp.at(1);
 // @ts-expect-error Button states are keyed by the state handle's values.
 const wrongStates = <Button onClick={action("trade")} state={mode} states={{ buy: {}, rent: {} }} />;
 void [handles, isTypo, setTypo, initialTypo, partialSwitch, unindexed, wrongRank, wrongStates];
+
+const favorites = toggle("favorites");
+const labels = text("label", { shape: [3] });
+const label: Indexed<TextHandle, [number]> = labels;
+const booleanSwitches = (
+    <Window name="booleans" container="generic_9x1">
+        <Switch on={favorites}>{{ true: <Text>On</Text>, false: null }}</Switch>
+        <Switch on={lamp.at(0, 0)}>{{ true: null, false: <Text>Off</Text> }}</Switch>
+        <Tabs bind={category} tooltip={(v) => ({ all: "All", gear: "Gear", magic: "Magic" })[v]} itemModel={(v) => v}>
+            {(_, i) => <Text bind={label.at(i)} />}
+        </Tabs>
+    </Window>
+);
+const statusHuds = [<Hud name="a" />, <Hud name="b" />];
+const definition = defineWindows({ windows: [handles, booleanSwitches], huds: [statusHuds, <Hud name="c" />] });
+// @ts-expect-error A switch on a flag or toggle covers `true` and `false`.
+const partialFlagSwitch = <Switch on={favorites}>{{ true: null }}</Switch>;
+// @ts-expect-error A tab tooltip is called with the selection's values.
+const wrongTooltip = Tabs({ bind: category, tooltip: (v: "all" | "rare") => v, children: () => null });
+// @ts-expect-error A theme is not a window.
+const themeAsWindow = defineWindows({ windows: [theme({})] });
+// @ts-expect-error A window document is not a HUD.
+const windowAsHud = defineWindows({ huds: [handles, { windows: [] }] });
+void [definition, partialFlagSwitch, wrongTooltip, themeAsWindow, windowAsHud];

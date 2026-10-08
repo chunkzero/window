@@ -115,6 +115,7 @@ fn every_handle_kind_declares_its_member_and_binds_each_use() {
             "buttonState(\"trade\") { mode().value }",
             "button(\"trade\", ::onTrade)",
             "collection(\"products\", products)",
+            "public const val PRODUCTS_SIZE: Int = 9",
         ],
     );
     assert!(!shop.contains("window:close"), "a runtime action binds nothing:\n{shop}");

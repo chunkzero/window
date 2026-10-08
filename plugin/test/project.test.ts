@@ -178,6 +178,21 @@ test("a window/index entry lists every document; other modules are ordinary", ()
     assert.deepEqual(warnings, []);
 });
 
+test("defineWindows lists flatten nested lists and reject documents of another kind", () => {
+    const fragment = [hud({ name: "a", width: 1, height: 1 }), [hud({ name: "b", width: 1, height: 1 })]];
+    const { ctx } = fake({ "window/index.tsx": defineWindows({ windows: [[shop]], huds: [fragment] }) });
+    const project = buildProject(collectInputs(ctx).documents, {}, 84);
+    assert.deepEqual(project.windows, shop.windows);
+    assert.deepEqual(
+        project.huds.map((h) => h.name),
+        ["a", "b"],
+    );
+    const wrong = fake({ "window/index.ts": { windows: [shop, theme({})] } });
+    assert.throws(() => collectInputs(wrong.ctx), /window\/index\.ts: defineWindows `windows` entry 1 is not a window/);
+    const bare = fake({ "window/index.ts": { huds: [shop.windows[0]] } });
+    assert.throws(() => collectInputs(bare.ctx), /`huds` entry 0 is not a hud/);
+});
+
 test("without an entry every module's default export is read, with a warning", () => {
     const { ctx } = fake({ "window/a.ts": shop });
     const { documents, warnings } = collectInputs(ctx);

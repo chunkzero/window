@@ -111,6 +111,7 @@ export type {
     SlotsProps,
     SpriteProps,
     StateProps,
+    SwitchFlagProps,
     SwitchOnProps,
     SwitchProps,
     TabProps,

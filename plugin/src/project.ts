@@ -1,5 +1,4 @@
 import type { Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
-import type { WindowsDefinition } from "./authoring/windows.ts";
 
 export interface WindowOptions {
     /** Namespace of the generated assets. Defaults to `window`. */
@@ -155,17 +154,48 @@ function defaultExport(path: string, module: Record<string, unknown>): WindowDoc
     return docs as WindowDocument[];
 }
 
+/** Per `defineWindows` list: the key of its documents and the key of one bare definition. */
+const LISTS = {
+    themes: ["theme", "theme"],
+    windows: ["windows", "window"],
+    huds: ["huds", "hud"],
+} as const;
+
+/** Whether `entry` is a bare definition for `list`: a window has a `container`, a HUD a `name` and no `container`. */
+function isDefinition(list: keyof typeof LISTS, entry: Fields): boolean {
+    if (list === "themes") {
+        return true;
+    }
+    return typeof entry["name"] === "string" && "container" in entry === (list === "windows");
+}
+
+/** The documents of one `defineWindows` list, flattening nested lists such as a listed fragment. */
+function listDocuments(path: string, list: keyof typeof LISTS, entries: unknown): WindowDocument[] {
+    if (entries === undefined) {
+        return [];
+    }
+    if (!Array.isArray(entries)) {
+        throw new Error(`${path}: defineWindows \`${list}\` must be a list`);
+    }
+    const [documents, single] = LISTS[list];
+    return (entries as unknown[]).flat(Infinity).map((entry, i) => {
+        if (isFields(entry) && documents in entry) {
+            return { [documents]: entry[documents] };
+        }
+        const other = isFields(entry) && ["theme", "windows", "huds"].some((key) => key in entry);
+        if (!isFields(entry) || other || !isDefinition(list, entry)) {
+            throw new Error(`${path}: defineWindows \`${list}\` entry ${i} is not a ${single} document`);
+        }
+        return { [single]: entry };
+    });
+}
+
 /** The documents of a `defineWindows` definition. */
 function entryDocuments(path: string, value: unknown): WindowDocument[] {
     if (!isFields(value)) {
         throw new Error(`${path} must export default defineWindows({ themes, windows, huds })`);
     }
-    const { themes = [], windows = [], huds = [] } = value as WindowsDefinition;
-    return [
-        ...themes.map((theme) => ("theme" in theme ? { theme: theme.theme as Theme } : { theme })),
-        ...windows.map((window) => ("windows" in window ? { windows: window.windows } : { window: window as Window })),
-        ...huds.map((hud) => ("huds" in hud ? { huds: hud.huds } : { hud: hud as Hud })),
-    ];
+    return (["themes", "windows", "huds"] as const).flatMap((key) => listDocuments(path, key, value[key]));
 }
 
 /**
