@@ -1,4 +1,15 @@
 import type { ClickAction } from "./handles.ts";
+import type {
+    BoxStyle,
+    CaseStyle,
+    CollectionStyle,
+    ItemStyle,
+    SectionStyle,
+    StyleValue,
+    SwitchStyle,
+    TextStyle,
+} from "./styles.ts";
+import type { Color, Var, VarTheme } from "./tokens.ts";
 
 export type CrossAlign = "start" | "center" | "end";
 export type TextAlign = "left" | "center" | "right";
@@ -226,13 +237,22 @@ export interface TextureArt extends ArtName {
     height?: number;
 }
 
+/** `T` with each color field also taking a `Var<Color>` and each number field a `Var<number>`. */
+export type Tokenized<T> = {
+    [K in keyof T]: K extends "kind" ? T[K] : T[K] | (NonNullable<T[K]> extends number ? Var<number> : Var<Color>);
+};
+
+/** Generated art's style and, for images, its size. Fields may be vars, resolved under the theme where it is drawn. */
+export type ShapeStyle = Tokenized<
+    GeneratedStyle & {
+        /** Size drawn as an image; a frame stretches over its box instead. */
+        width?: number;
+        height?: number;
+    }
+>;
+
 /** Inline generated art: `shape(style, options)`. */
-export interface ShapeArt extends GeneratedStyle, ArtName {
-    readonly art: "shape";
-    /** Size drawn as an image; a frame stretches over its box instead. */
-    width?: number;
-    height?: number;
-}
+export type ShapeArt = ShapeStyle & ArtName & { readonly art: "shape" };
 
 /**
  * Art authored in place: a box frame stretched over its laid-out size, or an image drawn at its own size. Identical
@@ -240,8 +260,8 @@ export interface ShapeArt extends GeneratedStyle, ArtName {
  */
 export type Art = TextureArt | ShapeArt;
 
-/** A theme frame or sprite name, or inline art. */
-export type ArtRef = string | Art;
+/** A theme frame or sprite name, inline art, or art `derive`d from tokens. */
+export type ArtRef = string | Art | Var<Art>;
 
 /** The authored name of an element, shown in errors and in the inspector. */
 export interface DebugName {
@@ -322,7 +342,7 @@ export interface HudShader {
 export interface TextStyleOptions {
     align?: TextAlign;
     /** Hex color, e.g. "#ffffff". */
-    color?: string;
+    color?: string | Var<Color>;
     shadow?: boolean;
     bold?: boolean;
     italic?: boolean;
@@ -365,6 +385,7 @@ export type ColumnOptions = LayoutOptions;
 export interface SpriteOptions extends FlexItemOptions, DebugName {
     x?: number;
     y?: number;
+    style?: StyleValue<ItemStyle>;
 }
 
 /**
@@ -384,6 +405,7 @@ export interface SpriteSlotOptions extends FlexItemOptions, DebugName {
     align?: TextAlign;
     /** Theme sprite name drawn by default. */
     sprite?: string;
+    style?: StyleValue<ItemStyle>;
 }
 
 export interface ButtonOptions extends FlexItemOptions {
@@ -446,6 +468,7 @@ export interface ItemOptions extends FlexItemOptions, DebugName {
     transform?: SlotRectPatternOptions;
     /** One-based index into the enclosing repeater cell's own slots. Repeater children only; mutually exclusive with slots/pattern/transform. */
     cell_slot?: number;
+    style?: StyleValue<ItemStyle>;
 }
 
 export interface CollectionOptions extends FlexItemOptions, DebugName {
@@ -461,6 +484,7 @@ export interface CollectionOptions extends FlexItemOptions, DebugName {
     transform?: SlotRectPatternOptions;
     /** Whether clicks route to a generated handler. Defaults to true. */
     action?: boolean;
+    style?: StyleValue<CollectionStyle>;
 }
 
 export interface AnvilInputOptions extends DebugName {
@@ -498,6 +522,7 @@ export interface TextOptions extends TextStyleOptions, FlexItemOptions, DebugNam
     width?: number;
     x?: number;
     y?: number;
+    style?: StyleValue<TextStyle>;
 }
 export type LabelOptions = TextOptions;
 /** How a bound text slot shortens content wider than its width: `"ellipsis"` truncates it and appends "…". */
@@ -589,6 +614,7 @@ export interface RegionOptions extends FlexItemOptions, DebugName {
     /** Fixed size, set together; omit both to fill the parent box. */
     width?: number;
     height?: number;
+    style?: StyleValue<ItemStyle>;
 }
 export interface RegionElement extends RegionOptions {
     type: "region";
@@ -614,8 +640,8 @@ export interface FlexStyle {
     justify?: FlexJustify;
     align?: FlexAlign;
     align_content?: FlexJustify;
-    gap?: FixedLength | [FixedLength, FixedLength];
-    padding?: Edges<FixedLength>;
+    gap?: FixedLength | [FixedLength, FixedLength] | Var<number>;
+    padding?: Edges<FixedLength> | Var<number>;
     width?: Length;
     height?: Length;
     min_width?: AutoLength;
@@ -659,7 +685,14 @@ export interface FlexOptions extends FlexItemOptions, DebugName {
     /** Frame stretched over the box's laid-out size. */
     frame?: ArtRef;
     style?: FlexStyle;
+    /** Overrides vars for this box and everything inside it. */
+    theme?: VarTheme;
     children?: Element[];
+}
+
+/** Options of `box`: `style` takes styles from `create` (later entries win per property) instead of `FlexStyle`. */
+export interface BoxOptions extends Omit<FlexOptions, "style"> {
+    style?: StyleValue<BoxStyle>;
 }
 
 export interface FlexElement extends FlexOptions {
@@ -673,6 +706,7 @@ export interface SectionOptions extends DebugName {
     /** Claim for section slots no child owns. Defaults to "unowned". */
     claim?: SlotRectClaim;
     flow?: GridFlow;
+    style?: StyleValue<SectionStyle>;
     children?: Element[];
 }
 
@@ -684,8 +718,10 @@ export interface SectionElement extends SectionOptions {
 /** A case of `switchOn`, or the shown case of `show`: a flex box that stretches to the switch unless sized. */
 export interface CaseOptions extends DebugName {
     frame?: ArtRef;
-    /** Box layout; `direction` defaults to `"column"`. */
-    style?: FlexStyle;
+    /** Styles from `create`; `direction` defaults to `"column"`. */
+    style?: StyleValue<CaseStyle>;
+    /** Overrides vars for this case and everything inside it. */
+    theme?: VarTheme;
     children?: Element[];
 }
 
@@ -694,9 +730,10 @@ export interface SwitchOptions extends FlexItemOptions, DebugName {
     index?: BindingIndex;
     x?: number;
     y?: number;
+    style?: StyleValue<SwitchStyle>;
 }
 
-export type ShowOptions = CaseOptions & SwitchOptions;
+export type ShowOptions = CaseOptions & Omit<SwitchOptions, "style">;
 
 /** One case of a switch: a flex box that fills the switch. */
 export interface CaseElement extends DebugName {
@@ -705,6 +742,7 @@ export interface CaseElement extends DebugName {
     value: string;
     frame?: ArtRef;
     style?: FlexStyle;
+    theme?: VarTheme;
     children?: Element[];
 }
 
@@ -747,6 +785,9 @@ export interface Window {
     bleed?: Insets;
     /** Frame drawn first, over the GUI rect grown by `bleed`. */
     frame?: ArtRef;
+    style?: StyleValue<SectionStyle>;
+    /** Overrides vars for the whole window. */
+    theme?: VarTheme;
     children?: Element[];
     debug_name?: string;
 }
@@ -762,6 +803,9 @@ export interface Hud {
     /** Frame drawn first, over the HUD rect grown by `bleed`. */
     frame?: ArtRef;
     shader?: HudShader;
+    style?: StyleValue<SectionStyle>;
+    /** Overrides vars for the whole HUD. */
+    theme?: VarTheme;
     children?: Element[];
     debug_name?: string;
 }

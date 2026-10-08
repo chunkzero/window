@@ -12,5 +12,5 @@
       "#plugins/window": ["../src/config.ts"]
     }
   },
-  "include": ["**/*.ts", "jsx.typecheck.tsx", "../src/**/*.ts"]
+  "include": ["**/*.ts", "jsx.typecheck.tsx", "styles.typecheck.tsx", "../src/**/*.ts"]
 }

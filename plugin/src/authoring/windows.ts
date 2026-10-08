@@ -1,3 +1,4 @@
+import type { Var } from "./tokens.ts";
 import type { Art, Hud, Theme, Window } from "./types.ts";
 
 /**
@@ -13,9 +14,10 @@ export interface WindowsDefinition {
     huds?: readonly unknown[];
     /**
      * Runtime sprites by name: inline art Kotlin selects through the generated `WindowSprite`, such as
-     * `{ lamp_on: texture("window/lamp_on.png") }`. A `sprite` handle's `only` names some of them.
+     * `{ lamp_on: texture("window/lamp_on.png") }`. A `sprite` handle's `only` names some of them. Vars in them take
+     * their default values.
      */
-    sprites?: Readonly<Record<string, Art>>;
+    sprites?: Readonly<Record<string, Art | Var<Art>>>;
 }
 
 /**
@@ -26,7 +28,7 @@ type Entries<L, D> = { readonly [K in keyof L]: Entry<L[K], D> };
 type Entry<E, D> = {} extends E ? E : E extends readonly unknown[] ? Entries<E, D> : E extends D ? E : D;
 
 type Checked<T extends WindowsDefinition> = {
-    sprites?: Readonly<Record<string, Art>>;
+    sprites?: Readonly<Record<string, Art | Var<Art>>>;
     themes?: Entries<T["themes"], Theme | { theme: Theme }>;
     windows?: Entries<T["windows"], Window | { windows: Window[] }>;
     huds?: Entries<T["huds"], Hud | { huds: Hud[] }>;

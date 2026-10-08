@@ -320,6 +320,97 @@ The view declares `enum class LampSprite(val sprite: WindowSprite) { LAMP_ON, LA
 `protected abstract fun lampSprite(): LampSprite?`. Catalog names follow theme sprite names and must not repeat one;
 every `only` entry must be a catalog or theme sprite.
 
+### Styles
+
+`create` declares named styles: the props a primitive takes for its frame, layout, and text, written once and passed
+through `style`. Each property is typed as on the primitive, and unknown properties are errors.
+
+```tsx
+import { Box, Text, create, shape, variants } from "#plugins/window";
+
+const s = create({
+  tab: variants({
+    base: { frame: shape({ kind: "button", fill: colors.face }), padding: 2 },
+    selected: { frame: selectedArt, translate: [0, -2] },
+  }),
+  wide: { width: 64 },
+  label: { color: "#ffffff", shadow: true },
+});
+
+<Box style={[s.tab.base, wide && s.wide]} padding={4}>
+  <Text style={s.label}>Buy</Text>
+</Box>;
+```
+
+- `style` takes a style, a falsy value (skipped), or a nested array of them; later entries win per property, and
+  explicit props win over the style.
+- Each primitive takes only the properties it understands, also from styles stored in variables: `<Box>` takes its
+  frame, container properties, item properties, and `text`; `<Text>` text and item properties; `<Image>`, `<Region>`,
+  and `<Items>` item properties; `<Collection>` also `frame`; `<Switch>` also `text`; `<Case>` and `<Hud>` the box
+  properties except item placement; `<Section>` and `<Window>` `frame` and `text`. A style with `color` on a `<Box>` is
+  a type error. `BoxStyle`, `TextStyle`, `ItemStyle`, and the other `*Style` types name each set.
+- `variants({ ... })` marks a group of named styles that a component chooses among. A group is not a style, so it cannot
+  be passed to a primitive; pass one of its variants. The names mean nothing to Window: a component declares the ones it
+  takes, and the style each must be, with `Variants`:
+
+```tsx
+import type { BoxStyle, Variants } from "#plugins/window";
+
+function Tab(props: { selected: boolean; style?: Partial<Variants<"base" | "selected", BoxStyle>> }) {
+  return <Box style={[props.style?.base, props.selected && props.style?.selected]} />;
+}
+
+<Tab selected style={s.tab} />; // a group with a variant Tab does not name is a type error
+```
+
+### Vars and themes
+
+`defineVars` declares vars with their default values, `#rrggbb` colors or numbers. A var stands for its value in styles,
+props, and `shape()` fields, and carries its value's type: a color var is a type error where a number belongs.
+`createTheme(vars, overrides)` overrides some of them, typed by the vars, for the subtree of the `<Window>`, `<Hud>`, or
+`<Box>` whose `theme` it is.
+
+```tsx
+import { Box, Text, Window, createTheme, defineVars, shape } from "#plugins/window";
+
+const colors = defineVars({ face: "#0994c6", text: "#ffffff" });
+const space = defineVars({ pad: 2 });
+const ember = createTheme(colors, { face: "#c0503a" });
+
+<Window name="shop" container="generic_9x6" text={{ color: colors.text }}>
+  <Box frame={shape({ kind: "button", fill: colors.face })} padding={space.pad} />
+  <Box theme={ember}>
+    <Box frame={shape({ kind: "button", fill: colors.face })} />
+  </Box>
+</Window>;
+```
+
+- `<Window>` and `<Hud>` resolve every var when they are built: each takes its value from the nearest `theme` above
+  where it is used, or its default. The compiler sees only values, so each resolved art is its own content-hashed art.
+- Inherited `text` styles resolve where the text is, under the text's nearest theme.
+- `derive(get => value)` computes a value from resolved tokens each place it is used; `get` resolves a var under the
+  theme there. Art recipes use it to derive colors from a themed fill. `mix(from, to, amount)` blends two colors:
+
+```ts
+import { derive, mix, shape } from "#plugins/window";
+import type { Color, Token } from "#plugins/window";
+
+const raised = (fill: Token<Color>) =>
+  derive((get) => {
+    const base = get(fill);
+    return shape({
+      kind: "button",
+      fill: base,
+      highlight_color: mix(base, "#5ff0ff", 0.45),
+      shadow_color: mix(base, "#020a30", 0.4),
+    });
+  });
+
+<Box frame={raised(colors.face)} />; // a different bevel under each theme
+```
+
+- Vars in the `defineWindows` sprite catalog take their default values.
+
 ### Components
 
 | component                                                            | `raw` equivalent             | notes                                                                                    |
@@ -440,6 +531,12 @@ with element children) keep their grouped members and cannot read handles.
 `raw` is the low-level, function-style API: each constructor returns one element of the compiled definition, positioned
 by hand or with `flex`/`grid`/`section` layouts, and named by string bindings. It builds the same documents as JSX, so
 both styles can be mixed in one pack; prefer JSX and handles for new UIs.
+
+The primitives `ui`, `hud`, `box`, `text`, `image`, `region`, `items`, `collection`, `switchOn`, `case`, and `section`
+take a `style` field with the same [styles](#styles) as their JSX primitive; explicit fields win, and an explicit
+`layout` merges over the style's item properties per field. `flex` and `grid` keep their `FlexStyle` `style`
+(`min_width`) and take no styles. `ui`, `hud`, `box`, and `case` take a `theme`, and vars resolve when `ui` or `hud`
+builds its document.
 
 ### Windows
 

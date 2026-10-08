@@ -1,15 +1,11 @@
-import type { ArtName, GeneratedStyle, Insets, ShapeArt, TextureArt } from "./types.ts";
+import type { ArtName, Insets, ShapeArt, ShapeStyle, TextureArt } from "./types.ts";
+
+export type { ShapeStyle };
 
 export interface TextureOptions extends ArtName {
     /** Nine-slice inset pixels, used where the art stretches over a box. */
     insets?: Insets;
     /** Size drawn as an image; set with `height`, or omit both for the texture's own size. */
-    width?: number;
-    height?: number;
-}
-
-/** Generated art's style and, for images, its size. */
-export interface ShapeStyle extends GeneratedStyle {
     width?: number;
     height?: number;
 }
@@ -29,7 +25,7 @@ export function texture(path: string, options: TextureOptions = {}): TextureArt 
     return Object.freeze(defined({ art: "texture" as const, texture: path, ...options }));
 }
 
-/** Inline generated art: a frame over its box, or an image of `width` x `height`. */
+/** Inline generated art: a frame over its box, or an image of `width` x `height`. Fields may be vars. */
 export function shape(style: ShapeStyle, options: ArtName = {}): ShapeArt {
     if ("texture" in style) {
         throw new Error("shape() draws generated art; use texture() for bitmaps");

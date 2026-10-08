@@ -1,4 +1,6 @@
 import { isRef, refJson } from "./handles.ts";
+import { applyStyle } from "./styles.ts";
+import { resolveTokens } from "./tokens.ts";
 import type { ClickAction, Collection, Condition, HandleKind, Input, Items, Ref, Sprite, Text } from "./handles.ts";
 import type {
     AnvilInputElement,
@@ -6,6 +8,7 @@ import type {
     ButtonElement,
     ButtonOptions,
     CaseElement,
+    BoxOptions,
     CaseOptions,
     ChoiceOptions,
     CollectionElement,
@@ -26,7 +29,7 @@ import type {
     PanelOptions,
     RegionElement,
     RegionOptions,
-    Art,
+    ArtRef,
     RepeaterElement,
     RepeaterOptions,
     RowElement,
@@ -68,9 +71,10 @@ const TEXT_KEYS = [
     "small_caps",
     "layout",
     "debug_name",
+    "style",
 ] as const;
 const LAYOUT_KEYS = ["x", "y", "gap", "padding", "align", "children", "layout"] as const;
-const FLEX_KEYS = ["x", "y", "frame", "style", "children", "layout", "debug_name"] as const;
+const FLEX_KEYS = ["x", "y", "frame", "style", "theme", "children", "layout", "debug_name"] as const;
 const SECTIONS: readonly SlotSection[] = ["container", "player", "hotbar"];
 const PLACEMENT_KEYS = ["slots", "pattern", "transform"] as const;
 
@@ -110,13 +114,34 @@ function copyKnown(
     return out;
 }
 
+/** The `style` properties each element type accepts, by primitive. */
+const STYLE_KINDS: Readonly<Record<string, string>> = {
+    box: "box",
+    label: "text",
+    slot: "text",
+    sprite: "item",
+    sprite_slot: "item",
+    region: "item",
+    item: "item",
+    collection: "collection",
+    switch: "switch",
+    section: "section",
+};
+
 function element(
     type: string,
     opts: object | undefined,
     allowed: readonly string[],
     required?: readonly string[],
 ): Fields {
-    return { ...copyKnown(type, opts, allowed, required), type };
+    const out = copyKnown(type, opts, allowed, required);
+    const kind = STYLE_KINDS[type];
+    return { ...(kind === undefined ? out : applyStyle(out, kind, type)), type };
+}
+
+/** A root definition with its `style` applied and its vars resolved. */
+export function root<T extends Window | Hud>(def: T, label: string): T {
+    return resolveTokens(applyStyle({ ...def }, "section", label)) as T;
 }
 
 export function theme(def: Theme = {}): { theme: Theme } {
@@ -131,7 +156,7 @@ export function ui(def: Window): { windows: Window[] } {
     if (def.container === undefined) {
         throw new Error("ui requires field `container`");
     }
-    return { windows: [def] };
+    return { windows: [root(def, "ui")] };
 }
 
 export function hud(def: Hud): { huds: Hud[] } {
@@ -142,7 +167,7 @@ export function hud(def: Hud): { huds: Hud[] } {
     if ((def.width === undefined) !== (def.height === undefined)) {
         throw new Error("hud requires both `width` and `height`, or neither");
     }
-    return { huds: [def] };
+    return { huds: [root(def, "hud")] };
 }
 
 export function panel(opts: PanelOptions): PanelElement {
@@ -160,6 +185,12 @@ export function flex(opts?: FlexOptions): FlexElement {
     return { ...out, children: out.children ?? [] } as unknown as FlexElement;
 }
 
+/** A flexbox or grid whose `style` is built from the same styles as `<Box>`. */
+export function box(opts?: BoxOptions): FlexElement {
+    const out = element("box", opts, FLEX_KEYS);
+    return { ...out, type: "flex", children: out.children ?? [] } as unknown as FlexElement;
+}
+
 /** A CSS grid: `flex` with `style.display` set to `"grid"`. */
 export function grid(opts?: FlexOptions): FlexElement {
     const out = element("grid", opts, FLEX_KEYS);
@@ -175,7 +206,7 @@ export function section(kind: SlotSection, opts?: SectionOptions): SectionElemen
     if (!SECTIONS.includes(kind)) {
         throw new Error(`section kind must be one of ${SECTIONS.join(", ")}`);
     }
-    const out = element("section", opts, ["frame", "outset", "claim", "flow", "children", "debug_name"]);
+    const out = element("section", opts, ["frame", "outset", "claim", "flow", "style", "children", "debug_name"]);
     if (out.frame !== undefined && out.outset === undefined) {
         out.outset = 3;
     }
@@ -202,7 +233,10 @@ function bound(value: string | { readonly kind: HandleKind; readonly id: string 
 /** A static theme sprite, drawn at its own size. */
 export function sprite(name: string, opts?: SpriteOptions): SpriteElement {
     requireName(name, "sprite name");
-    return { ...element("sprite", opts, ["x", "y", "layout", "debug_name"]), name } as unknown as SpriteElement;
+    return {
+        ...element("sprite", opts, ["x", "y", "layout", "style", "debug_name"]),
+        name,
+    } as unknown as SpriteElement;
 }
 
 /** A runtime sprite slot, bound by name or by a `sprite` handle. */
@@ -211,7 +245,7 @@ export function spriteSlot(name: string | Sprite, opts: SpriteSlotOptions): Spri
         ...element(
             "sprite_slot",
             opts,
-            ["x", "y", "width", "height", "align", "sprite", "layout", "index", "debug_name"],
+            ["x", "y", "width", "height", "align", "sprite", "layout", "style", "index", "debug_name"],
             ["width", "height"],
         ),
         ...bound(name, "spriteSlot name"),
@@ -219,10 +253,10 @@ export function spriteSlot(name: string | Sprite, opts: SpriteSlotOptions): Spri
 }
 
 /** Inline art or a theme sprite drawn at its own size, or with a `sprite` handle a runtime sprite slot. */
-export function image(art: Art | string, opts?: SpriteOptions): SpriteElement;
+export function image(art: ArtRef, opts?: SpriteOptions): SpriteElement;
 export function image(bind: Sprite, opts: SpriteSlotOptions): SpriteSlotElement;
 export function image(
-    source: Art | string | Sprite,
+    source: ArtRef | Sprite,
     opts?: SpriteOptions | SpriteSlotOptions,
 ): SpriteElement | SpriteSlotElement {
     if (isRef(source)) {
@@ -231,7 +265,7 @@ export function image(
     if (typeof source === "string") {
         return sprite(source, opts);
     }
-    const out = element("sprite", opts, ["x", "y", "layout", "debug_name"]);
+    const out = element("sprite", opts, ["x", "y", "layout", "style", "debug_name"]);
     return { ...out, art: requireObject(source, "image art") } as unknown as SpriteElement;
 }
 
@@ -244,6 +278,7 @@ export function region(opts: RegionOptions = {}): RegionElement {
         "width",
         "height",
         "layout",
+        "style",
         "debug_name",
     ]);
     if ((out.width === undefined) !== (out.height === undefined)) {
@@ -327,7 +362,7 @@ export function hotspot(name: string, opts: HotspotOptions): HotspotElement {
 }
 
 export function item(name: string | Items, opts: ItemOptions = {}): ItemElement {
-    const out = element("item", opts, [...PLACEMENT_KEYS, "cell_slot", "layout", "debug_name"]);
+    const out = element("item", opts, [...PLACEMENT_KEYS, "cell_slot", "layout", "style", "debug_name"]);
     if (out.cell_slot !== undefined) {
         if (out.slots !== undefined || out.pattern !== undefined || out.transform !== undefined) {
             throw new Error("item `cell_slot` cannot be combined with `slots`, `pattern`, or `transform`");
@@ -349,6 +384,7 @@ export function collection(name: string | Collection, opts: CollectionOptions = 
         ...PLACEMENT_KEYS,
         "action",
         "layout",
+        "style",
         "debug_name",
     ]);
     return { ...out, ...bound(name, "collection name") } as unknown as CollectionElement;
@@ -407,7 +443,12 @@ export function slot(name: string | Text, opts?: SlotOptions): SlotElement {
 /** One case of `switchOn`: a box, laid out as a column by default, drawn while the switch selects `value`. */
 export function switchCase(value: string, opts: CaseOptions = {}): CaseElement {
     requireName(value, "switch case value");
-    const out = copyKnown(`switch case \`${value}\``, opts, ["frame", "style", "children", "debug_name"]);
+    const label = `switch case \`${value}\``;
+    const out = applyStyle(
+        copyKnown(label, opts, ["frame", "style", "theme", "children", "debug_name"]),
+        "case",
+        label,
+    );
     const style: FlexStyle = { direction: "column", ...(out.style as FlexStyle | undefined) };
     return { ...out, type: "case", value, style, children: out.children ?? [] } as unknown as CaseElement;
 }
@@ -432,9 +473,8 @@ export function switchOn(
         throw new Error("switchOn requires at least one case");
     }
     return {
-        ...element("switch", opts, ["x", "y", "layout", "index", "debug_name"]),
+        ...element("switch", { ...opts, children }, ["x", "y", "layout", "style", "index", "children", "debug_name"]),
         ...bound(on, "switchOn name"),
-        children,
     } as unknown as SwitchElement;
 }
 
