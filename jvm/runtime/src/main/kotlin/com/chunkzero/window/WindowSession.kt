@@ -221,6 +221,9 @@ internal open class ContainerWindowSession<I : Any>(
         name: String,
         state: String,
     ) {
+        check(name !in bindings.buttonStates) {
+            "Button state '$name' is bound in bind(); set it there or remove the binding to set it imperatively"
+        }
         deliver(renderer.setButtonState(name, state) ?: return)
     }
 

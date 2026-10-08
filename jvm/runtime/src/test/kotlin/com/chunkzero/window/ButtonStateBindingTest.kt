@@ -4,8 +4,10 @@ import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.HitboxEntry
 import com.chunkzero.window.manifest.WindowManifest
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 
 class ButtonStateBindingTest :
     StringSpec({
@@ -296,5 +298,20 @@ class ButtonStateBindingTest :
             view.enable()
             host.container.clickContainer(2)
             host.container.closed shouldBe true
+        }
+
+        "an imperative button state is rejected when a provider is bound" {
+            val host = FakeHost()
+            val view =
+                object : TestView(closeManifest("enabled"), host) {
+                    override fun WindowScope<Any>.bind() {
+                        buttonState("window:close") { "enabled" }
+                    }
+
+                    fun enable() = buttonState("window:close", "enabled")
+                }
+            view.open()
+
+            shouldThrow<IllegalStateException> { view.enable() }.message shouldContain "bound in bind()"
         }
     })

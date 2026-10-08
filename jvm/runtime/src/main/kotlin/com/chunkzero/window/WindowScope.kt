@@ -159,7 +159,8 @@ public interface WindowScope<I : Any> {
 
     /**
      * Selects one of the named states declared by the Window source: the button's art, hitbox item,
-     * and tooltip follow the state.
+     * and tooltip follow the state. A bound state cannot also be set imperatively with
+     * `WindowView.buttonState(name, state)`, which throws for bound buttons.
      */
     public fun buttonState(
         name: String,
