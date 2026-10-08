@@ -1,4 +1,4 @@
-import type { Child as JsxChild } from "#rpp/jsx";
+import type { Child as JsxChild } from "rpp:jsx";
 
 import { hud, region, ui } from "./elements.ts";
 import { isRef, refJson } from "./handles.ts";

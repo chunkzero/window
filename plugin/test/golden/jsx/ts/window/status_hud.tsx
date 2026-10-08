@@ -1,5 +1,8 @@
-import { Hud, Image, Text, industrial, text as textHandle } from "#plugins/window";
-import type { TextHandle, TextProps } from "#plugins/window";
+import { Hud, Image, Text } from "plugin:window/ui";
+import type { TextProps } from "plugin:window/ui";
+import { text as textHandle } from "plugin:window/bind";
+import type { TextHandle } from "plugin:window/bind";
+import { Row, art } from "plugin:window/theme/industrial";
 
 import { coin } from "./sprites.ts";
 
@@ -10,13 +13,13 @@ const soft = "#e0edff";
 /** A label and a right-aligned value; `coin` follows the value with a coin. */
 function Stat(props: { label: string; bind: TextHandle; color?: string; coin?: boolean }) {
     return (
-        <industrial.Row gap={2}>
+        <Row gap={2}>
             <Text width={34} color={muted}>
                 {props.label}
             </Text>
             <Text bind={props.bind} align="right" color={props.color} />
             {props.coin === true && <Image art={coin} />}
-        </industrial.Row>
+        </Row>
     );
 }
 
@@ -26,7 +29,7 @@ export default (
             name="status_top_left"
             anchor="top-left"
             offset={[4, 4]}
-            frame={industrial.art.hud}
+            frame={art.hud}
             padding={4}
             gap={2}
             minWidth={80}
@@ -37,7 +40,7 @@ export default (
             <Stat label="Power" bind={textHandle("power")} />
         </Hud>
 
-        <Hud name="status_top_center" anchor="top" offset={[0, 4]} frame={industrial.art.hud} padding={3} text={text}>
+        <Hud name="status_top_center" anchor="top" offset={[0, 4]} frame={art.hud} padding={3} text={text}>
             <Text bind={textHandle("runtime")} width={34} align="center" />
         </Hud>
 
@@ -45,7 +48,7 @@ export default (
             name="status_top_right"
             anchor="top-right"
             offset={[-4, 4]}
-            frame={industrial.art.hud}
+            frame={art.hud}
             padding={4}
             gap={2}
             minWidth={80}

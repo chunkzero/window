@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { defineWindows, raw, texture } from "../src/authoring/index.ts";
+import { defineWindows, texture } from "../src/authoring/ui.ts";
+import * as raw from "../src/authoring/raw.ts";
 import type { WindowDocument } from "../src/authoring/types.ts";
 import { buildProject, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
 import type { CompileOutput, KotlinOptions, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";

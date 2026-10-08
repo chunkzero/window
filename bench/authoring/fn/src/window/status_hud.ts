@@ -1,5 +1,8 @@
-import { industrial, raw, text as textHandle } from "#plugins/window";
-import type { ArtRef, Element, Hud, TextHandle, TextStyleOptions } from "#plugins/window";
+import type { ArtRef, Element, Hud, TextStyleOptions } from "plugin:window/ui";
+import { text as textHandle } from "plugin:window/bind";
+import type { TextHandle } from "plugin:window/bind";
+import * as raw from "plugin:window/raw";
+import { art } from "plugin:window/theme/industrial";
 
 import { coin } from "./sprites.ts";
 
@@ -56,15 +59,15 @@ function stat(title: string, bind: TextHandle, color?: string, withCoin = false)
 }
 
 export default [
-    pinned("status_top_left", "top-left", [4, 4], { frame: industrial.art.hud, padding: 4, gap: 2, minWidth: 80 }, [
+    pinned("status_top_left", "top-left", [4, 4], { frame: art.hud, padding: 4, gap: 2, minWidth: 80 }, [
         stat("Coins", textHandle("coins"), "#ffd75e", true),
         stat("Rate", textHandle("rate"), "#80ff80"),
         stat("Power", textHandle("power")),
     ]),
-    pinned("status_top_center", "top", [0, 4], { frame: industrial.art.hud, padding: 3 }, [
+    pinned("status_top_center", "top", [0, 4], { frame: art.hud, padding: 3 }, [
         raw.text(textHandle("runtime"), { ...text, width: 34, align: "center" }),
     ]),
-    pinned("status_top_right", "top-right", [-4, 4], { frame: industrial.art.hud, padding: 4, gap: 2, minWidth: 80 }, [
+    pinned("status_top_right", "top-right", [-4, 4], { frame: art.hud, padding: 4, gap: 2, minWidth: 80 }, [
         stat("Wave", textHandle("wave")),
         stat("Biome", textHandle("biome")),
         stat("Ping", textHandle("latency")),

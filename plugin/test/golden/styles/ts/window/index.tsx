@@ -5,7 +5,6 @@ import {
     Section,
     Text,
     Window,
-    action,
     create,
     createTheme,
     defineVars,
@@ -14,8 +13,9 @@ import {
     mix,
     shape,
     variants,
-} from "#plugins/window";
-import type { Color, Var } from "#plugins/window";
+} from "plugin:window/ui";
+import type { Color, Var } from "plugin:window/ui";
+import { action } from "plugin:window/bind";
 
 const colors = defineVars({ face: "#0994c6", text: "#ffffff" });
 const ember = createTheme(colors, { face: "#c0503a" });

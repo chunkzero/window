@@ -1,5 +1,7 @@
-import { raw, sprite, texture } from "#plugins/window";
-import type { WindowDocument } from "#plugins/window";
+import { texture } from "plugin:window/ui";
+import type { WindowDocument } from "plugin:window/ui";
+import { sprite } from "plugin:window/bind";
+import * as raw from "plugin:window/raw";
 
 const frame = texture("window/frame.png", { insets: 3 });
 const badge = texture("window:gui/badge.png", { width: 12, height: 12 });

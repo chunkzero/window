@@ -13,8 +13,8 @@ cat > "$consumer/pack/rpp.json" <<'JSON'
 {"dependencies":{"window":"path:../plugin"}}
 JSON
 cat > "$consumer/pack/rpp.config.ts" <<'TS'
-import { defineConfig } from "#rpp/config";
-import window from "#plugins/window";
+import { defineConfig } from "rpp:config";
+import window from "plugin:window";
 export default defineConfig({
     pack: { name: "release-consumer", description: "Window release consumer", format: 88 },
     build: { source: "src", output: "dist" },

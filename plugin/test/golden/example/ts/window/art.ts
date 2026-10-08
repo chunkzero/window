@@ -1,4 +1,5 @@
-import { derive, industrial, shape, texture } from "#plugins/window";
+import { derive, shape, texture } from "plugin:window/ui";
+import { art } from "plugin:window/theme/industrial";
 
 export const coin = shape({
     kind: "button",
@@ -15,7 +16,7 @@ export const coin = shape({
 
 /** A flat recess strip, drawn as a vent between the container and the inventory. */
 export const ventSlot = derive((get) => ({
-    ...get(industrial.art.recess),
+    ...get(art.recess),
     border_width: 0,
     inset_depth: 0,
     width: 6,
@@ -32,8 +33,8 @@ export const icons = {
 export default {
     sprites: {
         coin,
-        lamp_on: industrial.art.lampOn,
-        lamp_off: industrial.art.lampOff,
-        search_field: derive((get) => ({ ...get(industrial.art.recess), width: 110, height: 16 })),
+        lamp_on: art.lampOn,
+        lamp_off: art.lampOff,
+        search_field: derive((get) => ({ ...get(art.recess), width: 110, height: 16 })),
     },
 };

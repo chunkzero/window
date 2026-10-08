@@ -1,4 +1,4 @@
-import { shape } from "#plugins/window";
+import { shape } from "plugin:window/ui";
 
 export const coin = shape(
     {

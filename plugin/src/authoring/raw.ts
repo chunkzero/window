@@ -1,4 +1,4 @@
-/** The function-style authoring API, exported from `#plugins/window` as `raw`. See docs/AUTHORING.md. */
+/** The function-style authoring API, exported as `plugin:window/raw`. See docs/AUTHORING.md. */
 import { text as textElement } from "./elements.ts";
 import * as textHelpers from "./text.ts";
 

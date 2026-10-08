@@ -2,11 +2,19 @@
  * Industrial's components, built from the public primitives. Each takes a `style` of the variants it names and
  * defaults to industrial's styles, so `style` is only for overrides.
  */
-import { Box, Case, Collection as CollectionPrimitive, Items, Region, Section, Switch } from "../jsx.ts";
-import type { Child, CollectionProps as CollectionPrimitiveProps, DebugProps, SectionProps } from "../jsx.ts";
-import { builtin } from "../handles.ts";
-import { assign } from "../styles.ts";
-import type { Action, ClickAction, Condition, Indexed, Items as ItemsHandle, Selection, Toggle } from "../handles.ts";
+import { Box, Case, Collection as CollectionPrimitive, Items, Region, Section, Switch } from "../../jsx.ts";
+import type { Child, CollectionProps as CollectionPrimitiveProps, DebugProps, SectionProps } from "../../jsx.ts";
+import { builtin } from "../../handles.ts";
+import { assign } from "../../styles.ts";
+import type {
+    Action,
+    ClickAction,
+    Condition,
+    Indexed,
+    Items as ItemsHandle,
+    Selection,
+    Toggle,
+} from "../../handles.ts";
 import type {
     BoxStyle,
     CaseStyle,
@@ -16,8 +24,8 @@ import type {
     StyleValue,
     TextProps,
     Variants,
-} from "../styles.ts";
-import type { ArtRef, Element, FixedLength, Tooltip } from "../types.ts";
+} from "../../styles.ts";
+import type { ArtRef, Element, FixedLength, Tooltip } from "../../types.ts";
 import { styles } from "./styles.ts";
 
 type Layer = StyleValue<ContainerStyle>;

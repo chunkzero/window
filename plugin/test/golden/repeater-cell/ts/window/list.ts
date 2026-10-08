@@ -1,4 +1,6 @@
-import { action, industrial, items, raw, text } from "#plugins/window";
+import { action, items, text } from "plugin:window/bind";
+import * as raw from "plugin:window/raw";
+import { art } from "plugin:window/theme/industrial";
 
 const rows = action("rows", { shape: [6] });
 const icon = items("icon", { shape: [6] });
@@ -14,7 +16,7 @@ const cells = Array.from({ length: 6 }, (_, i) => {
             style: { padding: 1 },
             children: [
                 raw.box({
-                    frame: industrial.art.recess,
+                    frame: art.recess,
                     style: { grow: 1 },
                     children: [raw.text(label.at(i), { x: 2, y: 2, width: 30, color: "#ffffff" })],
                 }),
@@ -30,7 +32,7 @@ export default raw.ui({
     name: "list",
     container: "generic_9x3",
     children: [
-        raw.box({ frame: industrial.art.shell, x: 0, y: 0, style: { width: 176, height: 80 } }),
+        raw.box({ frame: art.shell, x: 0, y: 0, style: { width: 176, height: 80 } }),
         raw.section("container", { claim: "none", children: cells }),
     ],
 });

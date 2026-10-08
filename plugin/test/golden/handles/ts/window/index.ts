@@ -1,4 +1,4 @@
-import { defineWindows } from "#plugins/window";
+import { defineWindows } from "plugin:window/ui";
 
 import { searchField } from "./art.ts";
 import search from "./search.tsx";

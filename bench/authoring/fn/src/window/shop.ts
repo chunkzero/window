@@ -1,25 +1,9 @@
-import {
-    action,
-    collection,
-    derive,
-    flag,
-    industrial,
-    raw,
-    selection,
-    sprite,
-    text,
-    texture,
-    toggle,
-} from "#plugins/window";
-import type {
-    Child,
-    Element,
-    LabelOptions,
-    SelectionHandle,
-    SlotOptions,
-    TextHandle,
-    ToggleHandle,
-} from "#plugins/window";
+import { derive, texture } from "plugin:window/ui";
+import type { Child, Element, LabelOptions, SlotOptions } from "plugin:window/ui";
+import { action, collection, flag, selection, sprite, text, toggle } from "plugin:window/bind";
+import type { SelectionHandle, TextHandle, ToggleHandle } from "plugin:window/bind";
+import * as raw from "plugin:window/raw";
+import { Button, Collection, Header, Row, Show, Tab, Tabs, Toggle, art } from "plugin:window/theme/industrial";
 
 import { coin } from "./sprites.ts";
 
@@ -29,7 +13,7 @@ const say = (value: string, opts: LabelOptions = {}) => raw.text(value, { ...sty
 const bound = (handle: TextHandle, opts: SlotOptions = {}) => raw.text(handle, { ...style, ...opts });
 
 const ventSlot = derive((get) => ({
-    ...get(industrial.art.recess),
+    ...get(art.recess),
     border_width: 0,
     inset_depth: 0,
     width: 6,
@@ -43,31 +27,31 @@ const hasPrice = flag("has_price");
 
 /** A button that is disabled while `can_<id>` is false. */
 function actionButton(id: string, tooltip: string, children: Child, opts: { span?: number; accent?: boolean } = {}) {
-    return industrial.Button({
+    return Button({
         onClick: action(id),
         enabled: flag(`can_${id}`),
         span: opts.span ?? 1,
         tooltip,
         disabled: { tooltip: tooltip + " unavailable" },
-        ...(opts.accent === true ? { frame: industrial.art.buttonAccent } : {}),
+        ...(opts.accent === true ? { frame: art.buttonAccent } : {}),
         children,
     });
 }
 
 /** A row of tabs, each showing its `<name>_<value>_label` text. */
 function tabs<V extends string>(bind: SelectionHandle<V>, entries: [V, string][]) {
-    return industrial.Tabs({
+    return Tabs({
         bind,
         span: 3,
         children: entries.map(([value, tooltip]) =>
-            industrial.Tab({ value, tooltip, children: bound(text(`${bind.id}_${value}_label`)) }),
+            Tab({ value, tooltip, children: bound(text(`${bind.id}_${value}_label`)) }),
         ),
     });
 }
 
 /** A raised toggle with a lamp at its left and its label centered in the remaining width. */
 function lampToggle(bind: ToggleHandle, title: string, tooltip: string): Element {
-    return industrial.Toggle({
+    return Toggle({
         bind,
         span: 3,
         on: { tooltip: tooltip + " on" },
@@ -89,26 +73,26 @@ const rivets: [number, number][] = [
 export default raw.ui({
     name: "shop",
     container: "generic_9x6",
-    frame: industrial.art.shell,
+    frame: art.shell,
     bleed: { top: 1, right: 4, bottom: 7, left: 4 },
     children: [
-        industrial.Header({
+        Header({
             padding: { top: 3 },
             align: "start",
             children: raw.box({
-                frame: industrial.art.recess,
+                frame: art.recess,
                 style: { justify: "center", align: "center", width: 116, height: 12 },
                 children: [say("Foundry Exchange")],
             }),
         }),
 
-        raw.box({ frame: industrial.art.panel, x: 4, y: 136, style: { width: 168, height: 82 } }),
-        raw.box({ frame: industrial.art.hazardBar, x: -4, y: 223, style: { width: 184, height: 6 } }),
-        industrial.Row({ x: 52, y: 131, gap: 4, children: Array.from({ length: 8 }, () => raw.image(ventSlot)) }),
-        ...rivets.map(([x, y]) => raw.image(industrial.art.rivet, { x, y })),
+        raw.box({ frame: art.panel, x: 4, y: 136, style: { width: 168, height: 82 } }),
+        raw.box({ frame: art.hazardBar, x: -4, y: 223, style: { width: 184, height: 6 } }),
+        Row({ x: 52, y: 131, gap: 4, children: Array.from({ length: 8 }, () => raw.image(ventSlot)) }),
+        ...rivets.map(([x, y]) => raw.image(art.rivet, { x, y })),
 
         raw.section("container", {
-            frame: industrial.art.panel,
+            frame: art.panel,
             outset: { top: 2, right: 3, bottom: 3, left: 3 },
             children: [
                 ...tabs(category, [
@@ -117,25 +101,25 @@ export default raw.ui({
                     ["magic", "Magic"],
                 ]),
 
-                industrial.Collection({ bind: products, rows: 3 }),
+                Collection({ bind: products, rows: 3 }),
 
                 actionButton("previous", "Previous page", bound(text("previous_label")), { span: 3 }),
-                industrial.Row({
+                Row({
                     span: 3,
-                    frame: industrial.art.recess,
+                    frame: art.recess,
                     children: bound(text("page"), { align: "center" }),
                 }),
                 actionButton("next", "Next page", bound(text("next_label")), { span: 3 }),
 
-                industrial.Row({
+                Row({
                     span: 9,
-                    frame: industrial.art.recess,
+                    frame: art.recess,
                     padding: { left: 5, right: 4 },
                     gap: 4,
                     children: [
                         bound(text("selection"), { color: "#ffb20b" }),
                         bound(text("price"), { width: 40, align: "right" }),
-                        industrial.Show({ when: hasPrice, children: raw.image(coin) }),
+                        Show({ when: hasPrice, children: raw.image(coin) }),
                     ],
                 }),
             ],
@@ -151,7 +135,7 @@ export default raw.ui({
 
                 lampToggle(toggle("favorites"), "Favs", "Favorites only"),
                 lampToggle(toggle("affordable"), "Afford", "Affordable only"),
-                industrial.Button({
+                Button({
                     onClick: action("search"),
                     span: 2,
                     tooltip: "Search the catalog",
@@ -159,9 +143,9 @@ export default raw.ui({
                 }),
                 actionButton("clear_search", "Clear search", raw.image(texture("window/icons/clear.png"))),
 
-                industrial.Row({
+                Row({
                     span: 9,
-                    frame: industrial.art.recess,
+                    frame: art.recess,
                     padding: { left: 5, right: 4 },
                     gap: 4,
                     children: [
@@ -184,7 +168,7 @@ export default raw.ui({
                         accent: true,
                     },
                 ),
-                industrial.Button({ close: true, span: 3, tooltip: "Close market", children: say("Exit") }),
+                Button({ close: true, span: 3, tooltip: "Close market", children: say("Exit") }),
             ],
         }),
     ],

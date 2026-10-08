@@ -1,5 +1,10 @@
-import { action, collection, flag, industrial, pattern, raw, selection, sprite, text, toggle } from "#plugins/window";
-import type { Child, SelectionHandle } from "#plugins/window";
+import { pattern } from "plugin:window/ui";
+import type { Child } from "plugin:window/ui";
+import { action, collection, flag, selection, sprite, text, toggle } from "plugin:window/bind";
+import type { SelectionHandle } from "plugin:window/bind";
+import * as raw from "plugin:window/raw";
+import { Button, Choice, Toggle, art } from "plugin:window/theme/industrial";
+import type { ButtonProps } from "plugin:window/theme/industrial";
 
 import { coin, icons, ventSlot } from "./art.ts";
 
@@ -11,7 +16,7 @@ const sort = selection("sort", ["featured", "price", "name"]);
 
 /** A choice of `bind` over three slots at `at` in its section, labeled by the text handle `<id>_<value>_label`. */
 function choice<V extends string>(bind: SelectionHandle<V>, value: V, label: string, at: [number, number]) {
-    return industrial.Choice({
+    return Choice({
         bind,
         value,
         span: 3,
@@ -23,13 +28,7 @@ function choice<V extends string>(bind: SelectionHandle<V>, value: V, label: str
 }
 
 /** A button running `id` that shows itself disabled, taking no clicks, while the flag `can_<id>` is false. */
-function guarded(
-    id: string,
-    label: string,
-    span: number,
-    at: [number, number],
-    children: Child,
-): industrial.ButtonProps {
+function guarded(id: string, label: string, span: number, at: [number, number], children: Child): ButtonProps {
     return {
         onClick: action(id),
         enabled: flag(`can_${id}`),
@@ -44,7 +43,7 @@ function guarded(
 
 /** A raised toggle with a lamp at its left and its label centered in the remaining width. */
 function lampToggle(id: string, x: number, title: string, tooltip: string) {
-    return industrial.Toggle({
+    return Toggle({
         bind: toggle(id),
         span: 3,
         at: [x, 1],
@@ -62,24 +61,24 @@ export default raw.ui({
     container: "generic_9x6",
     bleed: { top: 1, right: 4, bottom: 7, left: 4 },
     children: [
-        raw.box({ frame: industrial.art.shell, x: -4, y: -1, style: { width: 184, height: 230 } }),
-        raw.box({ frame: industrial.art.panel, x: 4, y: 15, style: { width: 168, height: 113 } }),
-        raw.box({ frame: industrial.art.panel, x: 4, y: 136, style: { width: 168, height: 82 } }),
-        raw.box({ frame: industrial.art.recess, x: 30, y: 3, style: { width: 116, height: 12 } }),
-        raw.box({ frame: industrial.art.recess, x: 62, y: 90, style: { width: 52, height: 16 } }),
-        raw.box({ frame: industrial.art.recess, x: 8, y: 108, style: { width: 160, height: 16 } }),
-        raw.box({ frame: industrial.art.recess, x: 8, y: 175, style: { width: 160, height: 16 } }),
-        raw.box({ frame: industrial.art.hazardBar, x: -4, y: 223, style: { width: 184, height: 6 } }),
+        raw.box({ frame: art.shell, x: -4, y: -1, style: { width: 184, height: 230 } }),
+        raw.box({ frame: art.panel, x: 4, y: 15, style: { width: 168, height: 113 } }),
+        raw.box({ frame: art.panel, x: 4, y: 136, style: { width: 168, height: 82 } }),
+        raw.box({ frame: art.recess, x: 30, y: 3, style: { width: 116, height: 12 } }),
+        raw.box({ frame: art.recess, x: 62, y: 90, style: { width: 52, height: 16 } }),
+        raw.box({ frame: art.recess, x: 8, y: 108, style: { width: 160, height: 16 } }),
+        raw.box({ frame: art.recess, x: 8, y: 175, style: { width: 160, height: 16 } }),
+        raw.box({ frame: art.hazardBar, x: -4, y: 223, style: { width: 184, height: 6 } }),
         ...[52, 62, 72, 82, 92, 102, 112, 122].map((x) => raw.image(ventSlot, { x, y: 131 })),
-        raw.image(industrial.art.rivet, { x: -2, y: 6 }),
-        raw.image(industrial.art.rivet, { x: 173, y: 6 }),
-        raw.image(industrial.art.rivet, { x: -2, y: 129 }),
-        raw.image(industrial.art.rivet, { x: 173, y: 129 }),
+        raw.image(art.rivet, { x: -2, y: 6 }),
+        raw.image(art.rivet, { x: 173, y: 6 }),
+        raw.image(art.rivet, { x: -2, y: 129 }),
+        raw.image(art.rivet, { x: 173, y: 129 }),
         raw.image(coin, { x: 156, y: 179 }),
         raw.text("Foundry Exchange", { ...style, x: 0, y: 6, width: 176, align: "center" }),
         raw.collection(collection("products", { selectable: true }), {
-            frame: industrial.art.slot,
-            selected_sprite: industrial.art.slotSelected,
+            frame: art.slot,
+            selected_sprite: art.slotSelected,
             pattern: pattern.rect({ section: "container", x: 0, y: 1, width: 9, height: 3 }),
         }),
         raw.text(text("page"), { ...style, x: 62, y: 94, width: 52, align: "center" }),
@@ -93,10 +92,8 @@ export default raw.ui({
                 choice(category, "all", "All items", [0, 0]),
                 choice(category, "gear", "Gear", [3, 0]),
                 choice(category, "magic", "Magic", [6, 0]),
-                industrial.Button(
-                    guarded("previous", "Previous page", 3, [0, 4], raw.text(text("previous_label"), style)),
-                ),
-                industrial.Button(guarded("next", "Next page", 3, [6, 4], raw.text(text("next_label"), style))),
+                Button(guarded("previous", "Previous page", 3, [0, 4], raw.text(text("previous_label"), style))),
+                Button(guarded("next", "Next page", 3, [6, 4], raw.text(text("next_label"), style))),
             ],
         }),
         raw.section("player", {
@@ -107,19 +104,19 @@ export default raw.ui({
                 lampToggle("favorites", 0, "Favs", "Favorites only"),
                 lampToggle("affordable", 3, "Afford", "Affordable only"),
                 // A fixed width centers the label like the runtime does, rounding down.
-                industrial.Button({
+                Button({
                     onClick: action("search"),
                     span: 2,
                     at: [6, 1],
                     tooltip: "Search the catalog",
                     children: raw.text("Find", { ...style, width: 34 }),
                 }),
-                industrial.Button(guarded("clear_search", "Clear search", 1, [8, 1], raw.image(icons.clear))),
+                Button(guarded("clear_search", "Clear search", 1, [8, 1], raw.image(icons.clear))),
             ],
         }),
         raw.section("hotbar", {
             children: [
-                industrial.Button({
+                Button({
                     ...guarded(
                         "buy",
                         "Buy selected item",
@@ -127,9 +124,9 @@ export default raw.ui({
                         [0, 0],
                         raw.text(text("buy_label"), { ...style, color: "#2a1200", shadow: false }),
                     ),
-                    style: { base: { frame: industrial.art.buttonAccent } },
+                    style: { base: { frame: art.buttonAccent } },
                 }),
-                industrial.Button({
+                Button({
                     close: true,
                     span: 3,
                     at: [6, 0],

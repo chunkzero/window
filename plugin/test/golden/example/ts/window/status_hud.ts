@@ -1,4 +1,6 @@
-import { industrial, raw, text } from "#plugins/window";
+import { text } from "plugin:window/bind";
+import * as raw from "plugin:window/raw";
+import { art } from "plugin:window/theme/industrial";
 
 import { coin } from "./art.ts";
 
@@ -24,7 +26,7 @@ export default {
             height: 35,
             shader: { source_bottom: 59, origin: { x: 0.0, y: 0.0 }, anchor: { x: 0.0, y: 0.0 }, x: 4, y: 4 },
             children: [
-                raw.box({ frame: industrial.art.hud, x: 0, y: 0, style: { width: 80, height: 35 } }),
+                raw.box({ frame: art.hud, x: 0, y: 0, style: { width: 80, height: 35 } }),
                 ...statRow("Coins", "coins", 4, "#ffd75e", true),
                 ...statRow("Rate", "rate", 14, "#80ff80"),
                 ...statRow("Power", "power", 24),
@@ -37,7 +39,7 @@ export default {
             height: 14,
             shader: { source_bottom: 59, origin: { x: 0.5, y: 0.0 }, anchor: { x: 0.5, y: 0.0 }, x: 0, y: 4 },
             children: [
-                raw.box({ frame: industrial.art.hud, x: 0, y: 0, style: { width: 40, height: 14 } }),
+                raw.box({ frame: art.hud, x: 0, y: 0, style: { width: 40, height: 14 } }),
                 raw.text(text("runtime"), { ...style, x: 2, y: 3, width: 36, align: "center", color: "#ffffff" }),
             ],
         },
@@ -48,7 +50,7 @@ export default {
             height: 35,
             shader: { source_bottom: 59, origin: { x: 1.0, y: 0.0 }, anchor: { x: 1.0, y: 0.0 }, x: -4, y: 4 },
             children: [
-                raw.box({ frame: industrial.art.hud, x: 0, y: 0, style: { width: 80, height: 35 } }),
+                raw.box({ frame: art.hud, x: 0, y: 0, style: { width: 80, height: 35 } }),
                 ...statRow("Wave", "wave", 4),
                 ...statRow("Biome", "biome", 14),
                 ...statRow("Ping", "latency", 24),
