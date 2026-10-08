@@ -120,11 +120,11 @@ internal class Switches(
 
     /**
      * Whether region [name] is active when each state switch selects the case [current] returns for its key,
-     * instead of the case last rendered.
+     * instead of the case last rendered; a `null` result keeps the selected case.
      */
     fun regionActive(
         name: String,
-        current: (String) -> String,
+        current: (String) -> String?,
     ): Boolean = regionCases[name]?.let { isActive(it, current) } ?: true
 
     private fun isActive(key: String): Boolean = parents[key]?.let(::isActive) ?: true
@@ -133,10 +133,11 @@ internal class Switches(
 
     private fun isActive(
         case: Case,
-        current: (String) -> String,
+        current: (String) -> String?,
     ): Boolean {
-        val value = if (switches.getValue(case.switch).states) current(case.switch) else selected[case.switch]
-        return value == case.value && (parents[case.switch]?.let { isActive(it, current) } ?: true)
+        if (parents[case.switch]?.let { isActive(it, current) } == false) return false
+        val value = (if (switches.getValue(case.switch).states) current(case.switch) else null) ?: selected[case.switch]
+        return value == case.value
     }
 
     private data class Case(

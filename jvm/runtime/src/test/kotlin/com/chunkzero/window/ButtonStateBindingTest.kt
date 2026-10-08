@@ -3,6 +3,7 @@ package com.chunkzero.window
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.HitboxEntry
+import com.chunkzero.window.manifest.WindowManifest
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
@@ -241,5 +242,59 @@ class ButtonStateBindingTest :
             view.canClose = false
             handle.clickContainer(2)
             handle.closed shouldBe false
+        }
+
+        fun closeManifest(closeState: String): WindowManifest {
+            val close =
+                TestManifests.stateButton(
+                    "window:close",
+                    listOf(2),
+                    mapOf("enabled" to HitboxEntry(itemModel = "demo:gui/enabled")),
+                )
+            val regions =
+                close.regions.mapValues { (key, region) ->
+                    if (key.endsWith(
+                            ".$closeState",
+                        )
+                    ) {
+                        region.copy(defaultAction = "window:close")
+                    } else {
+                        region.copy(action = null)
+                    }
+                }
+            return TestManifests.manifest(
+                container = "generic_9x1",
+                regions = regions,
+                switches = mapOf("window:close" to close.switch),
+            )
+        }
+
+        "a button without a provider routes clicks by its initial case" {
+            val host = FakeHost()
+            val view =
+                object : TestView(closeManifest("default"), host) {
+                    override fun WindowScope<Any>.bind() {}
+                }
+            view.open()
+
+            host.container.clickContainer(2)
+            host.container.closed shouldBe true
+        }
+
+        "an imperative button state routes clicks before the next flush" {
+            val host = FakeHost()
+            val view =
+                object : TestView(closeManifest("enabled"), host) {
+                    override fun WindowScope<Any>.bind() {}
+
+                    fun enable() = buttonState("window:close", "enabled")
+                }
+            view.open()
+
+            host.container.clickContainer(2)
+            host.container.closed shouldBe false
+            view.enable()
+            host.container.clickContainer(2)
+            host.container.closed shouldBe true
         }
     })
