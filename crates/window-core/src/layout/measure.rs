@@ -6,6 +6,7 @@ use crate::Result;
 use crate::geometry::{Insets, Size};
 use crate::inventory::SlotPattern;
 use crate::model::{Element, SpriteDef};
+use crate::pipeline::texture_source_path;
 
 impl<'a, T: LayoutTarget> Solver<'a, T> {
     /// The size an element occupies, independent of where it is placed.
@@ -101,7 +102,8 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
     }
 
     pub(super) fn intrinsic_texture_size(&self, texture: &str, referenced_by: &str) -> Result<Size> {
-        (self.texture_size)(texture).ok_or_else(|| self.target.missing_texture_err(texture, referenced_by))
+        (self.texture_size)(&texture_source_path(texture))
+            .ok_or_else(|| self.target.missing_texture_err(texture, referenced_by))
     }
 
     pub(super) fn required_slot_width(&self, name: &str, width: Option<u32>) -> Result<u32> {
