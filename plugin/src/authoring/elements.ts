@@ -473,9 +473,8 @@ export function switchOn(
         throw new Error("switchOn requires at least one case");
     }
     return {
-        ...element("switch", opts, ["x", "y", "layout", "style", "index", "debug_name"]),
+        ...element("switch", { ...opts, children }, ["x", "y", "layout", "style", "index", "children", "debug_name"]),
         ...bound(on, "switchOn name"),
-        children,
     } as unknown as SwitchElement;
 }
 

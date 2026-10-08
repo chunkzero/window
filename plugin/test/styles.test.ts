@@ -254,3 +254,16 @@ test("bare window and HUD definitions apply their styles", () => {
         assert.equal((children(doc)[0] as { color?: string }).color, "#ffffff");
     }
 });
+
+test("a raw switch cascades its text style into its cases", () => {
+    const sw = raw.switchOn(
+        "mode",
+        { on: { children: [raw.label("Hello"), raw.label("Bye", { color: "#000000" })] } },
+        { style: { text: { color: "#ffffff", bold: true } } },
+    );
+    assert.ok(sw.type === "switch");
+    assert.ok(!("style" in sw));
+    const [hello, bye] = children(sw.children[0]!) as { color?: string; bold?: boolean }[];
+    assert.deepEqual([hello!.color, hello!.bold], ["#ffffff", true]);
+    assert.deepEqual([bye!.color, bye!.bold], ["#000000", true]);
+});
