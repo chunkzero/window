@@ -114,7 +114,7 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
     protected abstract fun status(): Component
 
     final override fun WindowScope<ItemStack>.bind() {
-        toggle("affordable", { affordable }) {
+        toggle("affordable", { affordable }) { _ ->
             affordable = !affordable
             onAffordableChanged(affordable)
         }
@@ -144,7 +144,7 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
             slot("category_label[$index]") { categoryLabel(index) }
         }
         enabledButton("clear_search", { hasQuery() }, handler = ::onClearSearch)
-        toggle("favorites", { favorites }) {
+        toggle("favorites", { favorites }) { _ ->
             favorites = !favorites
             onFavoritesChanged(favorites)
         }

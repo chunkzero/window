@@ -267,6 +267,25 @@ fn selection_choices_do_not_shadow_state_named_value() {
 }
 
 #[test]
+fn click_lambdas_do_not_shadow_state_named_it() {
+    let toggle = json!({ "kind": "toggle", "id": "it" });
+    let other =
+        window("flip", "generic_9x1", json!([{ "type": "button", "on_click": toggle, "pattern": slots(0, 1) }]));
+    let pick = json!({ "kind": "selection", "id": "pick", "values": ["a", "b"], "set": "a" });
+    let named = json!({ "kind": "selection", "id": "it", "values": ["a", "b"], "set": "b" });
+    let tabs = window(
+        "tabs",
+        "generic_9x1",
+        json!([{ "type": "button", "on_click": named, "pattern": slots(1, 1) },
+               { "type": "button", "on_click": pick, "pattern": slots(2, 1) }]),
+    );
+    let mut files = compile(&project(json!([tabs]))).unwrap();
+    files.extend(compile(&project(json!([other]))).unwrap());
+    assert_lines(&files["FlipView.kt"], &["button(\"it\") { _ ->", "    it = !it"]);
+    assert_lines(&files["TabsView.kt"], &["    if (it != It.B) {", "    it = It.B"]);
+}
+
+#[test]
 fn fixed_sprites_cannot_be_bound_to_handles() {
     let icon = json!({ "type": "sprite_slot", "handle": { "kind": "sprite", "id": "icon" },
                        "sprite": "icon_clear", "x": 0, "y": 0, "width": 8, "height": 8 });

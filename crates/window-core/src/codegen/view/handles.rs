@@ -382,11 +382,13 @@ impl Handler {
                     vec![format!("{member}(IndexedClick(click.slot, {index}, click.shift, click.right))")],
                 )
             }
-            HandleKind::Toggle => Self::Body("", vec![format!("{member} = !{member}"), format!("{hook}({member})")]),
+            HandleKind::Toggle => {
+                Self::Body("_ -> ", vec![format!("{member} = !{member}"), format!("{hook}({member})")])
+            }
             HandleKind::Selection => {
                 let value = handle.constant(click.value.as_deref().unwrap_or_default());
                 Self::Body(
-                    "",
+                    "_ -> ",
                     vec![
                         format!("if ({member} != {value}) {{"),
                         format!("    {member} = {value}"),
@@ -395,7 +397,7 @@ impl Handler {
                     ],
                 )
             }
-            _ => Self::Body("", vec!["close()".to_string()]),
+            _ => Self::Body("_ -> ", vec!["close()".to_string()]),
         }
     }
 

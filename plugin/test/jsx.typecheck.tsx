@@ -123,9 +123,7 @@ void [rawLabel, handleSmallCaps, toggleButton];
 // @ts-expect-error A comparison is a condition, not the value a switch reads.
 const comparedSwitch = <Switch on={mode.is("buy")}>{{ buy: null, sell: null }}</Switch>;
 // @ts-expect-error A setter is a click, not the value a button shows.
-const setterState = (
-    <Button onClick={action("trade")} state={category.set("all")} states={{ all: {}, gear: {}, magic: {} }} />
-);
+const setterState = <Button onClick={action("trade")} state={category.set("all")} states={{ all: {} }} />;
 // @ts-expect-error A setter is not a condition.
 const setterCondition = <Show when={category.set("all")} />;
 // @ts-expect-error A comparison is not a click.
