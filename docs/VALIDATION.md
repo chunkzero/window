@@ -56,9 +56,9 @@ semantic client state, text observations, render-pass boundaries, server events,
 `build/reports/mc-validation/`.
 
 The scenario currently covers production container opening, active pack fingerprints, static chrome, dynamic text,
-sprites, container/hotbar item sync, repeater cells that render a real item in one of their own slots while every cell
-slot still routes clicks to the cell button, left/right/shift/hotbar clicks, reactive title invalidation, anvil input,
-HUD diagnostics, GUI scale 2, and clean disconnect.
+sprites, container/hotbar item sync, cards that render a real item in one of their slots while every card slot still
+routes clicks to the card (the item through its collection, the others through regions), left/right/shift/hotbar clicks,
+reactive title invalidation, anvil input, HUD diagnostics, GUI scale 2, and clean disconnect.
 
 The `just mc-validation` recipe defaults to the sibling `../mc-validation` checkout and passes its absolute path to both
 Gradle builds. Override it with:

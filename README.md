@@ -21,35 +21,40 @@ flexbox and slot grids:
 
 ```tsx
 // src/window/confirm.tsx
-import { Button, Container, Text, Window } from "#plugins/window";
+import { Section, Text, Window, action, industrial, text } from "#plugins/window";
 
 export default (
   <Window name="confirm" container="generic_9x3">
-    <Container>
-      <Text bind="question" span={9} />
-      <Button name="accept" at={[3, 1]} tooltip="Confirm">
+    <Section of="container">
+      <Text bind={text("question")} span={9} />
+      <industrial.Button onClick={action("accept")} at={[3, 1]} tooltip="Confirm">
         <Text bold>YES</Text>
-      </Button>
-    </Container>
+      </industrial.Button>
+    </Section>
   </Window>
 );
 ```
 
-Or with the low-level function-style API under `raw`, positioned by hand:
+Or with the function-style API under `raw`, which builds the same primitives and calls components as functions:
 
 ```ts
 // src/window/confirm.ts
-import { raw } from "#plugins/window";
+import { action, industrial, raw, text } from "#plugins/window";
 
 export default raw.ui({
   name: "confirm",
   container: "generic_9x3",
   children: [
-    raw.slot("question", { x: 8, y: 6, width: 160, align: "center" }),
-    raw.button("accept", {
-      transform: { section: "container", x: 3, y: 1, width: 1, height: 1 },
-      tooltip: "Confirm",
-      children: [raw.label("YES", { bold: true })],
+    raw.text(text("question"), { x: 8, y: 6, width: 160, align: "center" }),
+    raw.section("container", {
+      children: [
+        industrial.Button({
+          onClick: action("accept"),
+          at: [3, 1],
+          tooltip: "Confirm",
+          children: raw.text("YES", { bold: true }),
+        }),
+      ],
     }),
   ],
 });

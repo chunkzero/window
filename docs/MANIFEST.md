@@ -1,9 +1,9 @@
-# Compiled Window Pack Definition — schema v7
+# Compiled Window Pack Definition — schema v9
 
 The compiled definition is the typed contract between the rpp plugin and the server runtime/codegen. The rpp plugin now
 emits Kotlin sources that instantiate this schema directly (`WindowPackData`, `WindowFonts`, and friends are `internal`;
-`WindowDefinitions`, `WindowHudDefinitions`, `WindowColors`, and `WindowSprite` are public); it does not write a JSON
-manifest into the pack output.
+`WindowDefinitions`, `WindowHudDefinitions`, and `WindowSprite` are public); it does not write a JSON manifest into the
+pack output.
 
 The JSON below is the schema's compatibility representation, used by legacy tools and parser tests. Schema changes bump
 `version` and must update `window-core/src/manifest.rs`, the runtime DTOs, and codegen together.
@@ -17,12 +17,12 @@ characters inside JSON strings, except in `spacers` where they are integers for 
 
 The definition holds only primitives: baked art (`static`), text (`slots`), images (`sprite_slots`), inventory
 `regions`, `items`, `collections`, `inputs`, and `switches` whose cases hold any of these, including other switches.
-Widgets such as buttons, hotspots, tabs, toggles, and slot rects compile into these; a button with named states becomes
-a state switch with one region per state.
+Authoring components compile into these: a control with states, such as an `industrial.Button` with `enabled`, is a
+switch on its handle with one region per state.
 
 ```jsonc
 {
-  "version": 8,
+  "version": 9,
   "namespace": "window",
   "font": "window:ui", // font id of the main (static + spacer) font
 
@@ -136,25 +136,14 @@ a state switch with one region per state.
           "height": 32,
           "align": "center",
           "font": "window:sprite_y39",
-          "sprite": "icon_tool", // optional fixed sprite; absent ⇒ runtime binding
           "source": "tool-icon", // optional: the nearest authored `debugName`, for diagnostics
-        },
-        // A state's sprite: a fixed image at the button's top-left, drawn while its case is active.
-        "buy.disabled": {
-          "x": 52,
-          "y": 190,
-          "width": 72,
-          "height": 20,
-          "align": "left",
-          "font": "window:sprite_y184",
-          "sprite": "wide_button_disabled",
         },
       },
 
       // Inventory regions: the slots each claims and fills with its hitbox item, and the action its clicks name.
       // Regions directly in a switch case are claimed only while that case is active.
       "regions": {
-        "buy.enabled": {
+        "buy": {
           "x": 52,
           "y": 190,
           "width": 72,
@@ -165,44 +154,47 @@ a state switch with one region per state.
             { "area": "container", "index": 47 },
             { "area": "player", "index": 0 },
           ],
-          // Optional strict subset of "slots" this region fills with its hitbox
-          // item. Absent means "every slot in `slots`". A repeater cell emits this
-          // when it yields a slot to an item control.
-          "fill_slots": [
-            { "area": "container", "index": 47 },
-            { "area": "player", "index": 0 },
-          ],
           "action": "buy", // the handler key clicks name; absent ⇒ hover- or claim-only
           // Optional item filling the slots; absent leaves them empty.
           "hitbox": {
             "item_model": "example:gui/buy", // absent ⇒ the pack's invisible hitbox model
             "tooltip": { "title": "Buy", "lines": ["Spend coins"] },
           },
-          "source": "button `buy`", // the authored element, for diagnostics
+          "source": "region `buy`", // the authored element, for diagnostics
         },
-        "buy.disabled": {
+        // The disabled state of the same button: hover-only, so it has no action.
+        "region~0": {
           "x": 52,
           "y": 190,
           "width": 72,
           "height": 20,
-          "slots": [/* same as buy.enabled */],
-          "action": "buy",
+          "slots": [/* same as buy */],
           "hitbox": { "tooltip": { "title": "Need more coins" } },
-          "source": "button `buy`",
+          "source": "region `region~0`",
         },
-        "buy.default": {/* …the state shown before `buy` is bound: the button's own tooltip… */},
-        "exit": {
+        "window:close": {
           "x": 8,
           "y": 190,
           "width": 40,
           "height": 20,
           "slots": [{ "area": "container", "index": 45 }],
-          "action": "exit",
-          "default_action": "window:close", // run when no handler is bound to "exit"
-          "source": "button `exit`",
+          "action": "window:close",
+          "default_action": "window:close", // a runtime action: works unbound
+          "source": "region `window:close`",
         },
-        "inventory_fill": {
-          // A claim-only region from `slot_rects`: no action, no hitbox.
+        "clear": {
+          // A region over the anvil input's slot routes its clicks while the input keeps its seed item.
+          "x": 27,
+          "y": 47,
+          "width": 16,
+          "height": 16,
+          "slots": [{ "area": "container", "index": 0 }],
+          "fill_slots": [], // optional strict subset of "slots" filled with the hitbox; absent ⇒ every slot
+          "action": "clear",
+          "source": "region `clear`",
+        },
+        "player_section": {
+          // A claim-only region from a section's unowned slots: no action, no hitbox.
           "x": 8,
           "y": 140,
           "width": 160,
@@ -211,11 +203,12 @@ a state switch with one region per state.
             { "area": "player", "index": 9 },
             { "area": "player", "index": 10 },
           ],
-          "source": "slot rects `inventory_fill`",
+          "source": "player section",
         },
       },
 
-      // Dynamic inventory item regions. Runtime code binds `item("featured")`.
+      // Dynamic inventory item regions. Runtime code binds `item("featured")`. Items directly in a switch case
+      // are filled only while that case is active.
       "items": {
         "featured": {
           "slots": [{ "area": "container", "index": 13 }],
@@ -242,7 +235,7 @@ a state switch with one region per state.
               "height": 18,
               "align": "left",
               "font": "window:sprite_y11",
-              "sprite": "cell_selected",
+              "sprite": "art/industrial-slot-selected-2423c7",
             },
             // …one entry per cell
           ],
@@ -259,25 +252,6 @@ a state switch with one region per state.
         },
       },
 
-      // Group metadata for controls flattened from repeaters. Codegen uses
-      // this to expose indexed methods while the runtime still binds the
-      // flattened controls by source name.
-      "groups": {
-        "entry": {
-          "count": 2,
-          "slots": {
-            "price": ["entry_price_0", "entry_price_1"],
-          },
-          "sprite_slots": {
-            "icon": ["entry_icon_0", "entry_icon_1"],
-          },
-          "items": {
-            "stack": ["entry_stack_0", "entry_stack_1"],
-          },
-          "actions": ["entry_0", "entry_1"], // each cell region's action, in cell order
-        },
-      },
-
       // Runtime-selected cases by key. Only the active case's net-zero `static`
       // art, slots, sprite slots, regions, items, collections, and switches are drawn or claimed.
       "switches": {
@@ -290,19 +264,16 @@ a state switch with one region per state.
         // Nested in case `buy` of `mode`: active only while `mode` is `buy`.
         "stock": {
           "cases": [
-            { "value": "low", "slots": ["count.low"] },
-            { "value": "high", "static": "󰀀…", "slots": ["count.high"] },
+            { "value": "low", "slots": ["count"] },
+            { "value": "high", "static": "󰀀…", "slots": ["count~2"] },
           ],
         },
-        // The state switch of button `buy`: codegen declares no member for it.
-        "buy": {
-          "states": true,
-          "initial": "default", // active until bound
-          "source": "button `buy`",
+        // The state switch of a button with `enabled={canBuy}`, keyed by the flag's entry.
+        "can_buy": {
+          "source": "buy-button", // optional: the switch's `debugName`, for diagnostics
           "cases": [
-            { "value": "default", "regions": ["buy.default"] },
-            { "value": "disabled", "sprite_slots": ["buy.disabled"], "regions": ["buy.disabled"] },
-            { "value": "enabled", "regions": ["buy.enabled"] },
+            { "value": "true", "static": "󰀀…", "slots": ["buy_label"], "regions": ["buy"] },
+            { "value": "false", "static": "󰀀…", "slots": ["buy_label~2"], "regions": ["region~0"] },
           ],
         },
       },
@@ -314,21 +285,15 @@ a state switch with one region per state.
         { "kind": "switch", "name": "mode" },
         { "kind": "slot", "name": "price" },
         { "kind": "switch", "name": "stock" },
-        { "kind": "slot", "name": "count.low" },
-        { "kind": "slot", "name": "count.high" },
+        { "kind": "slot", "name": "count" },
+        { "kind": "slot", "name": "count~2" },
         { "kind": "slot", "name": "label_3" },
         { "kind": "slot", "name": "payout" },
         { "kind": "collection", "name": "entries" },
-        { "kind": "switch", "name": "buy" },
-        { "kind": "sprite_slot", "name": "buy.disabled" },
+        { "kind": "switch", "name": "can_buy" },
         { "kind": "slot", "name": "buy_label" },
+        { "kind": "slot", "name": "buy_label~2" },
       ],
-
-      // Indexed binding families. Each entry is compiled under its flattened
-      // name, here `strokes[0][0]` through `strokes[7][8]` in `slots`.
-      "indexed": {
-        "strokes": { "kind": "slot", "shape": [8, 9] },
-      },
 
       // Typed handles by id, with the entries that use them.
       "handles": {
@@ -339,6 +304,14 @@ a state switch with one region per state.
           "uses": [
             { "role": "click", "entry": "category=all", "value": "all" },
             { "role": "switch", "entry": "category?gear", "value": "gear" },
+          ],
+        },
+        "can_buy": { "kind": "flag", "uses": [{ "role": "switch", "entry": "can_buy" }] },
+        "buy_label": {
+          "kind": "text",
+          "uses": [
+            { "role": "slot", "entry": "buy_label" },
+            { "role": "slot", "entry": "buy_label~2" },
           ],
         },
         "names": { "kind": "text", "shape": [2], "uses": [{ "role": "slot", "entry": "names[0]", "at": [0] }] },
@@ -389,13 +362,6 @@ a state switch with one region per state.
       },
     },
   },
-
-  // Theme palette colors by name, lowercase #rrggbb. Omitted when the theme
-  // declares none; codegen emits them as WindowColors TextColor constants.
-  "colors": {
-    "gold": "#ffd75e",
-    "muted": "#a9d9b5",
-  },
 }
 ```
 
@@ -411,69 +377,54 @@ Notes:
 - A slot's vertical placement is fully encoded in its `font`; `y` is informational (and used by codegen/tooling).
 - Runtime sprite slot vertical placement is likewise encoded in `sprite_slots.*.font`. The sprite glyph comes from
   `sprites.<id>.glyph`, and the generated `sprite_y...` font repeats that glyph at the slot's vertical ascent.
-- `sprites` holds theme sprites, the `defineWindows` sprite catalog, and inline art that the runtime draws (a state
-  sprite or a collection's selected sprite). Inline art is keyed `art/{name}-{hash}`, or `art/{hash}` without a name,
-  where `hash` is a hex prefix of the art's content hash; codegen gives these no `WindowSprite` constant.
+- `sprites` holds the `defineWindows` sprite catalog and inline art that the runtime draws (a collection's selected
+  sprite). Inline art is keyed `art/{name}-{hash}`, or `art/{hash}` without a name, where `hash` is a hex prefix of the
+  art's content hash; codegen gives these no `WindowSprite` constant.
 - `bold` changes text advance by `bold_advance` per rendered character. Italic, underline, strikethrough, and obfuscated
   are style defaults but do not change cursor measurement.
 - `regions.*.slots`, `items.*.slots`, `collections.*.slots`, and `inputs.*.slot` are typed slot references.
   `area = "container"` addresses the opened inventory. `area = "player"` addresses the viewing player's inventory, with
   Minestom's slot indices (`0..8` hotbar, `9..35` main inventory). Runtime player slots are snapshotted before Window
   writes them and restored when the menu closes.
-- Button and hotspot regions may be authored without slots; Window infers every container/player slot overlapped by
-  their rectangle. If no slot overlaps, the build fails. Items and collections require slots resolved from authoring
-  `slots`, `pattern`, `transform`, — inside a repeater — `cell_slot`, or the slots their parent box covers.
+- Regions take the slots their laid-out rectangle overlaps: their parent box's, or their section area's. If no slot
+  overlaps, the build fails. Items and collections take slots resolved from authoring `slots`, `pattern`, `transform`,
+  their section area, or the slots their parent box covers.
 - Slot _ownership_ and slot _routing_ are separate contracts. Exactly one active control fills any given slot:
   `regions.*.fill_slots` (defaulting to `regions.*.slots`), `items.*.slots`, `collections.*.slots`, and `inputs.*.slot`
   must be disjoint. Independently, the `slots` of regions with an `action` and of action collections must be disjoint,
   because a slot can only route its clicks to one control. Regions, items, and collections in mutually exclusive switch
   cases are exempt from both: two entries are exclusive when their case paths (the cases enclosing them, outermost
-  first) pick different cases of the same switch. A repeater cell relies on the ownership/routing split: it routes all
-  of its slots while an item control fills one of them. A region over an anvil input's slot uses it too, and may leave
-  `fill_slots` empty. The runtime writes the hitbox into `fill_slots` of every active region and routes `slots`.
+  first) pick different cases of the same switch. A region over an anvil input's slot relies on the ownership/routing
+  split: it routes the slot while the input fills it, and may leave `fill_slots` empty. The runtime writes the hitbox
+  into `fill_slots` of every active region and routes `slots`.
 - `regions.*.action` names the handler a click runs. The runtime runs the handler bound to that id, else
   `default_action`; a region without `action` ignores clicks. Ids in the `window:` namespace (`window:close`) are
   runtime actions: codegen declares no member for them, and they always carry the same `default_action`, so they work
-  unbound. A region whose `default_action` is `window:close` but whose action is an authored name
-  (`<Button name="exit" close>`) gets a generated handler that defaults to `close()`. Regions copied into a control's
-  state cases share one `action`.
+  unbound. A region's `action` is its entry name, so regions of the same action handle have one action each (`buy`,
+  `buy~2`), all bound to the handle's member.
 - `regions.*.hitbox` is the item the runtime writes into the region's fill slots: `item_model` (default: the emitted
   invisible `{namespace}:gui/hitbox` model) and an optional `tooltip`. Without `hitbox` the slots stay empty.
 - `inputs` describes native inventory input metadata. It is currently valid only for `surface.container = "anvil"`;
   exactly one input owns container slot `0`, whose item name drives the vanilla edit field.
-- `groups` is optional metadata for codegen. Runtime routing does not depend on it.
-- `indexed` is optional metadata for codegen on windows and HUDs. `kind` is `slot`, `sprite_slot`, or `switch`, and
-  `shape` holds one or two extents. The entry at index `[i]` or `[i, j]` is named `{name}[{i}]` or `{name}[{i}][{j}]`,
-  and every index within `shape` exists. Runtimes bind the flattened entries and ignore this map.
 - `handles` is optional metadata for codegen on windows and HUDs; runtimes ignore it. `kind` is `flag`, `toggle`,
   `value`, `selection`, `text`, `sprite`, `items`, `collection`, `action`, `input`, or `builtin`. `values` lists a value
   or selection's values, `shape` an indexed handle's extents, `initial` a toggle's (`"true"`/`"false"`) or selection's
   initial value, `selectable` whether a collection marks a selected cell, and `only` the sprites a sprite handle
   returns, which codegen generates as an enum of those `WindowSprite` constants. Each use names the entry it binds: a
-  `slot`, `sprite_slot`, `item`, `collection`, `input`, `switch`, or a button's `click`, `enabled`, or `state`. `at` is
-  the index read from an indexed handle, and `value` the value a condition compares with or a click sets. A use is keyed
-  `{id}`, then `[{i}]` per index, `={value}` for a click that sets a value, or `?{value}` for a condition, with `~2`,
-  `~3`, … appended to later uses of the same key. Codegen binds every use to the handle's member and infers members only
-  for entries no handle uses. A button's `click` entry is its region action, and its `enabled` and `state` entries name
-  its state switch.
+  `slot`, `sprite_slot`, `item`, `collection`, `input`, `switch`, or a region's `click`. `at` is the index read from an
+  indexed handle, and `value` the value a condition compares with or a click sets. A use is keyed `{id}`, then `[{i}]`
+  per index, `={value}` for a click that sets a value, or `?{value}` for a condition, with `~2`, `~3`, … appended to
+  later uses of the same key. Codegen generates members only from handles and binds every use to its handle's member; an
+  entry no handle uses gets no member.
 - `switches` is optional on windows and HUDs. At most one case of a switch is active: the case whose `value` the
-  switch's binding returns, else `initial`, else none. A switch named in a case's `switches` is nested: it and
+  switch's binding returns, or none until it is bound. A switch named in a case's `switches` is nested: it and
   everything in its cases are active only while that case is. A case lists only the entries directly inside it. The
   runtime draws the active cases' `static` at the switch's position in `layers`, leaves out the slots, sprite slots, and
   collection selections of inactive cases, and claims only the regions, `items`, and `collections` of active cases, so
   changing a case swaps the items and click routes of its slots. A click routes by the cases selected when it arrives:
-  the runtime reads each enclosing switch's binding or state at click time rather than waiting for the next render. Each
-  case's `static` is net-zero: window cases start and end at `title_origin.x`, HUD cases at the HUD's left edge. Codegen
-  binds a `Boolean` when the case values are exactly `true` and `false`, otherwise an enum of the values.
-- A switch with `states: true` selects the named states of the control it is keyed by (a button or hotspot); its cases
-  are the states plus `default` (the control's plain tooltip), and `initial` is `default`. Codegen declares no member
-  for it: the `toggle`, `choice`, and `enabled` helpers and `buttonState(name, state)` select its case.
-- A slot, sprite slot, or switch with `binding` is one case's copy of a binding shared across mutually exclusive switch
-  cases. It is keyed `{binding}.{case path}`, joining the values of every enclosing case outermost first (for example
-  `status.a.x`), and binding the name `binding` binds every copy. Copies of a shared switch must declare the same set of
-  case values (in any order).
-- A runtime-action control with states (`window:close`) has no `action` or `default_action` on its `disabled` region, so
-  a disabled state never runs the action; codegen only selects the state case.
+  the runtime reads each enclosing switch's binding at click time rather than waiting for the next render. Each case's
+  `static` is net-zero: window cases start and end at `title_origin.x`, HUD cases at the HUD's left edge. Codegen binds
+  a `Boolean` when the case values are exactly `true` and `false`, otherwise an enum of the values.
 - `layers` lists every slot, sprite slot, switch, and collection with a selected sprite exactly once, in authored tree
   order. The runtime composes `static` first, then these layers in order, skipping entries in inactive cases. A switch
   layer draws its active case's `static`; a collection layer draws its selected cell's `selection` sprite.
@@ -486,12 +437,11 @@ Notes:
   entries and `fonts[0]` equals `font`.
 - `tooltip` may be absent, or an object with `title` and optional `lines`. Authoring accepts a string shorthand, but the
   compiled definition always uses the object form.
-- `source` on regions and switches names the authored element they come from, such as ``tab `category=all` ``, for
-  diagnostics. On slots and sprite slots, and on regions and switches authored as primitives, it is the `debugName` of
-  the nearest authored element that sets one.
-- Authored slot, button, item, and collection names match `^[a-z][a-z0-9_]*$` and are unique per window across all maps
-  (codegen turns them into members of one class). Derived keys add `.`, `[`, `]`, `?`, `=`, `~`, or `:`.
-- HUD slot names follow the same pattern and are unique per HUD.
+- `source` on regions names the authored element they come from, such as ``region `category=all` `` or `player section`,
+  for diagnostics. On slots, sprite slots, and switches it is the `debugName` of the nearest authored element that sets
+  one.
+- Entry keys are unique per window or HUD across all maps. Handle ids match `^[a-z][a-z0-9_]*$`; entries derived from
+  them add `[`, `]`, `?`, `=`, or `~`, and runtime actions and section claims use `:` and `_section`.
 - `shader` is metadata for generated core-shader packs. `origin_*` is a normalized GUI target point, `anchor_*` is the
   normalized point inside the HUD surface placed on that target, and `offset_*` is a GUI-pixel nudge. `source_bottom` is
   the nominal bottom of the source text surface measured up from the GUI bottom; generated shaders apply Minecraft's
