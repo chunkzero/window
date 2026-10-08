@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { create, createTheme, defineVars, derive, mix, raw, shape, value, variants } from "../src/authoring/index.ts";
-import type { Color, Var } from "../src/authoring/index.ts";
-import { defineWindows } from "../src/authoring/index.ts";
+import { create, createTheme, defineVars, defineWindows, derive, mix, shape, variants } from "../src/authoring/ui.ts";
+import type { Color, Var } from "../src/authoring/ui.ts";
+import { value } from "../src/authoring/bind.ts";
+import * as raw from "../src/authoring/raw.ts";
 import { collectInputs } from "../src/project.ts";
 import { Box, Case, Hud, Image, Switch, Text, Window } from "../src/authoring/jsx.ts";
 import type { Element } from "../src/authoring/types.ts";

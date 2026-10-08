@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import * as window from "../src/authoring/index.ts";
+import { action, collection, input, items, text, value } from "../src/authoring/bind.ts";
+import * as raw from "../src/authoring/raw.ts";
+import * as window from "../src/authoring/ui.ts";
 import { Box, Region, Section, Text } from "../src/authoring/jsx.ts";
 import * as inventory from "../src/authoring/inventory.ts";
 
-const { action, collection, input, items, pattern, raw, shape, text, value } = window;
+const { pattern, shape } = window;
 
 const recess = shape({ kind: "slot", fill: "#102040" });
 

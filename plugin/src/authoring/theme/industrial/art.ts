@@ -1,8 +1,8 @@
 /** Industrial's color tokens, bevel recipes, and named art. */
-import { shape } from "../art.ts";
-import { defineVars, derive, mix } from "../tokens.ts";
-import type { Color, Get, Token, Var, Vars } from "../tokens.ts";
-import type { ShapeArt, ShapeStyle } from "../types.ts";
+import { shape } from "../../art.ts";
+import { defineVars, derive, mix } from "../../tokens.ts";
+import type { Color, Get, Token, Var, Vars } from "../../tokens.ts";
+import type { ShapeArt, ShapeStyle } from "../../types.ts";
 
 const defaults = {
     border: "#03091f",

@@ -1,4 +1,4 @@
-import { action, collection, flag, input, selection, text, toggle } from "#plugins/window";
+import { action, collection, flag, input, selection, text, toggle } from "plugin:window/bind";
 
 // Shop
 export const category = selection("category", ["all", "gear", "magic"]);

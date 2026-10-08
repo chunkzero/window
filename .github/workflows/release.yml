@@ -34,7 +34,7 @@ concurrency:
 env:
   CHANNEL: ${{ inputs.channel || 'nightly' }}
   # The rpp in mise.toml; the registry action requires it as an input.
-  RPP_VERSION: 0.1.0-nightly.20261005182523.g09faa791490c
+  RPP_VERSION: 0.1.0-nightly.20261008133812.g121b31a3e9a2
 
 jobs:
   version:

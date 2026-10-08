@@ -1,4 +1,5 @@
-import { action, raw, text } from "#plugins/window";
+import { action, text } from "plugin:window/bind";
+import * as raw from "plugin:window/raw";
 
 export default raw.ui({
     name: "wallet",

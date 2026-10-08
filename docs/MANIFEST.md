@@ -17,7 +17,7 @@ characters inside JSON strings, except in `spacers` where they are integers for 
 
 The definition holds only primitives: baked art (`static`), text (`slots`), images (`sprite_slots`), inventory
 `regions`, `items`, `collections`, `inputs`, and `switches` whose cases hold any of these, including other switches.
-Authoring components compile into these: a control with states, such as an `industrial.Button` with `enabled`, is a
+Authoring components compile into these: a control with states, such as an industrial `Button` with `enabled`, is a
 switch on its handle with one region per state.
 
 ```jsonc

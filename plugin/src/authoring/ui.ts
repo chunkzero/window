@@ -1,6 +1,5 @@
+/** The JSX primitives, window definitions, slot helpers, art, styles, and tokens. */
 export type * from "./types.ts";
-export * as raw from "./raw.ts";
-export * as industrial from "./industrial/index.ts";
 export { shape, texture } from "./art.ts";
 export type { ShapeStyle, TextureOptions } from "./art.ts";
 export { createTheme, defineVars, derive, mix } from "./tokens.ts";
@@ -30,29 +29,6 @@ export {
     playerSlot,
     playerSlots,
 } from "./inventory.ts";
-export { action, builtin, collection, flag, input, items, selection, sprite, text, toggle, value } from "./handles.ts";
-export type {
-    Action as ActionHandle,
-    Builtin as BuiltinHandle,
-    BuiltinId,
-    ClickAction,
-    Collection as CollectionHandle,
-    Condition,
-    Flag as FlagHandle,
-    HandleKind,
-    Indexed,
-    Input as InputHandle,
-    Is,
-    Items as ItemsHandle,
-    Ref,
-    Selection as SelectionHandle,
-    Set as SetAction,
-    Shape,
-    Sprite as SpriteHandle,
-    Text as TextHandle,
-    Toggle as ToggleHandle,
-    Value as ValueHandle,
-} from "./handles.ts";
 export { defineWindows } from "./windows.ts";
 export type { WindowsDefinition } from "./windows.ts";
 export { Box, Case, Collection, Hud, Image, Input, Items, Region, Section, Switch, Text, Window } from "./jsx.ts";

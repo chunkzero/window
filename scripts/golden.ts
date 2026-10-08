@@ -58,8 +58,8 @@ function tsProject(caseDir: string, dir: string, options: Case): void {
     ];
     write(
         join(dir, "rpp.config.ts"),
-        `import { defineConfig } from "#rpp/config";
-import window from "#plugins/window";
+        `import { defineConfig } from "rpp:config";
+import window from "plugin:window";
 
 export default defineConfig({
     pack: { name: "golden", format: ${options.packFormat} },

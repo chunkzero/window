@@ -1,21 +1,8 @@
-import {
-    action,
-    collection,
-    create,
-    createTheme,
-    defineVars,
-    derive,
-    flag,
-    industrial,
-    items,
-    mix,
-    raw,
-    selection,
-    shape,
-    value,
-    variants,
-} from "../src/authoring/index.ts";
-import type { BoxStyle, Color, Var, Variants } from "../src/authoring/index.ts";
+import * as industrial from "../src/authoring/theme/industrial/index.ts";
+import { create, createTheme, defineVars, derive, mix, shape, variants } from "../src/authoring/ui.ts";
+import type { BoxStyle, Color, Var, Variants } from "../src/authoring/ui.ts";
+import { action, collection, flag, items, selection, value } from "../src/authoring/bind.ts";
+import * as raw from "../src/authoring/raw.ts";
 import {
     Box,
     Case,

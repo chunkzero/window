@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { action, collection, createTheme, flag, industrial, items, selection, toggle } from "../src/authoring/index.ts";
+import * as industrial from "../src/authoring/theme/industrial/index.ts";
+import { createTheme } from "../src/authoring/ui.ts";
+import { action, collection, flag, items, selection, toggle } from "../src/authoring/bind.ts";
 import { Image, Window } from "../src/authoring/jsx.ts";
 import { resolveTokens } from "../src/authoring/tokens.ts";
 import type { Element } from "../src/authoring/types.ts";

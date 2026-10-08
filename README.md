@@ -21,15 +21,17 @@ flexbox and slot grids:
 
 ```tsx
 // src/window/confirm.tsx
-import { Section, Text, Window, action, industrial, text } from "#plugins/window";
+import { Section, Text, Window } from "plugin:window/ui";
+import { action, text } from "plugin:window/bind";
+import { Button } from "plugin:window/theme/industrial";
 
 export default (
   <Window name="confirm" container="generic_9x3">
     <Section of="container">
       <Text bind={text("question")} span={9} />
-      <industrial.Button onClick={action("accept")} at={[3, 1]} tooltip="Confirm">
+      <Button onClick={action("accept")} at={[3, 1]} tooltip="Confirm">
         <Text bold>YES</Text>
-      </industrial.Button>
+      </Button>
     </Section>
   </Window>
 );
@@ -39,7 +41,9 @@ Or with the function-style API under `raw`, which builds the same primitives and
 
 ```ts
 // src/window/confirm.ts
-import { action, industrial, raw, text } from "#plugins/window";
+import { action, text } from "plugin:window/bind";
+import * as raw from "plugin:window/raw";
+import { Button } from "plugin:window/theme/industrial";
 
 export default raw.ui({
   name: "confirm",
@@ -48,7 +52,7 @@ export default raw.ui({
     raw.text(text("question"), { x: 8, y: 6, width: 160, align: "center" }),
     raw.section("container", {
       children: [
-        industrial.Button({
+        Button({
           onClick: action("accept"),
           at: [3, 1],
           tooltip: "Confirm",
@@ -84,8 +88,8 @@ rpp add window
 
 ```ts
 // rpp.config.ts
-import { defineConfig } from "#rpp/config";
-import window from "#plugins/window";
+import { defineConfig } from "rpp:config";
+import window from "plugin:window";
 
 export default defineConfig({
   pack: { name: "my-pack", description: "My server pack", format: 88 },

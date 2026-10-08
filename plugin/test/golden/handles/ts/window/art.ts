@@ -1,4 +1,5 @@
-import { derive, industrial, shape, texture } from "#plugins/window";
+import { derive, shape, texture } from "plugin:window/ui";
+import { art } from "plugin:window/theme/industrial";
 
 export const coin = shape(
     {
@@ -18,7 +19,7 @@ export const coin = shape(
 
 /** A flat recess strip, drawn as a vent between the container and the inventory. */
 export const ventSlot = derive((get) => ({
-    ...get(industrial.art.recess),
+    ...get(art.recess),
     border_width: 0,
     inset_depth: 0,
     width: 6,
@@ -26,7 +27,7 @@ export const ventSlot = derive((get) => ({
 }));
 
 /** The anvil's text field, restyled pack-wide through `anvilFieldSprite`. */
-export const searchField = derive((get) => ({ ...get(industrial.art.recess), width: 110, height: 16 }));
+export const searchField = derive((get) => ({ ...get(art.recess), width: 110, height: 16 }));
 
 export const icons = {
     back: texture("window/icons/back.png"),

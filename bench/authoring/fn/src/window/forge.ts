@@ -1,5 +1,20 @@
-import { action, flag, industrial, items, raw, sprite, text, toggle, value } from "#plugins/window";
-import type { Element, LabelOptions, SlotOptions, TextHandle } from "#plugins/window";
+import type { Element, LabelOptions, SlotOptions } from "plugin:window/ui";
+import { action, flag, items, sprite, text, toggle, value } from "plugin:window/bind";
+import type { TextHandle } from "plugin:window/bind";
+import * as raw from "plugin:window/raw";
+import {
+    Button,
+    Grid,
+    Header,
+    Hotspot,
+    Repeater,
+    Row,
+    Show,
+    Slots,
+    Spacer,
+    Toggle,
+    art,
+} from "plugin:window/theme/industrial";
 
 import { coin } from "./sprites.ts";
 
@@ -18,7 +33,7 @@ const forgeIcon = sprite("forge_icon");
 const autoLamp = sprite("auto_lamp", { only: ["lamp_on", "lamp_off"] });
 
 function meter(title: string, handle: TextHandle, color: string): Element {
-    return industrial.Row({
+    return Row({
         gap: 2,
         justify: "center",
         children: [say(title, { color: "#8fb3d9" }), bound(handle, { width: 18, color })],
@@ -28,14 +43,14 @@ function meter(title: string, handle: TextHandle, color: string): Element {
 const forge = raw.ui({
     name: "forge",
     container: "generic_9x4",
-    frame: industrial.art.shell,
+    frame: art.shell,
     bleed: { top: 1, right: 4, left: 4 },
     children: [
-        industrial.Header({
+        Header({
             padding: { top: 3 },
             align: "start",
-            children: industrial.Row({
-                frame: industrial.art.recess,
+            children: Row({
+                frame: art.recess,
                 height: 12,
                 padding: { left: 4, right: 4 },
                 gap: 3,
@@ -50,12 +65,12 @@ const forge = raw.ui({
             mode,
             [
                 raw.case("idle", {
-                    frame: industrial.art.buttonDanger,
+                    frame: art.buttonDanger,
                     style: { width: 24, height: 12, justify: "center", align: "center" },
                     children: [say("New")],
                 }),
                 raw.case("forging", {
-                    frame: industrial.art.buttonAccent,
+                    frame: art.buttonAccent,
                     style: { justify: "center", align: "center" },
                     children: [bound(progress, { width: 20, align: "center", color: "#2a1200", shadow: false })],
                 }),
@@ -64,10 +79,10 @@ const forge = raw.ui({
         ),
 
         raw.section("container", {
-            frame: industrial.art.panel,
+            frame: art.panel,
             outset: { top: 2, right: 3, bottom: 3, left: 3 },
             children: [
-                industrial.Repeater({
+                Repeater({
                     onClick: recipe,
                     item: stack,
                     cell: [3, 2],
@@ -75,7 +90,7 @@ const forge = raw.ui({
                     rows: 1,
                     children: (i) => [
                         bound(recipeName.at(i), { width: 50, align: "center" }),
-                        industrial.Row({
+                        Row({
                             gap: 1,
                             children: [
                                 bound(cost.at(i), { width: 20, align: "right", color: "#ffb20b" }),
@@ -85,10 +100,10 @@ const forge = raw.ui({
                     ],
                 }),
 
-                industrial.Grid({
+                Grid({
                     span: 9,
                     columns: 3,
-                    frame: industrial.art.recess,
+                    frame: art.recess,
                     align: "center",
                     children: [
                         meter("Heat", text("heat"), "#ff8300"),
@@ -97,12 +112,12 @@ const forge = raw.ui({
                     ],
                 }),
 
-                industrial.Hotspot({ tooltip: { title: "Forging", lines: ["Pick a recipe", "Then press Forge"] } }),
-                industrial.Spacer({ span: 4 }),
-                industrial.Button({
+                Hotspot({ tooltip: { title: "Forging", lines: ["Pick a recipe", "Then press Forge"] } }),
+                Spacer({ span: 4 }),
+                Button({
                     onClick: action("forge"),
                     span: 4,
-                    frame: industrial.art.buttonAccent,
+                    frame: art.buttonAccent,
                     tooltip: "Forge the selected recipe",
                     children: [
                         raw.image(forgeIcon, { width: 8, height: 8 }),
@@ -114,14 +129,14 @@ const forge = raw.ui({
 
         raw.section("player", {
             children: [
-                industrial.Slots({ span: [9, 2] }),
-                industrial.Row({
+                Slots({ span: [9, 2] }),
+                Row({
                     span: 6,
-                    frame: industrial.art.recess,
+                    frame: art.recess,
                     padding: { left: 4, right: 4 },
                     children: [bound(text("status"), { color: "#bceeff" })],
                 }),
-                industrial.Toggle({
+                Toggle({
                     bind: toggle("auto"),
                     span: 3,
                     on: { tooltip: "Auto forge on" },
@@ -133,7 +148,7 @@ const forge = raw.ui({
 
         raw.section("hotbar", {
             children: [
-                industrial.Button({
+                Button({
                     close: true,
                     at: [3, 0],
                     span: 3,
@@ -147,20 +162,20 @@ const forge = raw.ui({
 
 const progressHud = raw.hud({
     name: "forge_progress",
-    frame: industrial.art.hud,
+    frame: art.hud,
     shader: { origin: { x: 0.5, y: 1 }, anchor: { x: 0.5, y: 1 }, x: 0, y: -60 },
     children: [
         raw.box({
             style: { direction: "column", padding: 3, gap: 2, minWidth: 90 },
             children: [
-                industrial.Row({
+                Row({
                     gap: 4,
                     children: [
                         say("Forging", { layout: { grow: 1 } }),
-                        industrial.Show({
+                        Show({
                             when: flag("overheated"),
-                            children: industrial.Row({
-                                frame: industrial.art.recess,
+                            children: Row({
+                                frame: art.recess,
                                 padding: { left: 2, right: 2 },
                                 gap: 2,
                                 children: [raw.image(coin), say("Hot", { color: "#ff8300" })],
@@ -169,7 +184,7 @@ const progressHud = raw.hud({
                         bound(text("percent"), { width: 24, align: "right", color: "#ffd75e" }),
                     ],
                 }),
-                industrial.Grid({
+                Grid({
                     columns: ["1fr", "1fr"],
                     gap: [4, 1],
                     children: [

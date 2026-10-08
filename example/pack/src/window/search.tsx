@@ -1,4 +1,5 @@
-import { Box, Image, Input, Text, Window, industrial } from "#plugins/window";
+import { Box, Image, Input, Text, Window } from "plugin:window/ui";
+import { Button, Container, Hotbar, Player, art } from "plugin:window/theme/industrial";
 
 import { icons } from "./art.ts";
 import { back, confirm, query } from "./handles.ts";
@@ -21,12 +22,12 @@ export default (
         bleed={{ top: 1, right: 4, bottom: 0, left: 4 }}
         text={{ color: "#ffffff", shadow: true, smallCaps: true }}
     >
-        <Box frame={industrial.art.shell} x={-4} y={-1} width={184} height={80} />
-        <Box frame={industrial.art.recess} x={30} y={3} width={116} height={12} />
-        <Box frame={industrial.art.panel} x={4} y={15} width={168} height={54} />
-        <Box frame={industrial.art.hazardBar} x={-4} y={73} width={184} height={6} />
+        <Box frame={art.shell} x={-4} y={-1} width={184} height={80} />
+        <Box frame={art.recess} x={30} y={3} width={116} height={12} />
+        <Box frame={art.panel} x={4} y={15} width={168} height={54} />
+        <Box frame={art.hazardBar} x={-4} y={73} width={184} height={6} />
         {rivets.map(([x, y]) => (
-            <Image art={industrial.art.rivet} x={x} y={y} />
+            <Image art={art.rivet} x={x} y={y} />
         ))}
         <Text x={0} y={6} width={176} align="center">
             Catalog Search
@@ -35,15 +36,15 @@ export default (
             Name
         </Text>
         <Input bind={query} initial="" />
-        <industrial.Container claim="none">
-            <industrial.Button onClick={back} at={[0, 0]}>
+        <Container claim="none">
+            <Button onClick={back} at={[0, 0]}>
                 <Image art={icons.back} />
-            </industrial.Button>
-            <industrial.Button onClick={confirm} at={[2, 0]} frame={industrial.art.buttonAccent} tooltip="Search">
+            </Button>
+            <Button onClick={confirm} at={[2, 0]} frame={art.buttonAccent} tooltip="Search">
                 <Image art={icons.check} translate={[-1, 0]} />
-            </industrial.Button>
-        </industrial.Container>
-        <industrial.Player claim="all" />
-        <industrial.Hotbar claim="all" />
+            </Button>
+        </Container>
+        <Player claim="all" />
+        <Hotbar claim="all" />
     </Window>
 );

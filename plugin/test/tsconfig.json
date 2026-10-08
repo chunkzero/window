@@ -5,11 +5,15 @@
     "isolatedDeclarations": false,
     "declaration": false,
     "paths": {
-      "#rpp": ["../.rpp/sdk/index.ts"],
-      "#rpp/jsx": ["../.rpp/sdk/jsx.ts"],
-      "#rpp/jsx/jsx-runtime": ["../.rpp/sdk/jsx.ts"],
-      "#rpp/config": ["../.rpp/sdk/config.ts"],
-      "#plugins/window": ["../src/config.ts"]
+      "rpp": ["../.rpp/sdk/index.ts"],
+      "rpp:jsx": ["../.rpp/sdk/jsx.ts"],
+      "rpp:jsx/jsx-runtime": ["../.rpp/sdk/jsx.ts"],
+      "rpp:config": ["../.rpp/sdk/config.ts"],
+      "plugin:window": ["../src/config.ts"],
+      "plugin:window/bind": ["../src/authoring/bind.ts"],
+      "plugin:window/ui": ["../src/authoring/ui.ts"],
+      "plugin:window/raw": ["../src/authoring/raw.ts"],
+      "plugin:window/theme/industrial": ["../src/authoring/theme/industrial/index.ts"]
     }
   },
   "include": ["**/*.ts", "jsx.typecheck.tsx", "styles.typecheck.tsx", "../src/**/*.ts"]

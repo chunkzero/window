@@ -1,10 +1,9 @@
-import { definePluginConfig } from "#rpp/config";
-import type { Access, PluginEntry } from "#rpp/config";
+import { definePluginConfig } from "rpp:config";
+import type { Access, PluginEntry } from "rpp:config";
 
 import { kotlinTarget } from "./project.ts";
 import type { KotlinTarget, WindowOptions } from "./project.ts";
 
-export * from "./authoring/index.ts";
 export type { KotlinTarget } from "./project.ts";
 
 export type WindowConfig = Omit<WindowOptions, "kotlin"> & {

@@ -1,5 +1,5 @@
-import { components, definePlugin } from "#rpp";
-import type { Plugin } from "#rpp";
+import { components, definePlugin } from "rpp";
+import type { Plugin } from "rpp";
 
 import { generate } from "./project.ts";
 import type { WindowOptions } from "./project.ts";

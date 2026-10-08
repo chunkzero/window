@@ -1,7 +1,7 @@
 /** Industrial's default component styles. */
-import { variants } from "../styles.ts";
-import type { ContainerStyle, Variants } from "../styles.ts";
-import type { ArtRef } from "../types.ts";
+import { variants } from "../../styles.ts";
+import type { ContainerStyle, Variants } from "../../styles.ts";
+import type { ArtRef } from "../../types.ts";
 import { art } from "./art.ts";
 
 export interface IndustrialStyles {
