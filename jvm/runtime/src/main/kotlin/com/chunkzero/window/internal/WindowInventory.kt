@@ -15,8 +15,8 @@ import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.minimessage.MiniMessage
 
 /**
- * Renders a window's inventory items: the hitbox items of active regions, active item regions and collection
- * cells, and anvil input seeds. Rendered items collect until [drain] takes them.
+ * Renders a window's inventory items: the hitbox items of active regions on slots no active item or collection
+ * owns, active items and collection cells, and anvil input seeds. Rendered items collect until [drain] takes them.
  */
 internal class WindowInventory<I : Any>(
     private val definition: WindowDefinition,
@@ -54,34 +54,50 @@ internal class WindowInventory<I : Any>(
     }
 
     /**
-     * Claims the slots of active cases: empties the slots of regions, items, and collections whose case became
-     * inactive, then renders those that became active.
+     * Re-derives the slots of regions, items, and collections whose case changed: an active item or collection owns
+     * its slots' contents, otherwise the active region's hitbox fills them, otherwise they are empty. Items and
+     * collections that became active then render over them.
      */
     fun claimCases() {
         val active = entry.regions.keys.filterTo(LinkedHashSet(), switches::regionActive)
         val activeItems = entry.items.keys.filterTo(LinkedHashSet(), switches::itemActive)
         val activeCollections = entry.collections.keys.filterTo(LinkedHashSet(), switches::collectionActive)
-        for (name in claimed) if (name !in active) fill(name, null)
-        for (name in claimedItems) if (name !in activeItems) writeSlots(entry.items.getValue(name).slots, null)
-        for (name in claimedCollections) {
-            if (name !in activeCollections) writeSlots(entry.collections.getValue(name).slots, null)
+        val touched = LinkedHashSet<SlotRefEntry>()
+        for (name in claimed union active) {
+            if ((name in claimed) != (name in active)) touched += entry.regions.getValue(name).filledSlots
         }
-        for (name in active) if (name !in claimed) fill(name, regionItem(name))
+        for (name in claimedItems union activeItems) {
+            if ((name in claimedItems) != (name in activeItems)) touched += entry.items.getValue(name).slots
+        }
+        for (name in claimedCollections union activeCollections) {
+            if ((name in claimedCollections) != (name in activeCollections)) {
+                touched += entry.collections.getValue(name).slots
+            }
+        }
+        val owned =
+            activeItems.flatMapTo(HashSet()) { entry.items.getValue(it).slots } +
+                activeCollections.flatMapTo(HashSet()) { entry.collections.getValue(it).slots }
+        for (slot in touched) {
+            if (slot in owned) continue
+            items[slot.toApi()] =
+                active.firstOrNull { slot in entry.regions.getValue(it).filledSlots }?.let(::regionItem)
+        }
+        val newItems = activeItems - claimedItems
+        val newCollections = activeCollections - claimedCollections
         claimed.clear()
         claimed.addAll(active)
-        for (name in activeItems) if (name !in claimedItems) writeItem(name)
         claimedItems.clear()
         claimedItems.addAll(activeItems)
-        for (name in activeCollections) {
-            if (name in claimedCollections) continue
+        claimedCollections.clear()
+        claimedCollections.addAll(activeCollections)
+        for (name in newItems) writeItem(name)
+        for (name in newCollections) {
             for (index in entry.collections
                 .getValue(name)
                 .slots.indices) {
                 writeCollectionCell(name, index)
             }
         }
-        claimedCollections.clear()
-        claimedCollections.addAll(activeCollections)
     }
 
     /** Renders item [name] into its slots while its case is active. */
@@ -146,17 +162,6 @@ internal class WindowInventory<I : Any>(
         val hitbox = entry.regions.getValue(name).hitbox ?: return null
         val model = hitbox.itemModel?.let(Key::key) ?: definition.hitboxModel
         return buildItem(WindowItem.Hitbox(model, hitbox.tooltip?.let(::tooltip)))
-    }
-
-    /**
-     * Renders [item] into the slots region [name] fills. Clicks route to every slot of the region, but a region
-     * over the anvil input leaves its seed item in place.
-     */
-    private fun fill(
-        name: String,
-        item: I?,
-    ) {
-        writeSlots(entry.regions.getValue(name).filledSlots, item)
     }
 
     private fun writeSlots(

@@ -411,6 +411,24 @@ fn regions_route_clicks_on_item_slots_and_fill_only_unowned_slots() {
     assert!(err.to_string().contains("both own container slot 0"), "{err}");
 }
 
+#[test]
+fn conditional_content_owners_keep_the_region_fill() {
+    let region = r#"{"type":"flex","x":7,"y":17,"style":{"width":18,"height":18},"children":[
+        {"type":"region","on_click":{"kind":"action","id":"tip"}}]}"#;
+    let item = r#"{"type":"item","handle":{"kind":"items","id":"icon"},"slots":[{"area":"container","index":0}]}"#;
+    let switch = format!(
+        r#"{{"type":"switch","handle":{{"kind":"flag","id":"shown"}},"x":7,"y":17,"children":[
+            {{"type":"case","value":"true","style":{{"width":18,"height":18}},"children":[{item}]}},
+            {{"type":"case","value":"false","style":{{"width":18,"height":18}},"children":[]}}]}}"#
+    );
+    let out = compile_children(&format!("[{switch},{region}]")).unwrap();
+    crate::validation::validate_compile_output(&out).assert_valid();
+    assert_eq!(out.manifest.windows["shop"].regions["tip"].fill_slots, None);
+
+    let out = compile_children(&format!("[{item},{region}]")).unwrap();
+    assert_eq!(out.manifest.windows["shop"].regions["tip"].fill_slots, Some(Vec::new()));
+}
+
 fn compile_with_png(project: &str, path: &str) -> CompileOutput {
     let png = solid(4, 4, [255, 0, 0, 255]).encode_png().unwrap();
     let input = crate::pipeline::CompileInput::new(BTreeMap::from([(path.to_string(), png)]));

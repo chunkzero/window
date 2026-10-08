@@ -2,6 +2,7 @@ package com.chunkzero.window
 
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.Align
+import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.HitboxEntry
 import com.chunkzero.window.manifest.ItemEntry
 import com.chunkzero.window.manifest.SwitchCaseEntry
@@ -153,5 +154,63 @@ class SwitchBindingTest :
             host.scheduler.runAll()
             host.container.items[coin] shouldBe null
             picks shouldBe listOf("y", "x")
+        }
+
+        "a region's hitbox fills a slot whenever the item or collection owning it is inactive" {
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    regions =
+                        mapOf(
+                            "tip" to
+                                TestManifests.region(
+                                    listOf(0, 1),
+                                    action = "tip",
+                                    hitbox = HitboxEntry("demo:gui/tip"),
+                                ),
+                        ),
+                    items = mapOf("coin" to ItemEntry(listOf(TestManifests.containerSlot(0)))),
+                    collections =
+                        mapOf("pets" to CollectionEntry(listOf(TestManifests.containerSlot(1)), action = false)),
+                    switches =
+                        mapOf(
+                            "shown" to
+                                SwitchEntry(
+                                    listOf(
+                                        SwitchCaseEntry("true", items = listOf("coin"), collections = listOf("pets")),
+                                        SwitchCaseEntry("false"),
+                                    ),
+                                ),
+                        ),
+                )
+            val host = FakeHost()
+            val view =
+                object : TestView(manifest, host) {
+                    var shown by state("true")
+
+                    override fun WindowScope<Any>.bind() {
+                        switch("shown") { shown }
+                        item("coin") { "coin" }
+                        collectionItem("pets") { "paper" }
+                        button("tip") {}
+                    }
+                }
+            val items = host.container.items
+            val first = SlotRef(SlotArea.CONTAINER, 0)
+            val second = SlotRef(SlotArea.CONTAINER, 1)
+            val hitbox = { slot: SlotRef -> (items.getValue(slot) as WindowItem.Hitbox).model.asString() }
+            view.open()
+            items[first] shouldBe "coin"
+            items[second] shouldBe "paper"
+
+            view.shown = "false"
+            host.scheduler.runAll()
+            hitbox(first) shouldBe "demo:gui/tip"
+            hitbox(second) shouldBe "demo:gui/tip"
+
+            view.shown = "true"
+            host.scheduler.runAll()
+            items[first] shouldBe "coin"
+            items[second] shouldBe "paper"
         }
     })

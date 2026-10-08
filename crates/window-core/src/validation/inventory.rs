@@ -16,15 +16,16 @@ pub(super) fn validate_inventory(manifest: &Manifest, report: &mut ValidationRep
             );
             continue;
         };
-        let mut claims = SlotClaims { window_name, kind, owners: BTreeMap::new(), routes: BTreeMap::new() };
+        let mut claims =
+            SlotClaims { window_name, kind, owners: BTreeMap::new(), fills: BTreeMap::new(), routes: BTreeMap::new() };
         let paths = case_paths(&window.switches);
-        validate_regions(window, &paths, &mut claims, report);
         for (name, item) in &window.items {
             let path = paths.items.get(name).map(Vec::as_slice).unwrap_or_default();
             claims.own(&format!("item `{name}`"), path, &item.slots, report);
         }
         validate_inputs(window, &mut claims, report);
         validate_collections(window, &paths, &mut claims, report);
+        validate_regions(window, &paths, &mut claims, report);
     }
 }
 
@@ -34,23 +35,45 @@ struct SlotClaims<'a> {
     window_name: &'a str,
     kind: ContainerKind,
     owners: BTreeMap<SlotRefEntry, Vec<(String, CasePath)>>,
+    fills: BTreeMap<SlotRefEntry, Vec<(String, CasePath)>>,
     routes: BTreeMap<SlotRefEntry, Vec<(String, CasePath)>>,
 }
 
 impl SlotClaims<'_> {
-    fn own(&mut self, owner: &str, path: &[(String, String)], slots: &[SlotRefEntry], report: &mut ValidationReport) {
+    fn check_bounds(&self, owner: &str, slot: &SlotRefEntry, report: &mut ValidationReport) {
+        let valid = match slot.area {
+            SlotAreaEntry::Container => slot.index < self.kind.slot_count(),
+            SlotAreaEntry::Player => slot.index < 36,
+        };
+        if !valid {
+            report.push(
+                "inventory.slot.out_of_bounds",
+                format!("manifest.windows.{}", self.window_name),
+                format!("{owner} owns invalid {:?} slot {}", slot.area, slot.index),
+            );
+        }
+    }
+
+    /// A region's fill must not duplicate contents an owner holds whenever the region is active, nor another fill.
+    fn fill(&mut self, owner: &str, path: &[(String, String)], slots: &[SlotRefEntry], report: &mut ValidationReport) {
         for slot in slots {
-            let valid = match slot.area {
-                SlotAreaEntry::Container => slot.index < self.kind.slot_count(),
-                SlotAreaEntry::Player => slot.index < 36,
-            };
-            if !valid {
+            self.check_bounds(owner, slot, report);
+            let always = self.owners.get(slot).into_iter().flatten().find(|(_, other)| path.starts_with(other));
+            let filled = self.fills.get(slot).into_iter().flatten().find(|(_, other)| !exclusive_cases(path, other));
+            if let Some((previous, _)) = always.or(filled) {
                 report.push(
-                    "inventory.slot.out_of_bounds",
+                    "inventory.slot.duplicate_owner",
                     format!("manifest.windows.{}", self.window_name),
-                    format!("{owner} owns invalid {:?} slot {}", slot.area, slot.index),
+                    format!("{:?} slot {} is owned by both {previous} and {owner}", slot.area, slot.index),
                 );
             }
+            self.fills.entry(*slot).or_default().push((owner.to_string(), path.to_vec()));
+        }
+    }
+
+    fn own(&mut self, owner: &str, path: &[(String, String)], slots: &[SlotRefEntry], report: &mut ValidationReport) {
+        for slot in slots {
+            self.check_bounds(owner, slot, report);
             let owners = self.owners.entry(*slot).or_default();
             if let Some((previous, _)) = owners.iter().find(|(_, other)| !exclusive_cases(path, other)) {
                 report.push(
@@ -82,7 +105,7 @@ fn validate_regions(window: &WindowEntry, paths: &CasePaths, claims: &mut SlotCl
     for (name, region) in &window.regions {
         let path = paths.regions.get(name).map(Vec::as_slice).unwrap_or_default();
         let owner = format!("region `{name}`");
-        claims.own(&owner, path, region.filled_slots(), report);
+        claims.fill(&owner, path, region.filled_slots(), report);
         validate_fill_slots(claims.window_name, name, region, report);
         if region.action.is_some() {
             for slot in &region.slots {

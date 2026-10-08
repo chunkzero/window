@@ -125,6 +125,11 @@ impl SlotClaims<'_> {
         self.contents.get(slot).is_some_and(|owners| owners.iter().any(|(_, other)| !exclusive_cases(path, other)))
     }
 
+    /// Whether a content owner holds `slot` in every state where a control at `path` is active.
+    fn owned_always(&self, path: &[(String, String)], slot: &InventorySlotRef) -> bool {
+        self.contents.get(slot).is_some_and(|owners| owners.iter().any(|(_, other)| path.starts_with(other)))
+    }
+
     /// Route and fill only the slots no earlier control routes or owns in a case that can be active with `path`.
     fn claim_unowned(
         &mut self,
@@ -193,8 +198,9 @@ fn base_entry(region: &RegionIr) -> RegionEntry {
     }
 }
 
-/// Click routes cover every backing slot; the region fills its hitbox item only into the slots whose contents no
-/// item, collection, or input owns. Fill slots are `None` when they equal the routed slots.
+/// Click routes cover every backing slot; the region fills its hitbox item into the slots no item, collection, or
+/// input owns whenever the region is active. Slots a conditional owner holds stay fill slots: the owner's contents
+/// take precedence while its case is active. Fill slots are `None` when they equal the routed slots.
 fn region_entry(claims: &mut SlotClaims<'_>, region: &RegionIr, path: &[(String, String)]) -> Result<RegionEntry> {
     let (window, owner) = (claims.window, &region.source);
     let slot_refs = region.slots.clone().unwrap_or_else(|| claims.kind.slot_refs_overlapping(&region.rect));
@@ -205,7 +211,12 @@ fn region_entry(claims: &mut SlotClaims<'_>, region: &RegionIr, path: &[(String,
     let mut fill_slots = Vec::with_capacity(slot_refs.len());
     for slot in slot_refs {
         slots.push(claims.claim(Claim::Route, owner, path, slot)?);
-        if !claims.owned(path, &slot) {
+        if claims.owned_always(path, &slot) {
+            continue;
+        }
+        if claims.owned(path, &slot) {
+            fill_slots.push(slot.into());
+        } else {
             fill_slots.push(claims.claim(Claim::Contents, owner, path, slot)?);
         }
     }
