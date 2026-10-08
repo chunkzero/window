@@ -3,20 +3,34 @@ import { Box, Image, Section, Window as BaseWindow } from "../../ui/components.t
 import { containerLayout } from "../../ui/containers.ts";
 import type { Child, WindowProps as BaseWindowProps } from "../../ui/components.ts";
 import type { Window as WindowDef } from "../../ui/document.ts";
+import { assign } from "../../ui/styles.ts";
+import type { TextProps } from "../../ui/styles.ts";
 import type { ArtRef } from "../../ui/types.ts";
 import { art } from "./art.ts";
 import { Header } from "./layout.tsx";
 
-export interface WindowProps extends Omit<BaseWindowProps, "frame" | "bleed"> {
+export interface WindowProps extends Omit<BaseWindowProps, "frame" | "bleed" | "style"> {
     /** Header content, such as a label or bound `<Text>`, centered in a recess along the top edge. */
     title?: Child;
     /**
-     * Shows the player's inventory and hotbar on a panel. `false` claims their slots, so no items show there, and ends
-     * the shell below the container slots.
+     * Shows the player's inventory and hotbar on a panel. `false` claims their slots, so no items show there, and
+     * omits the panel; the window then rejects its own `<Player>` and `<Hotbar>` sections. An anvil also ends the shell
+     * below its slots, since packs with an `<Input>` hide vanilla's anvil art.
      */
     inventory?: boolean;
     /** Art of the shell; defaults to `art.shell`. */
     frame?: ArtRef;
+}
+
+function claimsInventory(child: unknown): boolean {
+    if (Array.isArray(child)) {
+        return child.some(claimsInventory);
+    }
+    if (typeof child !== "object" || child === null) {
+        return false;
+    }
+    const node = child as { type?: unknown; section?: unknown; children?: unknown };
+    return (node.type === "section" && node.section !== "container") || claimsInventory(node.children);
 }
 
 /**
@@ -26,13 +40,21 @@ export interface WindowProps extends Omit<BaseWindowProps, "frame" | "bleed"> {
  */
 export function Window(props: WindowProps): { windows: WindowDef[] } {
     const { title, inventory = true, frame = art.shell, text, children, ...rest } = props;
+    if (!inventory && claimsInventory(children)) {
+        throw new Error(
+            "<Window inventory={false}> claims the player inventory and hotbar; remove its <Player> and <Hotbar> sections",
+        );
+    }
+    const labels: Record<string, unknown> = { color: "#ffffff", shadow: true, smallCaps: true };
+    assign(labels, (text ?? {}) as Record<string, unknown>);
     const layout = containerLayout(props.container);
     const { container, player, hotbar } = layout.sections;
     const panel = { x: 4, y: player.bounds.y - 3, bottom: hotbar.bounds.y + hotbar.bounds.height + 5 };
     const containerBottom = container.bounds.y + container.bounds.height + 5;
-    const end = inventory ? panel.bottom : containerBottom;
+    const endsEarly = !inventory && "input" in layout;
+    const end = endsEarly ? containerBottom : panel.bottom;
     const hazard = end + 5;
-    const rivetY = inventory ? panel.y - 7 : end;
+    const rivetY = endsEarly ? end : panel.y - 7;
     const rivets = [6, rivetY].flatMap((y) => [
         [-2, y],
         [173, y],
@@ -41,7 +63,7 @@ export function Window(props: WindowProps): { windows: WindowDef[] } {
         <BaseWindow
             {...rest}
             bleed={{ top: 1, right: 4, bottom: Math.max(0, hazard + 6 - layout.height), left: 4 }}
-            text={{ color: "#ffffff", shadow: true, smallCaps: true, ...text }}
+            text={labels as TextProps}
         >
             <Box frame={frame} x={-4} y={-1} width={184} height={hazard + 7} />
             {"input" in layout ? (

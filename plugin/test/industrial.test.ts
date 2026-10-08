@@ -182,4 +182,16 @@ test("an industrial window without its inventory claims it and ends below the co
             ["hotbar", "all"],
         ],
     );
+    const generic = (inventory: boolean) =>
+        industrial.Window({ name: "w", container: "generic_9x3", inventory }).windows[0]!;
+    assert.deepEqual(generic(false).bleed, generic(true).bleed);
+    assert.throws(
+        () => industrial.Window({ name: "w", container: "anvil", inventory: false, children: [industrial.Player({})] }),
+        /claims the player inventory/,
+    );
+    const custom = industrial.Window({ name: "w", container: "anvil", text: { font: "custom" }, title: "T" })
+        .windows[0]!;
+    const [label] = ofType(custom.children, "label");
+    assert.equal(label?.["font"], "custom");
+    assert.equal("small_caps" in label! || "smallCaps" in label!, false);
 });
