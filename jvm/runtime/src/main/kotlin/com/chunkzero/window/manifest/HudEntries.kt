@@ -3,7 +3,7 @@ package com.chunkzero.window.manifest
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** A single HUD: its fallback channel, baked static segment, and text slots. */
+/** A single HUD: its fallback channel, baked static segment, text slots, and switches. */
 @Serializable
 public data class HudEntry(
     /** HUD surface/channel metadata. */
@@ -14,8 +14,10 @@ public data class HudEntry(
     val slots: Map<String, SlotEntry> = emptyMap(),
     /** Optional generated core-shader relocation metadata. */
     val shader: HudShaderEntry? = null,
-    /** Runtime-selected visual cases keyed by binding name. */
+    /** Runtime-selected cases keyed by switch key; see [WindowEntry.switches]. */
     val switches: Map<String, SwitchEntry> = emptyMap(),
+    /** Every slot and switch in authored tree order; see [WindowEntry.layers]. */
+    val layers: List<LayerEntry> = emptyList(),
 )
 
 /** HUD fallback channel and fixed canvas size. */

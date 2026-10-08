@@ -12,7 +12,20 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
 
-/** Composes a HUD [Component] from baked static chrome plus per-slot overlay segments. */
+/** One HUD layer to compose: a rendered slot, or a switch case's net-zero art from the HUD's left edge. */
+internal sealed interface HudLayer {
+    class Slot(
+        val segment: RenderedSegment,
+    ) : HudLayer
+
+    class Art(
+        val semanticId: String,
+        val static: String,
+        val source: String?,
+    ) : HudLayer
+}
+
+/** Composes a HUD [Component] from baked static chrome plus layer segments in authored order. */
 internal class HudComposer(
     manifest: WindowManifest,
     private val hud: HudEntry,
@@ -77,68 +90,42 @@ internal class HudComposer(
     ): Component = fonts.fitText(value, suffix, slotStyle(slot, requireColor(slot.color)), slot.width)
 
     /**
-     * Appends already-rendered slot segments after the static segment, ordered left to right. Each
-     * [caseArt] entry, keyed by semantic id, is a net-zero segment from the HUD's left edge drawn
-     * between the static segment and the slots.
+     * Composes the static segment followed by [layers] in order. Without a shader, slots chain from the
+     * HUD's right edge, where the cursor ends; with one, every layer returns to the HUD origin.
      */
     fun compose(
         hudName: String,
-        slotSegments: Map<String, RenderedSegment>,
-        caseArt: Map<String, String> = emptyMap(),
+        layers: List<HudLayer>,
     ): ComposedRender {
-        val ordered = orderedRenderedSegments(slotSegments)
+        val base = if (shaderHud) 0 else originX
         val traces = arrayListOf(staticTrace("hud/$hudName/static", hud.static, originX))
-        caseArt.mapTo(traces) { (id, art) -> staticTrace(id, art, 0) }
         val parts = ArrayList<Component>()
-        addCaseArt(caseArt.values, parts)
-        if (shaderHud) addShaderSegments(ordered, parts, traces) else addFixedWidthSegments(ordered, parts, traces)
+        var cursor = base
+        for (layer in layers) {
+            when (layer) {
+                is HudLayer.Art -> {
+                    parts.addSpacer(-cursor)
+                    parts += Component.text(layer.static).style(spacerStyle)
+                    cursor = 0
+                    traces += staticTrace(layer.semanticId, layer.static, 0).copy(source = layer.source)
+                }
+
+                is HudLayer.Slot -> {
+                    val trace = layer.segment.trace
+                    val start = cursor
+                    parts.addSpacer(trace.contentCursorStart - cursor)
+                    parts += layer.segment.component
+                    cursor = trace.contentCursorEnd
+                    if (shaderHud) {
+                        parts.addSpacer(-cursor)
+                        cursor = 0
+                    }
+                    traces += trace.copy(cursorStart = start, cursorEnd = cursor, netCursorDelta = cursor - start)
+                }
+            }
+        }
+        parts.addSpacer(base - cursor)
         return ComposedRender(staticComponent.appendAll(parts), traces)
-    }
-
-    /** Adds each net-zero [art] segment, ending where the static ends. */
-    private fun addCaseArt(
-        art: Collection<String>,
-        parts: MutableList<Component>,
-    ) {
-        if (art.isEmpty()) return
-        val end = if (shaderHud) 0 else originX
-        parts.addSpacer(-end)
-        for (text in art) parts += Component.text(text).style(spacerStyle)
-        parts.addSpacer(end)
-    }
-
-    /** Each segment is positioned from the HUD origin and returns to it independently. */
-    private fun addShaderSegments(
-        ordered: List<Map.Entry<String, RenderedSegment>>,
-        parts: MutableList<Component>,
-        traces: MutableList<RenderLayerTrace>,
-    ) {
-        for ((_, rendered) in ordered) {
-            val trace = rendered.trace
-            val xStart = trace.contentCursorStart
-            parts.addSpacer(xStart)
-            parts += rendered.component
-            parts.addSpacer(-(xStart + trace.advance))
-            traces += trace.copy(cursorStart = 0, cursorEnd = 0, netCursorDelta = 0)
-        }
-    }
-
-    /** Segments chain left to right from the HUD right edge, which the cursor returns to at the end. */
-    private fun addFixedWidthSegments(
-        ordered: List<Map.Entry<String, RenderedSegment>>,
-        parts: MutableList<Component>,
-        traces: MutableList<RenderLayerTrace>,
-    ) {
-        var cursor = originX
-        for ((_, rendered) in ordered) {
-            val trace = rendered.trace
-            val start = cursor
-            parts.addSpacer(trace.contentCursorStart - cursor)
-            parts += rendered.component
-            cursor = trace.contentCursorEnd
-            traces += trace.copy(cursorStart = start, cursorEnd = cursor, netCursorDelta = cursor - start)
-        }
-        parts.addSpacer(originX - cursor)
     }
 
     /** A static layer starting at the HUD's left edge whose cursor ends at [end]. */
@@ -161,15 +148,6 @@ internal class HudComposer(
             advance = end,
             visualWidth = hud.surface.width,
             netCursorDelta = end,
-        )
-
-    private fun orderedRenderedSegments(
-        slotSegments: Map<String, RenderedSegment>,
-    ): List<Map.Entry<String, RenderedSegment>> =
-        slotSegments.entries.sortedWith(
-            compareBy<Map.Entry<String, RenderedSegment>> { it.value.trace.expectedBounds.x }
-                .thenBy { entry -> hud.slots.getValue(entry.key).y }
-                .thenBy { it.key },
         )
 
     private fun MutableList<Component>.addSpacer(offset: Int) {

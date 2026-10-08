@@ -2,7 +2,7 @@ package com.chunkzero.window
 
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
-import com.chunkzero.window.manifest.ButtonState
+import com.chunkzero.window.manifest.HitboxEntry
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
@@ -18,17 +18,16 @@ class ButtonStateBindingTest :
         "choice buttons are mutually exclusive and route their typed value" {
             val states =
                 mapOf(
-                    "selected" to ButtonState(itemModel = "demo:gui/selected"),
-                    "unselected" to ButtonState(itemModel = "demo:gui/unselected"),
+                    "selected" to HitboxEntry(itemModel = "demo:gui/selected"),
+                    "unselected" to HitboxEntry(itemModel = "demo:gui/unselected"),
                 )
+            val best = TestManifests.stateButton("best", listOf(0), states)
+            val new = TestManifests.stateButton("new", listOf(1), states)
             val manifest =
                 TestManifests.manifest(
                     container = "generic_9x1",
-                    buttons =
-                        mapOf(
-                            "best" to TestManifests.button(listOf(0), states = states),
-                            "new" to TestManifests.button(listOf(1), states = states),
-                        ),
+                    regions = best.regions + new.regions,
+                    switches = mapOf("best" to best.switch, "new" to new.switch),
                 )
             val selectedValues = mutableListOf<String>()
             val host = FakeHost()
@@ -61,16 +60,21 @@ class ButtonStateBindingTest :
         }
 
         "disabled buttons suppress clicks and anvil input reaches its binding" {
-            val states =
-                mapOf(
-                    "enabled" to ButtonState(itemModel = "demo:gui/enabled"),
-                    "disabled" to ButtonState(itemModel = "demo:gui/disabled"),
+            val confirm =
+                TestManifests.stateButton(
+                    "confirm",
+                    listOf(2),
+                    mapOf(
+                        "enabled" to HitboxEntry(itemModel = "demo:gui/enabled"),
+                        "disabled" to HitboxEntry(itemModel = "demo:gui/disabled"),
+                    ),
                 )
             val manifest =
                 TestManifests.manifest(
                     container = "anvil",
                     titleOrigin = listOf(60, 6),
-                    buttons = mapOf("confirm" to TestManifests.button(listOf(2), states = states)),
+                    regions = confirm.regions,
+                    switches = mapOf("confirm" to confirm.switch),
                     inputs =
                         mapOf(
                             "query" to

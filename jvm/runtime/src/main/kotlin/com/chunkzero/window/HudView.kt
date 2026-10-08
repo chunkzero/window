@@ -9,12 +9,14 @@ import com.chunkzero.window.diagnostics.RenderSurfaceKind
 import com.chunkzero.window.internal.ComposedRender
 import com.chunkzero.window.internal.DynamicSlots
 import com.chunkzero.window.internal.FrameCursor
+import com.chunkzero.window.internal.HudLayer
 import com.chunkzero.window.internal.RenderedSegment
 import com.chunkzero.window.internal.SessionFrames
 import com.chunkzero.window.internal.Switches
 import com.chunkzero.window.internal.bindingSlot
 import com.chunkzero.window.internal.emptySegment
-import com.chunkzero.window.manifest.SwitchCaseEntry
+import com.chunkzero.window.internal.sourced
+import com.chunkzero.window.manifest.LayerKind
 import net.kyori.adventure.text.Component
 import org.slf4j.LoggerFactory
 
@@ -59,8 +61,6 @@ public abstract class HudView(
 
     private val contents = HashMap<String, Component>()
     private val segments = LinkedHashMap<String, RenderedSegment>()
-    private val cases = HashMap<String, SwitchCaseEntry>()
-    private val caseArt = LinkedHashMap<String, String>()
     private var current: Component? = null
     private var bound = false
     private var unpublished = false
@@ -80,7 +80,7 @@ public abstract class HudView(
      */
     public fun render(): Component {
         val previous = current ?: return publish(composeInitialRender(), RenderFrameReason.OPEN)
-        for (name in switches.names) unpublished = updateSwitch(name) || unpublished
+        for (name in switches.names) unpublished = switches.update(name) || unpublished
         for (name in slots.names) {
             val content = slots.content(name)
             if (contents[name] == content) continue
@@ -136,7 +136,7 @@ public abstract class HudView(
             switches.validate()
             bound = true
         }
-        for (name in switches.names) updateSwitch(name)
+        for (name in switches.names) switches.update(name)
         slots.seed(::seedSlot) { name, segment -> segments[name] = segment }
         return compose()
     }
@@ -146,14 +146,6 @@ public abstract class HudView(
         val segment = slots.segment(name, content)
         contents[name] = content
         return segment
-    }
-
-    /** Selects switch [name]'s case; returns whether it changed. */
-    private fun updateSwitch(name: String): Boolean {
-        val case = switches.render(name)
-        if (cases.put(name, case) === case) return false
-        caseArt[switches.semanticId(name)] = case.static
-        return true
     }
 
     private fun publish(
@@ -166,10 +158,28 @@ public abstract class HudView(
         return render.component
     }
 
-    /** Composes the HUD without the slots of inactive switch cases. */
+    /** Composes the HUD's layers in order, leaving out the entries of inactive switch cases. */
     private fun compose(): ComposedRender {
-        val hiddenSlots = switches.hiddenSlots()
-        return definition.composer.compose(definition.name, segments.filterKeys { it !in hiddenSlots }, caseArt)
+        val layers =
+            entry.layers.mapNotNull { layer ->
+                val name = layer.name
+                when (layer.kind) {
+                    LayerKind.SLOT -> {
+                        val segment = segments[name]?.takeIf { switches.slotActive(name) }
+                        segment?.let { HudLayer.Slot(it.sourced(switches.entrySource(name))) }
+                    }
+
+                    LayerKind.SWITCH -> {
+                        val art = switches.activeCase(name)?.static?.takeIf { it.isNotEmpty() }
+                        art?.let { HudLayer.Art(switches.semanticId(name), it, switches.source(name)) }
+                    }
+
+                    LayerKind.SPRITE_SLOT, LayerKind.COLLECTION -> {
+                        null
+                    }
+                }
+            }
+        return definition.composer.compose(definition.name, layers)
     }
 
     private companion object {

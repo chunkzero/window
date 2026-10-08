@@ -17,7 +17,7 @@ internal sealed interface RenderKey {
         val name: String,
     ) : RenderKey
 
-    /** The named state of a button, driving both its item and its title sprite. */
+    /** The named state of a button or hotspot, selecting the case of its state switch. */
     data class ButtonState(
         val name: String,
     ) : RenderKey
@@ -38,7 +38,7 @@ internal sealed interface RenderKey {
         val name: String,
     ) : RenderKey
 
-    /** The active case of a switch in the title or HUD. */
+    /** A switch binding, selecting the case of every switch that shares it. */
     data class Switch(
         val name: String,
     ) : RenderKey

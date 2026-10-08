@@ -3,14 +3,15 @@ package com.chunkzero.window.internal
 import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.diagnostics.RenderLayerKind
 import com.chunkzero.window.diagnostics.RenderStyleTrace
-import com.chunkzero.window.manifest.Align
+import com.chunkzero.window.manifest.LayerEntry
+import com.chunkzero.window.manifest.LayerKind
 import com.chunkzero.window.manifest.SpriteSlotEntry
 import com.chunkzero.window.manifest.WindowEntry
 
 /**
- * The net-zero title segments of one window, keyed by semantic id in composition order: switch case
- * art, then button state sprites, then collection selections, then sprite slots, then text slots.
- * Slots of inactive switch cases are left out of the composed title.
+ * The net-zero title segments of one window. They compose above the static chrome in the order of the
+ * window's layers, leaving out entries of inactive switch cases; a switch layer draws its active
+ * case's art.
  */
 internal class WindowTitle(
     private val definition: WindowDefinition,
@@ -19,38 +20,28 @@ internal class WindowTitle(
 ) {
     private val entry = definition.entry
     private val composer = definition.composer
-    private val segments = LinkedHashMap<String, RenderedSegment>()
+    private val switches = bindings.switches
+    private val segments = HashMap<String, RenderedSegment>()
     private var composed: ComposedRender? = null
 
     /**
      * Composes the current segments; repeated calls return the same render until a segment is written or
-     * [updateSwitch] re-selects a case.
+     * [updateCases] reports a case change.
      */
     fun compose(): ComposedRender =
-        composed ?: run {
-            val switches = bindings.switches
-            val hidden =
-                switches.hiddenSlots().mapTo(HashSet(), bindings.slots::semanticId) +
-                    switches.hiddenSpriteSlots().map(::spriteId)
-            composer.compose(definition.name, segments.filterKeys { it !in hidden }).also { composed = it }
-        }
+        composed ?: composer.compose(definition.name, entry.layers.mapNotNull(::layer)).also { composed = it }
 
-    /** Draws the art of switch [name]'s active case, re-selected under dependency capture. */
-    fun updateSwitch(name: String) {
+    /** Marks the title for recomposition after the active switch cases changed. */
+    fun updateCases() {
         composed = null
-        val id = bindings.switches.semanticId(name)
-        put(id, composer.renderStatic(id, bindings.switches.render(name).static))
     }
 
-    /** Renders collection selections, fixed sprites, runtime sprites, and text slots once. */
-    fun seedContent() {
+    /** Renders collection selections, sprite slots, and text slots once. */
+    fun seed() {
         for (name in bindings.collectionSelections.keys) updateCollectionSelection(name)
         for ((name, slot) in entry.spriteSlots) {
-            val sprite = slot.sprite ?: continue
-            put(spriteId(name), spriteSegment(spriteId(name), slot, sprite))
-        }
-        for ((name, slot) in entry.spriteSlots) {
-            if (slot.sprite == null) updateSprite(name)
+            val sprite = slot.sprite
+            if (sprite == null) updateSprite(name) else put(spriteId(name), spriteSegment(spriteId(name), slot, sprite))
         }
         bindings.slots.seed { name, segment -> put(bindings.slots.semanticId(name), segment) }
     }
@@ -73,52 +64,34 @@ internal class WindowTitle(
         val render = bindings.collectionSelections[name] ?: return
         val cells = entry.collections.getValue(name).selection
         val index = reactivity.withRendering(RenderKey.CollectionSelection(name)) { render() }
-        val id = "window/${definition.name}/selection/$name"
+        val id = selectionId(name)
         val cell = index?.let(cells::getOrNull)
         put(id, spriteSegment(id, cell ?: cells.first(), cell?.sprite))
     }
 
-    /** Reserves an empty segment for button [name]'s state sprite until a state is set. */
-    fun reserveButtonVisual(name: String) {
-        val button = entry.buttons.getValue(name)
-        val font = button.spriteFont ?: return
-        val id = buttonId(name)
-        put(id, definition.emptyTitleSegment(id, RenderLayerKind.SPRITE_SLOT, button.x, button.y, font))
-    }
-
-    /** Draws button [name]'s sprite for [stateName], or nothing when the state has no sprite. */
-    fun setButtonVisual(
-        name: String,
-        stateName: String,
-    ) {
-        val button = entry.buttons.getValue(name)
-        val state = definition.requireButtonState(name, stateName)
-        val id = buttonId(name)
-        val font = button.spriteFont
-        val sprite = state.sprite
+    /** The segment [layer] draws now, labeled with the authored element it comes from. */
+    private fun layer(layer: LayerEntry): RenderedSegment? {
+        val name = layer.name
         val segment =
-            if (font == null || sprite == null) {
-                definition.emptyTitleSegment(
-                    id,
-                    RenderLayerKind.SPRITE_SLOT,
-                    button.x,
-                    button.y,
-                    font ?: definition.manifest.font,
-                )
-            } else {
-                val slot =
-                    SpriteSlotEntry(
-                        x = button.x,
-                        y = button.y,
-                        width = button.width,
-                        height = button.height,
-                        align = Align.LEFT,
-                        font = font,
-                    )
-                composer.renderSprite(id, slot, sprite)
-                    ?: error("Button '$name' state '$stateName' has an empty sprite")
+            when (layer.kind) {
+                LayerKind.SLOT -> {
+                    segments[bindings.slots.semanticId(name)]?.takeIf { switches.slotActive(name) }
+                }
+
+                LayerKind.SPRITE_SLOT -> {
+                    segments[spriteId(name)]?.takeIf { switches.spriteSlotActive(name) }
+                }
+
+                LayerKind.COLLECTION -> {
+                    return segments[selectionId(name)]
+                }
+
+                LayerKind.SWITCH -> {
+                    val art = switches.activeCase(name)?.static?.takeIf { it.isNotEmpty() } ?: return null
+                    return composer.renderStatic(switches.semanticId(name), art).sourced(switches.source(name))
+                }
             }
-        put(id, segment)
+        return segment?.sourced(switches.entrySource(name))
     }
 
     private fun put(
@@ -139,7 +112,7 @@ internal class WindowTitle(
 
     private fun spriteId(name: String): String = "window/${definition.name}/sprite/$name"
 
-    private fun buttonId(name: String): String = "window/${definition.name}/button/$name"
+    private fun selectionId(name: String): String = "window/${definition.name}/selection/$name"
 }
 
 private val EMPTY_STYLE = RenderStyleTrace(color = "#ffffff", shadow = false)
@@ -160,13 +133,14 @@ internal fun WindowDefinition.titleSlots(reactivity: Reactivity): DynamicSlots =
     }
 
 /**
- * Whether the title never changes after open: no text slots, bound sprites, state sprites,
- * selections, or switches.
+ * Whether the title never changes after open: no text slots, bound sprites, or selections, and no
+ * switch case with art, slots, or sprite slots. Switches that only swap regions keep the title.
  */
 internal val WindowEntry.hasStaticTitle: Boolean
     get() =
-        switches.isEmpty() &&
-            slots.values.all { it.text != null } &&
+        slots.values.all { it.text != null } &&
             spriteSlots.values.all { it.sprite != null } &&
-            buttons.values.all { it.spriteFont == null } &&
-            collections.values.all { it.selection.isEmpty() }
+            collections.values.all { it.selection.isEmpty() } &&
+            switches.values.all { switch ->
+                switch.cases.all { it.static.isEmpty() && it.slots.isEmpty() && it.spriteSlots.isEmpty() }
+            }

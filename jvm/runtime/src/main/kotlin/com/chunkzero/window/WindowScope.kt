@@ -7,8 +7,9 @@ import net.kyori.adventure.text.Component
  *
  * A view declares how each dynamic slot renders and how each button responds. Every dynamic slot in
  * the compiled definition must be bound exactly once; static labels (definition slots carrying
- * `text`) render automatically and must not be bound. Every button must either be bound here or
- * carry a definition `default`.
+ * `text`) render automatically and must not be bound. Every action a region names must either be
+ * bound here or have a `default_action`; actions in the `window:` namespace, such as
+ * `window:close`, are run by the runtime and cannot be bound.
  *
  * @param I the host's native item type.
  */
@@ -38,9 +39,10 @@ public interface WindowScope<I : Any> {
     )
 
     /**
-     * Binds a button to a [handler] invoked on each click within its mapped slots.
+     * Binds the action [name] to a [handler] invoked on each click within the slots of an active
+     * region naming it, such as a button's.
      *
-     * @throws IllegalArgumentException if [name] is not a button of the window.
+     * @throws IllegalArgumentException if [name] is not an action of the window.
      */
     public fun button(
         name: String,
@@ -50,8 +52,8 @@ public interface WindowScope<I : Any> {
     /**
      * Binds a dynamic inventory item to a button or hotspot.
      *
-     * The item is placed into every container slot covered by the region. Use this for custom
-     * tooltip hitboxes and item-model based visual states.
+     * The item replaces the hitbox item in the slots of the control's active region. Use this for
+     * custom tooltip hitboxes and item-model based visual states.
      */
     public fun buttonItem(
         name: String,
@@ -110,8 +112,9 @@ public interface WindowScope<I : Any> {
 
     /**
      * Binds a switch to a [render] lambda returning the value of the case to draw. Only the active
-     * case's art, text, and sprite slots are drawn; the lambda is re-invoked whenever a reactive
-     * state it reads changes.
+     * case's art, text, sprite slots, and nested switches are drawn, and only its regions are
+     * claimed; the lambda is re-invoked whenever a reactive state it reads changes. A binding shared
+     * by switches in mutually exclusive cases selects the case of each.
      *
      * @throws IllegalArgumentException if [name] is not a switch of the window, or when rendering
      *   returns a value that is not one of its cases.
@@ -154,7 +157,10 @@ public interface WindowScope<I : Any> {
         sprite(name) { sprite }
     }
 
-    /** Uses one of the named states declared by the Window source. */
+    /**
+     * Selects one of the named states declared by the Window source: the button's art, hitbox item,
+     * and tooltip follow the state.
+     */
     public fun buttonState(
         name: String,
         render: () -> String,

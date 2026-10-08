@@ -24,25 +24,19 @@ internal class WindowFrame<I : Any>(
  */
 internal class WindowRenderer<I : Any>(
     private val definition: WindowDefinition,
-    bindings: WindowBindings<I>,
+    private val bindings: WindowBindings<I>,
     reactivity: Reactivity,
     private val buildItem: (WindowItem) -> I,
 ) {
-    private val entry = definition.entry
+    private val switches = bindings.switches
     private val title = WindowTitle(definition, bindings, reactivity)
     private val inventory = WindowInventory(definition, bindings, reactivity, buildItem)
 
-    /**
-     * Renders the initial title: switch case art first, then button state sprites, so both draw beneath sprite and text
-     * slots. Segments updated later keep this position, since title segments compose in insertion order.
-     */
+    /** Selects every switch's initial case and renders the initial title. */
     fun seedTitle(): ComposedRender {
-        for (name in entry.switches.keys) title.updateSwitch(name)
-        for (name in entry.buttons.keys) {
-            val state = inventory.initialButtonState(name)
-            if (state != null) title.setButtonVisual(name, state) else title.reserveButtonVisual(name)
-        }
-        title.seedContent()
+        for (name in switches.names) switches.update(name)
+        for (name in bindings.buttonStates.keys) switches.select(name, inventory.renderButtonState(name))
+        title.seed()
         return title.compose()
     }
 
@@ -59,11 +53,11 @@ internal class WindowRenderer<I : Any>(
                 is RenderKey.Slot -> title.updateSlot(key.name)
                 is RenderKey.Sprite -> title.updateSprite(key.name)
                 is RenderKey.ButtonItem -> inventory.writeButtonItem(key.name)
-                is RenderKey.ButtonState -> applyButtonState(key.name, inventory.renderButtonState(key.name))
+                is RenderKey.ButtonState -> select(key.name, inventory.renderButtonState(key.name))
                 is RenderKey.Item -> inventory.writeItem(key.name)
                 is RenderKey.CollectionCell -> inventory.writeCollectionCell(key.name, key.index)
                 is RenderKey.CollectionSelection -> title.updateCollectionSelection(key.name)
-                is RenderKey.Switch -> title.updateSwitch(key.name)
+                is RenderKey.Switch -> if (switches.update(key.name)) updateCases()
             }
         }
         return frame()
@@ -101,8 +95,8 @@ internal class WindowRenderer<I : Any>(
         name: String,
         state: String,
     ): WindowFrame<I>? {
-        if (inventory.buttonState(name) == state) return null
-        applyButtonState(name, state)
+        definition.requireStates(name)
+        if (!select(name, state)) return null
         return frame()
     }
 
@@ -124,12 +118,16 @@ internal class WindowRenderer<I : Any>(
         return inventory.drain()
     }
 
-    private fun applyButtonState(
+    /** Selects [state] in button [name]'s state switch; returns whether it changed. */
+    private fun select(
         name: String,
         state: String,
-    ) {
-        inventory.applyButtonState(name, state)
-        title.setButtonVisual(name, state)
+    ): Boolean = switches.select(name, state).also { if (it) updateCases() }
+
+    /** Swaps the art and regions of switch cases whose activity changed. */
+    private fun updateCases() {
+        title.updateCases()
+        inventory.claimRegions()
     }
 
     private fun frame(): WindowFrame<I> = WindowFrame(title.compose(), inventory.drain())

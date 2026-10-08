@@ -57,6 +57,8 @@ final class InspectorOverlay {
                 InspectorState.string(
                         layer, "semantic_id", InspectorState.string(layer, "id", "unnamed"));
         lines.add("layer: " + semantic);
+        String source = InspectorState.string(layer, "source", "");
+        if (!source.isEmpty()) lines.add("source: " + source);
         String font = InspectorState.string(layer, "font", "unspecified");
         String content = InspectorState.string(layer, "content", "");
         lines.add("expected font=" + font + " content=" + abbreviate(content));

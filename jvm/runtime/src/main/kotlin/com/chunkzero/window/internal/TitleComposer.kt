@@ -116,17 +116,14 @@ internal class TitleComposer(
         static: String,
     ): RenderedSegment = RenderedSegment(Component.text(static).style(spacerStyle), staticTrace(semanticId, static))
 
-    /**
-     * Composes the full title: the static component followed by each already-rendered net-zero slot
-     * segment, in the iteration order of [slotSegments].
-     */
+    /** Composes the full title: the static component followed by each net-zero [segments] entry in order. */
     fun compose(
         windowName: String,
-        slotSegments: Map<String, RenderedSegment>,
+        segments: List<RenderedSegment>,
     ): ComposedRender {
-        val title = staticComponent.appendAll(slotSegments.values.map { it.component })
+        val title = staticComponent.appendAll(segments.map { it.component })
         val staticTrace = staticTrace("window/$windowName/static", window.static)
-        return ComposedRender(title, listOf(staticTrace) + slotSegments.values.map { it.trace })
+        return ComposedRender(title, listOf(staticTrace) + segments.map { it.trace })
     }
 
     private fun staticTrace(

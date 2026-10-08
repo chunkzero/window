@@ -329,7 +329,7 @@ class TitleComposerTest :
             val segment =
                 composer.renderSlot("slot", window.slots.getValue("title"), Component.text("Hi"))!!
 
-            val title = composer.compose("w", linkedMapOf("title" to segment)).component
+            val title = composer.compose("w", listOf(segment)).component
             title.children().size shouldBe 1
             title.children()[0] shouldBe segment.component
         }

@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Compiled Window pack definition (schema v6).
+ * Compiled Window pack definition (schema v7).
  *
  * The rpp plugin generates Kotlin that instantiates these DTOs directly. JSON parsing remains for
  * older tools and tests; pass a parsed manifest to `WindowDefinition` or `HudDefinition`.
@@ -14,7 +14,7 @@ import kotlinx.serialization.json.Json
  */
 @Serializable
 public data class WindowManifest(
-    /** Schema version. Only `6` is accepted by [parse]. */
+    /** Schema version. Only [VERSION] is accepted by [parse]. */
     val version: Int,
     /** Resource-pack namespace (default `"window"`). */
     val namespace: String,
@@ -48,6 +48,9 @@ public data class WindowManifest(
     val huds: Map<String, HudEntry> = emptyMap(),
 ) {
     public companion object {
+        /** The schema version this runtime reads. */
+        public const val VERSION: Int = 7
+
         private val json =
             Json {
                 ignoreUnknownKeys = true
@@ -57,14 +60,14 @@ public data class WindowManifest(
         /**
          * Parses a legacy JSON definition document.
          *
-         * Unknown keys are ignored (forward compatibility). A definition whose [version] is not `6`
+         * Unknown keys are ignored (forward compatibility). A definition whose [version] is not [VERSION]
          * is rejected with an [IllegalArgumentException].
          */
         public fun parse(json: String): WindowManifest {
             val manifest = this.json.decodeFromString<WindowManifest>(json)
-            require(manifest.version == 6) {
+            require(manifest.version == VERSION) {
                 "Unsupported Window definition version ${manifest.version}; this runtime only " +
-                    "supports version 6"
+                    "supports version $VERSION"
             }
             return manifest
         }

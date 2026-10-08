@@ -2,7 +2,7 @@ package com.chunkzero.window
 
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.Align
-import com.chunkzero.window.manifest.ButtonDefault
+import com.chunkzero.window.manifest.HitboxEntry
 import com.chunkzero.window.manifest.TooltipEntry
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
@@ -27,19 +27,23 @@ class BindingValidationTest :
                                 text = "Static",
                             ),
                     ),
-                buttons =
+                regions =
                     mapOf(
-                        "buy" to TestManifests.button(slots = listOf(4)),
+                        "buy" to TestManifests.region(slots = listOf(4), action = "buy"),
                         "exit" to
-                            TestManifests.button(slots = listOf(0), default = ButtonDefault.CLOSE),
+                            TestManifests.region(slots = listOf(0), action = "exit", defaultAction = "window:close"),
+                        "close" to
+                            TestManifests.region(
+                                slots = listOf(2),
+                                action = "window:close",
+                                defaultAction = "window:close",
+                            ),
                         "info" to
-                            TestManifests.button(
+                            TestManifests.region(
                                 slots = listOf(8),
-                                action = false,
-                                tooltip =
-                                    TooltipEntry(
-                                        title = "Info",
-                                        lines = listOf("Hover-only help"),
+                                hitbox =
+                                    HitboxEntry(
+                                        tooltip = TooltipEntry(title = "Info", lines = listOf("Hover-only help")),
                                     ),
                             ),
                     ),
@@ -145,21 +149,49 @@ class BindingValidationTest :
             handle.closed shouldBe false
         }
 
-        "a default=close button needs no handler and routes a click to close" {
-            val host = FakeHost()
-            val handle = host.container
-            val view =
+        "runtime actions run on click when no handler is bound" {
+            for (slot in listOf(0, 2)) {
+                val host = FakeHost()
                 object : TestView(manifest(), host) {
                     override fun WindowScope<Any>.bind() {
                         slot("title") { Component.text("t") }
                         button("buy") {}
                     }
-                }
-            val session = view.open()
+                }.open()
 
-            // Click on exit's slot (0) -> default close.
-            handle.clickContainer(0)
-            handle.closed shouldBe true
+                // Slot 0 names `exit`, which defaults to `window:close`; slot 2 names `window:close` itself.
+                host.container.clickContainer(slot)
+                host.container.closed shouldBe true
+            }
+        }
+
+        "a bound handler replaces the runtime default" {
+            val host = FakeHost()
+            var exits = 0
+            object : TestView(manifest(), host) {
+                override fun WindowScope<Any>.bind() {
+                    slot("title") { Component.text("t") }
+                    button("buy") {}
+                    button("exit") { exits++ }
+                }
+            }.open()
+
+            host.container.clickContainer(0)
+            exits shouldBe 1
+            host.container.closed shouldBe false
+        }
+
+        "runtime actions cannot be bound and hotspots have no action" {
+            for (name in listOf("window:close", "info")) {
+                val view =
+                    object : TestView(manifest(), FakeHost()) {
+                        override fun WindowScope<Any>.bind() {
+                            slot("title") { Component.text("t") }
+                            button(name) {}
+                        }
+                    }
+                shouldThrow<IllegalArgumentException> { view.open() }
+            }
         }
 
         "clicks route to the matching button handler with derived modifiers" {

@@ -2,6 +2,7 @@ package com.chunkzero.window
 
 import com.chunkzero.window.internal.Containers
 import com.chunkzero.window.internal.HudComposer
+import com.chunkzero.window.internal.requireLayers
 import com.chunkzero.window.manifest.HudEntry
 import com.chunkzero.window.manifest.HudSurfaceEntry
 import com.chunkzero.window.manifest.WindowManifest
@@ -11,7 +12,7 @@ import net.kyori.adventure.text.Component
  * The HUD [name] of [manifest], combined with the manifest-level spacer and advance tables.
  *
  * @throws IllegalArgumentException if [manifest] has no HUD [name] (listing the known names), or its
- *   channel is not supported.
+ *   channel is not supported, or its layers do not list each slot and switch exactly once.
  */
 public class HudDefinition(
     internal val manifest: WindowManifest,
@@ -21,6 +22,10 @@ public class HudDefinition(
     internal val entry: HudEntry =
         manifest.huds[name]
             ?: throw IllegalArgumentException("Unknown hud '$name'; known huds: ${manifest.huds.keys.sorted()}")
+
+    init {
+        entry.requireLayers(name)
+    }
 
     internal val channel = Containers.channel(entry.surface.channel)
 

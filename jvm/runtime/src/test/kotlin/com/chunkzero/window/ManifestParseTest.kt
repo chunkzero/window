@@ -1,7 +1,8 @@
 package com.chunkzero.window
 
 import com.chunkzero.window.manifest.Align
-import com.chunkzero.window.manifest.ButtonDefault
+import com.chunkzero.window.manifest.LayerEntry
+import com.chunkzero.window.manifest.LayerKind
 import com.chunkzero.window.manifest.SlotAreaEntry
 import com.chunkzero.window.manifest.WindowManifest
 import io.kotest.assertions.throwables.shouldThrow
@@ -14,7 +15,7 @@ class ManifestParseTest :
     StringSpec({
         "full sample round-trips into DTOs" {
             val m = WindowManifest.parse(TestManifests.sampleJson)
-            m.version shouldBe 6
+            m.version shouldBe 7
             m.namespace shouldBe "window"
             m.font shouldBe "window:ui"
             m.spacers[983040] shouldBe -1024
@@ -43,20 +44,38 @@ class ManifestParseTest :
             label.text.shouldNotBeNull()
             label.text shouldBe "Buy"
 
-            val buy = shop.buttons.getValue("buy")
+            val buy = shop.regions.getValue("buy.enabled")
             buy.slots.map { it.area } shouldBe
-                listOf(SlotAreaEntry.CONTAINER, SlotAreaEntry.CONTAINER, SlotAreaEntry.CONTAINER)
-            buy.slots.map { it.index } shouldBe listOf(46, 47, 48)
-            buy.default.shouldBeNull()
+                listOf(SlotAreaEntry.CONTAINER, SlotAreaEntry.CONTAINER, SlotAreaEntry.PLAYER)
+            buy.filledSlots.map { it.index } shouldBe listOf(47)
+            buy.action shouldBe "buy"
+            buy.defaultAction.shouldBeNull()
+            buy.hitbox!!.itemModel shouldBe "example:gui/buy"
+            buy.hitbox!!.tooltip!!.lines shouldBe listOf("Spend coins")
+            buy.source shouldBe "button `buy`"
+            shop.regions.getValue("exit").defaultAction shouldBe "window:close"
 
-            shop.buttons.getValue("exit").default shouldBe ButtonDefault.CLOSE
+            val states = shop.switches.getValue("buy")
+            states.states shouldBe true
+            states.initial shouldBe "enabled"
+            states.cases.single().regions shouldBe listOf("buy.enabled")
+            states.cases.single().switches shouldBe listOf("inner")
+            shop.switches.getValue("inner").binding shouldBe "mode"
+            shop.layers shouldBe
+                listOf(
+                    LayerEntry(LayerKind.SLOT, "title"),
+                    LayerEntry(LayerKind.SWITCH, "buy"),
+                    LayerEntry(LayerKind.SWITCH, "inner"),
+                    LayerEntry(LayerKind.SPRITE_SLOT, "icon"),
+                )
+            shop.groups.getValue("cell").actions shouldBe listOf("cell_0")
         }
 
         "version 2 is rejected" {
-            val json = TestManifests.sampleJson.replaceFirst("\"version\": 6", "\"version\": 2")
+            val json = TestManifests.sampleJson.replaceFirst("\"version\": 7", "\"version\": 2")
             val ex = shouldThrow<IllegalArgumentException> { WindowManifest.parse(json) }
             ex.message shouldBe
-                "Unsupported Window definition version 2; this runtime only supports version 6"
+                "Unsupported Window definition version 2; this runtime only supports version 7"
         }
 
         "unknown keys are ignored" {

@@ -22,42 +22,56 @@ public data class SlotRefEntry(
     val index: Int,
 )
 
-/** A clickable region mapped to typed inventory slots. */
+/**
+ * An inventory region: the slots it claims and fills with its hitbox item, and the action its clicks
+ * name. A region listed by a switch case is claimed only while that case is active.
+ */
 @Serializable
-public data class ButtonEntry(
-    /** Top-left x of the button rect in GUI pixels. */
+public data class RegionEntry(
+    /** Top-left x of the region rect in GUI pixels. */
     val x: Int,
-    /** Top-left y of the button rect in GUI pixels. */
+    /** Top-left y of the region rect in GUI pixels. */
     val y: Int,
-    /** Button rect width in GUI pixels. */
+    /** Region rect width in GUI pixels. */
     val width: Int,
-    /** Button rect height in GUI pixels. */
+    /** Region rect height in GUI pixels. */
     val height: Int,
     /** Backing inventory slots whose clicks route to this region. */
     val slots: List<SlotRefEntry>,
     /**
-     * Slots this region fills with its own hitbox/state item.
+     * Slots this region fills with its hitbox item.
      *
      * `null` means every slot in [slots]. A repeater cell that hands one of its slots to an item
      * control emits a strict subset here: clicks still route to the whole cell, but the yielded
      * slot carries the item control's real stack (and therefore its native hover tooltip).
      */
     @SerialName("fill_slots") val fillSlots: List<SlotRefEntry>? = null,
-    /** Built-in behavior when no handler is bound, or `null` if a handler is required. */
-    val default: ButtonDefault? = null,
-    /** Whether this region should accept a generated/runtime click handler. */
-    val action: Boolean = true,
-    /** Default tooltip shown for this button or hotspot. */
-    val tooltip: TooltipEntry? = null,
-    /** Named item states for dynamic visual/tooltip toggles. */
-    val states: Map<String, ButtonState> = emptyMap(),
-    /** Generated sprite font used by state sprites, when present. */
-    @SerialName("sprite_font") val spriteFont: String? = null,
+    /**
+     * The action id clicks name: the handler bound to it runs, else [defaultAction]. Ids in the
+     * `window:` namespace are runtime actions. `null` for hover-only and claim-only regions, which
+     * ignore clicks.
+     */
+    val action: String? = null,
+    /** The runtime action, such as `window:close`, run when no handler is bound to [action]. */
+    @SerialName("default_action") val defaultAction: String? = null,
+    /** The item filling [filledSlots]; `null` leaves them empty. */
+    val hitbox: HitboxEntry? = null,
+    /** The authored element this region comes from, such as ``button `buy` ``, for diagnostics. */
+    val source: String? = null,
 ) {
-    /** The slots this region paints with its own item: [fillSlots] when present, else [slots]. */
+    /** The slots this region paints with its hitbox item: [fillSlots] when present, else [slots]. */
     public val filledSlots: List<SlotRefEntry>
         get() = fillSlots ?: slots
 }
+
+/** The item a region fills its slots with. */
+@Serializable
+public data class HitboxEntry(
+    /** Item model id; `null` uses the pack's invisible `{namespace}:gui/hitbox` model. */
+    @SerialName("item_model") val itemModel: String? = null,
+    /** Hover tooltip. */
+    val tooltip: TooltipEntry? = null,
+)
 
 /** A dynamic inventory item region. */
 @Serializable
@@ -91,13 +105,6 @@ public data class AnvilInputEntry(
     @SerialName("item_model") val itemModel: String? = null,
 )
 
-/** A non-binding slot claim/fill region. */
-@Serializable
-public data class SlotRectEntry(
-    /** Backing inventory slots claimed and cleared by this primitive. */
-    val slots: List<SlotRefEntry>,
-)
-
 /** Group metadata for controls flattened from a repeater. */
 @Serializable
 public data class RepeatGroupEntry(
@@ -109,8 +116,8 @@ public data class RepeatGroupEntry(
     @SerialName("sprite_slots") val spriteSlots: Map<String, List<String>> = emptyMap(),
     /** Dynamic inventory item controls by repeated child field, each vector in index order. */
     val items: Map<String, List<String>> = emptyMap(),
-    /** Root cell buttons, in index order. */
-    val buttons: List<String> = emptyList(),
+    /** The action of each cell's region, in index order. */
+    val actions: List<String> = emptyList(),
 )
 
 /** Manifest tooltip text as MiniMessage templates; the runtime parses it into a `ButtonTooltip`. */
@@ -121,21 +128,3 @@ public data class TooltipEntry(
     /** Additional lore line templates. */
     val lines: List<String> = emptyList(),
 )
-
-/** One named item state for a button. */
-@Serializable
-public data class ButtonState(
-    /** Optional item model id, e.g. `"example:gui/shop_button_active"`. */
-    @SerialName("item_model") val itemModel: String? = null,
-    /** Optional Window sprite rendered over the button rect for this state. */
-    val sprite: String? = null,
-    /** Optional tooltip override for this state. */
-    val tooltip: TooltipEntry? = null,
-)
-
-/** Built-in button behavior used when a manifest button has no user handler. */
-@Serializable
-public enum class ButtonDefault {
-    @SerialName("close")
-    CLOSE,
-}
