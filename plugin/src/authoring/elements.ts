@@ -44,8 +44,6 @@ import type {
     ToggleOptions,
     Window,
 } from "./types.ts";
-import { collectionHandle, spriteHandle, toggleHandle } from "./handles.ts";
-import type { Collection, Indexed, Shape, Sprite, Toggle } from "./handles.ts";
 
 type Fields = Record<string, unknown>;
 
@@ -186,30 +184,9 @@ export function column(opts?: ColumnOptions): ColumnElement {
     return element("column", opts, LAYOUT_KEYS) as unknown as ColumnElement;
 }
 
-const HANDLE_ID = /^[a-z][a-z0-9_]*$/;
-
-/**
- * A static theme sprite. Called with only a name that is a valid handle id, the element is also the `sprite`
- * handle of that id; with `{ shape }`, it is an indexed `sprite` handle.
- */
-export function sprite(name: string): SpriteElement & Sprite;
-export function sprite(name: string, opts: SpriteOptions): SpriteElement;
-export function sprite<const S extends Shape>(id: string, opts: { shape: S }): Indexed<Sprite, S>;
-export function sprite(name: string, opts?: SpriteOptions | { shape: Shape }): unknown {
-    if (opts !== undefined && "shape" in opts) {
-        return spriteHandle(name, opts);
-    }
+export function sprite(name: string, opts?: SpriteOptions): SpriteElement {
     requireName(name, "sprite name");
-    const el = { ...element("sprite", opts, ["x", "y", "layout"]), name };
-    if (opts !== undefined || !HANDLE_ID.test(name)) {
-        return el;
-    }
-    // Hidden from JSON, so the element serializes unchanged.
-    const handle = spriteHandle(name);
-    return Object.defineProperties(el, {
-        kind: { value: handle.kind },
-        id: { value: handle.id },
-    });
+    return { ...element("sprite", opts, ["x", "y", "layout"]), name } as unknown as SpriteElement;
 }
 
 export function spriteSlot(name: string, opts: SpriteSlotOptions): SpriteSlotElement {
@@ -263,13 +240,8 @@ function statefulButton(
     return button(name, opts);
 }
 
-/** Create a two-state button for WindowScope.toggle, or, without `states`, a `toggle` handle. */
-export function toggle(name: string, opts: ToggleOptions): ButtonElement;
-export function toggle(id: string, options?: { initial?: boolean }): Toggle;
-export function toggle(name: string, opts?: ToggleOptions | { initial?: boolean }): ButtonElement | Toggle {
-    if (opts === undefined || !("states" in opts)) {
-        return toggleHandle(name, opts as { initial?: boolean } | undefined);
-    }
+/** Create a two-state button for WindowScope.toggle. */
+export function toggle(name: string, opts: ToggleOptions): ButtonElement {
     return statefulButton("toggle", name, opts, "on", "off");
 }
 
@@ -310,16 +282,7 @@ export function item(name: string, opts: ItemOptions): ItemElement {
     return { ...out, name } as unknown as ItemElement;
 }
 
-/** A collection element, or, without element options, a `collection` handle. */
-export function collection(name: string, opts: CollectionOptions): CollectionElement;
-export function collection(id: string, options?: { selectable?: boolean }): Collection;
-export function collection(
-    name: string,
-    opts?: CollectionOptions | { selectable?: boolean },
-): CollectionElement | Collection {
-    if (opts === undefined || Object.keys(opts).every((key) => key === "selectable")) {
-        return collectionHandle(name, opts as { selectable?: boolean } | undefined);
-    }
+export function collection(name: string, opts: CollectionOptions): CollectionElement {
     requireName(name, "collection name");
     const out = element("collection", opts, ["frame", "selected_sprite", ...PLACEMENT_KEYS, "action", "layout"]);
     return { ...out, name } as unknown as CollectionElement;

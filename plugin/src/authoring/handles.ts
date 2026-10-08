@@ -167,7 +167,7 @@ export function flag(id: string, options?: { shape?: Shape }): unknown {
 }
 
 /** A Boolean the UI owns: `protected var favorites: Boolean` plus `onFavoritesChanged(value)`. */
-export function toggleHandle(id: string, options: { initial?: boolean } = {}): Toggle {
+export function toggle(id: string, options: { initial?: boolean } = {}): Toggle {
     requireId(id, "toggle");
     return make({ kind: "toggle", id, initial: options.initial ?? false } as Toggle, none);
 }
@@ -208,17 +208,17 @@ export function selection<const V extends string>(
 }
 
 /** Dynamic text: `protected abstract fun title(): Component`. */
-export function textHandle(id: string): Text;
-export function textHandle<const S extends Shape>(id: string, options: { shape: S }): Indexed<Text, S>;
-export function textHandle(id: string, options?: { shape?: Shape }): unknown {
+export function text(id: string): Text;
+export function text<const S extends Shape>(id: string, options: { shape: S }): Indexed<Text, S>;
+export function text(id: string, options?: { shape?: Shape }): unknown {
     requireId(id, "text");
     return shaped({ kind: "text", id } as Text, options?.shape, none);
 }
 
 /** A runtime sprite: `protected abstract fun iconSprite(): WindowSprite?`. */
-export function spriteHandle(id: string): Sprite;
-export function spriteHandle<const S extends Shape>(id: string, options: { shape: S }): Indexed<Sprite, S>;
-export function spriteHandle(id: string, options?: { shape?: Shape }): unknown {
+export function sprite(id: string): Sprite;
+export function sprite<const S extends Shape>(id: string, options: { shape: S }): Indexed<Sprite, S>;
+export function sprite(id: string, options?: { shape?: Shape }): unknown {
     requireId(id, "sprite");
     return shaped({ kind: "sprite", id } as Sprite, options?.shape, none);
 }
@@ -235,7 +235,7 @@ export function items(id: string, options?: { shape?: Shape }): unknown {
  * A collection's cells: `protected abstract val products: WindowCollection<ItemStack>`. `selectable` lets its
  * `<Collection selected>` sprite mark the selected cell.
  */
-export function collectionHandle(id: string, options: { selectable?: boolean } = {}): Collection {
+export function collection(id: string, options: { selectable?: boolean } = {}): Collection {
     requireId(id, "collection");
     const base = { kind: "collection", id, ...(options.selectable === true ? { selectable: true } : {}) };
     return make(base as Collection, none);

@@ -5,7 +5,7 @@ import * as window from "../src/authoring/index.ts";
 import { Box, Container, Grid, Hotbar, Hotspot, Row, Sprite, Text } from "../src/authoring/jsx.ts";
 import * as inventory from "../src/authoring/inventory.ts";
 
-const { pattern } = window;
+const { pattern, raw } = window;
 
 test("inventory aliases match", () => {
     assert.equal(window.pattern, inventory.pattern);
@@ -55,7 +55,7 @@ test("grid patterns validate every dimension", () => {
 });
 
 test("inventory patterns can drive visual controls without pixel coordinates", () => {
-    const button = window.button("buy", {
+    const button = raw.button("buy", {
         pattern: pattern.rect({ x: 0, y: 0, width: 1, height: 1 }),
     });
     assert.equal(button.type, "button");
@@ -64,7 +64,7 @@ test("inventory patterns can drive visual controls without pixel coordinates", (
 });
 
 test("collections can draw their slot frames natively", () => {
-    const collection = window.collection("results", {
+    const collection = raw.collection("results", {
         frame: "slot_cell",
         transform: { section: "container", x: 0, y: 0, width: 3, height: 1 },
     });
@@ -72,8 +72,8 @@ test("collections can draw their slot frames natively", () => {
 });
 
 test("toggle and choice constructors require their native states", () => {
-    assert.throws(() => window.toggle("quality", { width: 16, height: 16, states: {} as never }), /states\.on/);
-    const choice = window.choice("best", {
+    assert.throws(() => raw.toggle("quality", { width: 16, height: 16, states: {} as never }), /states\.on/);
+    const choice = raw.choice("best", {
         width: 16,
         height: 16,
         states: { selected: {}, unselected: {} },
@@ -82,7 +82,7 @@ test("toggle and choice constructors require their native states", () => {
 });
 
 test("anvil input preserves initial text and item model", () => {
-    assert.deepEqual(window.anvilInput("query", { initial: "maps", item_model: "window:gui/search" }), {
+    assert.deepEqual(raw.anvilInput("query", { initial: "maps", item_model: "window:gui/search" }), {
         type: "anvil_input",
         name: "query",
         initial: "maps",
@@ -91,33 +91,33 @@ test("anvil input preserves initial text and item model", () => {
 });
 
 test("dynamic slots may defer width to automatic button layout", () => {
-    const slot = window.slot("caption", { bold: true });
+    const slot = raw.slot("caption", { bold: true });
     assert.equal(slot.name, "caption");
     assert.equal(slot.width, undefined);
 });
 
 test("visual constructors still reject inventory-irrelevant options", () => {
     assert.throws(
-        () => window.panel({ frame: "panel", width: 10, height: 10, slots: [0] } as never),
+        () => raw.panel({ frame: "panel", width: 10, height: 10, slots: [0] } as never),
         /does not accept option `slots`/,
     );
 });
 
 test("repeater cell items accept a one-based cell_slot", () => {
-    const item = window.item("icon", { cell_slot: 2 });
+    const item = raw.item("icon", { cell_slot: 2 });
     assert.deepEqual(item, { type: "item", name: "icon", cell_slot: 2 });
-    assert.throws(() => window.item("icon", { cell_slot: 1, slots: [0] }), /cannot be combined/);
-    assert.throws(() => window.item("icon", { cell_slot: 0 }), /positive integer/);
+    assert.throws(() => raw.item("icon", { cell_slot: 1, slots: [0] }), /cannot be combined/);
+    assert.throws(() => raw.item("icon", { cell_slot: 0 }), /positive integer/);
 });
 
 test("unknown option keys are rejected at runtime", () => {
-    assert.throws(() => window.row({ bogus: 1 } as never), /row does not accept option `bogus`/);
-    assert.throws(() => window.panel({ frame: "p", width: 1 } as never), /panel requires option `height`/);
+    assert.throws(() => raw.row({ bogus: 1 } as never), /row does not accept option `bogus`/);
+    assert.throws(() => raw.panel({ frame: "p", width: 1 } as never), /panel requires option `height`/);
 });
 
 test("switchOn and show build switch elements", () => {
-    const buy = window.label("Buy");
-    assert.deepEqual(window.switchOn("mode", { buy: { frame: "recess", children: [buy] }, sell: {} }, { x: 4, y: 6 }), {
+    const buy = raw.label("Buy");
+    assert.deepEqual(raw.switchOn("mode", { buy: { frame: "recess", children: [buy] }, sell: {} }, { x: 4, y: 6 }), {
         type: "switch",
         name: "mode",
         x: 4,
@@ -127,27 +127,27 @@ test("switchOn and show build switch elements", () => {
             { type: "case", value: "sell", style: { direction: "column" }, children: [] },
         ],
     });
-    const badge = window.sprite("badge");
+    const badge = raw.sprite("badge");
     assert.deepEqual(
-        window.show("on_sale", { x: 1, y: 2, children: [badge] }),
-        window.switchOn("on_sale", { true: { children: [badge] }, false: {} }, { x: 1, y: 2 }),
+        raw.show("on_sale", { x: 1, y: 2, children: [badge] }),
+        raw.switchOn("on_sale", { true: { children: [badge] }, false: {} }, { x: 1, y: 2 }),
     );
-    assert.throws(() => window.switchOn("mode", {}), /requires at least one case/);
-    assert.throws(() => window.switchOn("mode", { buy: { width: 3 } as never }), /does not accept option `width`/);
-    assert.deepEqual(window.show("on_sale", { layout: { grow: 1 } }).layout, { grow: 1 });
+    assert.throws(() => raw.switchOn("mode", {}), /requires at least one case/);
+    assert.throws(() => raw.switchOn("mode", { buy: { width: 3 } as never }), /does not accept option `width`/);
+    assert.deepEqual(raw.show("on_sale", { layout: { grow: 1 } }).layout, { grow: 1 });
 });
 
 test("flex, grid, and section build the same elements as their JSX components", () => {
-    const fn = window.section("container", {
+    const fn = raw.section("container", {
         frame: "panel",
         children: [
-            window.flex({
+            raw.flex({
                 frame: "recess",
                 style: { direction: "row", align: "center", padding: { left: 4, right: 4 } },
                 layout: { column: { span: 9 } },
-                children: [window.slot("selection"), window.slot("price", { width: 40, align: "right" })],
+                children: [raw.slot("selection"), raw.slot("price", { width: 40, align: "right" })],
             }),
-            window.hotspot("info", {
+            raw.hotspot("info", {
                 tooltip: "Info",
                 layout: { column: { start: 1, span: 2 }, row: { start: 2, span: 1 } },
             }),
@@ -167,21 +167,21 @@ test("flex, grid, and section build the same elements as their JSX components", 
     });
     assert.deepEqual(fn, jsx);
     assert.deepEqual(
-        window.grid({
+        raw.grid({
             style: { columns: 3, gap: 2 },
-            children: [window.sprite("a", { layout: { column: { span: 2 } } })],
+            children: [raw.sprite("a", { layout: { column: { span: 2 } } })],
         }),
         Grid({ columns: 3, gap: 2, children: Sprite({ name: "a", span: 2 }) }),
     );
-    assert.deepEqual(window.section("hotbar"), Hotbar({}));
-    assert.deepEqual(window.flex(), Box({}));
-    assert.deepEqual(window.grid(), Grid({}));
+    assert.deepEqual(raw.section("hotbar"), Hotbar({}));
+    assert.deepEqual(raw.flex(), Box({}));
+    assert.deepEqual(raw.grid(), Grid({}));
 });
 
 test("layout helpers reject options their element does not accept", () => {
-    assert.throws(() => window.flex({ gap: 2 } as never), /flex does not accept option `gap`/);
-    assert.throws(() => window.grid({ columns: 3 } as never), /grid does not accept option `columns`/);
-    assert.throws(() => window.section("container", { layout: {} } as never), /does not accept option `layout`/);
-    assert.throws(() => window.section("chest" as never), /section kind must be one of/);
-    assert.throws(() => window.anvilInput("q", { layout: {} } as never), /does not accept option `layout`/);
+    assert.throws(() => raw.flex({ gap: 2 } as never), /flex does not accept option `gap`/);
+    assert.throws(() => raw.grid({ columns: 3 } as never), /grid does not accept option `columns`/);
+    assert.throws(() => raw.section("container", { layout: {} } as never), /does not accept option `layout`/);
+    assert.throws(() => raw.section("chest" as never), /section kind must be one of/);
+    assert.throws(() => raw.anvilInput("q", { layout: {} } as never), /does not accept option `layout`/);
 });

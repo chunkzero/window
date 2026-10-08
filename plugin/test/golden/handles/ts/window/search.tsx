@@ -1,4 +1,4 @@
-import { AnvilInput, Box, Button, Sprite, Text, Window, pattern, slotRects } from "#plugins/window";
+import { AnvilInput, Box, Button, Sprite, Text, Window, pattern, raw } from "#plugins/window";
 
 import { back, confirm, query } from "./handles.ts";
 
@@ -49,11 +49,11 @@ export default (
         >
             <Sprite name="icon_check" translate={[-1, 0]} />
         </Button>
-        {slotRects("inventory", {
+        {raw.slotRects("inventory", {
             pattern: pattern.rect({ section: "player", x: 0, y: 0, width: 9, height: 3 }),
             claim: "all",
         })}
-        {slotRects("hotbar", {
+        {raw.slotRects("hotbar", {
             pattern: pattern.rect({ section: "hotbar", x: 0, y: 0, width: 9, height: 1 }),
             claim: "all",
         })}

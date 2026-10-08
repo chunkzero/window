@@ -1,4 +1,4 @@
-import { action, defineWindows, flag, selection, text, theme, toggle, value } from "../src/authoring/index.ts";
+import { action, defineWindows, flag, raw, selection, text, theme, toggle, value } from "../src/authoring/index.ts";
 import type { Indexed, TextHandle } from "../src/authoring/index.ts";
 import {
     Box,
@@ -112,3 +112,10 @@ const themeAsWindow = defineWindows({ windows: [theme({})] });
 // @ts-expect-error A window document is not a HUD.
 const windowAsHud = defineWindows({ huds: [handles, { windows: [] }] });
 void [definition, partialFlagSwitch, wrongTooltip, themeAsWindow, windowAsHud];
+
+const rawLabel = raw.label(raw.text.smallCaps("Shop"));
+// @ts-expect-error Text helpers live on `raw.text`, not the `text` handle constructor.
+const handleSmallCaps = text.smallCaps("Shop");
+// @ts-expect-error `toggle` declares a handle; `raw.toggle` builds the button.
+const toggleButton = toggle("lamp", { width: 16, height: 16, states: { on: {}, off: {} } });
+void [rawLabel, handleSmallCaps, toggleButton];

@@ -1,13 +1,13 @@
-import { panel, spriteSlot, ui } from "#plugins/window";
+import { raw } from "#plugins/window";
 import type { WindowDocument } from "#plugins/window";
 
-const textured = ui({
+const textured = raw.ui({
     name: "textured",
     container: "generic_9x1",
     children: [
-        panel({ frame: "shell", x: 0, y: 0, width: 100, height: 40 }),
-        spriteSlot("badge", { x: 4, y: 12, width: 12, height: 12, sprite: "badge" }),
-        spriteSlot("extra", { x: 20, y: 12, width: 10, height: 10, sprite: "extra" }),
+        raw.panel({ frame: "shell", x: 0, y: 0, width: 100, height: 40 }),
+        raw.spriteSlot("badge", { x: 4, y: 12, width: 12, height: 12, sprite: "badge" }),
+        raw.spriteSlot("extra", { x: 20, y: 12, width: 10, height: 10, sprite: "extra" }),
     ],
 });
 

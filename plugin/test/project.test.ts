@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { defineWindows, hud, theme, ui } from "../src/authoring/index.ts";
+import { defineWindows, raw, theme } from "../src/authoring/index.ts";
 import type { WindowDocument } from "../src/authoring/types.ts";
 import { buildProject, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
 import type { CompileOutput, KotlinOptions, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
@@ -42,8 +42,8 @@ function fake(
     return { ctx, emitted, outputs, removed };
 }
 
-const shop = ui({ name: "shop", container: "generic_9x6" });
-const status = hud({ name: "status", width: 10, height: 10 });
+const shop = raw.ui({ name: "shop", container: "generic_9x6" });
+const status = raw.hud({ name: "status", width: 10, height: 10 });
 
 test("documents are collected in path order", () => {
     const { ctx } = fake({ "window/b.tsx": [status], "window/a.ts": shop });
@@ -179,7 +179,7 @@ test("a window/index entry lists every document; other modules are ordinary", ()
 });
 
 test("defineWindows lists flatten nested lists and reject documents of another kind", () => {
-    const fragment = [hud({ name: "a", width: 1, height: 1 }), [hud({ name: "b", width: 1, height: 1 })]];
+    const fragment = [raw.hud({ name: "a", width: 1, height: 1 }), [raw.hud({ name: "b", width: 1, height: 1 })]];
     const { ctx } = fake({ "window/index.tsx": defineWindows({ windows: [[shop]], huds: [fragment] }) });
     const project = buildProject(collectInputs(ctx).documents, {}, 84);
     assert.deepEqual(project.windows, shop.windows);

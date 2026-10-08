@@ -1,30 +1,6 @@
 export type * from "./types.ts";
-export {
-    anvilInput,
-    button,
-    choice,
-    collection,
-    column,
-    flex,
-    grid,
-    hotspot,
-    hud,
-    item,
-    label,
-    panel,
-    repeater,
-    row,
-    section,
-    show,
-    slot,
-    slotRects,
-    sprite,
-    spriteSlot,
-    switchOn,
-    theme,
-    toggle,
-    ui,
-} from "./elements.ts";
+export * as raw from "./raw.ts";
+export { theme } from "./elements.ts";
 export {
     containerSlot,
     containerSlots,
@@ -34,7 +10,7 @@ export {
     playerSlot,
     playerSlots,
 } from "./inventory.ts";
-export { action, builtin, flag, input, items, selection, value } from "./handles.ts";
+export { action, builtin, collection, flag, input, items, selection, sprite, text, toggle, value } from "./handles.ts";
 export type {
     Action as ActionHandle,
     Builtin as BuiltinHandle,
@@ -60,7 +36,6 @@ export type {
 export { defineWindows } from "./windows.ts";
 export type { WindowsDefinition } from "./windows.ts";
 export { presets } from "./presets.ts";
-export { smallCaps, smallCapsMinimessage, text } from "./text.ts";
 export {
     AnvilInput,
     Box,
