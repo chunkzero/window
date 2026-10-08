@@ -1,6 +1,9 @@
 package com.chunkzero.window
 
+import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.CollectionEntry
+import com.chunkzero.window.manifest.HitboxEntry
+import com.chunkzero.window.manifest.ItemEntry
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -57,6 +60,43 @@ class CollectionRoutingTest :
             scheduler.runAll()
             handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0)) shouldBe "paper"
             handle.items.getValue(SlotRef(SlotArea.PLAYER, 9)) shouldBe "diamond"
+        }
+
+        "a region routes clicks on an item's slot while filling its hitbox only into the rest" {
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    regions =
+                        mapOf(
+                            "cell" to
+                                TestManifests.region(
+                                    slots = listOf(0, 1),
+                                    action = "cell",
+                                    hitbox = HitboxEntry("demo:gui/cell"),
+                                    fillSlots = listOf(1),
+                                ),
+                        ),
+                    items = mapOf("icon" to ItemEntry(listOf(TestManifests.containerSlot(0)))),
+                )
+            val clicks = mutableListOf<SlotRef>()
+            val host = FakeHost()
+            val view =
+                object : TestView(manifest, host) {
+                    override fun WindowScope<Any>.bind() {
+                        item("icon") { "diamond" }
+                        button("cell") { clicks += it.slot }
+                    }
+                }
+            val handle = host.container
+            view.open()
+
+            handle.items.getValue(SlotRef(SlotArea.CONTAINER, 0)) shouldBe "diamond"
+            (handle.items.getValue(SlotRef(SlotArea.CONTAINER, 1)) as WindowItem.Hitbox).model.asString() shouldBe
+                "demo:gui/cell"
+
+            handle.click(SlotRef(SlotArea.CONTAINER, 0))
+            handle.click(SlotRef(SlotArea.CONTAINER, 1))
+            clicks shouldBe listOf(SlotRef(SlotArea.CONTAINER, 0), SlotRef(SlotArea.CONTAINER, 1))
         }
 
         "collection selection draws its sprite over the selected cell only" {

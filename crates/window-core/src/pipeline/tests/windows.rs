@@ -1,5 +1,6 @@
 use super::*;
 use crate::inventory::InventorySlotRef;
+use crate::manifest::SlotRefEntry;
 
 #[test]
 fn indexed_switch_art_uses_valid_resource_paths() {
@@ -176,7 +177,7 @@ fn overlapping_buttons_error() {
 
     let err = compile_windows(&[w], &textures, "window").unwrap_err();
     match err {
-        Error::Validation(msg) => assert!(msg.contains("both own container slot 0"), "{msg}"),
+        Error::Validation(msg) => assert!(msg.contains("both route container slot 0"), "{msg}"),
         other => panic!("expected Validation, got {other:?}"),
     }
 }
@@ -376,6 +377,37 @@ fn regions_in_exclusive_cases_share_slots_and_real_overlaps_are_rejected() {
     let info =
         format!(r#"{{"type":"flex","x":7,"y":17,"style":{{"width":18,"height":18}},"children":[{}]}}"#, region("info"));
     let err = compile_children(&format!("[{switch},{info}]")).unwrap_err();
+    assert!(err.to_string().contains("both route container slot 0"), "{err}");
+}
+
+#[test]
+fn regions_route_clicks_on_item_slots_and_fill_only_unowned_slots() {
+    let item = |id: &str, index: u32| {
+        format!(
+            r#"{{"type":"item","handle":{{"kind":"items","id":"{id}"}},"slots":[{{"area":"container","index":{index}}}]}}"#
+        )
+    };
+    let region = |id: &str, width: u32| {
+        format!(
+            r#"{{"type":"flex","x":7,"y":17,"style":{{"width":{width},"height":18}},"children":[
+                {{"type":"region","on_click":{{"kind":"action","id":"{id}"}}}}]}}"#
+        )
+    };
+    let out = compile_children(&format!("[{},{},{}]", item("icon", 0), item("price", 1), region("cell", 54))).unwrap();
+    crate::validation::validate_compile_output(&out).assert_valid();
+    let shop = &out.manifest.windows["shop"];
+    let refs = |indices: &[u32]| -> Vec<SlotRefEntry> {
+        indices.iter().map(|index| InventorySlotRef::container(*index).into()).collect()
+    };
+    assert_eq!(shop.regions["cell"].slots, refs(&[0, 1, 2]));
+    assert_eq!(shop.regions["cell"].fill_slots, Some(refs(&[2])));
+    assert_eq!(shop.items["icon"].slots, refs(&[0]));
+
+    let out = compile_children(&format!("[{},{}]", item("icon", 0), region("cell", 18))).unwrap();
+    crate::validation::validate_compile_output(&out).assert_valid();
+    assert_eq!(out.manifest.windows["shop"].regions["cell"].fill_slots, Some(Vec::new()));
+
+    let err = compile_children(&format!("[{},{}]", item("icon", 0), item("other", 0))).unwrap_err();
     assert!(err.to_string().contains("both own container slot 0"), "{err}");
 }
 

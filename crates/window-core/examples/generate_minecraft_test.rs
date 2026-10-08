@@ -104,21 +104,40 @@ const PROJECT: &str = r##"{
           }
         },
         {
-          "type": "collection",
+          "type": "item",
           "handle": {
-            "kind": "collection",
-            "id": "probe_card_icon"
+            "kind": "items",
+            "id": "probe_card_icon",
+            "shape": [
+              2
+            ],
+            "at": [
+              0
+            ]
           },
           "slots": [
             {
               "area": "container",
-              "first": 5,
-              "last": 5
-            },
+              "index": 5
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "handle": {
+            "kind": "items",
+            "id": "probe_card_icon",
+            "shape": [
+              2
+            ],
+            "at": [
+              1
+            ]
+          },
+          "slots": [
             {
               "area": "container",
-              "first": 7,
-              "last": 7
+              "index": 7
             }
           ]
         },
@@ -174,28 +193,14 @@ const PROJECT: &str = r##"{
                 ]
               },
               "layout": {
-                "column": 7,
-                "row": 1
-              }
-            },
-            {
-              "type": "region",
-              "on_click": {
-                "kind": "action",
-                "id": "probe_card",
-                "shape": [
-                  2
-                ],
-                "at": [
-                  0
-                ]
-              },
-              "layout": {
                 "column": {
                   "start": 6,
                   "span": 2
                 },
-                "row": 2
+                "row": {
+                  "start": 1,
+                  "span": 2
+                }
               }
             },
             {
@@ -233,28 +238,14 @@ const PROJECT: &str = r##"{
                 ]
               },
               "layout": {
-                "column": 9,
-                "row": 1
-              }
-            },
-            {
-              "type": "region",
-              "on_click": {
-                "kind": "action",
-                "id": "probe_card",
-                "shape": [
-                  2
-                ],
-                "at": [
-                  1
-                ]
-              },
-              "layout": {
                 "column": {
                   "start": 8,
                   "span": 2
                 },
-                "row": 2
+                "row": {
+                  "start": 1,
+                  "span": 2
+                }
               }
             }
           ]

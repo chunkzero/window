@@ -27,15 +27,12 @@ internal class ProbeView(
         slot("probe_text") { Component.text(text) }
         sprite("probe_sprite") { "probe_marker" }
         collectionItem("probe_collection") { null }
-        // Each card shows a real ItemStack in one of its slots; clicks on that slot reach the card through the
-        // icon collection, and clicks on the card's other slots through its two regions.
+        // Each card shows a real ItemStack in one of its slots; the card's region still routes every click in
+        // the card, including the item's slot.
         val icons = listOf(Material.DIAMOND, Material.EMERALD)
-        collection("probe_card_icon", { index -> ItemStack.of(icons[index]) }) { click ->
-            receiveCard(click.index, Click(click.slot, click.shift, click.right))
-        }
         for (cell in icons.indices) {
+            item("probe_card_icon[$cell]") { ItemStack.of(icons[cell]) }
             button("probe_card[$cell]") { click -> receiveCard(cell, click) }
-            button("probe_card[$cell]~2") { click -> receiveCard(cell, click) }
         }
         button("probe_container_button") { click -> receive("container", click) }
         button("probe_hotbar_button") { click -> receive("hotbar", click) }
