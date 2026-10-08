@@ -112,6 +112,7 @@ internal class Reactivity(
                 } finally {
                     capture = previous
                 }
+                for (id in reads) memoSources[id]?.remove(this)
                 reads = captured
                 stale = false
                 for (id in captured) memoSources.getOrPut(id) { HashSet() }.add(this)

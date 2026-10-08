@@ -60,6 +60,23 @@ class WindowListTest :
             list.canPrevious() shouldBe false
         }
 
+        "a partial final step is the last page, and pages increase with every step" {
+            val list = Lists().of(cells = 6, step = 3)
+            val pages = mutableListOf<Int>()
+            while (true) {
+                pages += list.page
+                if (!list.canNext()) break
+                list.next()
+            }
+
+            pages shouldBe listOf(1, 2, 3, 4)
+            list.pageCount shouldBe 4
+        }
+
+        "a step larger than the cells is rejected" {
+            shouldThrow<IllegalArgumentException> { Lists().of(cells = 3, step = 4) }
+        }
+
         "selection follows its key across paging and re-sorting, and select(item) pages to it" {
             val lists = Lists()
             val list = lists.of(cells = 6)

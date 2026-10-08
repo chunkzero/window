@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { Fragment, createElement, jsx } from "../.rpp/sdk/jsx.ts";
-import { action, flag, selection, text, toggle, value } from "../src/authoring/index.ts";
-import { Box, Button, Case, Collection, Repeater, Show, Switch, Tab, Tabs, Text } from "../src/authoring/jsx.ts";
+import { action, flag, selection, sprite, text, toggle, value } from "../src/authoring/index.ts";
+import { Box, Button, Case, Collection, Icon, Repeater, Show, Switch, Tab, Tabs, Text } from "../src/authoring/jsx.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
     const child = Box({ children: Text({ children: "Hello" }) });
@@ -184,4 +184,8 @@ test("a repeater rendered per cell reads indexed handles", () => {
     const cells = repeater["cells"] as Record<string, unknown>[][];
     assert.equal(cells.length, 2);
     assert.throws(() => names.at(2), /outside its shape/);
+});
+
+test("an icon with a handle bind rejects a fixed sprite", () => {
+    assert.throws(() => Icon({ bind: sprite("icon"), sprite: "icon_clear", size: 8 }), /fixed `sprite`/);
 });

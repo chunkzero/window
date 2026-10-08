@@ -139,7 +139,7 @@ export interface IconProps extends ItemProps {
     index?: BindingIndex;
     /** Slot size in pixels; a number is square. */
     size: number | [number, number];
-    /** Fixed theme sprite; the slot then needs no Kotlin binding. */
+    /** Fixed theme sprite; the slot then needs no Kotlin binding, so it cannot be combined with a handle `bind`. */
     sprite?: string;
     align?: TextAlign;
     x?: number;
@@ -699,6 +699,9 @@ export function Sprite(props: SpriteProps): Element {
 /** A runtime sprite slot, drawn above button and selection backgrounds. */
 export function Icon(props: IconProps): Element {
     const [width, height] = typeof props.size === "number" ? [props.size, props.size] : props.size;
+    if (isRef(props.bind) && props.sprite !== undefined) {
+        throw new Error("<Icon> sets a fixed `sprite` with a handle `bind`, which needs no binding");
+    }
     return clean({
         type: "sprite_slot",
         ...binding(props.bind, "Icon bind"),

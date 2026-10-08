@@ -112,6 +112,11 @@ impl Collector<'_> {
         if dto.name.is_some() {
             return Err(self.err(format!("{} element sets both `name` and a handle", dto.kind)));
         }
+        if role == HandleRole::SpriteSlot && dto.sprite.is_some() {
+            return Err(
+                self.err(format!("sprite slot bound to `{}` sets a fixed `sprite`, which needs no binding", handle.id))
+            );
+        }
         let kind = self.declare(handle, role, scope)?;
         if role == HandleRole::Collection && dto.selected_sprite.is_some() && !handle.selectable {
             return Err(self

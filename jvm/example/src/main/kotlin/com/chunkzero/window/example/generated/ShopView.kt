@@ -122,22 +122,22 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
         slot("balance") { balance() }
         enabledButton("buy", { canBuy() }, handler = ::onBuy)
         slot("buy_label") { buyLabel() }
-        choice("category=all", Category.ALL, { category }) { value, _ ->
-            if (category != value) {
-                category = value
-                onCategoryChanged(value)
+        choice("category=all", Category.ALL, { category }) { _value, _ ->
+            if (category != _value) {
+                category = _value
+                onCategoryChanged(_value)
             }
         }
-        choice("category=gear", Category.GEAR, { category }) { value, _ ->
-            if (category != value) {
-                category = value
-                onCategoryChanged(value)
+        choice("category=gear", Category.GEAR, { category }) { _value, _ ->
+            if (category != _value) {
+                category = _value
+                onCategoryChanged(_value)
             }
         }
-        choice("category=magic", Category.MAGIC, { category }) { value, _ ->
-            if (category != value) {
-                category = value
-                onCategoryChanged(value)
+        choice("category=magic", Category.MAGIC, { category }) { _value, _ ->
+            if (category != _value) {
+                category = _value
+                onCategoryChanged(_value)
             }
         }
         for (index in 0 until CATEGORY_LABEL_SIZE) {
@@ -159,22 +159,22 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
         collection("products", products)
         button("search", ::onSearch)
         slot("selected_name") { selectedName() }
-        choice("sort=featured", Sort.FEATURED, { sort }) { value, _ ->
-            if (sort != value) {
-                sort = value
-                onSortChanged(value)
+        choice("sort=featured", Sort.FEATURED, { sort }) { _value, _ ->
+            if (sort != _value) {
+                sort = _value
+                onSortChanged(_value)
             }
         }
-        choice("sort=price", Sort.PRICE, { sort }) { value, _ ->
-            if (sort != value) {
-                sort = value
-                onSortChanged(value)
+        choice("sort=price", Sort.PRICE, { sort }) { _value, _ ->
+            if (sort != _value) {
+                sort = _value
+                onSortChanged(_value)
             }
         }
-        choice("sort=name", Sort.NAME, { sort }) { value, _ ->
-            if (sort != value) {
-                sort = value
-                onSortChanged(value)
+        choice("sort=name", Sort.NAME, { sort }) { _value, _ ->
+            if (sort != _value) {
+                sort = _value
+                onSortChanged(_value)
             }
         }
         for (index in 0 until SORT_LABEL_SIZE) {

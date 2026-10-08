@@ -30,6 +30,9 @@ export interface Ref<K extends HandleKind = HandleKind, V extends string = strin
     readonly at?: readonly number[];
     /** Type-only: an indexed handle is read through `.at()`. */
     readonly indexed?: false;
+    /** Type-only: a plain read is neither a comparison nor a setter. */
+    readonly comparison?: false;
+    readonly assigns?: false;
 }
 
 /** An indexed handle; select an entry with `.at()`. */
@@ -40,9 +43,9 @@ export type Indexed<R extends Ref, S extends Shape> = Omit<R, "indexed" | "is" |
 };
 
 /** A value or selection compared with one of its values: `mode.is("buy")`. */
-export type Is = Ref<"value" | "selection"> & { readonly is: string };
+export type Is = Omit<Ref<"value" | "selection">, "comparison"> & { readonly is: string; readonly comparison: true };
 /** A selection click that assigns one of its values: `category.set("gear")`. */
-export type Set = Ref<"selection"> & { readonly set: string };
+export type Set = Omit<Ref<"selection">, "assigns"> & { readonly set: string; readonly assigns: true };
 
 /** A Boolean a `<Show when>` or `<Button enabled>` reads. */
 export type Condition = Ref<"flag" | "toggle"> | Is;

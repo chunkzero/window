@@ -110,7 +110,7 @@ fn every_handle_kind_declares_its_member_and_binds_each_use() {
             "switch(\"category?gear\") { (category == Category.GEAR).toString() }",
             "enabledButton(\"buy\", { canBuy() }, handler = ::onBuy)",
             "toggle(\"favorites\", { favorites }) {",
-            "choice(\"category=all\", Category.ALL, { category }) { value, _ ->",
+            "choice(\"category=all\", Category.ALL, { category }) { _value, _ ->",
             "button(\"category=gear\") {",
             "buttonState(\"trade\") { mode().value }",
             "button(\"trade\", ::onTrade)",
@@ -249,4 +249,36 @@ fn string_binds_keep_their_inferred_members_beside_handles() {
             "button(\"exit\", ::onExit)",
         ],
     );
+}
+
+#[test]
+fn selection_choices_do_not_shadow_state_named_value() {
+    let value = json!({ "kind": "selection", "id": "value", "values": ["a", "b"] });
+    let tabs = window(
+        "tabs",
+        "generic_9x1",
+        json!([{ "type": "button", "on_click": { "kind": "selection", "id": "value", "values": ["a", "b"], "set": "a" },
+                 "states": { "selected": {}, "unselected": {} }, "pattern": slots(0, 1) },
+               { "type": "switch", "handle": value, "x": 8, "y": 6, "children": [
+                 { "type": "case", "value": "a", "children": [] }, { "type": "case", "value": "b", "children": [] }] }]),
+    );
+    let files = compile(&project(json!([tabs]))).unwrap();
+    assert_lines(&files["TabsView.kt"], &["if (value != _value) {", "    value = _value"]);
+}
+
+#[test]
+fn fixed_sprites_cannot_be_bound_to_handles() {
+    let icon = json!({ "type": "sprite_slot", "handle": { "kind": "sprite", "id": "icon" },
+                       "sprite": "icon_clear", "x": 0, "y": 0, "width": 8, "height": 8 });
+    let message = error(&project(json!([window("a", "generic_9x1", json!([icon]))])));
+    assert!(message.contains("sets a fixed `sprite`"), "{message}");
+}
+
+#[test]
+fn nested_enums_cannot_shadow_runtime_types() {
+    let mode = json!({ "kind": "value", "id": "window_collection", "values": ["a"] });
+    let flag = json!({ "type": "switch", "handle": mode, "x": 8, "y": 6, "children": [
+        { "type": "case", "value": "a", "children": [] }] });
+    let message = error(&project(json!([window("a", "generic_9x1", json!([flag]))])));
+    assert!(message.contains("reserved WindowView member `WindowCollection`"), "{message}");
 }

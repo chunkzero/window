@@ -11,7 +11,8 @@ import com.chunkzero.window.internal.Reactivity
  * while rendering re-renders when they change. The offset is clamped to the current list when read,
  * and the selection is kept by key across paging and reordering.
  *
- * Cell arguments must be in `0 until cells`, or an [IllegalArgumentException] is thrown.
+ * Cell arguments must be in `0 until cells`, or an [IllegalArgumentException] is thrown. The step
+ * must be in `1..cells` so every offset it reaches shows the items it moves past.
  *
  * @param T the item type.
  * @param K the key identifying an item across list changes.
@@ -20,7 +21,7 @@ public class WindowList<T, K> internal constructor(
     /** The number of visible cells. */
     public val cells: Int,
     private val key: (T) -> K,
-    /** How far [previous] and [next] move: [cells] to page, or a row width to scroll. */
+    /** How far [previous] and [next] move: [cells] to page, or a row width of at most [cells] to scroll. */
     public val step: Int,
     private val mode: Select,
     source: () -> List<T>,
@@ -57,7 +58,7 @@ public class WindowList<T, K> internal constructor(
 
     init {
         require(cells > 0) { "cells must be positive" }
-        require(step > 0) { "step must be positive" }
+        require(step in 1..cells) { "step must be in 1..$cells" }
     }
 
     /** The number of items in the list. */
@@ -71,13 +72,13 @@ public class WindowList<T, K> internal constructor(
             return offset until minOf(offset + cells, size)
         }
 
-    /** The 1-based page of the current offset. */
+    /** The 1-based page of the current offset; a partial final step counts as a page. */
     public val page: Int
-        get() = offset() / step + 1
+        get() = pages(offset())
 
     /** The number of pages, at least 1. */
     public val pageCount: Int
-        get() = lastOffset(size) / step + 1
+        get() = pages(lastOffset(size))
 
     /** The selected item, or `null` for none. */
     public val selected: T?
@@ -173,6 +174,8 @@ public class WindowList<T, K> internal constructor(
 
             override fun selected(): Int? = selectedCell
         }
+
+    private fun pages(offset: Int): Int = (offset + step - 1) / step + 1
 
     private fun offset(): Int = clamp(rawOffset)
 

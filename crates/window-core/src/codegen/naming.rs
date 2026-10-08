@@ -133,6 +133,7 @@ const RESERVED_TYPES: &[&str] = &[
     "Player",
     "String",
     "Unit",
+    "WindowCollection",
     "WindowDefinitions",
     "WindowHost",
     "WindowHudDefinitions",

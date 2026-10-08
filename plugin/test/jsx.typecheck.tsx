@@ -119,3 +119,15 @@ const handleSmallCaps = text.smallCaps("Shop");
 // @ts-expect-error `toggle` declares a handle; `raw.toggle` builds the button.
 const toggleButton = toggle("lamp", { width: 16, height: 16, states: { on: {}, off: {} } });
 void [rawLabel, handleSmallCaps, toggleButton];
+
+// @ts-expect-error A comparison is a condition, not the value a switch reads.
+const comparedSwitch = <Switch on={mode.is("buy")}>{{ buy: null, sell: null }}</Switch>;
+// @ts-expect-error A setter is a click, not the value a button shows.
+const setterState = (
+    <Button onClick={action("trade")} state={category.set("all")} states={{ all: {}, gear: {}, magic: {} }} />
+);
+// @ts-expect-error A setter is not a condition.
+const setterCondition = <Show when={category.set("all")} />;
+// @ts-expect-error A comparison is not a click.
+const comparedClick = <Button onClick={category.is("all")} />;
+void [comparedSwitch, setterState, setterCondition, comparedClick];

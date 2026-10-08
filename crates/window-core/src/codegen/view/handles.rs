@@ -345,12 +345,12 @@ fn bind_button(
             let value = handle.constant(click.value.as_deref().unwrap_or_default());
             let (var, hook) = (&handle.member, handle.hook.as_deref().unwrap_or_default());
             let body = [
-                format!("if ({var} != value) {{"),
-                format!("    {var} = value"),
-                format!("    {hook}(value)"),
+                format!("if ({var} != _value) {{"),
+                format!("    {var} = _value"),
+                format!("    {hook}(_value)"),
                 "}".to_string(),
             ];
-            Handler::Body("value, _ -> ", body.to_vec()).call(
+            Handler::Body("_value, _ -> ", body.to_vec()).call(
                 w,
                 &format!("choice({entry}, {value}, {{ {var} }}"),
                 false,
