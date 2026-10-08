@@ -1,7 +1,6 @@
 export type * from "./types.ts";
 export * as raw from "./raw.ts";
 export * as industrial from "./industrial/index.ts";
-export { theme } from "./elements.ts";
 export { shape, texture } from "./art.ts";
 export type { ShapeStyle, TextureOptions } from "./art.ts";
 export { createTheme, defineVars, derive, mix } from "./tokens.ts";
@@ -56,76 +55,28 @@ export type {
 } from "./handles.ts";
 export { defineWindows } from "./windows.ts";
 export type { WindowsDefinition } from "./windows.ts";
-export { presets } from "./presets.ts";
-export {
-    AnvilInput,
-    Box,
-    Button,
-    Case,
-    Center,
-    Choice,
-    Collection,
-    Column,
-    Container,
-    Grid,
-    Header,
-    Hotbar,
-    Hotspot,
-    Hud,
-    Icon,
-    Image,
-    Input,
-    Item,
-    Items,
-    Player,
-    Region,
-    Repeater,
-    Row,
-    Section,
-    Show,
-    Slots,
-    Spacer,
-    Sprite,
-    Switch,
-    Tab,
-    Tabs,
-    Text,
-    Toggle,
-    Window,
-} from "./jsx.ts";
+export { Box, Case, Collection, Hud, Image, Input, Items, Region, Section, Switch, Text, Window } from "./jsx.ts";
 export type {
     BoxProps,
-    ButtonProps,
     CaseProps,
     Child,
-    ChoiceProps,
     CollectionProps,
     DebugProps,
-    HotspotProps,
     HudAnchor,
     HudProps,
-    IconProps,
     ImageArtProps,
     ImageBindProps,
     ImageProps,
+    InputProps,
     ItemProps,
-    ItemSlotProps,
+    ItemsProps,
     RegionProps,
-    RepeaterProps,
     SectionOfProps,
     SectionProps,
-    ShowProps,
-    SlotsProps,
-    SpriteProps,
-    StateProps,
     SwitchFlagProps,
     SwitchOnProps,
     SwitchProps,
-    TabProps,
-    TabsBindProps,
-    TabsProps,
     TextElementProps,
     TextProps,
-    ToggleProps,
     WindowProps,
 } from "./jsx.ts";

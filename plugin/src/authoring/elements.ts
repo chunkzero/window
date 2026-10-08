@@ -1,55 +1,37 @@
 import { isRef, refJson } from "./handles.ts";
 import { applyStyle } from "./styles.ts";
 import { resolveTokens } from "./tokens.ts";
-import type { ClickAction, Collection, Condition, HandleKind, Input, Items, Ref, Sprite, Text } from "./handles.ts";
+import type { ClickAction, Collection, Condition, Input, Items, Ref, Sprite, Text } from "./handles.ts";
 import type {
     AnvilInputElement,
     AnvilInputOptions,
-    ButtonElement,
-    ButtonOptions,
-    CaseElement,
+    ArtRef,
     BoxOptions,
+    CaseElement,
     CaseOptions,
-    ChoiceOptions,
     CollectionElement,
     CollectionOptions,
-    ColumnElement,
-    ColumnOptions,
     FlexElement,
-    FlexOptions,
     FlexStyle,
-    HotspotElement,
-    HotspotOptions,
+    HandleJson,
     Hud,
     ItemElement,
     ItemOptions,
     LabelElement,
     LabelOptions,
-    PanelElement,
-    PanelOptions,
     RegionElement,
     RegionOptions,
-    ArtRef,
-    RepeaterElement,
-    RepeaterOptions,
-    RowElement,
-    RowOptions,
     SectionElement,
     SectionOptions,
-    ShowOptions,
-    SlotSection,
     SlotElement,
     SlotOptions,
-    SlotRectsElement,
-    SlotRectsOptions,
+    SlotSection,
     SpriteElement,
     SpriteOptions,
     SpriteSlotElement,
     SpriteSlotOptions,
     SwitchElement,
     SwitchOptions,
-    Theme,
-    ToggleOptions,
     Window,
 } from "./types.ts";
 
@@ -73,10 +55,10 @@ const TEXT_KEYS = [
     "debug_name",
     "style",
 ] as const;
-const LAYOUT_KEYS = ["x", "y", "gap", "padding", "align", "children", "layout"] as const;
 const FLEX_KEYS = ["x", "y", "frame", "style", "theme", "children", "layout", "debug_name"] as const;
 const SECTIONS: readonly SlotSection[] = ["container", "player", "hotbar"];
 const PLACEMENT_KEYS = ["slots", "pattern", "transform"] as const;
+const FIT_KEYS = ["overflow", "lines", "line_height"] as const;
 
 function requireObject<T extends object>(value: T | undefined, label: string): T {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -89,6 +71,15 @@ function requireName(value: unknown, label: string): void {
     if (typeof value !== "string" || value === "") {
         throw new Error(`${label} must be a non-empty string`);
     }
+}
+
+/** The `handle` field of an element reading `ref`, which must be a handle of one of `kinds`. */
+function bound(ref: unknown, kinds: readonly string[], label: string): { handle: HandleJson } {
+    if (!isRef(ref) || !kinds.includes(ref.kind)) {
+        const expected = kinds.map((kind) => `\`${kind}\``).join(" or ");
+        throw new Error(`${label} must be a ${expected} handle`);
+    }
+    return { handle: refJson(ref) as HandleJson };
 }
 
 function copyKnown(
@@ -144,10 +135,6 @@ export function root<T extends Window | Hud>(def: T, label: string): T {
     return resolveTokens(applyStyle({ ...def }, "section", label)) as T;
 }
 
-export function theme(def: Theme = {}): { theme: Theme } {
-    return { theme: requireObject(def, "theme definition") };
-}
-
 export function ui(def: Window): { windows: Window[] } {
     requireObject(def, "ui definition");
     if (def.name === undefined) {
@@ -170,32 +157,10 @@ export function hud(def: Hud): { huds: Hud[] } {
     return { huds: [root(def, "hud")] };
 }
 
-export function panel(opts: PanelOptions): PanelElement {
-    return element(
-        "panel",
-        opts,
-        ["frame", "width", "height", "x", "y", "padding", "children", "layout"],
-        ["frame", "width", "height"],
-    ) as unknown as PanelElement;
-}
-
-/** A CSS flexbox; `style` sets the container properties and children place themselves with `layout`. */
-export function flex(opts?: FlexOptions): FlexElement {
-    const out = element("flex", opts, FLEX_KEYS);
-    return { ...out, children: out.children ?? [] } as unknown as FlexElement;
-}
-
 /** A flexbox or grid whose `style` is built from the same styles as `<Box>`. */
 export function box(opts?: BoxOptions): FlexElement {
     const out = element("box", opts, FLEX_KEYS);
     return { ...out, type: "flex", children: out.children ?? [] } as unknown as FlexElement;
-}
-
-/** A CSS grid: `flex` with `style.display` set to `"grid"`. */
-export function grid(opts?: FlexOptions): FlexElement {
-    const out = element("grid", opts, FLEX_KEYS);
-    const style = { ...(out.style as FlexStyle | undefined), display: "grid" };
-    return { ...out, type: "flex", style, children: out.children ?? [] } as FlexElement;
 }
 
 /**
@@ -213,46 +178,7 @@ export function section(kind: SlotSection, opts?: SectionOptions): SectionElemen
     return { ...out, section: kind, children: out.children ?? [] } as unknown as SectionElement;
 }
 
-export function row(opts?: RowOptions): RowElement {
-    return element("row", opts, LAYOUT_KEYS) as unknown as RowElement;
-}
-
-export function column(opts?: ColumnOptions): ColumnElement {
-    return element("column", opts, LAYOUT_KEYS) as unknown as ColumnElement;
-}
-
-/** The `name` of a string binding, or the `handle` of a handle reference. */
-function bound(value: string | { readonly kind: HandleKind; readonly id: string }, label: string): Fields {
-    if (typeof value !== "string") {
-        return { handle: refJson(value) };
-    }
-    requireName(value, label);
-    return { name: value };
-}
-
-/** A static theme sprite, drawn at its own size. */
-export function sprite(name: string, opts?: SpriteOptions): SpriteElement {
-    requireName(name, "sprite name");
-    return {
-        ...element("sprite", opts, ["x", "y", "layout", "style", "debug_name"]),
-        name,
-    } as unknown as SpriteElement;
-}
-
-/** A runtime sprite slot, bound by name or by a `sprite` handle. */
-export function spriteSlot(name: string | Sprite, opts: SpriteSlotOptions): SpriteSlotElement {
-    return {
-        ...element(
-            "sprite_slot",
-            opts,
-            ["x", "y", "width", "height", "align", "sprite", "layout", "style", "index", "debug_name"],
-            ["width", "height"],
-        ),
-        ...bound(name, "spriteSlot name"),
-    } as unknown as SpriteSlotElement;
-}
-
-/** Inline art or a theme sprite drawn at its own size, or with a `sprite` handle a runtime sprite slot. */
+/** Inline art drawn at its own size, or with a `sprite` handle a runtime sprite slot. */
 export function image(art: ArtRef, opts?: SpriteOptions): SpriteElement;
 export function image(bind: Sprite, opts: SpriteSlotOptions): SpriteSlotElement;
 export function image(
@@ -260,10 +186,15 @@ export function image(
     opts?: SpriteOptions | SpriteSlotOptions,
 ): SpriteElement | SpriteSlotElement {
     if (isRef(source)) {
-        return spriteSlot(source, opts as SpriteSlotOptions);
-    }
-    if (typeof source === "string") {
-        return sprite(source, opts);
+        return {
+            ...element(
+                "sprite_slot",
+                opts,
+                ["x", "y", "width", "height", "align", "layout", "style", "debug_name"],
+                ["width", "height"],
+            ),
+            ...bound(source, ["sprite"], "image source"),
+        } as unknown as SpriteSlotElement;
     }
     const out = element("sprite", opts, ["x", "y", "layout", "style", "debug_name"]);
     return { ...out, art: requireObject(source, "image art") } as unknown as SpriteElement;
@@ -285,7 +216,11 @@ export function region(opts: RegionOptions = {}): RegionElement {
         throw new Error("region sets `width` and `height` together, or neither to fill its box");
     }
     if (out.on_click !== undefined) {
-        out.on_click = refJson(out.on_click as ClickAction);
+        out.on_click = bound(
+            out.on_click as ClickAction,
+            ["action", "builtin", "toggle", "selection"],
+            "region onClick",
+        ).handle;
     }
     return out as unknown as RegionElement;
 }
@@ -295,89 +230,14 @@ export function text(content: string | Text, opts?: SlotOptions): LabelElement |
     return isRef(content) ? slot(content, opts) : label(content, opts);
 }
 
-export function button(name: string, opts?: ButtonOptions): ButtonElement {
-    requireName(name, "button name");
-    const out = element("button", opts, [
-        "frame",
-        "width",
-        "height",
-        "x",
-        "y",
-        ...PLACEMENT_KEYS,
-        "default",
-        "tooltip",
-        "states",
-        "padding",
-        "children",
-        "layout",
-    ]);
-    return { ...out, name } as unknown as ButtonElement;
+/** Real item stacks in the slots it covers, rendered by an `items` handle. */
+export function items(bind: Items, opts: ItemOptions = {}): ItemElement {
+    const out = element("item", opts, [...PLACEMENT_KEYS, "layout", "style", "debug_name"]);
+    return { ...out, ...bound(bind, ["items"], "items source") } as unknown as ItemElement;
 }
 
-function statefulButton(
-    kind: string,
-    name: string,
-    opts: ButtonOptions | undefined,
-    firstState: string,
-    secondState: string,
-): ButtonElement {
-    const states = requireObject(opts ?? {}, `${kind} options`).states;
-    if (
-        typeof states !== "object" ||
-        states === null ||
-        states[firstState] === undefined ||
-        states[secondState] === undefined
-    ) {
-        throw new Error(`${kind} requires \`states.${firstState}\` and \`states.${secondState}\``);
-    }
-    return { ...button(name, opts), source: kind };
-}
-
-/** Create a two-state button for WindowScope.toggle. */
-export function toggle(name: string, opts: ToggleOptions): ButtonElement {
-    return statefulButton("toggle", name, opts, "on", "off");
-}
-
-/** Create one button in a mutually exclusive WindowScope.choice group. */
-export function choice(name: string, opts: ChoiceOptions): ButtonElement {
-    return statefulButton("choice", name, opts, "selected", "unselected");
-}
-
-export function hotspot(name: string, opts: HotspotOptions): HotspotElement {
-    requireName(name, "hotspot name");
-    const out = element("hotspot", opts, [
-        "width",
-        "height",
-        "x",
-        "y",
-        ...PLACEMENT_KEYS,
-        "tooltip",
-        "states",
-        "layout",
-    ]);
-    if (out.tooltip === undefined && out.states === undefined) {
-        throw new Error("hotspot requires option `tooltip` or `states`");
-    }
-    return { ...out, name } as unknown as HotspotElement;
-}
-
-export function item(name: string | Items, opts: ItemOptions = {}): ItemElement {
-    const out = element("item", opts, [...PLACEMENT_KEYS, "cell_slot", "layout", "style", "debug_name"]);
-    if (out.cell_slot !== undefined) {
-        if (out.slots !== undefined || out.pattern !== undefined || out.transform !== undefined) {
-            throw new Error("item `cell_slot` cannot be combined with `slots`, `pattern`, or `transform`");
-        }
-        if (!Number.isInteger(out.cell_slot) || (out.cell_slot as number) < 1) {
-            throw new Error("item `cell_slot` must be a positive integer");
-        }
-    }
-    return { ...out, ...bound(name, "item name") } as unknown as ItemElement;
-}
-
-/** Real item stacks in the slots it covers, rendered by an `items` handle or a string binding. */
-export const items: typeof item = item;
-
-export function collection(name: string | Collection, opts: CollectionOptions = {}): CollectionElement {
+/** Item stacks a `collection` handle supplies, one per cell. */
+export function collection(bind: Collection, opts: CollectionOptions = {}): CollectionElement {
     const out = element("collection", opts, [
         "frame",
         "selected_sprite",
@@ -387,44 +247,22 @@ export function collection(name: string | Collection, opts: CollectionOptions = 
         "style",
         "debug_name",
     ]);
-    return { ...out, ...bound(name, "collection name") } as unknown as CollectionElement;
+    return { ...out, ...bound(bind, ["collection"], "collection source") } as unknown as CollectionElement;
 }
 
 /**
- * Binds the vanilla anvil rename field in an `anvil` window. The window's title must stay static: no text slots,
- * unbound sprite slots, button state sprites, or collection selected sprites, unless `experimentalAnvilUpdates` is set.
+ * The vanilla anvil rename field of an `anvil` window, bound by an `input` handle. The window's title must stay
+ * static: no text slots, runtime sprite slots, or collection selected sprites, unless `experimentalAnvilUpdates` is
+ * set.
  */
-export function anvilInput(name: string | Input, opts?: AnvilInputOptions): AnvilInputElement {
+export function input(bind: Input, opts?: AnvilInputOptions): AnvilInputElement {
     return {
         ...element("anvil_input", opts, ["initial", "item_model", "debug_name"]),
-        ...bound(name, "anvilInput name"),
+        ...bound(bind, ["input"], "input source"),
     } as unknown as AnvilInputElement;
 }
 
-/** The anvil's native rename field, bound by an `input` handle or a string binding. */
-export const input: typeof anvilInput = anvilInput;
-
-export function slotRects(name: string, opts: SlotRectsOptions): SlotRectsElement {
-    requireName(name, "slotRects name");
-    const out = element("slot_rects", opts, ["frame", "pattern", "transform", "claim", "layout"]);
-    if (out.pattern === undefined && out.transform === undefined) {
-        throw new Error("slotRects requires `pattern` or `transform`");
-    }
-    return { ...out, name } as unknown as SlotRectsElement;
-}
-
-export function repeater(name: string, opts: RepeaterOptions): RepeaterElement {
-    requireName(name, "repeater name");
-    const out = element("repeater", opts, ["frame", "pattern", "transform", "padding", "children", "layout"]);
-    if (out.pattern === undefined && out.transform === undefined) {
-        throw new Error("repeater requires `pattern` or `transform`");
-    }
-    return { ...out, name } as unknown as RepeaterElement;
-}
-
-const FIT_KEYS = ["overflow", "lines", "line_height"] as const;
-
-export function label(text: string, opts?: LabelOptions): LabelElement {
+function label(text: string, opts?: LabelOptions): LabelElement {
     requireName(text, "label text");
     const fit = FIT_KEYS.find((key) => (opts as Fields | undefined)?.[key] !== undefined);
     if (fit !== undefined) {
@@ -433,10 +271,10 @@ export function label(text: string, opts?: LabelOptions): LabelElement {
     return { ...element("label", opts, TEXT_KEYS), text } as unknown as LabelElement;
 }
 
-export function slot(name: string | Text, opts?: SlotOptions): SlotElement {
+function slot(bind: Text, opts?: SlotOptions): SlotElement {
     return {
-        ...element("slot", opts, [...TEXT_KEYS, ...FIT_KEYS, "index"]),
-        ...bound(name, "slot name"),
+        ...element("slot", opts, [...TEXT_KEYS, ...FIT_KEYS]),
+        ...bound(bind, ["text"], "text source"),
     } as unknown as SlotElement;
 }
 
@@ -454,13 +292,13 @@ export function switchCase(value: string, opts: CaseOptions = {}): CaseElement {
 }
 
 /**
- * Stack `cases` in one box sized to the largest case; the runtime draws only the case its binding selects. `on` is a
- * binding name, a value or selection handle, or a condition with `true` and `false` cases. `cases` maps each value to
- * its case, or lists `switchCase` elements. Cases may hold regions, items, and collections, which claim their slots
- * only while their case is drawn.
+ * Stack `cases` in one box sized to the largest case; the runtime draws only the case `on` selects. `on` is a value or
+ * selection handle, or a condition with `true` and `false` cases. `cases` maps each value to its case, or lists
+ * `switchCase` elements. Cases may hold regions, items, and collections, which claim their slots only while their
+ * case is drawn.
  */
 export function switchOn(
-    on: string | Ref<"value" | "selection"> | Condition,
+    on: Ref<"value" | "selection"> | Condition,
     cases: Record<string, CaseOptions> | readonly CaseElement[],
     opts?: SwitchOptions,
 ): SwitchElement {
@@ -473,13 +311,7 @@ export function switchOn(
         throw new Error("switchOn requires at least one case");
     }
     return {
-        ...element("switch", { ...opts, children }, ["x", "y", "layout", "style", "index", "children", "debug_name"]),
-        ...bound(on, "switchOn name"),
+        ...element("switch", { ...opts, children }, ["x", "y", "layout", "style", "children", "debug_name"]),
+        ...bound(on, ["value", "selection", "flag", "toggle"], "switchOn source"),
     } as unknown as SwitchElement;
-}
-
-/** Draw `opts.children` only while the Boolean binding `when` is true; their space is always reserved. */
-export function show(when: string, opts: ShowOptions): SwitchElement {
-    const { x, y, layout, index, ...box } = requireObject(opts, "show options");
-    return switchOn(when, { true: box, false: {} }, { x, y, layout, index } as SwitchOptions);
 }

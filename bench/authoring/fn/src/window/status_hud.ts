@@ -30,12 +30,12 @@ function pinned(
         ...(opts.frame === undefined ? {} : { frame: opts.frame }),
         shader: { origin: { x, y }, anchor: { x, y }, x: offset[0], y: offset[1] },
         children: [
-            raw.flex({
+            raw.box({
                 style: {
                     direction: "column",
                     ...(opts.gap === undefined ? {} : { gap: opts.gap }),
                     ...(opts.padding === undefined ? {} : { padding: opts.padding }),
-                    ...(opts.minWidth === undefined ? {} : { min_width: opts.minWidth }),
+                    ...(opts.minWidth === undefined ? {} : { minWidth: opts.minWidth }),
                 },
                 children,
             }),
@@ -45,11 +45,11 @@ function pinned(
 
 /** A label and a right-aligned value; `coin` follows the value with a coin. */
 function stat(title: string, bind: TextHandle, color?: string, withCoin = false): Element {
-    return raw.flex({
+    return raw.box({
         style: { direction: "row", align: "center", gap: 2 },
         children: [
-            raw.label(title, { ...text, width: 34, color: muted }),
-            raw.slot(bind, { ...text, align: "right", ...(color === undefined ? {} : { color }) }),
+            raw.text(title, { ...text, width: 34, color: muted }),
+            raw.text(bind, { ...text, align: "right", ...(color === undefined ? {} : { color }) }),
             ...(withCoin ? [raw.image(coin)] : []),
         ],
     });
@@ -62,7 +62,7 @@ export default [
         stat("Power", textHandle("power")),
     ]),
     pinned("status_top_center", "top", [0, 4], { frame: industrial.art.hud, padding: 3 }, [
-        raw.slot(textHandle("runtime"), { ...text, width: 34, align: "center" }),
+        raw.text(textHandle("runtime"), { ...text, width: 34, align: "center" }),
     ]),
     pinned("status_top_right", "top-right", [-4, 4], { frame: industrial.art.hud, padding: 4, gap: 2, minWidth: 80 }, [
         stat("Wave", textHandle("wave")),
@@ -70,14 +70,14 @@ export default [
         stat("Ping", textHandle("latency")),
     ]),
     pinned("status_left_side", "left", [4, 0], { gap: 2 }, [
-        raw.slot(textHandle("coords"), { ...text, width: 64 }),
-        raw.slot(textHandle("altitude"), { ...text, width: 64, color: soft }),
+        raw.text(textHandle("coords"), { ...text, width: 64 }),
+        raw.text(textHandle("altitude"), { ...text, width: 64, color: soft }),
     ]),
     pinned("status_right_side", "right", [-4, 0], { gap: 2 }, [
-        raw.slot(textHandle("objective"), { ...text, width: 80, align: "right", color: "#ffd75e" }),
-        raw.slot(textHandle("stock"), { ...text, width: 80, align: "right", color: soft }),
+        raw.text(textHandle("objective"), { ...text, width: 80, align: "right", color: "#ffd75e" }),
+        raw.text(textHandle("stock"), { ...text, width: 80, align: "right", color: soft }),
     ]),
     pinned("status_bottom_center", "bottom", [0, -72], {}, [
-        raw.slot(textHandle("hint"), { ...text, width: 160, align: "center", color: soft }),
+        raw.text(textHandle("hint"), { ...text, width: 160, align: "center", color: soft }),
     ]),
 ];

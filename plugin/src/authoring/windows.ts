@@ -1,13 +1,11 @@
 import type { Var } from "./tokens.ts";
-import type { Art, Hud, Theme, Window } from "./types.ts";
+import type { Art, Hud, TextFont, Window } from "./types.ts";
 
 /**
- * The project's themes, windows, and HUDs, as `window/index.ts(x)` default-exports them. Lists may nest, so a
- * default-exported fragment or array can be listed as one entry.
+ * The project's windows, HUDs, runtime sprites, and text fonts, as `window/index.ts(x)` default-exports them. Lists
+ * may nest, so a default-exported fragment or array can be listed as one entry.
  */
 export interface WindowsDefinition {
-    /** Theme definitions, or `theme()` documents. */
-    themes?: readonly unknown[];
     /** `<Window>` and `ui()` documents, or window definitions. */
     windows?: readonly unknown[];
     /** `<Hud>` and `hud()` documents, or HUD definitions. */
@@ -18,6 +16,12 @@ export interface WindowsDefinition {
      * their default values.
      */
     sprites?: Readonly<Record<string, Art | Var<Art>>>;
+    /**
+     * Bitmap text fonts by name, which text selects with `font`, such as
+     * `{ runes: { texture: "window/fonts/runes.png", chars: ["abc"] } }`. A `small_caps` entry replaces the bundled
+     * small-caps font.
+     */
+    fonts?: Readonly<Record<string, TextFont>>;
 }
 
 /**
@@ -29,14 +33,14 @@ type Entry<E, D> = {} extends E ? E : E extends readonly unknown[] ? Entries<E, 
 
 type Checked<T extends WindowsDefinition> = {
     sprites?: Readonly<Record<string, Art | Var<Art>>>;
-    themes?: Entries<T["themes"], Theme | { theme: Theme }>;
+    fonts?: Readonly<Record<string, TextFont>>;
     windows?: Entries<T["windows"], Window | { windows: Window[] }>;
     huds?: Entries<T["huds"], Hud | { huds: Hud[] }>;
 };
 
 /**
- * Declares every theme, window, and HUD of the pack. Default-export it from `window/index.ts` or `window/index.tsx`;
- * the other files under `window/` are then ordinary modules.
+ * Declares every window, HUD, runtime sprite, and text font of the pack. Default-export it from `window/index.ts` or
+ * `window/index.tsx`; the other files under `window/` are then ordinary modules.
  */
 export function defineWindows<const T extends WindowsDefinition>(definition: T & Checked<T>): WindowsDefinition {
     return definition;

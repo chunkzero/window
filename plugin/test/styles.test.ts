@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { create, createTheme, defineVars, derive, mix, raw, shape, variants } from "../src/authoring/index.ts";
+import { create, createTheme, defineVars, derive, mix, raw, shape, value, variants } from "../src/authoring/index.ts";
 import type { Color, Var } from "../src/authoring/index.ts";
 import { defineWindows } from "../src/authoring/index.ts";
 import { collectInputs } from "../src/project.ts";
@@ -97,15 +97,16 @@ test("a recipe derives different art under each theme", () => {
 });
 
 test("styles merge in order, skip falsy entries, and lose to explicit props", () => {
+    const panel = shape({ kind: "panel", fill: "#203040" });
     const s = create({
-        card: { padding: 2, gap: 1, grow: true, frame: "panel" },
+        card: { padding: 2, gap: 1, grow: true, frame: panel },
         wide: { width: 64, padding: 4 },
         label: { color: colors.text, shadow: true },
     });
     const box = Box({ style: [s.card, false, [null, s.wide]], gap: 3 });
     assert.deepEqual(box, {
         type: "flex",
-        frame: "panel",
+        frame: panel,
         style: { gap: 3, padding: 4, width: 64 },
         children: [],
         layout: { grow: 1 },
@@ -136,7 +137,7 @@ test("switch cases and HUDs carry styles and themes", () => {
         theme: ember,
         style: { frame: shape({ fill: colors.face }), padding: 2 },
         children: Switch({
-            bind: "mode",
+            bind: value("mode", ["on"]),
             style: { grow: 1 },
             children: Case({ value: "on", theme: moss, style: { frame: shape({ fill: colors.face }) } }),
         }),
@@ -165,9 +166,9 @@ test("raw primitives take styles and themes", () => {
             raw.box({
                 style: [s.panel, { direction: "row", minWidth: 4 }],
                 layout: { shrink: 0 },
-                children: [raw.label("A"), raw.label("B", { style: s.label, color: "#000000" })],
+                children: [raw.text("A"), raw.text("B", { style: s.label, color: "#000000" })],
             }),
-            raw.switchOn("mode", [
+            raw.switchOn(value("mode", ["on"]), [
                 raw.case("on", { theme: ember, frame: shape({ fill: colors.face }), style: { justify: "center" } }),
             ]),
         ],
@@ -213,7 +214,6 @@ test("raw boxes and cases take only typed styles", () => {
     const stored = create({ label: { color: "#ffffff" } });
     assert.throws(() => raw.box({ style: stored.label as never }), /does not accept style property `color`/);
     assert.throws(() => raw.case("on", { style: stored.label as never }), /does not accept style property `color`/);
-    assert.deepEqual(raw.flex({ style: { min_width: 4 } }).style, { min_width: 4 });
 });
 
 test("create rejects unknown nested text properties", () => {
@@ -236,8 +236,8 @@ test("bare window and HUD definitions apply their styles", () => {
                           path: "window/index.ts",
                           module: {
                               default: defineWindows({
-                                  windows: [{ name: "w", container: "generic_9x1", style, children: [raw.label("A")] }],
-                                  huds: [{ name: "h", style, children: [raw.label("B")] }],
+                                  windows: [{ name: "w", container: "generic_9x1", style, children: [raw.text("A")] }],
+                                  huds: [{ name: "h", style, children: [raw.text("B")] }],
                               }),
                           },
                       },
@@ -257,8 +257,8 @@ test("bare window and HUD definitions apply their styles", () => {
 
 test("a raw switch cascades its text style into its cases", () => {
     const sw = raw.switchOn(
-        "mode",
-        { on: { children: [raw.label("Hello"), raw.label("Bye", { color: "#000000" })] } },
+        value("mode", ["on"]),
+        { on: { children: [raw.text("Hello"), raw.text("Bye", { color: "#000000" })] } },
         { style: { text: { color: "#ffffff", bold: true } } },
     );
     assert.ok(sw.type === "switch");

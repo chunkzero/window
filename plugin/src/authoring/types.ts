@@ -1,4 +1,4 @@
-import type { ClickAction } from "./handles.ts";
+import type { ClickAction, HandleKind } from "./handles.ts";
 import type {
     BoxStyle,
     CaseStyle,
@@ -11,9 +11,7 @@ import type {
 } from "./styles.ts";
 import type { Color, Var, VarTheme } from "./tokens.ts";
 
-export type CrossAlign = "start" | "center" | "end";
 export type TextAlign = "left" | "center" | "right";
-export type ButtonDefault = "close";
 export type ContainerKind =
     | "generic_9x1"
     | "generic_9x2"
@@ -150,16 +148,6 @@ export interface Tooltip {
     lines?: string[];
 }
 
-export interface ButtonState {
-    /** Item model id, e.g. "example:gui/shop_button_active". */
-    item_model?: string;
-    /** Frame drawn over the button instead of its `frame` in this state. */
-    frame?: ArtRef;
-    /** Sprite drawn at the button's top-left corner in this state. */
-    sprite?: ArtRef;
-    tooltip?: string | Tooltip;
-}
-
 export interface GeneratedStyle {
     /** Generated kind when `texture` is omitted. */
     kind?: GeneratedKind;
@@ -188,36 +176,6 @@ export interface GeneratedStyle {
     /** Hazard stripe width in pixels. */
     stripe_width?: number;
 }
-
-type NoGeneratedStyle = { [K in keyof GeneratedStyle]?: never };
-
-export interface BitmapFrame extends NoGeneratedStyle {
-    /** Pack-source-relative texture path for bitmap nine-slice frames. */
-    texture: string;
-    /** Nine-slice inset pixels. */
-    insets?: Insets;
-}
-
-export interface GeneratedFrame extends GeneratedStyle {
-    texture?: never;
-    insets?: never;
-}
-
-export type Frame = BitmapFrame | GeneratedFrame;
-
-/** Bitmap sprite; `width` and `height` are set together or both omitted. */
-export type BitmapSprite = NoGeneratedStyle & {
-    /** Pack-source-relative texture path, or a font texture id such as "example:tool/wooden_pickaxe.png". */
-    texture: string;
-} & ({ width: number; height: number } | { width?: never; height?: never });
-
-export interface GeneratedSprite extends GeneratedStyle {
-    texture?: never;
-    width: number;
-    height: number;
-}
-
-export type SpriteDef = BitmapSprite | GeneratedSprite;
 
 /** The optional name of inline art, which prefixes its content-hashed resource name. */
 export interface ArtName {
@@ -256,12 +214,12 @@ export type ShapeArt = ShapeStyle & ArtName & { readonly art: "shape" };
 
 /**
  * Art authored in place: a box frame stretched over its laid-out size, or an image drawn at its own size. Identical
- * art is shared, and it never clashes with theme names.
+ * art is shared.
  */
 export type Art = TextureArt | ShapeArt;
 
-/** A theme frame or sprite name, inline art, or art `derive`d from tokens. */
-export type ArtRef = string | Art | Var<Art>;
+/** Inline art, or art `derive`d from tokens. */
+export type ArtRef = Art | Var<Art>;
 
 /** The authored name of an element, shown in errors and in the inspector. */
 export interface DebugName {
@@ -277,35 +235,6 @@ export interface TextFont {
     texture: string;
     /** One string per sheet row; use "\u0000" for empty cells. Unmapped characters fall back to vanilla glyphs. */
     chars: string[];
-}
-
-export interface Theme {
-    frames?: Record<string, Frame>;
-    sprites?: Record<string, SpriteDef>;
-    /** Text fonts elements select with `font`. A `small_caps` entry replaces the bundled small-caps font. */
-    fonts?: Record<string, TextFont>;
-    /** Palette colors by name as "#rrggbb", generated into Kotlin as `WindowColors` `TextColor` constants. */
-    colors?: Record<string, string>;
-}
-
-/** Base colors for `presets.industrial()`; bevels and borders are derived from these fills. */
-export interface IndustrialPresetOptions {
-    border_color?: string;
-    highlight_color?: string;
-    shell_fill?: string;
-    panel_fill?: string;
-    recess_fill?: string;
-    slot_fill?: string;
-    button_fill?: string;
-    selected_fill?: string;
-    disabled_fill?: string;
-    accent_color?: string;
-    danger_color?: string;
-    confirm_color?: string;
-    hud_fill?: string;
-    stripe_fill?: string;
-    stripe_color?: string;
-    lamp_color?: string;
 }
 
 export interface HudShaderPoint {
@@ -349,7 +278,7 @@ export interface TextStyleOptions {
     underlined?: boolean;
     strikethrough?: boolean;
     obfuscated?: boolean;
-    /** A theme font name; text is measured and drawn with its glyphs. */
+    /** A font name from `defineWindows({ fonts })`; text is measured and drawn with its glyphs. */
     font?: string;
     /** Shorthand for `font: "small_caps"`: Window's bundled small capitals, digits, and symbols. */
     small_caps?: boolean;
@@ -361,102 +290,19 @@ export interface FlexItemOptions {
     layout?: ItemLayout;
 }
 
-export interface PanelOptions extends FlexItemOptions {
-    frame: ArtRef;
-    width: number;
-    height: number;
-    x?: number;
-    y?: number;
-    padding?: number;
-    children?: Element[];
-}
-
-export interface LayoutOptions extends FlexItemOptions {
-    x?: number;
-    y?: number;
-    gap?: number;
-    padding?: number;
-    align?: CrossAlign;
-    children?: Element[];
-}
-export type RowOptions = LayoutOptions;
-export type ColumnOptions = LayoutOptions;
-
 export interface SpriteOptions extends FlexItemOptions, DebugName {
     x?: number;
     y?: number;
     style?: StyleValue<ItemStyle>;
 }
 
-/**
- * Index of one entry in an indexed binding family: a number, or `[row, column]`. Entries sharing a binding name are
- * flattened to `<name>_<i>` (or `<name>_<row>_<column>`) and generated as one Kotlin member taking the index. A family
- * must cover every index from zero up to its largest one.
- */
-export type BindingIndex = number | readonly [number, number];
-
 export interface SpriteSlotOptions extends FlexItemOptions, DebugName {
-    /** Places this sprite slot in an indexed binding family. */
-    index?: BindingIndex;
     x?: number;
     y?: number;
     width: number;
     height: number;
     align?: TextAlign;
-    /** Theme sprite name drawn by default. */
-    sprite?: string;
     style?: StyleValue<ItemStyle>;
-}
-
-export interface ButtonOptions extends FlexItemOptions {
-    frame?: ArtRef;
-    /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
-    width?: number;
-    /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
-    height?: number;
-    x?: number;
-    y?: number;
-    /** Explicit backing inventory slots. Integers mean container slots. */
-    slots?: SlotList;
-    /** Slot-space pattern for rect/slots. */
-    pattern?: SlotPatternInput;
-    /** Inline slot-space rect transform. */
-    transform?: SlotRectPatternOptions;
-    default?: ButtonDefault;
-    tooltip?: string | Tooltip;
-    states?: Record<string, ButtonState>;
-    padding?: number;
-    /** Unpositioned children are centered in the padded button content rect. */
-    children?: Element[];
-}
-
-export interface ToggleOptions extends ButtonOptions {
-    /** Requires `on` and `off` states. */
-    states: Record<string, ButtonState> & { on: ButtonState; off: ButtonState };
-}
-
-export interface ChoiceOptions extends ButtonOptions {
-    /** Requires `selected` and `unselected` states. */
-    states: Record<string, ButtonState> & { selected: ButtonState; unselected: ButtonState };
-}
-
-export interface HotspotOptions extends FlexItemOptions {
-    /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
-    width?: number;
-    /** Required unless `pattern` or `transform` is set, or the element is placed by a section. */
-    height?: number;
-    x?: number;
-    y?: number;
-    /** Explicit backing inventory slots. Integers mean container slots. */
-    slots?: SlotList;
-    /** Slot-space pattern for rect/slots. */
-    pattern?: SlotPatternInput;
-    /** Inline slot-space rect transform. */
-    transform?: SlotRectPatternOptions;
-    /** Required unless `states` is set. */
-    tooltip?: string | Tooltip;
-    /** Required unless `tooltip` is set. */
-    states?: Record<string, ButtonState>;
 }
 
 export interface ItemOptions extends FlexItemOptions, DebugName {
@@ -466,8 +312,6 @@ export interface ItemOptions extends FlexItemOptions, DebugName {
     pattern?: SlotPatternInput;
     /** Inline slot-space rect transform. */
     transform?: SlotRectPatternOptions;
-    /** One-based index into the enclosing repeater cell's own slots. Repeater children only; mutually exclusive with slots/pattern/transform. */
-    cell_slot?: number;
     style?: StyleValue<ItemStyle>;
 }
 
@@ -494,31 +338,8 @@ export interface AnvilInputOptions extends DebugName {
     item_model?: string;
 }
 
-export interface SlotRectsOptions extends FlexItemOptions {
-    /** Optional frame to draw once per slot. Omit for claim-only slot rects. */
-    frame?: string;
-    /** Slot-space pattern to draw and optionally claim. */
-    pattern?: SlotPatternInput;
-    /** Inline slot-space rect transform. */
-    transform?: SlotRectPatternOptions;
-    /** Defaults to "none"; "unowned" claims only slots not owned by controls. */
-    claim?: SlotRectClaim;
-}
-
-export interface RepeaterOptions extends FlexItemOptions {
-    /** Optional frame drawn once per repeated cell group. */
-    frame?: string;
-    /** Slot-space pattern whose cells are repeated. */
-    pattern?: SlotPatternInput;
-    /** Inline slot-space rect transform. */
-    transform?: SlotRectPatternOptions;
-    padding?: number;
-    /** Template children placed inside each repeated cell. */
-    children?: Element[];
-}
-
 export interface TextOptions extends TextStyleOptions, FlexItemOptions, DebugName {
-    /** Required for dynamic slots except direct, unpositioned button children, which fill the button content width. */
+    /** Fixed width; dynamic text without one must be laid out by a box, which it grows to fill. */
     width?: number;
     x?: number;
     y?: number;
@@ -529,8 +350,6 @@ export type LabelOptions = TextOptions;
 export type TextOverflow = "ellipsis";
 
 export interface SlotOptions extends TextOptions {
-    /** Places this slot in an indexed binding family. */
-    index?: BindingIndex;
     /** Shortens content wider than the slot at runtime. */
     overflow?: TextOverflow;
     /**
@@ -542,55 +361,29 @@ export interface SlotOptions extends TextOptions {
     line_height?: number;
 }
 
-export interface PanelElement extends PanelOptions {
-    type: "panel";
-}
-export interface RowElement extends RowOptions {
-    type: "row";
-}
-export interface ColumnElement extends ColumnOptions {
-    type: "column";
-}
+/** The JSON of a handle an element reads. */
+export type HandleJson = { readonly kind: HandleKind; readonly id: string } & Readonly<Record<string, unknown>>;
+
 export interface SpriteElement extends SpriteOptions {
     type: "sprite";
-    /** A theme sprite name; set either `name` or `art`. */
-    name?: string;
     /** Inline art drawn at its own size. */
-    art?: Art;
+    art: Art;
 }
 export interface SpriteSlotElement extends SpriteSlotOptions {
     type: "sprite_slot";
-    name: string;
-}
-export interface ButtonElement extends ButtonOptions {
-    type: "button";
-    name: string;
-    /** The widget kind that produced this button, such as `"toggle"`, for diagnostics. */
-    source?: string;
-}
-export interface HotspotElement extends HotspotOptions {
-    type: "hotspot";
-    name: string;
+    handle: HandleJson;
 }
 export interface ItemElement extends ItemOptions {
     type: "item";
-    name: string;
+    handle: HandleJson;
 }
 export interface CollectionElement extends CollectionOptions {
     type: "collection";
-    name: string;
+    handle: HandleJson;
 }
 export interface AnvilInputElement extends AnvilInputOptions {
     type: "anvil_input";
-    name: string;
-}
-export interface SlotRectsElement extends SlotRectsOptions {
-    type: "slot_rects";
-    name: string;
-}
-export interface RepeaterElement extends RepeaterOptions {
-    type: "repeater";
-    name: string;
+    handle: HandleJson;
 }
 export interface LabelElement extends LabelOptions {
     type: "label";
@@ -598,7 +391,7 @@ export interface LabelElement extends LabelOptions {
 }
 export interface SlotElement extends SlotOptions {
     type: "slot";
-    name: string;
+    handle: HandleJson;
 }
 
 /**
@@ -616,8 +409,9 @@ export interface RegionOptions extends FlexItemOptions, DebugName {
     height?: number;
     style?: StyleValue<ItemStyle>;
 }
-export interface RegionElement extends RegionOptions {
+export interface RegionElement extends Omit<RegionOptions, "on_click"> {
     type: "region";
+    on_click?: HandleJson;
 }
 
 /** A CSS length: pixels, a percentage, or a sizing keyword. */
@@ -726,14 +520,10 @@ export interface CaseOptions extends DebugName {
 }
 
 export interface SwitchOptions extends FlexItemOptions, DebugName {
-    /** Places this switch in an indexed binding family; every entry must have the same case values. */
-    index?: BindingIndex;
     x?: number;
     y?: number;
     style?: StyleValue<SwitchStyle>;
 }
-
-export type ShowOptions = CaseOptions & Omit<SwitchOptions, "style">;
 
 /** One case of a switch: a flex box that fills the switch. */
 export interface CaseElement extends DebugName {
@@ -746,30 +536,19 @@ export interface CaseElement extends DebugName {
     children?: Element[];
 }
 
-/**
- * Visual cases stacked in one box sized to the largest case. The runtime draws only the case its binding names.
- * Cases hold static art and text/icon bindings, not slot-bound controls.
- */
+/** Cases stacked in one box sized to the largest case. The runtime draws only the case its handle selects. */
 export interface SwitchElement extends SwitchOptions {
     type: "switch";
-    /** Binding name. Kotlin gets a Boolean for exactly `true`/`false` cases, otherwise an enum of the case values. */
-    name: string;
+    handle: HandleJson;
     children: CaseElement[];
 }
 
 export type Element = (
-    | PanelElement
-    | RowElement
-    | ColumnElement
     | SpriteElement
     | SpriteSlotElement
-    | ButtonElement
-    | HotspotElement
     | ItemElement
     | CollectionElement
     | AnvilInputElement
-    | SlotRectsElement
-    | RepeaterElement
     | LabelElement
     | SlotElement
     | RegionElement
@@ -811,7 +590,8 @@ export interface Hud {
 }
 
 export interface WindowDocument {
-    theme?: Theme;
+    /** Text fonts by name, which text selects with `font`. */
+    fonts?: Record<string, TextFont>;
     /** Runtime sprites by name, generated into Kotlin's `WindowSprite`. */
     sprites?: Record<string, Art>;
     windows?: Window[];

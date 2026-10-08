@@ -25,8 +25,8 @@ import { coin } from "./sprites.ts";
 
 const style = { color: "#ffffff", shadow: true, small_caps: true };
 
-const say = (value: string, opts: LabelOptions = {}) => raw.label(value, { ...style, ...opts });
-const bound = (handle: TextHandle, opts: SlotOptions = {}) => raw.slot(handle, { ...style, ...opts });
+const say = (value: string, opts: LabelOptions = {}) => raw.text(value, { ...style, ...opts });
+const bound = (handle: TextHandle, opts: SlotOptions = {}) => raw.text(handle, { ...style, ...opts });
 
 const ventSlot = derive((get) => ({
     ...get(industrial.art.recess),
