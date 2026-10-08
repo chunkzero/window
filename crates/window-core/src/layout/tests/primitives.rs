@@ -218,6 +218,18 @@ fn errors_name_the_primitive_they_come_from() {
 }
 
 #[test]
+fn nested_measurement_errors_name_the_primitive() {
+    let project = themed(
+        json!({}),
+        json!([{ "type": "flex", "x": 0, "y": 0, "children": [
+            { "type": "sprite", "name": "missing", "debug_name": "coin-icon" },
+        ] }]),
+    );
+    let err = super::solve(&project, &sizes(&[])).unwrap_err().to_string();
+    assert_eq!(err.matches("(in `coin-icon`)").count(), 1, "{err}");
+}
+
+#[test]
 fn slots_carry_the_nearest_debug_name() {
     let laid = solve_one(
         themed(

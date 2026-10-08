@@ -1,7 +1,7 @@
 use super::flow::Axis;
 use super::slots::cells_bounds;
 use super::target::LayoutTarget;
-use super::{Solver, pos_of};
+use super::{Solver, debug_name_of, pos_of};
 use crate::Result;
 use crate::geometry::{Insets, Size};
 use crate::inventory::SlotPattern;
@@ -11,6 +11,10 @@ use crate::pipeline::texture_source_path;
 impl<'a, T: LayoutTarget> Solver<'a, T> {
     /// The size an element occupies, independent of where it is placed.
     pub(super) fn measure(&self, el: &Element) -> Result<Size> {
+        self.measure_element(el).map_err(|error| error.with_debug_name(debug_name_of(el)))
+    }
+
+    fn measure_element(&self, el: &Element) -> Result<Size> {
         match el {
             Element::Panel { size, .. } => Ok(*size),
             Element::Button { name, size, pattern, .. } | Element::Hotspot { name, size, pattern, .. } => {
