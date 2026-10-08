@@ -1,11 +1,10 @@
-import { isRef, refJson } from "./handles.ts";
+import { isRef, refJson } from "../bind/handles.ts";
 import { applyStyle } from "./styles.ts";
 import { resolveTokens } from "./tokens.ts";
-import type { ClickAction, Collection, Condition, Input, Items, Ref, Sprite, Text } from "./handles.ts";
+import type { ClickAction, Collection, Condition, Input, Items, Ref, Sprite, Text } from "../bind/handles.ts";
 import type {
     AnvilInputElement,
     AnvilInputOptions,
-    ArtRef,
     BoxOptions,
     CaseElement,
     CaseOptions,
@@ -25,7 +24,6 @@ import type {
     SectionOptions,
     SlotElement,
     SlotOptions,
-    SlotSection,
     SpriteElement,
     SpriteOptions,
     SpriteSlotElement,
@@ -33,7 +31,8 @@ import type {
     SwitchElement,
     SwitchOptions,
     Window,
-} from "./types.ts";
+} from "./document.ts";
+import type { ArtRef, SlotSection } from "./types.ts";
 
 type Fields = Record<string, unknown>;
 

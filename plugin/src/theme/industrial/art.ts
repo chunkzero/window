@@ -1,8 +1,8 @@
 /** Industrial's color tokens, bevel recipes, and named art. */
-import { shape } from "../../art.ts";
-import { defineVars, derive, mix } from "../../tokens.ts";
-import type { Color, Get, Token, Var, Vars } from "../../tokens.ts";
-import type { ShapeArt, ShapeStyle } from "../../types.ts";
+import { shape } from "../../ui/art.ts";
+import { defineVars, derive, mix } from "../../ui/tokens.ts";
+import type { Color, Get, Token, Var, Vars } from "../../ui/tokens.ts";
+import type { ShapeArt, ShapeStyle } from "../../ui/types.ts";
 
 const defaults = {
     border: "#03091f",
@@ -68,7 +68,8 @@ function bevel(fill: Token<Color>, options: BevelOptions, sunken: boolean): Var<
             highlight_color: sunken ? mix(base, tone.dark, 0.5) : mix(base, tone.light, 0.45),
             shadow_color: sunken ? mix(base, tone.light, 0.3) : mix(base, tone.dark, 0.4),
         };
-        return shape({ ...style, ...rest }, name === undefined ? {} : { name });
+        const overrides = Object.entries(rest).filter(([, value]) => value !== undefined);
+        return shape({ ...style, ...Object.fromEntries(overrides) }, name === undefined ? {} : { name });
     });
 }
 

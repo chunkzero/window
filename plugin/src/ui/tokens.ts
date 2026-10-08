@@ -94,6 +94,9 @@ export function createTheme<V extends Record<string, Var<Color> | Var<number>>, 
 ): VarTheme {
     const values = new Map<VarData, unknown>();
     for (const [name, value] of Object.entries(overrides)) {
+        if (value === undefined) {
+            continue;
+        }
         const data = Object.hasOwn(vars, name) ? varData(vars[name]) : undefined;
         if (data === undefined || data.derive !== undefined) {
             throw new Error(`createTheme overrides \`${name}\`, which is not one of its vars`);

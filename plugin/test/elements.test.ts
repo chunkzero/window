@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { action, collection, input, items, text, value } from "../src/authoring/bind.ts";
-import * as raw from "../src/authoring/raw.ts";
-import * as window from "../src/authoring/ui.ts";
-import { Box, Region, Section, Text } from "../src/authoring/jsx.ts";
-import * as inventory from "../src/authoring/inventory.ts";
+import { action, collection, input, items, text, value } from "../src/bind/index.ts";
+import * as raw from "../src/raw/index.ts";
+import * as window from "../src/ui/index.ts";
+import { Box, Region, Section, Text } from "../src/ui/components.ts";
+import * as inventory from "../src/ui/inventory.ts";
 
 const { pattern, shape } = window;
 

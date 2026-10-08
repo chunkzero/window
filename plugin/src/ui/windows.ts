@@ -1,5 +1,6 @@
 import type { Var } from "./tokens.ts";
-import type { Art, Hud, TextFont, Window } from "./types.ts";
+import type { Hud, Window } from "./document.ts";
+import type { Art, TextFont } from "./types.ts";
 
 /**
  * The project's windows, HUDs, runtime sprites, and text fonts, as `window/index.ts(x)` default-exports them. Lists

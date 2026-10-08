@@ -1,4 +1,5 @@
 /** Build-time styles: `create`, `variants`, and the style properties each primitive accepts. See docs/AUTHORING.md. */
+import type { FlexStyle, ItemLayout } from "./document.ts";
 import type { Color, Var } from "./tokens.ts";
 import type {
     ArtRef,
@@ -7,10 +8,8 @@ import type {
     FixedLength,
     FlexAlign,
     FlexJustify,
-    FlexStyle,
     GridFlow,
     GridLine,
-    ItemLayout,
     Length,
     TextAlign,
 } from "./types.ts";

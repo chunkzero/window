@@ -1,121 +1,47 @@
 /**
- * Industrial's components, built from the public primitives. Each takes a `style` of the variants it names and
- * defaults to industrial's styles, so `style` is only for overrides.
+ * Industrial's controls, built from the public primitives. Each takes a `style` of the variants it names and defaults
+ * to industrial's styles, so `style` is only for overrides.
  */
-import { Box, Case, Collection as CollectionPrimitive, Items, Region, Section, Switch } from "../../jsx.ts";
-import type { Child, CollectionProps as CollectionPrimitiveProps, DebugProps, SectionProps } from "../../jsx.ts";
-import { builtin } from "../../handles.ts";
-import { assign } from "../../styles.ts";
-import type {
-    Action,
-    ClickAction,
-    Condition,
-    Indexed,
-    Items as ItemsHandle,
-    Selection,
-    Toggle,
-} from "../../handles.ts";
-import type {
-    BoxStyle,
-    CaseStyle,
-    ContainerStyle,
-    ItemStyle,
-    StyleFor,
-    StyleValue,
-    TextProps,
-    Variants,
-} from "../../styles.ts";
-import type { ArtRef, Element, FixedLength, Tooltip } from "../../types.ts";
+import { builtin } from "../../bind/handles.ts";
+import { Box, Case, Region, Switch } from "../../ui/components.ts";
+import type { ClickAction, Condition, Selection, Toggle } from "../../bind/handles.ts";
+import type { Element } from "../../ui/document.ts";
+import type { Child, DebugProps } from "../../ui/components.ts";
+import type { BoxStyle, CaseStyle, ItemStyle, StyleValue } from "../../ui/styles.ts";
+import type { ArtRef, Tooltip } from "../../ui/types.ts";
+import { FACE_KEYS, face, flat, placement } from "./face.ts";
+import type { ControlProps, FaceProps, Layer, StateProps, VariantStyle } from "./face.ts";
 import { styles } from "./styles.ts";
-
-type Layer = StyleValue<ContainerStyle>;
-
-/** A `style` prop taking some of the variants `K`, each a box container style. */
-export type VariantStyle<K extends string> = Partial<Variants<K, ContainerStyle>>;
-
-/** What one state of a control shows and does. */
-export interface StateProps {
-    tooltip?: string | Tooltip;
-    /** Item model of the hitbox item filling the control's slots in this state. */
-    itemModel?: string;
-    /** Frame drawn at the control's size in this state. */
-    frame?: ArtRef;
-}
-
-/** A control's face: its frame, content layout, and the text style of its labels. */
-interface FaceProps {
-    /** Frame of the face; a state's `frame` replaces it. */
-    frame?: ArtRef;
-    tooltip?: string | Tooltip;
-    itemModel?: string;
-    /** Inset of the content from the face's edges. */
-    padding?: number;
-    /** Space between content children; defaults to 2. */
-    gap?: FixedLength;
-    /** Text style of the labels inside; labels are centered by default. */
-    text?: TextProps;
-    children?: Child;
-}
-
-/** Placement of a control: in a section, `span` and `at` pick its slots. */
-interface ControlProps extends ItemStyle, DebugProps, FaceProps {}
-
-const FACE: StyleFor<ContainerStyle> = { direction: "row", justify: "center", align: "center", gap: 2 };
-
-function flat(value: unknown, out: Record<string, unknown>[] = []): Record<string, unknown>[] {
-    if (Array.isArray(value)) {
-        value.forEach((entry) => flat(entry, out));
-    } else if (typeof value === "object" && value !== null) {
-        out.push(value as Record<string, unknown>);
-    }
-    return out;
-}
-
-/** `fields` without its undefined entries. */
-function defined<T extends object>(fields: T): { [K in keyof T]?: Exclude<T[K], undefined> } {
-    return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as never;
-}
-
-/**
- * The style and text of a face: `base` layers, then the explicit props, then the `state` layers and the state's
- * frame. Labels are centered unless a layer or `text` aligns them.
- */
-function face(base: readonly Layer[], state: readonly Layer[], props: FaceProps, current: StateProps = {}) {
-    const explicit = defined({ frame: props.frame, padding: props.padding, gap: props.gap });
-    const style: Layer[] = [FACE, ...base, explicit, ...state, defined({ frame: current.frame })];
-    const text: Record<string, unknown> = { align: "center" };
-    for (const fields of [...flat(style).map((entry) => entry["text"]), props.text]) {
-        if (typeof fields === "object" && fields !== null) {
-            assign(text, fields as Record<string, unknown>);
-        }
-    }
-    return { style, text: text as TextProps };
-}
-
-/** The props of `props` that place the control rather than draw it. */
-function placement(props: object, drawn: readonly string[]): ItemStyle & DebugProps {
-    return Object.fromEntries(Object.entries(props).filter(([key]) => !drawn.includes(key))) as ItemStyle & DebugProps;
-}
-
-const FACE_KEYS = ["frame", "tooltip", "itemModel", "padding", "gap", "text", "children", "style"];
 
 /** A control's box: in a section, its slot cells inset by 1px, so its face covers the slot interiors. */
 function control(props: object, drawn: readonly string[], content: Child): Element {
-    return Box({ ...placement(props, [...FACE_KEYS, ...drawn]), padding: 1, children: content });
+    return (
+        <Box {...placement(props, [...FACE_KEYS, ...drawn])} padding={1}>
+            {content}
+        </Box>
+    ) as Element;
 }
 
 /** The region of a face: it takes the face's clicks and shows its tooltip. */
-function region(props: FaceProps, current: StateProps, onClick: ClickAction | undefined): Element {
-    const tooltip = current.tooltip ?? props.tooltip;
-    const itemModel = current.itemModel ?? props.itemModel;
-    return Region(defined({ onClick, tooltip, itemModel }));
+function region(props: FaceProps, current: StateProps, onClick: ClickAction | undefined): Child {
+    return (
+        <Region
+            onClick={onClick}
+            tooltip={current.tooltip ?? props.tooltip}
+            itemModel={current.itemModel ?? props.itemModel}
+        />
+    );
 }
 
 /** A face without states, filling its control. */
-function plain(base: readonly Layer[], props: FaceProps, onClick: ClickAction): Element {
+function plain(base: readonly Layer[], props: FaceProps, onClick: ClickAction): Child {
     const { style, text } = face(base, [], props);
-    const children = [props.children, region(props, {}, onClick)];
-    return Box({ grow: 1, style: style as StyleValue<BoxStyle>, text, children });
+    return (
+        <Box grow={1} style={style as StyleValue<BoxStyle>} text={text}>
+            {props.children}
+            {region(props, {}, onClick)}
+        </Box>
+    );
 }
 
 /** The face of one state, as the `value` case of its control's switch. */
@@ -127,13 +53,23 @@ function state(
     onClick?: ClickAction,
 ): Child {
     const { style, text } = face(layers[0], layers[1], props, current);
-    const children = [props.children, region(props, current, onClick)];
-    return Case({ value, style: style as StyleValue<CaseStyle>, text, children });
+    return (
+        <Case value={value} style={style as StyleValue<CaseStyle>} text={text}>
+            {props.children}
+            {region(props, current, onClick)}
+        </Case>
+    );
 }
 
 /** A control showing its `true` face while `when` holds and its `false` face otherwise. */
 function switched(props: object, drawn: readonly string[], when: Condition, faces: [Child, Child]): Element {
-    return control(props, drawn, Switch({ bind: when, grow: 1, children: faces }));
+    return control(
+        props,
+        drawn,
+        <Switch bind={when} grow={1}>
+            {faces}
+        </Switch>,
+    );
 }
 
 export interface ButtonProps extends ControlProps {
@@ -152,10 +88,10 @@ export interface ButtonProps extends ControlProps {
 /** A clickable face over its slots, its content centered in a row. */
 export function Button(props: ButtonProps): Element {
     if ((props.onClick === undefined) === (props.close !== true)) {
-        throw new Error("<industrial.Button> requires exactly one of `onClick` or `close`");
+        throw new Error("<Button> requires exactly one of `onClick` or `close`");
     }
     if (props.disabled !== undefined && props.enabled === undefined) {
-        throw new Error("<industrial.Button disabled> requires `enabled`");
+        throw new Error("<Button disabled> requires `enabled`");
     }
     const onClick = props.onClick ?? builtin("window:close");
     const drawn = ["onClick", "close", "enabled", "disabled"];
@@ -265,7 +201,7 @@ export function Tabs<V extends string>(props: TabsProps<V>): Element[] {
         for (const node of flat(children)) {
             const tab = (node as Partial<TabNode>).tab;
             if (tab === undefined || !bind.values.includes(tab.value as V)) {
-                throw new Error(`<industrial.Tabs> children must be <Tab> elements with values of \`${bind.id}\``);
+                throw new Error(`<Tabs> children must be <Tab> elements with values of \`${bind.id}\``);
             }
             tabs.set(tab.value, tab);
         }
@@ -273,18 +209,19 @@ export function Tabs<V extends string>(props: TabsProps<V>): Element[] {
     return bind.values.map((value, i) => {
         const tab = tabs.get(value);
         const content = typeof children === "function" ? children(value, i) : tab?.children;
-        const tip = tab?.tooltip ?? tooltip?.(value) ?? labelText(content);
-        const model = typeof itemModel === "function" ? itemModel(value) : itemModel;
-        const state = (frame: ArtRef | undefined): StateProps => defined({ frame });
-        return Choice({
-            ...rest,
-            ...defined({ tooltip: tip, itemModel: model }),
-            bind,
-            value,
-            selected: state(selectedSprite),
-            unselected: state(sprite),
-            children: content,
-        });
+        return (
+            <Choice
+                {...rest}
+                tooltip={tab?.tooltip ?? tooltip?.(value) ?? labelText(content)}
+                itemModel={typeof itemModel === "function" ? itemModel(value) : itemModel}
+                bind={bind}
+                value={value}
+                selected={{ frame: selectedSprite }}
+                unselected={{ frame: sprite }}
+            >
+                {content}
+            </Choice>
+        ) as Element;
     });
 }
 
@@ -295,223 +232,5 @@ export interface HotspotProps extends ItemStyle, DebugProps {
 
 /** A tooltip over its slots; it takes no clicks. */
 export function Hotspot(props: HotspotProps): Element {
-    return Region(props);
-}
-
-export interface CollectionProps extends Omit<CollectionPrimitiveProps, "name" | "bind" | "frame" | "selected"> {
-    bind: NonNullable<CollectionPrimitiveProps["bind"]>;
-    /** Frame of every cell; defaults to industrial's slot. */
-    frame?: ArtRef;
-    /** Art over the selected cell; defaults to industrial's selected slot. */
-    selected?: ArtRef;
-}
-
-/** A scrolling item collection drawn as industrial slots; by default it spans the full section width. */
-export function Collection(props: CollectionProps): Element {
-    return CollectionPrimitive({
-        selected: styles.collection.selected,
-        ...props,
-        style: [{ frame: styles.collection.frame }, props.style],
-    });
-}
-
-/** The opened container's slot grid. */
-export function Container(props: SectionProps): Element {
-    return Section({ ...props, of: "container" });
-}
-
-/** The player's 9x3 main inventory grid. */
-export function Player(props: SectionProps): Element {
-    return Section({ ...props, of: "player" });
-}
-
-/** The player's 9x1 hotbar grid. */
-export function Hotbar(props: SectionProps): Element {
-    return Section({ ...props, of: "hotbar" });
-}
-
-type BoxProps = Parameters<typeof Box>[0];
-
-/** A horizontal box whose children are vertically centered by default. */
-export function Row(props: BoxProps): Element {
-    return Box({ ...props, style: [{ align: "center" }, props.style], direction: "row" });
-}
-
-export function Column(props: BoxProps): Element {
-    return Box({ ...props, direction: "column" });
-}
-
-export function Grid(props: BoxProps): Element {
-    return Box({ ...props, display: "grid" });
-}
-
-/** A box that centers its children on both axes. */
-export function Center(props: BoxProps): Element {
-    return Box({ ...props, style: [{ justify: "center", align: "center" }, props.style] });
-}
-
-/** Flexible empty space; in a section it skips `span` slots. */
-export function Spacer(props: ItemStyle & DebugProps): Element {
-    return Box({ grow: 1, ...props });
-}
-
-/** The title strip above the container grid, centering its children. */
-export function Header(props: BoxProps): Element {
-    return Box({
-        ...props,
-        style: [{ justify: "center", align: "center", gap: 4 }, props.style],
-        x: 0,
-        y: 0,
-        width: 176,
-        height: 17,
-    });
-}
-
-export interface ShowProps extends ItemStyle, DebugProps, Omit<CaseStyle, "width" | "height"> {
-    when: Condition;
-    frame?: ArtRef;
-    children?: Child;
-}
-
-/** Draws its children only while `when` holds; their space is always reserved. */
-export function Show(props: ShowProps): Element {
-    const { when, children, frame, debugName: _, ...rest } = props;
-    const item: Record<string, unknown> = {};
-    const box: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(rest)) {
-        (ITEM_KEYS.has(key) ? item : box)[key] = value;
-    }
-    return Switch({
-        ...(item as ItemStyle),
-        ...defined({ debugName: props.debugName }),
-        bind: when,
-        children: [Case({ ...box, ...defined({ frame }), value: "true", children }), Case({ value: "false" })],
-    });
-}
-
-const ITEM_KEYS: ReadonlySet<string> = new Set([
-    "grow",
-    "shrink",
-    "basis",
-    "alignSelf",
-    "justifySelf",
-    "margin",
-    "absolute",
-    "top",
-    "right",
-    "bottom",
-    "left",
-    "span",
-    "at",
-    "col",
-    "row",
-    "translate",
-]);
-
-export interface SlotsProps extends ItemStyle, DebugProps {
-    /** Frame of every slot's 18x18 box; defaults to industrial's slot. */
-    frame?: ArtRef;
-    /** `"all"` claims the slots, so they take no clicks; defaults to `"none"`. */
-    claim?: "none" | "all";
-}
-
-/** Draws a frame on each of its `span` slots. */
-export function Slots(props: SlotsProps): Element {
-    const { frame = styles.slots.frame, claim = "none", span = 1, ...item } = props;
-    const [columns, rows] = typeof span === "number" ? [span, 1] : span;
-    const cells = Array.from({ length: columns * rows }, () => Box({ frame }));
-    return Box({
-        ...item,
-        span,
-        display: "grid",
-        columns,
-        rows,
-        children: [cells, claim === "all" ? Region({}) : null],
-    });
-}
-
-export interface RepeaterProps extends ItemStyle, DebugProps {
-    /** Size of one cell in slots. */
-    cell: [number, number];
-    columns: number;
-    rows: number;
-    /** An action indexed by cell; a click calls it with the clicked cell's index. */
-    onClick?: Indexed<Action, readonly [number]>;
-    tooltip?: string | Tooltip | ((i: number) => string | Tooltip);
-    /** Items indexed by cell, shown in each cell's `itemSlot`; clicks on it still call `onClick`. */
-    item?: Indexed<ItemsHandle, readonly [number]>;
-    /** One-based slot of the cell `item` fills; defaults to 1. */
-    itemSlot?: number;
-    frame?: ArtRef;
-    padding?: number;
-    text?: TextProps;
-    /** `cell` styles every cell's face. */
-    style?: VariantStyle<"cell">;
-    /** Content repeated in every cell, or a function rendering cell `i` (row-major) with indexed handles. */
-    children?: Child | ((i: number) => Child);
-}
-
-const SLOT = 18;
-
-/** A grid of `columns` x `rows` cells, each a face over `cell` slots whose content is centered in a column. */
-export function Repeater(props: RepeaterProps): Element {
-    const { cell, columns, rows, onClick, tooltip, item, itemSlot = 1, frame, padding, text, style, children } = props;
-    const [width, height] = cell;
-    if (item !== undefined && (itemSlot < 1 || itemSlot > width * height)) {
-        throw new Error(`<industrial.Repeater itemSlot> must be between 1 and ${width * height}`);
-    }
-    const placed = placement(props, [
-        "cell",
-        "columns",
-        "rows",
-        "onClick",
-        "tooltip",
-        "item",
-        "itemSlot",
-        "frame",
-        "padding",
-        "text",
-        "style",
-        "children",
-    ]);
-    const layers: Layer[] = [
-        { direction: "column", justify: "center", align: "center" },
-        styles.repeater.cell,
-        style?.cell,
-        defined({ frame, padding }),
-    ];
-    const cells = Array.from({ length: columns * rows }, (_, i) => {
-        const tip = typeof tooltip === "function" ? tooltip(i) : tooltip;
-        const click = onClick?.at(i);
-        const claims = Region(defined({ onClick: click, tooltip: tip }));
-        let stack: Child = null;
-        if (item !== undefined) {
-            const [x, y] = [(itemSlot - 1) % width, Math.floor((itemSlot - 1) / width)];
-            const items = Items({ bind: item.at(i) });
-            stack = Box({
-                absolute: true,
-                left: x * SLOT,
-                top: y * SLOT,
-                width: SLOT - 2,
-                height: SLOT - 2,
-                children: items,
-            });
-        }
-        const content = typeof children === "function" ? children(i) : children;
-        const box = Box({
-            grow: 1,
-            style: layers as StyleValue<BoxStyle>,
-            ...defined({ text }),
-            children: [content, stack, claims],
-        });
-        return Box({ padding: 1, children: box });
-    });
-    return Box({
-        span: [columns * width, rows * height],
-        ...placed,
-        display: "grid",
-        columns,
-        rows,
-        children: cells,
-    });
+    return (<Region {...props} />) as Element;
 }

@@ -1,7 +1,7 @@
 import type { Child as JsxChild } from "rpp:jsx";
 
 import { hud, region, ui } from "./elements.ts";
-import { isRef, refJson } from "./handles.ts";
+import { isRef, refJson } from "../bind/handles.ts";
 import { STYLE_KEYS, cascade, flexStyle, layout, textFields, withStyle } from "./styles.ts";
 import type {
     BoxStyle,
@@ -16,16 +16,14 @@ import type {
     TextStyle,
 } from "./styles.ts";
 import type { VarTheme } from "./tokens.ts";
-import type { ClickAction, Collection, Condition, Flag, Ref } from "./handles.ts";
-import type { Input as InputHandle, Items as ItemsHandle } from "./handles.ts";
-import type { Sprite as SpriteHandle, Text as TextHandle, Toggle as ToggleHandle } from "./handles.ts";
+import type { ClickAction, Collection, Condition, Flag, Ref } from "../bind/handles.ts";
+import type { Input as InputHandle, Items as ItemsHandle } from "../bind/handles.ts";
+import type { Sprite as SpriteHandle, Text as TextHandle, Toggle as ToggleHandle } from "../bind/handles.ts";
+import type { CaseElement, Element, Hud as HudDef, Window as WindowDef } from "./document.ts";
 import type {
     ArtRef,
-    CaseElement,
     ContainerKind,
-    Element,
     GridFlow,
-    Hud as HudDef,
     HudChannel,
     Insets,
     SlotList,
@@ -35,7 +33,6 @@ import type {
     TextAlign,
     TextOverflow,
     Tooltip,
-    Window as WindowDef,
 } from "./types.ts";
 
 export type Window = WindowDef;
@@ -447,7 +444,8 @@ export function Section(props: SectionOfProps): Element {
 export function Case(props: CaseProps): CaseElement {
     requireName(props.value, "Case value");
     const { value, ...box } = props;
-    const node = Box({ direction: "column", ...withStyle(box, STYLE_KEYS.case!, "Case") });
+    const styled = withStyle(box, STYLE_KEYS.case!, "Case");
+    const node = Box({ ...styled, direction: styled.direction ?? "column" });
     if (node.type !== "flex") {
         throw new Error("<Case> must render a box");
     }
@@ -535,8 +533,8 @@ export function Collection(input: CollectionProps): Element {
         slots: props.slots,
         pattern: props.pattern,
         ...layout({
-            span: [props.columns ?? 1, props.rows ?? 1],
             ...props,
+            span: props.span ?? [props.columns ?? 1, props.rows ?? 1],
             ...(full ? { col: { start: 1, end: -1 } } : {}),
         }),
         ...debug(props),
@@ -596,7 +594,7 @@ export function Hud(input: HudProps): { huds: HudDef[] } {
         throw new Error("<Hud> `width` and `height` must both be pixel numbers, or both be omitted");
     }
     const named = debugName === undefined ? {} : { debugName };
-    const root = Box({ direction: "column", ...named, ...box });
+    const root = Box({ ...named, ...box, direction: box.direction ?? "column" });
     let shader: HudDef["shader"];
     if (anchor !== undefined) {
         const [x, y] = typeof anchor === "string" ? ANCHORS[anchor] : [anchor.x, anchor.y];
