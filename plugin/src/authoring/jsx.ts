@@ -2,30 +2,35 @@ import type { Child as JsxChild } from "#rpp/jsx";
 
 import { hud, region, ui } from "./elements.ts";
 import { builtin, isRef, refJson } from "./handles.ts";
+import { STYLE_KEYS, cascade, flexStyle, layout, spanOf, textFields, withStyle } from "./styles.ts";
+import type {
+    BoxStyle,
+    CaseStyle,
+    CollectionStyle,
+    HudStyle,
+    ItemStyle,
+    SectionStyle,
+    StyleValue,
+    SwitchStyle,
+    TextProps,
+    TextStyle,
+} from "./styles.ts";
+import type { VarTheme } from "./tokens.ts";
 import type { Action, ClickAction, Collection, Condition, Flag, Indexed, Ref, Shape } from "./handles.ts";
 import type { Input as InputHandle, Items as ItemsHandle } from "./handles.ts";
 import type { Selection, Sprite as SpriteHandle, Text as TextHandle, Toggle as ToggleHandle } from "./handles.ts";
 import type {
-    Art,
     ArtRef,
-    AutoLength,
     BindingIndex,
     ButtonDefault,
     CaseElement,
     ContainerKind,
-    Edges,
     Element,
     FixedLength,
-    FlexAlign,
-    FlexJustify,
-    FlexStyle,
     GridFlow,
-    GridLine,
     Hud as HudDef,
     HudChannel,
     Insets,
-    ItemLayout,
-    Length,
     SlotList,
     SlotPatternInput,
     SlotRectClaim,
@@ -44,19 +49,7 @@ type Fields = Record<string, unknown>;
 /** Anything JSX can render as a child. Strings become labels; arrays and fragments flatten. */
 export type Child = JsxChild;
 
-/** Text styling. Containers pass it down through `text`; the nearest setting wins. */
-export interface TextProps {
-    color?: string;
-    shadow?: boolean;
-    bold?: boolean;
-    italic?: boolean;
-    underlined?: boolean;
-    strikethrough?: boolean;
-    obfuscated?: boolean;
-    font?: string;
-    smallCaps?: boolean;
-    align?: TextAlign;
-}
+export type { TextProps };
 
 /** The authored name of a primitive, shown in errors and in the inspector. */
 export interface DebugProps {
@@ -68,60 +61,21 @@ function debug(props: DebugProps): Fields {
 }
 
 /** Layout of an element inside a box or a slot section. */
-export interface ItemProps {
-    /** Flex grow factor; `true` is 1. */
-    grow?: number | boolean;
-    shrink?: number;
-    basis?: Length;
-    alignSelf?: FlexAlign;
-    justifySelf?: FlexAlign;
-    margin?: Edges;
-    /** Take the element out of flow; position it with `top`/`right`/`bottom`/`left`. */
-    absolute?: boolean;
-    top?: AutoLength;
-    right?: AutoLength;
-    bottom?: AutoLength;
-    left?: AutoLength;
-    /** Grid area size in tracks; in a section, one track is one slot. `[columns, rows]` or a column count. */
-    span?: number | [number, number];
-    /** Zero-based grid position; in a section, the slot column and row. */
-    at?: [number, number];
-    /** Raw one-based grid lines; override `span` and `at`. */
-    col?: GridLine;
-    row?: GridLine;
-    /** Pixel offset applied after layout to the element and its subtree. */
-    translate?: [number, number];
-}
+export type ItemProps = ItemStyle;
 
-export interface BoxProps extends ItemProps, DebugProps {
-    /** A theme frame name or inline art, stretched over the box's laid-out size. */
-    frame?: ArtRef;
+export interface BoxProps extends BoxStyle, DebugProps {
     /** Explicit pixel position; inside another box this positions the box absolutely. */
     x?: number;
     y?: number;
-    display?: "flex" | "grid";
-    direction?: "row" | "column" | "row-reverse" | "column-reverse";
-    wrap?: boolean;
-    justify?: FlexJustify;
-    align?: FlexAlign;
-    alignContent?: FlexJustify;
-    gap?: FixedLength | [FixedLength, FixedLength];
-    padding?: Edges<FixedLength>;
-    width?: Length;
-    height?: Length;
-    minWidth?: AutoLength;
-    minHeight?: AutoLength;
-    maxWidth?: AutoLength;
-    maxHeight?: AutoLength;
-    aspectRatio?: number;
-    columns?: FlexStyle["columns"];
-    rows?: FlexStyle["rows"];
-    flow?: GridFlow;
-    text?: TextProps;
+    /** Styles from `create`, merged under the explicit props. */
+    style?: StyleValue<BoxStyle>;
+    /** Overrides vars for this box and everything inside it. */
+    theme?: VarTheme;
     children?: Child;
 }
 
-export interface TextElementProps extends TextProps, ItemProps, DebugProps {
+export interface TextElementProps extends TextStyle, DebugProps {
+    style?: StyleValue<TextStyle>;
     /** Dynamic text: a `text` handle, or a slot name. Without it, the children are static label text. */
     bind?: string | TextHandle;
     /** Places the bound slot in an indexed binding family. */
@@ -148,6 +102,7 @@ export interface SpriteProps extends ItemProps, DebugProps {
 interface ImagePlacement extends ItemProps, DebugProps {
     x?: number;
     y?: number;
+    style?: StyleValue<ItemStyle>;
 }
 
 /** Static art drawn at its own size. */
@@ -185,6 +140,7 @@ export interface RegionProps extends ItemProps, DebugProps {
     itemModel?: string;
     width?: number;
     height?: number;
+    style?: StyleValue<ItemStyle>;
 }
 
 export interface IconProps extends ItemProps, DebugProps {
@@ -284,7 +240,9 @@ export interface TabProps {
     children?: Child;
 }
 
-type CaseBoxProps = Omit<BoxProps, keyof ItemProps | "x" | "y">;
+interface CaseBoxProps extends Omit<BoxProps, keyof ItemProps | "x" | "y" | "style"> {
+    style?: StyleValue<CaseStyle>;
+}
 
 /** A case box; its children lay out as a column by default. */
 export interface CaseProps extends CaseBoxProps {
@@ -303,6 +261,7 @@ export interface SwitchProps extends ItemProps, DebugProps {
     x?: number;
     y?: number;
     text?: TextProps;
+    style?: StyleValue<SwitchStyle>;
     children?: Child;
 }
 
@@ -312,6 +271,7 @@ export interface SwitchOnProps<V extends string> extends ItemProps, DebugProps {
     x?: number;
     y?: number;
     text?: TextProps;
+    style?: StyleValue<SwitchStyle>;
     /** The content of each case, keyed by value; every value needs one. */
     children: { readonly [K in NoInfer<V>]: Child };
 }
@@ -322,6 +282,7 @@ export interface SwitchFlagProps extends ItemProps, DebugProps {
     x?: number;
     y?: number;
     text?: TextProps;
+    style?: StyleValue<SwitchStyle>;
     children: { readonly true: Child; readonly false: Child };
 }
 
@@ -348,6 +309,7 @@ export interface ItemSlotProps extends ItemProps, SlotSource, DebugProps {
     bind?: ItemsHandle;
     /** One-based slot inside the enclosing repeater cell. */
     cellSlot?: number;
+    style?: StyleValue<ItemStyle>;
 }
 
 export interface CollectionProps extends ItemProps, SlotSource, DebugProps {
@@ -363,6 +325,7 @@ export interface CollectionProps extends ItemProps, SlotSource, DebugProps {
     /** Width in slots; defaults to the full section width. */
     columns?: number;
     rows?: number;
+    style?: StyleValue<CollectionStyle>;
 }
 
 export interface RepeaterProps extends ItemProps {
@@ -404,6 +367,7 @@ export interface SectionProps extends DebugProps {
     claim?: SlotRectClaim;
     flow?: GridFlow;
     text?: TextProps;
+    style?: StyleValue<SectionStyle>;
     children?: Child;
 }
 
@@ -418,6 +382,9 @@ export interface WindowProps extends DebugProps {
     bleed?: Insets;
     frame?: ArtRef;
     text?: TextProps;
+    style?: StyleValue<SectionStyle>;
+    /** Overrides vars for the whole window. */
+    theme?: VarTheme;
     children?: Child;
 }
 
@@ -432,7 +399,8 @@ export type HudAnchor =
     | "bottom"
     | "bottom-right";
 
-export interface HudProps extends Omit<BoxProps, keyof ItemProps | "x" | "y" | "frame" | "width" | "height"> {
+export interface HudProps extends Omit<BoxProps, keyof ItemProps | "x" | "y" | "frame" | "width" | "height" | "style"> {
+    style?: StyleValue<HudStyle>;
     width?: number;
     height?: number;
     name: string;
@@ -520,118 +488,6 @@ function clean<T extends Fields>(fields: T): Defined<T> {
     return out as Defined<T>;
 }
 
-function nonEmpty<T extends Fields>(fields: T): Defined<T> | undefined {
-    const out = clean(fields);
-    return Object.keys(out).length === 0 ? undefined : out;
-}
-
-const TEXT_KEYS: [keyof TextProps, string][] = [
-    ["color", "color"],
-    ["shadow", "shadow"],
-    ["bold", "bold"],
-    ["italic", "italic"],
-    ["underlined", "underlined"],
-    ["strikethrough", "strikethrough"],
-    ["obfuscated", "obfuscated"],
-    ["font", "font"],
-    ["smallCaps", "small_caps"],
-    ["align", "align"],
-];
-
-function textFields(props: TextProps): Fields {
-    const out: Fields = {};
-    for (const [from, to] of TEXT_KEYS) {
-        if (props[from] !== undefined) {
-            out[to] = props[from];
-        }
-    }
-    return out;
-}
-
-/** Fills unset text fields without modifying reusable children. */
-function cascade<T>(node: T, style: TextProps | undefined): T {
-    if (style === undefined) {
-        return node;
-    }
-    const defaults = textFields(style);
-    const visit = (el: Fields): Fields => {
-        const result = { ...el };
-        if (el.type === "label" || el.type === "slot") {
-            const fontSet = el.font !== undefined || el.small_caps !== undefined;
-            for (const [key, value] of Object.entries(defaults)) {
-                if (el[key] === undefined && !((key === "font" || key === "small_caps") && fontSet)) {
-                    result[key] = value;
-                }
-            }
-        }
-        for (const key of ["children", "windows", "huds"]) {
-            if (Array.isArray(el[key])) {
-                result[key] = (el[key] as Fields[]).map(visit);
-            }
-        }
-        if (Array.isArray(el.cells)) {
-            result.cells = (el.cells as Fields[][]).map((cell) => cell.map(visit));
-        }
-        return result;
-    };
-    return (Array.isArray(node) ? node.map((el) => visit(el as Fields)) : visit(node as Fields)) as T;
-}
-
-function spanOf(span: ItemProps["span"]): [number | undefined, number | undefined] {
-    if (span === undefined) {
-        return [undefined, undefined];
-    }
-    return typeof span === "number" ? [span, undefined] : span;
-}
-
-function line(at: number | undefined, span: number | undefined): GridLine | undefined {
-    if (at !== undefined) {
-        return span === undefined ? at + 1 : { start: at + 1, span };
-    }
-    return span === undefined ? undefined : { span };
-}
-
-const ITEM_KEYS: readonly string[] = [
-    "grow",
-    "shrink",
-    "basis",
-    "alignSelf",
-    "justifySelf",
-    "margin",
-    "absolute",
-    "top",
-    "right",
-    "bottom",
-    "left",
-    "span",
-    "at",
-    "col",
-    "row",
-    "translate",
-] satisfies (keyof ItemProps)[];
-
-function layout(props: ItemProps): Fields {
-    const [columns, rows] = spanOf(props.span);
-    const absolute = props.absolute === true ? ("absolute" as const) : undefined;
-    const item: ItemLayout | undefined = nonEmpty({
-        grow: typeof props.grow === "boolean" ? Number(props.grow) : props.grow,
-        shrink: props.shrink,
-        basis: props.basis,
-        align_self: props.alignSelf,
-        justify_self: props.justifySelf,
-        margin: props.margin,
-        position: absolute,
-        top: props.top,
-        right: props.right,
-        bottom: props.bottom,
-        left: props.left,
-        column: props.col ?? line(props.at?.[0], columns),
-        row: props.row ?? line(props.at?.[1], rows),
-        translate: props.translate,
-    });
-    return item === undefined ? {} : { layout: item };
-}
-
 function state(props: StateProps): Fields {
     return clean({ item_model: props.itemModel, frame: props.frame, sprite: props.sprite, tooltip: props.tooltip });
 }
@@ -667,33 +523,15 @@ function nameOrBind(props: { name?: string | undefined; bind?: Ref | undefined }
 }
 
 /** A flexbox (or grid) container. Auto-sized boxes fill their parent's content box. */
-export function Box(props: BoxProps): Element {
-    const style: FlexStyle | undefined = nonEmpty({
-        display: props.display,
-        direction: props.direction,
-        wrap: props.wrap,
-        justify: props.justify,
-        align: props.align,
-        align_content: props.alignContent,
-        gap: props.gap,
-        padding: props.padding,
-        width: props.width,
-        height: props.height,
-        min_width: props.minWidth,
-        min_height: props.minHeight,
-        max_width: props.maxWidth,
-        max_height: props.maxHeight,
-        aspect_ratio: props.aspectRatio,
-        columns: props.columns,
-        rows: props.rows,
-        auto_flow: props.flow,
-    });
+export function Box(input: BoxProps): Element {
+    const props = withStyle(input, STYLE_KEYS.box!, "Box");
     const node = clean({
         type: "flex",
         frame: props.frame,
         x: props.x,
         y: props.y,
-        style,
+        style: flexStyle(props as Fields),
+        theme: props.theme,
         children: nodes(props.children),
         ...layout(props),
         ...debug(props),
@@ -703,7 +541,7 @@ export function Box(props: BoxProps): Element {
 
 /** A horizontal box whose children are vertically centered by default. */
 export function Row(props: BoxProps): Element {
-    return Box({ align: "center", ...props, direction: "row" });
+    return Box({ align: "center", ...withStyle(props, STYLE_KEYS.box!, "Row"), direction: "row" });
 }
 
 export function Column(props: BoxProps): Element {
@@ -716,7 +554,7 @@ export function Grid(props: BoxProps): Element {
 
 /** A box that centers its children on both axes. */
 export function Center(props: BoxProps): Element {
-    return Box({ justify: "center", align: "center", ...props });
+    return Box({ justify: "center", align: "center", ...withStyle(props, STYLE_KEYS.box!, "Center") });
 }
 
 /** Flexible empty space; in a section it skips `span` slots. */
@@ -725,8 +563,9 @@ export function Spacer(props: ItemProps): Element {
 }
 
 /** Static label text, or dynamic text with `bind`. */
-export function Text(props: TextElementProps): Element {
-    const style = textFields(props);
+export function Text(input: TextElementProps): Element {
+    const props = withStyle(input, STYLE_KEYS.text!, "Text");
+    const style = textFields(props as Fields);
     const common = clean({ width: props.width, x: props.x, y: props.y, ...style, ...layout(props), ...debug(props) });
     const fit = { overflow: props.overflow, lines: props.lines, line_height: props.lineHeight };
     if (props.bind !== undefined) {
@@ -771,7 +610,8 @@ export function Sprite(props: SpriteProps): Element {
 }
 
 /** Inline art or a theme sprite drawn at its own size, or with a `sprite` handle `bind` a runtime sprite slot. */
-export function Image(props: ImageProps): Element {
+export function Image(input: ImageProps): Element {
+    const props = withStyle(input, STYLE_KEYS.item!, "Image") as ImageProps;
     if (props.bind !== undefined) {
         if (!isRef(props.bind) || props.bind.kind !== "sprite") {
             throw new Error("<Image bind> requires a `sprite` handle");
@@ -781,7 +621,7 @@ export function Image(props: ImageProps): Element {
     if (props.art === undefined) {
         throw new Error("<Image> requires `art` or `bind`");
     }
-    const source = typeof props.art === "string" ? { name: props.art } : { art: props.art satisfies Art };
+    const source = typeof props.art === "string" ? { name: props.art } : { art: props.art };
     return clean({ type: "sprite", ...source, x: props.x, y: props.y, ...layout(props), ...debug(props) }) as Element;
 }
 
@@ -789,7 +629,8 @@ export function Image(props: ImageProps): Element {
  * An inventory region: the slots it covers take its clicks and show its hitbox item. It fills its parent box, or in
  * a section claims its `span`/`at` area; inside switch cases, regions claim their slots only while their case is drawn.
  */
-export function Region(props: RegionProps): Element {
+export function Region(input: RegionProps): Element {
+    const props = withStyle(input, STYLE_KEYS.item!, "Region");
     return region(
         clean({
             on_click: props.onClick,
@@ -824,7 +665,8 @@ export function Icon(props: IconProps): Element {
     }) as Element;
 }
 
-function section(kind: SlotSection, props: SectionProps): Element {
+function section(kind: SlotSection, input: SectionProps, component: string): Element {
+    const props = withStyle(input, STYLE_KEYS.section!, component);
     const node = clean({
         type: "section",
         section: kind,
@@ -844,22 +686,22 @@ export function Section(props: SectionOfProps): Element {
     if (!["container", "player", "hotbar"].includes(of)) {
         throw new Error('<Section of> must be "container", "player", or "hotbar"');
     }
-    return section(of, rest);
+    return section(of, rest, "Section");
 }
 
 /** The opened container's slot grid. Children auto-flow through it, one track per slot. */
 export function Container(props: SectionProps): Element {
-    return section("container", props);
+    return section("container", props, "Container");
 }
 
 /** The player's 9x3 main inventory grid. */
 export function Player(props: SectionProps): Element {
-    return section("player", props);
+    return section("player", props, "Player");
 }
 
 /** The player's 9x1 hotbar grid. */
 export function Hotbar(props: SectionProps): Element {
-    return section("hotbar", props);
+    return section("hotbar", props, "Hotbar");
 }
 
 /** The name or click handle, `enabled`, and `state` fields of a button. */
@@ -997,7 +839,7 @@ export function Tabs<V extends string>(props: TabsProps | TabsBindProps<V>): Ele
 export function Case(props: CaseProps): CaseElement {
     requireName(props.value, "Case value");
     const { value, ...box } = props;
-    const node = Box({ direction: "column", ...box });
+    const node = Box({ direction: "column", ...withStyle(box, STYLE_KEYS.case!, "Case") });
     if (node.type !== "flex") {
         throw new Error("<Case> must render a box");
     }
@@ -1006,6 +848,7 @@ export function Case(props: CaseProps): CaseElement {
         value,
         frame: node.frame,
         style: node.style,
+        theme: node.theme,
         children: node.children ?? [],
         ...debug(props),
     }) as CaseElement;
@@ -1036,7 +879,8 @@ function switchNode(
  * of a value or selection handle, or `true` and `false` of a flag or toggle, to its content. Cases may hold regions,
  * items, and collections, which claim their slots only while their case is drawn.
  */
-export function Switch<V extends string>(props: SwitchProps | SwitchOnProps<V> | SwitchFlagProps): Element {
+export function Switch<V extends string>(input: SwitchProps | SwitchOnProps<V> | SwitchFlagProps): Element {
+    const props = withStyle(input, STYLE_KEYS.switch!, "Switch") as SwitchProps | SwitchOnProps<V> | SwitchFlagProps;
     if ("on" in props) {
         const content = props.children as Record<string, Child>;
         const boolean = props.on.kind === "flag" || props.on.kind === "toggle";
@@ -1060,7 +904,9 @@ export function Switch<V extends string>(props: SwitchProps | SwitchOnProps<V> |
 /** Draws its children only while the condition `when` is true; their space is always reserved. */
 export function Show(props: ShowProps): Element {
     const box = Object.fromEntries(
-        Object.entries(props).filter(([key]) => !ITEM_KEYS.includes(key) && !["when", "index", "x", "y"].includes(key)),
+        Object.entries(props).filter(
+            ([key]) => !STYLE_KEYS.item!.includes(key) && !["when", "index", "x", "y"].includes(key),
+        ),
     ) as CaseBoxProps;
     const { text: _text, children: _children, ...placement } = props;
     return switchNode(placement, binding(props.when, "Show when"), [
@@ -1083,7 +929,8 @@ export function Hotspot(props: HotspotProps): Element {
 }
 
 /** A real item stack. */
-export function Item(props: ItemSlotProps): Element {
+export function Item(input: ItemSlotProps): Element {
+    const props = withStyle(input, STYLE_KEYS.item!, "Items");
     return clean({
         type: "item",
         ...nameOrBind(props, "Item"),
@@ -1099,7 +946,8 @@ export function Item(props: ItemSlotProps): Element {
 export const Items: typeof Item = Item;
 
 /** A scrolling item collection; by default it spans the full section width. */
-export function Collection(props: CollectionProps): Element {
+export function Collection(input: CollectionProps): Element {
+    const props = withStyle(input, STYLE_KEYS.collection!, "Collection");
     const bound = nameOrBind(props, "Collection");
     const full =
         props.columns === undefined && props.span === undefined && props.at === undefined && props.col === undefined;
@@ -1201,21 +1049,32 @@ export const Input: typeof AnvilInput = AnvilInput;
 
 /** The title strip above the container grid, centering its children. */
 export function Header(props: BoxProps): Element {
-    return Box({ justify: "center", align: "center", gap: 4, ...props, x: 0, y: 0, width: 176, height: 17 });
+    return Box({
+        justify: "center",
+        align: "center",
+        gap: 4,
+        ...withStyle(props, STYLE_KEYS.box!, "Header"),
+        x: 0,
+        y: 0,
+        width: 176,
+        height: 17,
+    });
 }
 
 /** A container window. Default-export it from a `.tsx` file under `window/`. */
-export function Window(props: WindowProps): { windows: WindowDef[] } {
+export function Window(input: WindowProps): { windows: WindowDef[] } {
+    const props = withStyle(input, STYLE_KEYS.section!, "Window");
     requireName(props.name, "Window");
     const def = clean({
         name: props.name,
         container: props.container,
         bleed: props.bleed,
         frame: props.frame,
+        theme: props.theme,
         children: nodes(props.children),
         ...debug(props),
     }) as WindowDef;
-    return cascade(ui(def), props.text);
+    return ui(cascade(def, props.text));
 }
 
 const ANCHORS: Record<HudAnchor, [number, number]> = {
@@ -1234,9 +1093,11 @@ const ANCHORS: Record<HudAnchor, [number, number]> = {
  * A HUD whose children lay out as a column by default. Without `width`/`height` it sizes to its content.
  * `anchor` pins it to a screen point with the generated core shaders (requires `hudShaders`).
  */
-export function Hud(props: HudProps): { huds: HudDef[] } {
+export function Hud(input: HudProps): { huds: HudDef[] } {
+    const props = withStyle(input, STYLE_KEYS.hud!, "Hud");
     requireName(props.name, "Hud");
-    const { name, channel, bleed, frame, anchor, offset, sourceBottom, width, height, debugName, ...box } = props;
+    const { name, channel, bleed, frame, theme, anchor, offset, sourceBottom, width, height, debugName, ...box } =
+        props;
     const fixed = typeof width === "number" && typeof height === "number";
     if (!fixed && (width !== undefined || height !== undefined)) {
         throw new Error("<Hud> `width` and `height` must both be pixel numbers, or both be omitted");
@@ -1259,6 +1120,7 @@ export function Hud(props: HudProps): { huds: HudDef[] } {
         channel,
         bleed,
         frame,
+        theme,
         shader,
         width: fixed ? width : undefined,
         height: fixed ? height : undefined,

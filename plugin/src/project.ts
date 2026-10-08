@@ -1,3 +1,4 @@
+import { resolveTokens } from "./authoring/tokens.ts";
 import type { Art, Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
 
 export interface WindowOptions {
@@ -187,10 +188,11 @@ function listDocuments(path: string, list: keyof typeof LISTS, entries: unknown)
         throw new Error(`${path}: defineWindows \`${list}\` must be a list`);
     }
     const [documents, single] = LISTS[list];
-    return (entries as unknown[]).flat(Infinity).map((entry, i) => {
-        if (isFields(entry) && documents in entry) {
-            return { [documents]: entry[documents] };
+    return (entries as unknown[]).flat(Infinity).map((listed, i) => {
+        if (isFields(listed) && documents in listed) {
+            return { [documents]: listed[documents] };
         }
+        const entry = resolveTokens(listed);
         const other = isFields(entry) && ["theme", "windows", "huds"].some((key) => key in entry);
         if (!isFields(entry) || other || !isDefinition(list, entry)) {
             throw new Error(`${path}: defineWindows \`${list}\` entry ${i} is not a ${single} document`);
@@ -210,7 +212,7 @@ function entryDocuments(path: string, value: unknown): WindowDocument[] {
         if (!isFields(sprites) || Array.isArray(sprites)) {
             throw new Error(`${path}: defineWindows \`sprites\` must map names to art`);
         }
-        documents.push({ sprites: sprites as Record<string, Art> });
+        documents.push({ sprites: resolveTokens(sprites) as Record<string, Art> });
     }
     return documents;
 }
