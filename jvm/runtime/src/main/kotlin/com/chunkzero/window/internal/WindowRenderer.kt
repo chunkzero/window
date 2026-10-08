@@ -1,7 +1,6 @@
 package com.chunkzero.window.internal
 
 import com.chunkzero.window.SlotRef
-import com.chunkzero.window.Tooltip
 import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
@@ -23,19 +22,18 @@ internal class WindowFrame<I : Any>(
  * bound providers under [reactivity]'s dependency capture and returns what to show; delivering it is up to the caller.
  */
 internal class WindowRenderer<I : Any>(
-    private val definition: WindowDefinition,
+    definition: WindowDefinition,
     private val bindings: WindowBindings<I>,
     reactivity: Reactivity,
-    private val buildItem: (WindowItem) -> I,
+    buildItem: (WindowItem) -> I,
 ) {
     private val switches = bindings.switches
     private val title = WindowTitle(definition, bindings, reactivity)
     private val inventory = WindowInventory(definition, bindings, reactivity, buildItem)
 
-    /** Selects every switch's initial case and renders the initial title. */
+    /** Selects every switch's case and renders the initial title. */
     fun seedTitle(): ComposedRender {
         for (name in switches.names) switches.update(name)
-        for (name in bindings.buttonStates.keys) switches.select(name, inventory.renderButtonState(name))
         title.seed()
         return title.compose()
     }
@@ -52,8 +50,6 @@ internal class WindowRenderer<I : Any>(
             when (key) {
                 is RenderKey.Slot -> title.updateSlot(key.name)
                 is RenderKey.Sprite -> title.updateSprite(key.name)
-                is RenderKey.ButtonItem -> inventory.writeButtonItem(key.name)
-                is RenderKey.ButtonState -> select(key.name, inventory.renderButtonState(key.name))
                 is RenderKey.Item -> inventory.writeItem(key.name)
                 is RenderKey.CollectionCell -> inventory.writeCollectionCell(key.name, key.index)
                 is RenderKey.CollectionSelection -> title.updateCollectionSelection(key.name)
@@ -77,29 +73,6 @@ internal class WindowRenderer<I : Any>(
         return inventory.drain()
     }
 
-    fun setButtonItem(
-        name: String,
-        item: I?,
-    ): SlotWrites<I> {
-        inventory.setButtonItem(name, item)
-        return inventory.drain()
-    }
-
-    fun setTooltip(
-        name: String,
-        tooltip: Tooltip?,
-    ): SlotWrites<I> = setButtonItem(name, tooltip?.let { buildItem(definition.tooltipHitbox(it)) })
-
-    /** Switches button [name] to [state]; null when it already has that state. */
-    fun setButtonState(
-        name: String,
-        state: String,
-    ): WindowFrame<I>? {
-        definition.requireStates(name)
-        if (!select(name, state)) return null
-        return frame()
-    }
-
     /** Renders [input]'s seed renamed to [value], which sets the client's edit box in place. */
     fun applyInput(
         input: AnvilInputEntry,
@@ -117,12 +90,6 @@ internal class WindowRenderer<I : Any>(
         inventory.stageInput(input, value)
         return inventory.drain()
     }
-
-    /** Selects [state] in button [name]'s state switch; returns whether it changed. */
-    private fun select(
-        name: String,
-        state: String,
-    ): Boolean = switches.select(name, state).also { if (it) updateCases() }
 
     /** Swaps the art and inventory slots of switch cases whose activity changed. */
     private fun updateCases() {

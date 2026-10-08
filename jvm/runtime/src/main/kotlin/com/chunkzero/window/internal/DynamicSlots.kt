@@ -20,31 +20,25 @@ internal class DynamicSlots(
     /** Slots without a static `text` label. */
     val names: Set<String> = slots.filterValues { it.text == null }.keys
 
-    /** The dynamic slot keys of each binding name; a binding shared across switch cases has one per case. */
-    private val bindings: Map<String, List<String>> = names.groupBy { slots.getValue(it).binding ?: it }
-
     private val renders = HashMap<String, () -> Component>()
 
-    /** Binds [render] to binding [name], which renders every slot copy that shares it. */
+    /** Binds [render] to dynamic slot [name]. */
     fun bind(
         name: String,
         render: () -> Component,
     ) {
-        val keys =
-            bindings[name]
-                ?: if (slots[name]?.text != null) {
-                    throw IllegalArgumentException("Slot '$name' is a static label and must not be bound")
-                } else {
-                    throw IllegalArgumentException(
-                        "Unknown slot '$name' in $surface '$ownerName'; known slots: ${bindings.keys.sorted()}",
-                    )
-                }
-        require(keys.none { it in renders }) { "Slot '$name' bound more than once" }
-        for (key in keys) renders[key] = render
+        require(name in names) {
+            if (slots[name]?.text != null) {
+                "Slot '$name' is a static label and must not be bound"
+            } else {
+                "Unknown slot '$name' in $surface '$ownerName'; known slots: ${names.sorted()}"
+            }
+        }
+        require(renders.put(name, render) == null) { "Slot '$name' bound more than once" }
     }
 
     fun validate() {
-        val unbound = bindings.filterValues { keys -> keys.any { it !in renders } }.keys
+        val unbound = names - renders.keys
         check(unbound.isEmpty()) {
             "Unbound dynamic slots in $surface '$ownerName': ${unbound.sorted()}"
         }

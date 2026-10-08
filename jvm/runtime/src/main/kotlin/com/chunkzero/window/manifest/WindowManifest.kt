@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Compiled Window pack definition (schema v7).
+ * Compiled Window pack definition (schema v9).
  *
  * The rpp plugin generates Kotlin that instantiates these DTOs directly. JSON parsing remains for
  * older tools and tests; pass a parsed manifest to `WindowDefinition` or `HudDefinition`.
@@ -49,7 +49,7 @@ public data class WindowManifest(
 ) {
     public companion object {
         /** The schema version this runtime reads. */
-        public const val VERSION: Int = 8
+        public const val VERSION: Int = 9
 
         private val json =
             Json {

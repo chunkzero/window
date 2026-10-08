@@ -12,16 +12,6 @@ internal sealed interface RenderKey {
         val name: String,
     ) : RenderKey
 
-    /** The inventory item bound to a button or hotspot. */
-    data class ButtonItem(
-        val name: String,
-    ) : RenderKey
-
-    /** The named state of a button or hotspot, selecting the case of its state switch. */
-    data class ButtonState(
-        val name: String,
-    ) : RenderKey
-
     /** A dynamic item region. */
     data class Item(
         val name: String,
@@ -38,7 +28,7 @@ internal sealed interface RenderKey {
         val name: String,
     ) : RenderKey
 
-    /** A switch binding, selecting the case of every switch that shares it. */
+    /** A switch binding, selecting its case. */
     data class Switch(
         val name: String,
     ) : RenderKey

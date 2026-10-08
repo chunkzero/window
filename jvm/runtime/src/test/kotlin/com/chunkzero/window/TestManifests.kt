@@ -12,7 +12,6 @@ import com.chunkzero.window.manifest.ItemEntry
 import com.chunkzero.window.manifest.LayerEntry
 import com.chunkzero.window.manifest.LayerKind
 import com.chunkzero.window.manifest.RegionEntry
-import com.chunkzero.window.manifest.RepeatGroupEntry
 import com.chunkzero.window.manifest.SlotAreaEntry
 import com.chunkzero.window.manifest.SlotEntry
 import com.chunkzero.window.manifest.SlotRefEntry
@@ -93,7 +92,7 @@ object TestManifests {
     val sampleJson: String =
         """
         {
-          "version": 8,
+          "version": 9,
           "namespace": "window",
           "font": "window:ui",
           "spacers": { "983040": -1024, "983061": 1024, "983050": -1, "983051": 1 },
@@ -135,7 +134,7 @@ object TestManifests {
                 "icon": { "x": 8, "y": 20, "width": 16, "height": 16, "align": "left", "font": "window:sprite_y14" }
               },
               "regions": {
-                "buy.enabled": {
+                "buy": {
                   "x": 52, "y": 190, "width": 72, "height": 20,
                   "slots": [
                     { "area": "container", "index": 46 },
@@ -145,7 +144,7 @@ object TestManifests {
                   "fill_slots": [{ "area": "container", "index": 47 }],
                   "action": "buy",
                   "hitbox": { "item_model": "example:gui/buy", "tooltip": { "title": "Buy", "lines": ["Spend coins"] } },
-                  "source": "button `buy`"
+                  "source": "region `buy`"
                 },
                 "exit": {
                   "x": 0, "y": 0, "width": 18, "height": 18,
@@ -155,21 +154,18 @@ object TestManifests {
                 }
               },
               "switches": {
-                "buy": {
-                  "states": true,
-                  "initial": "enabled",
-                  "source": "button `buy`",
-                  "cases": [{ "value": "enabled", "static": "ART", "regions": ["buy.enabled"], "switches": ["inner"] }]
+                "can_buy": {
+                  "source": "buy-switch",
+                  "cases": [{ "value": "true", "static": "ART", "regions": ["buy"], "switches": ["mode"] }]
                 },
-                "inner": { "binding": "mode", "cases": [{ "value": "a", "sprite_slots": ["icon"] }] }
+                "mode": { "cases": [{ "value": "a", "sprite_slots": ["icon"] }] }
               },
               "layers": [
                 { "kind": "slot", "name": "title" },
-                { "kind": "switch", "name": "buy" },
-                { "kind": "switch", "name": "inner" },
+                { "kind": "switch", "name": "can_buy" },
+                { "kind": "switch", "name": "mode" },
                 { "kind": "sprite_slot", "name": "icon" }
-              ],
-              "groups": { "cell": { "count": 1, "actions": ["cell_0"] } }
+              ]
             }
           }
         }
@@ -191,7 +187,6 @@ object TestManifests {
         items: Map<String, ItemEntry> = emptyMap(),
         collections: Map<String, CollectionEntry> = emptyMap(),
         inputs: Map<String, AnvilInputEntry> = emptyMap(),
-        groups: Map<String, RepeatGroupEntry> = emptyMap(),
         huds: Map<String, HudEntry> = emptyMap(),
         sprites: Map<String, SpriteEntry> = emptyMap(),
         fontMetrics: Map<String, FontMetricsEntry> = fontMetricEntries(),
@@ -205,7 +200,7 @@ object TestManifests {
                 slots.keys.map { LayerEntry(LayerKind.SLOT, it) },
     ): WindowManifest =
         WindowManifest(
-            version = 8,
+            version = 9,
             namespace = "window",
             font = "window:ui",
             spacers = spacerTable(),
@@ -231,7 +226,6 @@ object TestManifests {
                             items = items,
                             collections = collections,
                             inputs = inputs,
-                            groups = groups,
                             switches = switches,
                             layers = layers,
                         ),
@@ -253,7 +247,7 @@ object TestManifests {
             switches.keys.map { LayerEntry(LayerKind.SWITCH, it) } + slots.keys.map { LayerEntry(LayerKind.SLOT, it) },
     ): WindowManifest =
         WindowManifest(
-            version = 8,
+            version = 9,
             namespace = "window",
             font = "window:ui",
             spacers = spacerTable(),
@@ -369,33 +363,6 @@ object TestManifests {
             defaultAction = defaultAction,
             hitbox = hitbox,
         )
-
-    /** The compiled form of a button with named states: its state switch and one region per case. */
-    class StateButton(
-        val switch: SwitchEntry,
-        val regions: Map<String, RegionEntry>,
-    )
-
-    /**
-     * Compiles button [name] over [slots] with [states] keyed by state, plus the synthesized `default`
-     * state carrying [tooltip]. [sprites] names a state's sprite slot key by state.
-     */
-    fun stateButton(
-        name: String,
-        slots: List<Int>,
-        states: Map<String, HitboxEntry>,
-        action: String? = name,
-        tooltip: TooltipEntry? = null,
-        sprites: Map<String, String> = emptyMap(),
-    ): StateButton {
-        val all = mapOf("default" to HitboxEntry(tooltip = tooltip)) + states
-        val regions = all.map { (state, hitbox) -> "$name.$state" to region(slots, action, hitbox = hitbox) }.toMap()
-        val cases =
-            all.keys.map { state ->
-                SwitchCaseEntry(state, regions = listOf("$name.$state"), spriteSlots = listOfNotNull(sprites[state]))
-            }
-        return StateButton(SwitchEntry(cases, states = true, initial = "default", source = "button `$name`"), regions)
-    }
 
     fun containerSlot(index: Int): SlotRefEntry = SlotRefEntry(SlotAreaEntry.CONTAINER, index)
 

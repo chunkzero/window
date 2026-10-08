@@ -13,7 +13,7 @@ import com.chunkzero.window.internal.HudLayer
 import com.chunkzero.window.internal.RenderedSegment
 import com.chunkzero.window.internal.SessionFrames
 import com.chunkzero.window.internal.Switches
-import com.chunkzero.window.internal.bindingSlot
+import com.chunkzero.window.internal.dynamicSlot
 import com.chunkzero.window.internal.emptySegment
 import com.chunkzero.window.internal.sourced
 import com.chunkzero.window.manifest.LayerKind
@@ -99,8 +99,7 @@ public abstract class HudView(
      * its font and style; followed by [suffix], which is kept even when it alone is wider. Content that already fits is returned unchanged. Use it to keep a
      * suffix, such as a score, while shortening the text before it.
      *
-     * [slot] is the slot's authored name, or its flattened entry name such as `name[2]` for an indexed binding. A
-     * binding shared across a switch's cases measures with its copy in the first case that has one.
+     * [slot] is the slot's entry name, such as `name[2]` for one entry of an indexed handle.
      *
      * @throws IllegalArgumentException if [slot] is not a dynamic text slot of this HUD.
      */
@@ -111,7 +110,7 @@ public abstract class HudView(
     ): Component {
         val entry = definition.entry
         return definition.composer.fit(
-            entry.slots.bindingSlot(slot, entry.switches, "hud", definition.name),
+            entry.slots.dynamicSlot(slot, "hud", definition.name),
             value,
             suffix,
         )

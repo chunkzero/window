@@ -13,7 +13,7 @@ import com.chunkzero.window.manifest.WindowEntry
  *
  * An action collection cell takes precedence over a region covering the same slot. Regions and collections in
  * mutually exclusive cases may share slots; a click routes to the one whose case is active. Each switch's case is
- * read at click time, from its state provider or binding, so a click between a change and the next render routes
+ * read at click time from its binding, so a click between a change and the next render routes
  * by the current case.
  */
 internal class SlotRoutes(
@@ -43,7 +43,7 @@ internal class SlotRoutes(
 
     fun dispatch(click: Click) {
         val switches = bindings.switches
-        val current = switches.current { key -> bindings.buttonStates[key]?.invoke() }
+        val current = switches.current()
         val cell = cells[click.slot]?.firstOrNull { switches.collectionActive(it.name, current) }
         if (cell != null) {
             val handler = bindings.collectionHandlers[cell.name] ?: return

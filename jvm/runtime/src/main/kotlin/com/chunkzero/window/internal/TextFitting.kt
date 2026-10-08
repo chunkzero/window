@@ -2,7 +2,6 @@ package com.chunkzero.window.internal
 
 import com.chunkzero.window.diagnostics.RenderBounds
 import com.chunkzero.window.manifest.SlotEntry
-import com.chunkzero.window.manifest.SwitchEntry
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.TextComponent
@@ -158,27 +157,19 @@ internal fun FontRegistry.fitText(
     return if (suffix == Component.empty()) fitted else Component.text().append(fitted, suffix).build()
 }
 
-/** The slot binding [name] measures with: its own slot, or the copy in the first case of a switch sharing it. */
-internal fun Map<String, SlotEntry>.bindingSlot(
+/** Dynamic text slot [name], which a fit measures with. */
+internal fun Map<String, SlotEntry>.dynamicSlot(
     name: String,
-    switches: Map<String, SwitchEntry>,
     surface: String,
     ownerName: String,
 ): SlotEntry {
-    this[name]?.let { slot ->
-        require(slot.text == null) { "Slot '$name' is a static label" }
-        if (slot.binding == null) return slot
-    }
-    val shared =
-        switches.values.firstNotNullOfOrNull { switch ->
-            switch.cases.firstNotNullOfOrNull { case ->
-                case.slots.firstNotNullOfOrNull { key -> this[key]?.takeIf { it.binding == name } }
-            }
-        }
-    return shared ?: throw IllegalArgumentException(
-        "Unknown slot '$name' in $surface '$ownerName'; known slots: " +
-            filterValues { it.text == null }.map { (key, slot) -> slot.binding ?: key }.distinct().sorted(),
-    )
+    val slot =
+        this[name] ?: throw IllegalArgumentException(
+            "Unknown slot '$name' in $surface '$ownerName'; known slots: " +
+                filterValues { it.text == null }.keys.sorted(),
+        )
+    require(slot.text == null) { "Slot '$name' is a static label" }
+    return slot
 }
 
 /** One literal run of flattened content: its text and the style it inherits, without the fallback. */

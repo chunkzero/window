@@ -2,7 +2,6 @@ package com.chunkzero.window
 
 import com.chunkzero.window.internal.Containers
 import com.chunkzero.window.internal.TitleComposer
-import com.chunkzero.window.internal.controlRegions
 import com.chunkzero.window.internal.requireLayers
 import com.chunkzero.window.manifest.SurfaceEntry
 import com.chunkzero.window.manifest.WindowEntry
@@ -38,9 +37,6 @@ public class WindowDefinition(
     internal val kind = Containers.kind(entry.surface.container)
 
     internal val composer: TitleComposer = TitleComposer(manifest, entry)
-
-    /** The region keys of each button or hotspot. */
-    internal val controls: Map<String, List<String>> = entry.controlRegions()
 
     /** The item model of this window's invisible hitbox items. */
     internal val hitboxModel: Key = Key.key("${manifest.namespace}:gui/hitbox")
