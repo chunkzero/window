@@ -7,7 +7,7 @@ import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_top_center` HUD. Implement the abstract members. */
 public abstract class StatusTopCenterHud : HudView(WindowHudDefinitions.statusTopCenter) {
-    /** Render the `runtime` slot. */
+    /** Render the `runtime` text. */
     protected abstract fun runtime(): Component
 
     final override fun HudScope.bind() {

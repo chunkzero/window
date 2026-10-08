@@ -1,0 +1,27 @@
+/** The function-style authoring API, exported from `#plugins/window` as `raw`. See docs/AUTHORING.md. */
+export {
+    anvilInput,
+    button,
+    choice,
+    collection,
+    column,
+    flex,
+    grid,
+    hotspot,
+    hud,
+    item,
+    label,
+    panel,
+    repeater,
+    row,
+    section,
+    show,
+    slot,
+    slotRects,
+    sprite,
+    spriteSlot,
+    switchOn,
+    toggle,
+    ui,
+} from "./elements.ts";
+export * as text from "./text.ts";

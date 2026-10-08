@@ -3,6 +3,7 @@ package com.chunkzero.window.internal
 import com.chunkzero.window.ButtonTooltip
 import com.chunkzero.window.Click
 import com.chunkzero.window.IndexedClick
+import com.chunkzero.window.WindowCollection
 import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.WindowScope
 import com.chunkzero.window.host.WindowItem
@@ -89,6 +90,19 @@ internal class WindowBindings<I : Any>(
         }
         collectionItem(name, render)
         bindOnce(collectionHandlers, name, handler) { "Collection '$name' handler bound more than once" }
+    }
+
+    override fun collection(
+        name: String,
+        source: WindowCollection<I>,
+    ) {
+        val collection = definition.requireEntry(entry.collections, name, "collection", known = "collections")
+        if (collection.action) {
+            collection(name, source::item) { source.click(it.index, Click(it.slot, it.shift, it.right)) }
+        } else {
+            collectionItem(name, source::item)
+        }
+        if (collection.selection.isNotEmpty()) collectionSelection(name, source::selected)
     }
 
     override fun collectionItem(

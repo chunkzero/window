@@ -1,30 +1,6 @@
 export type * from "./types.ts";
-export {
-    anvilInput,
-    button,
-    choice,
-    collection,
-    column,
-    flex,
-    grid,
-    hotspot,
-    hud,
-    item,
-    label,
-    panel,
-    repeater,
-    row,
-    section,
-    show,
-    slot,
-    slotRects,
-    sprite,
-    spriteSlot,
-    switchOn,
-    theme,
-    toggle,
-    ui,
-} from "./elements.ts";
+export * as raw from "./raw.ts";
+export { theme } from "./elements.ts";
 export {
     containerSlot,
     containerSlots,
@@ -34,8 +10,32 @@ export {
     playerSlot,
     playerSlots,
 } from "./inventory.ts";
+export { action, builtin, collection, flag, input, items, selection, sprite, text, toggle, value } from "./handles.ts";
+export type {
+    Action as ActionHandle,
+    Builtin as BuiltinHandle,
+    BuiltinId,
+    ClickAction,
+    Collection as CollectionHandle,
+    Condition,
+    Flag as FlagHandle,
+    HandleKind,
+    Indexed,
+    Input as InputHandle,
+    Is,
+    Items as ItemsHandle,
+    Ref,
+    Selection as SelectionHandle,
+    Set as SetAction,
+    Shape,
+    Sprite as SpriteHandle,
+    Text as TextHandle,
+    Toggle as ToggleHandle,
+    Value as ValueHandle,
+} from "./handles.ts";
+export { defineWindows } from "./windows.ts";
+export type { WindowsDefinition } from "./windows.ts";
 export { presets } from "./presets.ts";
-export { smallCaps, smallCapsMinimessage, text } from "./text.ts";
 export {
     AnvilInput,
     Box,
@@ -86,8 +86,11 @@ export type {
     SlotsProps,
     SpriteProps,
     StateProps,
+    SwitchFlagProps,
+    SwitchOnProps,
     SwitchProps,
     TabProps,
+    TabsBindProps,
     TabsProps,
     TextElementProps,
     TextProps,

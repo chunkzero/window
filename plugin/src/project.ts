@@ -88,6 +88,7 @@ export interface WindowContext {
 
 const DEFINITIONS = "definitions";
 const JSX_DEFINITIONS = "jsx";
+const ENTRIES = ["window/index.ts", "window/index.tsx"];
 const TEXTURE_REFERENCE = /^([\w.-]+):(.+)$/s;
 
 type Fields = Record<string, unknown>;
@@ -153,15 +154,83 @@ function defaultExport(path: string, module: Record<string, unknown>): WindowDoc
     return docs as WindowDocument[];
 }
 
+/** Per `defineWindows` list: the key of its documents and the key of one bare definition. */
+const LISTS = {
+    themes: ["theme", "theme"],
+    windows: ["windows", "window"],
+    huds: ["huds", "hud"],
+} as const;
+
+/** Whether `entry` is a bare definition for `list`: a window has a `container`, a HUD a `name` and no `container`. */
+function isDefinition(list: keyof typeof LISTS, entry: Fields): boolean {
+    if (list === "themes") {
+        return true;
+    }
+    return typeof entry["name"] === "string" && "container" in entry === (list === "windows");
+}
+
+/** The documents of one `defineWindows` list, flattening nested lists such as a listed fragment. */
+function listDocuments(path: string, list: keyof typeof LISTS, entries: unknown): WindowDocument[] {
+    if (entries === undefined) {
+        return [];
+    }
+    if (!Array.isArray(entries)) {
+        throw new Error(`${path}: defineWindows \`${list}\` must be a list`);
+    }
+    const [documents, single] = LISTS[list];
+    return (entries as unknown[]).flat(Infinity).map((entry, i) => {
+        if (isFields(entry) && documents in entry) {
+            return { [documents]: entry[documents] };
+        }
+        const other = isFields(entry) && ["theme", "windows", "huds"].some((key) => key in entry);
+        if (!isFields(entry) || other || !isDefinition(list, entry)) {
+            throw new Error(`${path}: defineWindows \`${list}\` entry ${i} is not a ${single} document`);
+        }
+        return { [single]: entry };
+    });
+}
+
+/** The documents of a `defineWindows` definition. */
+function entryDocuments(path: string, value: unknown): WindowDocument[] {
+    if (!isFields(value)) {
+        throw new Error(`${path} must export default defineWindows({ themes, windows, huds })`);
+    }
+    return (["themes", "windows", "huds"] as const).flatMap((key) => listDocuments(path, key, value[key]));
+}
+
 /**
- * The definition documents in path order and the compiler's source files: the non-TypeScript files
- * under `window/` plus every texture the themes reference. Everything under `window/` leaves the pack.
+ * The definition documents and the compiler's source files: the non-TypeScript files under `window/` plus every
+ * texture the themes reference. Everything under `window/` leaves the pack.
+ *
+ * A `window/index.ts(x)` entry's `defineWindows` default export lists every document, and the other modules are
+ * ordinary modules. Without one, every module under `window/` default-exports documents, read in path order, and
+ * `warnings` asks for an entry.
  */
-export function collectInputs(ctx: WindowContext): { documents: WindowDocument[]; files: SourceFile[] } {
+export function collectInputs(ctx: WindowContext): {
+    documents: WindowDocument[];
+    files: SourceFile[];
+    warnings: string[];
+} {
     const modules = [...ctx.discovered(DEFINITIONS), ...ctx.discovered(JSX_DEFINITIONS)].sort((a, b) =>
         a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
     );
-    const documents = modules.flatMap(({ path, module }) => defaultExport(path, module));
+    const entries = modules.filter(({ path }) => ENTRIES.includes(path));
+    if (entries.length > 1) {
+        throw new Error("window/index.ts and window/index.tsx are both entries; keep one");
+    }
+    const warnings: string[] = [];
+    let documents: WindowDocument[];
+    if (entries.length === 1) {
+        documents = entryDocuments(entries[0]!.path, entries[0]!.module["default"]);
+    } else {
+        documents = modules.flatMap(({ path, module }) => defaultExport(path, module));
+        if (modules.length > 0) {
+            warnings.push(
+                "Window: no window/index.ts(x) entry; reading the default export of every file under window/. " +
+                    "Default-export defineWindows({ themes, windows, huds }) from window/index.ts(x) instead.",
+            );
+        }
+    }
     const files: SourceFile[] = [];
     const seen = new Set<string>();
     const addOnce = (path: string): void => {
@@ -187,7 +256,7 @@ export function collectInputs(ctx: WindowContext): { documents: WindowDocument[]
             }
         }
     }
-    return { documents, files };
+    return { documents, files, warnings };
 }
 
 /** The newest format of the pack's range. rpp's version check ignores pre-release tags, so older hosts are rejected here. */
@@ -201,7 +270,10 @@ function packFormat(format: unknown): number {
 
 /** Compile the project's definitions and write the pack files, warnings, and Kotlin bindings. */
 export function generate(ctx: WindowContext, compile: Compile): void {
-    const { documents, files } = collectInputs(ctx);
+    const { documents, files, warnings } = collectInputs(ctx);
+    for (const warning of warnings) {
+        console.warn(warning);
+    }
     if (documents.length === 0) {
         return;
     }

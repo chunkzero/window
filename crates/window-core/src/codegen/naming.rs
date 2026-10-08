@@ -117,10 +117,12 @@ const RESERVED_MEMBERS: &[&str] = &[
     "hide",
 ];
 
-/// Types generated views reference by simple name, which a nested type must not shadow.
+/// Types generated views reference by simple name, which a nested type must not shadow; `Companion` is always
+/// reserved because shaped handles generate a companion object.
 const RESERVED_TYPES: &[&str] = &[
     "Boolean",
     "Click",
+    "Companion",
     "Component",
     "HudScope",
     "HudView",
@@ -133,6 +135,7 @@ const RESERVED_TYPES: &[&str] = &[
     "Player",
     "String",
     "Unit",
+    "WindowCollection",
     "WindowDefinitions",
     "WindowHost",
     "WindowHudDefinitions",

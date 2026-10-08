@@ -7,16 +7,21 @@ import net.kyori.adventure.text.Component
 
 /** Typed view for the `status_bottom_center` HUD. Implement the abstract members. */
 public abstract class StatusBottomCenterHud : HudView(WindowHudDefinitions.statusBottomCenter) {
-    /** Whether the `wave_progress` switch at `index` draws its `true` case. */
-    protected abstract fun waveProgress(index: Int): Boolean
-
-    /** Render the `hint` slot. */
+    /** Render the `hint` text. */
     protected abstract fun hint(): Component
 
+    /** The `wave_progress` flag. */
+    protected abstract fun waveProgress(index: Int): Boolean
+
     final override fun HudScope.bind() {
-        for (index in 0 until 10) {
+        slot("hint") { hint() }
+        for (index in 0 until WAVE_PROGRESS_SIZE) {
             switch("wave_progress[$index]") { waveProgress(index).toString() }
         }
-        slot("hint") { hint() }
+    }
+
+    public companion object {
+        /** A shape dimension of `wave_progress`. */
+        public const val WAVE_PROGRESS_SIZE: Int = 10
     }
 }

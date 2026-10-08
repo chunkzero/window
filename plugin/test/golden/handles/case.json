@@ -1,0 +1,7 @@
+{
+  "packFormat": 84,
+  "hudShaders": true,
+  "anvilFieldSprite": "search_field",
+  "kotlinPackage": "golden.handles",
+  "kotlinTarget": "minestom"
+}

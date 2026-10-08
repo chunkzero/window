@@ -56,6 +56,24 @@ public abstract class WindowView<I : Any>(
      */
     protected fun <T> state(initial: T): ReadWriteProperty<Any?, T> = LazyState(initial) { reactivity }
 
+    /**
+     * Creates a [WindowList] showing [source] through [cells] cells, keyed by [key]. [step] is how far
+     * previous/next move: [cells] to page, or a row width to scroll. [select] picks what is selected
+     * when no explicitly selected item is in the list.
+     *
+     * [source] is read like a render lambda: its result is cached until a state it read changes or
+     * the view is refreshed. May be called at construction time.
+     *
+     * @throws IllegalArgumentException if [cells] or [step] is not positive.
+     */
+    protected fun <T, K> list(
+        cells: Int,
+        key: (T) -> K,
+        step: Int = cells,
+        select: WindowList.Select = WindowList.Select.FIRST,
+        source: () -> List<T>,
+    ): WindowList<T, K> = WindowList(cells, key, step, select, source) { reactivity }
+
     /** Declares the slot renders and button handlers for this view. */
     protected abstract fun WindowScope<I>.bind()
 

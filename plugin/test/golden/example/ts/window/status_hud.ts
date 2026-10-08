@@ -1,4 +1,4 @@
-import { label, panel, slot, sprite } from "#plugins/window";
+import { raw } from "#plugins/window";
 
 const muted = "#8fb3d9";
 const soft = "#e0edff";
@@ -7,9 +7,9 @@ const text = { shadow: true, small_caps: true };
 /** A label and right-aligned value; `coin` reserves room for a coin after the value. */
 function statRow(name: string, value: string, y: number, color = "#ffffff", coin = false) {
     return [
-        label(name, { ...text, x: 5, y, width: 36, color: muted }),
-        slot(value, { ...text, x: 40, y, width: coin ? 27 : 35, align: "right", color }),
-        ...(coin ? [sprite("coin", { x: 69, y })] : []),
+        raw.label(name, { ...text, x: 5, y, width: 36, color: muted }),
+        raw.slot(value, { ...text, x: 40, y, width: coin ? 27 : 35, align: "right", color }),
+        ...(coin ? [raw.sprite("coin", { x: 69, y })] : []),
     ];
 }
 
@@ -22,7 +22,7 @@ export default {
             height: 35,
             shader: { source_bottom: 59, origin: { x: 0.0, y: 0.0 }, anchor: { x: 0.0, y: 0.0 }, x: 4, y: 4 },
             children: [
-                panel({ frame: "hud", x: 0, y: 0, width: 80, height: 35 }),
+                raw.panel({ frame: "hud", x: 0, y: 0, width: 80, height: 35 }),
                 ...statRow("Coins", "coins", 4, "#ffd75e", true),
                 ...statRow("Rate", "rate", 14, "#80ff80"),
                 ...statRow("Power", "power", 24),
@@ -35,8 +35,8 @@ export default {
             height: 14,
             shader: { source_bottom: 59, origin: { x: 0.5, y: 0.0 }, anchor: { x: 0.5, y: 0.0 }, x: 0, y: 4 },
             children: [
-                panel({ frame: "hud", x: 0, y: 0, width: 40, height: 14 }),
-                slot("runtime", { ...text, x: 2, y: 3, width: 36, align: "center", color: "#ffffff" }),
+                raw.panel({ frame: "hud", x: 0, y: 0, width: 40, height: 14 }),
+                raw.slot("runtime", { ...text, x: 2, y: 3, width: 36, align: "center", color: "#ffffff" }),
             ],
         },
         {
@@ -46,7 +46,7 @@ export default {
             height: 35,
             shader: { source_bottom: 59, origin: { x: 1.0, y: 0.0 }, anchor: { x: 1.0, y: 0.0 }, x: -4, y: 4 },
             children: [
-                panel({ frame: "hud", x: 0, y: 0, width: 80, height: 35 }),
+                raw.panel({ frame: "hud", x: 0, y: 0, width: 80, height: 35 }),
                 ...statRow("Wave", "wave", 4),
                 ...statRow("Biome", "biome", 14),
                 ...statRow("Ping", "latency", 24),
@@ -59,8 +59,8 @@ export default {
             height: 18,
             shader: { source_bottom: 59, origin: { x: 0.0, y: 0.5 }, anchor: { x: 0.0, y: 0.5 }, x: 4, y: 0 },
             children: [
-                slot("coords", { ...text, x: 0, y: 0, width: 64, color: "#ffffff" }),
-                slot("altitude", { ...text, x: 0, y: 10, width: 64, color: soft }),
+                raw.slot("coords", { ...text, x: 0, y: 0, width: 64, color: "#ffffff" }),
+                raw.slot("altitude", { ...text, x: 0, y: 10, width: 64, color: soft }),
             ],
         },
         {
@@ -70,8 +70,8 @@ export default {
             height: 18,
             shader: { source_bottom: 59, origin: { x: 1.0, y: 0.5 }, anchor: { x: 1.0, y: 0.5 }, x: -4, y: 0 },
             children: [
-                slot("objective", { ...text, x: 0, y: 0, width: 80, align: "right", color: "#ffd75e" }),
-                slot("stock", { ...text, x: 0, y: 10, width: 80, align: "right", color: soft }),
+                raw.slot("objective", { ...text, x: 0, y: 0, width: 80, align: "right", color: "#ffd75e" }),
+                raw.slot("stock", { ...text, x: 0, y: 10, width: 80, align: "right", color: soft }),
             ],
         },
         {
@@ -80,7 +80,7 @@ export default {
             width: 160,
             height: 8,
             shader: { source_bottom: 59, origin: { x: 0.5, y: 1.0 }, anchor: { x: 0.5, y: 1.0 }, x: 0, y: -72 },
-            children: [slot("hint", { ...text, x: 0, y: 0, width: 160, align: "center", color: soft })],
+            children: [raw.slot("hint", { ...text, x: 0, y: 0, width: 160, align: "center", color: soft })],
         },
     ],
 };

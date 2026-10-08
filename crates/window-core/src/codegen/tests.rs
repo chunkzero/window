@@ -40,6 +40,7 @@ fn window(container: &str, size: [u32; 2], title_origin: [i32; 2]) -> WindowEntr
         groups: BTreeMap::new(),
         switches: BTreeMap::new(),
         indexed: BTreeMap::new(),
+        handles: BTreeMap::new(),
     }
 }
 
@@ -205,6 +206,7 @@ fn status_hud() -> HudEntry {
         shader: None,
         switches: BTreeMap::new(),
         indexed: BTreeMap::new(),
+        handles: BTreeMap::new(),
     }
 }
 
@@ -469,6 +471,7 @@ fn hud_lifecycle_members_are_reserved() {
         shader: None,
         switches: BTreeMap::new(),
         indexed: BTreeMap::new(),
+        handles: BTreeMap::new(),
     };
     let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
 
@@ -486,6 +489,7 @@ fn hud_slots_cannot_shadow_hud_view_members() {
             shader: None,
             switches: BTreeMap::new(),
             indexed: BTreeMap::new(),
+            handles: BTreeMap::new(),
         };
         let manifest = manifest(BTreeMap::new(), BTreeMap::from([("status".into(), hud)]));
 

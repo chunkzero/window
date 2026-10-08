@@ -50,6 +50,7 @@ pub(super) fn compile_hud(
         shader: h.shader.map(|shader| shader_entry(shader, markers.static_marker(&h.name))),
         switches,
         indexed: h.indexed.clone(),
+        handles: h.handles.clone(),
     })
 }
 

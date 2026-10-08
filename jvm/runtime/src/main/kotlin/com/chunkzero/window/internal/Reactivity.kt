@@ -30,6 +30,13 @@ internal class Reactivity(
     private var flushScheduled = false
     private var nextStateId = 0L
 
+    /** State ids read by the memo currently computing, if any. */
+    private var capture: MutableSet<Long>? = null
+
+    /** state cell id -> memos whose last computation read it. */
+    private val memoSources = HashMap<Long, MutableSet<Memo<*>>>()
+    private val memos = ArrayList<Memo<*>>()
+
     /** Runs [block] with [key] marked as the currently-rendering key for dependency capture. */
     fun <T> withRendering(
         key: RenderKey,
@@ -46,6 +53,7 @@ internal class Reactivity(
 
     /** Marks every given key dirty and schedules a flush. Used by `refresh()`. */
     fun markAllDirty(keys: Collection<RenderKey>) {
+        memos.forEach { it.invalidate() }
         dirty.addAll(keys)
         scheduleFlush()
     }
@@ -53,12 +61,17 @@ internal class Reactivity(
     /** Creates a reactive state delegate bound to this engine. */
     fun <T> state(initial: T): ReadWriteProperty<Any?, T> = StateProperty(nextStateId++, initial)
 
+    /** Creates a cached computation bound to this engine. */
+    fun <T> memo(compute: () -> T): Memo<T> = Memo(compute).also { memos += it }
+
     private fun registerRead(id: Long) {
+        capture?.add(id)
         val key = rendering ?: return
         dependencies.getOrPut(id) { HashSet() }.add(key)
     }
 
     private fun onWrite(id: Long) {
+        memoSources[id]?.forEach { it.invalidate() }
         val dependents = dependencies[id] ?: return
         if (dependents.isEmpty()) return
         dirty.addAll(dependents)
@@ -74,6 +87,43 @@ internal class Reactivity(
             val snapshot = LinkedHashSet(dirty)
             dirty.clear()
             flush(snapshot)
+        }
+    }
+
+    /**
+     * A cached result of `compute`, recomputed on the first [get] after a state it read changes or a
+     * full refresh. Each [get] registers the states the computation read as dependencies of the
+     * reader, so a render reading a memo re-renders when those states change.
+     */
+    inner class Memo<T>(
+        private val compute: () -> T,
+    ) {
+        private var stale = true
+        private var value: T? = null
+        private var reads: Set<Long> = emptySet()
+
+        fun get(): T {
+            if (stale) {
+                val previous = capture
+                val captured = HashSet<Long>()
+                capture = captured
+                try {
+                    value = compute()
+                } finally {
+                    capture = previous
+                }
+                for (id in reads) memoSources[id]?.remove(this)
+                reads = captured
+                stale = false
+                for (id in captured) memoSources.getOrPut(id) { HashSet() }.add(this)
+            }
+            reads.forEach(::registerRead)
+            @Suppress("UNCHECKED_CAST")
+            return value as T
+        }
+
+        fun invalidate() {
+            stale = true
         }
     }
 

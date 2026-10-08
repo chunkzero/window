@@ -53,8 +53,3 @@ export function smallCapsMinimessage(text: string): string {
     }
     return out;
 }
-
-export const text: {
-    smallCaps: typeof smallCaps;
-    smallCapsMinimessage: typeof smallCapsMinimessage;
-} = { smallCaps, smallCapsMinimessage };

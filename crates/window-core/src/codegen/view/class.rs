@@ -5,6 +5,11 @@ use crate::codegen::literals::kt_string;
 use crate::codegen::naming;
 use crate::codegen::writer::KotlinWriter;
 
+use std::collections::BTreeMap;
+
+use crate::manifest::ButtonEntry;
+
+use super::handles::{self, HandleMember};
 use super::members::{Member, ValueKind};
 
 /// The runtime base a typed view extends: `WindowView` or `HudView`.
@@ -19,14 +24,23 @@ pub(super) struct ViewBase {
     pub(super) hosted: bool,
 }
 
+/// The members of one view: declared by handles, and inferred from the entries no handle binds.
+pub(super) struct View<'a> {
+    pub(super) handles: &'a [HandleMember],
+    pub(super) members: &'a [Member],
+    /// The surface's buttons, whose states decide how a handle binds them.
+    pub(super) buttons: &'a BTreeMap<String, ButtonEntry>,
+}
+
 pub(super) fn render(
     package_name: &str,
     base: &ViewBase,
     target: KotlinTarget,
     name: &str,
     class_name: &str,
-    members: &[Member],
+    view: &View<'_>,
 ) -> String {
+    let members = view.members;
     let prefix = base.prefix;
     let item = target.item_type();
     let type_args = if base.hosted { format!("<{item}>") } else { String::new() };
@@ -40,30 +54,36 @@ pub(super) fn render(
     };
     let definition = format!("{}.{}", base.definitions, naming::definition_member(name));
 
-    let mut w = KotlinWriter::file(package_name, imports(base, target, members));
+    let mut w = KotlinWriter::file(package_name, imports(base, target, view));
     w.doc(format_args!("Typed view for the `{name}` {}. Implement the abstract members.", base.noun));
-    let keyword = if members.is_empty() { "open" } else { "abstract" };
+    let empty = members.is_empty() && view.handles.iter().all(|handle| handle.member.is_empty());
+    let keyword = if empty { "open" } else { "abstract" };
     w.open(format_args!(
         "public {keyword} class {class_name}{type_params}{params} : {prefix}View{type_args}({definition}{host}) {{"
     ));
+    for handle in view.handles {
+        handle.declare(&mut w, item);
+    }
     for member in members {
         declare(&mut w, member, item);
     }
-    if members.is_empty() {
+    if members.is_empty() && view.handles.iter().all(|handle| handle.handle.uses.is_empty()) {
         w.line(format_args!("final override fun {prefix}Scope{type_args}.bind() {{}}"));
     } else {
         w.open(format_args!("final override fun {prefix}Scope{type_args}.bind() {{"));
+        handles::bind(&mut w, view.handles, view.buttons);
         for member in members {
             bind(&mut w, member);
         }
         w.close("}");
     }
+    handles::constants(&mut w, view.handles);
     w.close("}");
     w.finish()
 }
 
-fn imports(base: &ViewBase, target: KotlinTarget, members: &[Member]) -> Vec<String> {
-    let prefix = base.prefix;
+fn imports(base: &ViewBase, target: KotlinTarget, view: &View<'_>) -> Vec<String> {
+    let (prefix, members) = (base.prefix, view.members);
     let any = |test: fn(&Member) -> bool| members.iter().any(test);
     let has_slot = any(|m| {
         matches!(m, Member::Value { kind: ValueKind::Slot, .. } | Member::GroupValue { kind: ValueKind::Slot, .. })
@@ -84,8 +104,10 @@ fn imports(base: &ViewBase, target: KotlinTarget, members: &[Member]) -> Vec<Str
     .filter_map(|(used, import)| used.then_some(import.to_string()))
     .chain([format!("com.chunkzero.window.{prefix}Scope"), format!("com.chunkzero.window.{prefix}View")])
     .chain(host.map(str::to_string))
+    .chain(HandleMember::imports(view.handles).into_iter().map(str::to_string))
     .collect();
     imports.sort();
+    imports.dedup();
     imports
 }
 

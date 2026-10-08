@@ -10,10 +10,10 @@ import net.minestom.server.item.ItemStack
 
 /** Typed view for the `catalog_search` window. Implement the abstract members. */
 public abstract class CatalogSearchView(protected val player: Player) : WindowView<ItemStack>(WindowDefinitions.catalogSearch, MinestomHost(player)) {
-    /** Handle a click on the `back` button. */
+    /** Handle a `back` click. */
     protected abstract fun onBack(click: Click)
 
-    /** Handle a click on the `confirm` button. */
+    /** Handle a `confirm` click. */
     protected abstract fun onConfirm(click: Click)
 
     /** Handle a value change from the native `query` anvil input. */

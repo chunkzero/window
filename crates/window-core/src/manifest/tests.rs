@@ -43,6 +43,7 @@ fn sample_window() -> WindowEntry {
         groups: BTreeMap::new(),
         switches: BTreeMap::new(),
         indexed: BTreeMap::new(),
+        handles: BTreeMap::new(),
     }
 }
 

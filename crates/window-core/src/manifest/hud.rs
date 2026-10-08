@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use super::{SlotEntry, SwitchEntry};
-use crate::ir::IndexedBinding;
+use crate::ir::{Handle, IndexedBinding};
 
 /// One compiled HUD.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -26,6 +26,9 @@ pub struct HudEntry {
     /// `switches`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub indexed: BTreeMap<String, IndexedBinding>,
+    /// Typed handles by id, each with the entries that use it; see [`super::WindowEntry::handles`].
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub handles: BTreeMap<String, Handle>,
 }
 
 /// HUD surface/channel metadata.

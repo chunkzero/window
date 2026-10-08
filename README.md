@@ -16,27 +16,8 @@ input. HUDs are positioned with core shaders and rendered by the server whenever
 
 ## How it works
 
-Write a UI in your [rpp](https://github.com/chunkzero/rpp) resource-pack project:
-
-```ts
-// src/window/confirm.ts
-import { button, label, slot, ui } from "#plugins/window";
-
-export default ui({
-  name: "confirm",
-  container: "generic_9x3",
-  children: [
-    slot("question", { x: 8, y: 6, width: 160, align: "center" }),
-    button("accept", {
-      transform: { section: "container", x: 3, y: 1, width: 1, height: 1 },
-      tooltip: "Confirm",
-      children: [label("YES", { bold: true })],
-    }),
-  ],
-});
-```
-
-Or as JSX, laid out automatically with flexbox and slot grids:
+Write a UI in your [rpp](https://github.com/chunkzero/rpp) resource-pack project, as JSX laid out automatically with
+flexbox and slot grids:
 
 ```tsx
 // src/window/confirm.tsx
@@ -52,6 +33,26 @@ export default (
     </Container>
   </Window>
 );
+```
+
+Or with the low-level function-style API under `raw`, positioned by hand:
+
+```ts
+// src/window/confirm.ts
+import { raw } from "#plugins/window";
+
+export default raw.ui({
+  name: "confirm",
+  container: "generic_9x3",
+  children: [
+    raw.slot("question", { x: 8, y: 6, width: 160, align: "center" }),
+    raw.button("accept", {
+      transform: { section: "container", x: 3, y: 1, width: 1, height: 1 },
+      tooltip: "Confirm",
+      children: [raw.label("YES", { bold: true })],
+    }),
+  ],
+});
 ```
 
 `rpp build` produces the resource pack and a Kotlin base class, which you extend on the server:
@@ -216,9 +217,10 @@ Mise 2026.10.0 or newer is required; `mise install` also provides the pinned [rp
 nightly used by the example pack, golden cases, and TypeScript checks. Commits and pull request titles follow
 [Conventional Commits](https://www.conventionalcommits.org).
 
-`just bench` times `rpp build` for the same UI written with JSX and with the function-style API (`bench/authoring/`),
-after checking that both produce identical output. It accepts `--runs`, `--scale`, `--scenarios cold,noop,edit`, and
-`--cold-wasm`, always uses its own `RPP_CACHE_DIR` under `build/bench/`, and honors `RPP` to choose the rpp binary.
+`just bench` times `rpp build` for the same UI written with JSX and with the function-style `raw` API
+(`bench/authoring/`), after checking that both produce identical output. It accepts `--runs`, `--scale`,
+`--scenarios cold,noop,edit`, and `--cold-wasm`, always uses its own `RPP_CACHE_DIR` under `build/bench/`, and honors
+`RPP` to choose the rpp binary.
 
 ## License
 

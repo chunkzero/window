@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::inventory::{InventorySlotArea, InventorySlotRef};
-use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, IndexedBinding};
+use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, Handle, IndexedBinding};
 use crate::{Error, Result};
 
 mod hud;
@@ -106,6 +106,10 @@ pub struct WindowEntry {
     /// `sprite_slots`, and `switches`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub indexed: BTreeMap<String, IndexedBinding>,
+    /// Typed handles by id, each with the entries that use it. Kotlin codegen declares one member per handle and
+    /// binds every use; the runtime ignores this table.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub handles: BTreeMap<String, Handle>,
 }
 
 /// Visual cases of which the runtime draws only the one its binding names.

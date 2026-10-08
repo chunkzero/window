@@ -3,7 +3,7 @@ use std::iter;
 
 use serde::Deserialize;
 
-use super::element::{ElementDto, convert_children, flatten_indexed};
+use super::element::{ElementDto, check_shared, collect_handles, convert_children, flatten_indexed};
 use super::hud::HudDto;
 use super::insets::InsetsDto;
 use super::parse::validate_name;
@@ -66,10 +66,21 @@ impl ProjectDto {
             theme_doc.merge_into(&mut theme)?;
         }
 
+        let windows = convert_windows(self.windows)?;
+        let huds = convert_huds(self.huds)?;
+        check_shared(
+            windows
+                .iter()
+                .map(|w| (format!("window `{}`", w.name), &w.handles))
+                .chain(huds.iter().map(|h| (format!("hud `{}`", h.name), &h.handles)))
+                .collect::<Vec<_>>()
+                .iter()
+                .map(|(owner, handles)| (owner.as_str(), *handles)),
+        )?;
         Ok(ParsedProject {
             theme,
-            windows: convert_windows(self.windows)?,
-            huds: convert_huds(self.huds)?,
+            windows,
+            huds,
             options: BuildOptions {
                 hud_shaders: self.options.hud_shaders,
                 anvil_field_sprite: self.options.anvil_field_sprite,
@@ -118,7 +129,9 @@ impl WindowDto {
             ))
         })?;
         let mut children = self.children;
-        let indexed = flatten_indexed(&mut children, &format!("window `{}`", self.name))?;
+        let owner = format!("window `{}`", self.name);
+        let handles = collect_handles(&mut children, &owner, false)?;
+        let indexed = flatten_indexed(&mut children, &owner)?;
         Ok(Window {
             name: self.name,
             container,
@@ -126,6 +139,7 @@ impl WindowDto {
             frame: self.frame,
             children: convert_children(children)?,
             indexed,
+            handles,
         })
     }
 }

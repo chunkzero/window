@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { hud, theme, ui } from "../src/authoring/index.ts";
+import { defineWindows, raw, theme } from "../src/authoring/index.ts";
 import type { WindowDocument } from "../src/authoring/types.ts";
 import { buildProject, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
 import type { CompileOutput, KotlinOptions, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
@@ -42,8 +42,8 @@ function fake(
     return { ctx, emitted, outputs, removed };
 }
 
-const shop = ui({ name: "shop", container: "generic_9x6" });
-const status = hud({ name: "status", width: 10, height: 10 });
+const shop = raw.ui({ name: "shop", container: "generic_9x6" });
+const status = raw.hud({ name: "status", width: 10, height: 10 });
 
 test("documents are collected in path order", () => {
     const { ctx } = fake({ "window/b.tsx": [status], "window/a.ts": shop });
@@ -164,4 +164,39 @@ test("a missing or unknown Kotlin target is rejected", () => {
             new RegExp(`kotlin\\.target must be one of "agnostic", "minestom", "multistom"; ${got}`),
         );
     }
+});
+
+test("a window/index entry lists every document; other modules are ordinary", () => {
+    const themed = theme({ colors: { gold: "#ffd75e" } });
+    const entry = defineWindows({ themes: [themed], windows: [shop], huds: [status.huds[0]!] });
+    const { ctx } = fake({ "window/index.ts": entry, "window/handles.ts": undefined, "window/shop.tsx": shop });
+    const { documents, warnings } = collectInputs(ctx);
+    const project = buildProject(documents, {}, 84);
+    assert.deepEqual(project.themes, [themed.theme]);
+    assert.deepEqual(project.windows, shop.windows);
+    assert.deepEqual(project.huds, status.huds);
+    assert.deepEqual(warnings, []);
+});
+
+test("defineWindows lists flatten nested lists and reject documents of another kind", () => {
+    const fragment = [raw.hud({ name: "a", width: 1, height: 1 }), [raw.hud({ name: "b", width: 1, height: 1 })]];
+    const { ctx } = fake({ "window/index.tsx": defineWindows({ windows: [[shop]], huds: [fragment] }) });
+    const project = buildProject(collectInputs(ctx).documents, {}, 84);
+    assert.deepEqual(project.windows, shop.windows);
+    assert.deepEqual(
+        project.huds.map((h) => h.name),
+        ["a", "b"],
+    );
+    const wrong = fake({ "window/index.ts": { windows: [shop, theme({})] } });
+    assert.throws(() => collectInputs(wrong.ctx), /window\/index\.ts: defineWindows `windows` entry 1 is not a window/);
+    const bare = fake({ "window/index.ts": { huds: [shop.windows[0]] } });
+    assert.throws(() => collectInputs(bare.ctx), /`huds` entry 0 is not a hud/);
+});
+
+test("without an entry every module's default export is read, with a warning", () => {
+    const { ctx } = fake({ "window/a.ts": shop });
+    const { documents, warnings } = collectInputs(ctx);
+    assert.deepEqual(documents, [shop]);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0]!, /defineWindows/);
 });

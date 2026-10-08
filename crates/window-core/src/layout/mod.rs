@@ -117,6 +117,7 @@ fn solve_window(
         slot_rects,
         switches,
         indexed: window.indexed.clone(),
+        handles: window.handles.clone(),
         warnings,
     })
 }
@@ -155,6 +156,7 @@ fn solve_hud(
         slots,
         switches,
         indexed: hud.indexed.clone(),
+        handles: hud.handles.clone(),
         warnings,
     })
 }
@@ -233,6 +235,8 @@ struct ActiveCase {
 struct ActiveRepeat {
     group: String,
     index: u32,
+    /// Whether cell element names are scoped to the group and cell; cells rendered one by one keep theirs.
+    scoped: bool,
     /// The cell's own backing slots, in authoring order. `cell_slot` on a child
     /// item indexes into this list.
     slots: Vec<InventorySlotRef>,
@@ -359,8 +363,8 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             Element::SlotRects { name, frame, pattern, claim } => {
                 self.place_slot_rects(name, frame.as_deref(), pattern, *claim)
             }
-            Element::Repeater { name, pattern, frame, padding, children } => {
-                self.place_repeater(name, pattern, frame.as_deref(), *padding, children)
+            Element::Repeater { name, pattern, frame, padding, children, cells } => {
+                self.place_repeater(name, pattern, frame.as_deref(), *padding, children, cells.as_ref())
             }
             Element::Sprite { name, .. } => Ok(self.emit_sprite(name, origin)?.size()),
             Element::SpriteSlot { name, size, align, sprite, .. } => {

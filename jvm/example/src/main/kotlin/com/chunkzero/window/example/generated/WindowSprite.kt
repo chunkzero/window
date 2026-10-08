@@ -3,11 +3,8 @@ package com.chunkzero.window.example.generated
 
 /** Runtime sprites of this Window pack, returned by sprite slot members. */
 public enum class WindowSprite(public val id: String) {
-    ACTION("action"),
     ACTION_DISABLED("action_disabled"),
-    BUY("buy"),
     BUY_DISABLED("buy_disabled"),
-    CLEAR_SEARCH("clear_search"),
     CLEAR_SEARCH_DISABLED("clear_search_disabled"),
     COIN("coin"),
     ICON_BACK("icon_back"),
