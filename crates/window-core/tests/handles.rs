@@ -314,7 +314,7 @@ fn is_prefixed_toggles_claim_kotlins_real_accessor_names() {
     let message = error(&project(json!([window("a", "generic_9x1", clash)])));
     assert!(message.contains("both map to member `setFoo`"), "{message}");
     let distinct = json!([toggle("is_foo", 0), flag("get_is_foo")]);
-    project(json!([window("a", "generic_9x1", distinct)]));
+    compile(&project(json!([window("a", "generic_9x1", distinct)]))).unwrap();
 }
 
 #[test]
