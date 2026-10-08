@@ -301,3 +301,20 @@ fn nested_enums_cannot_shadow_runtime_types() {
     let message = error(&project(json!([window("a", "generic_9x1", json!([flag]))])));
     assert!(message.contains("reserved WindowView member `WindowCollection`"), "{message}");
 }
+
+#[test]
+fn handle_names_cannot_clash_with_generated_accessors_or_the_companion() {
+    let toggle =
+        json!({ "type": "button", "on_click": { "kind": "toggle", "id": "favorites" }, "pattern": slots(0, 1) });
+    let flag = json!({ "type": "switch", "handle": { "kind": "flag", "id": "get_favorites" }, "x": 8, "y": 6, "children": [
+        { "type": "case", "value": "true", "children": [] },
+        { "type": "case", "value": "false", "children": [] }] });
+    for children in [json!([toggle, flag]), json!([flag, toggle])] {
+        let message = error(&project(json!([window("a", "generic_9x1", children)])));
+        assert!(message.contains("both map to member `getFavorites`"), "{message}");
+    }
+    let companion = json!({ "type": "switch", "handle": { "kind": "value", "id": "companion", "values": ["a"] },
+                            "x": 8, "y": 6, "children": [{ "type": "case", "value": "a", "children": [] }] });
+    let message = error(&project(json!([window("a", "generic_9x1", json!([companion]))])));
+    assert!(message.contains("reserved WindowView member `Companion`"), "{message}");
+}

@@ -43,6 +43,15 @@ impl HandleMember {
         if !member.is_empty() {
             claim(&member, format!("{kind} `{id}`"))?;
         }
+        let accessors = match handle.kind {
+            HandleKind::Toggle | HandleKind::Selection => vec!["get", "set"],
+            HandleKind::Collection => vec!["get"],
+            _ => Vec::new(),
+        };
+        for prefix in accessors {
+            let (first, rest) = member.split_at(member.chars().next().map_or(0, char::len_utf8));
+            claim(&format!("{prefix}{}{rest}", first.to_uppercase()), format!("{kind} `{id}` property accessor"))?;
+        }
         let enum_name = matches!(handle.kind, HandleKind::Value | HandleKind::Selection).then(|| naming::type_name(id));
         if let Some(name) = &enum_name {
             claim(name, format!("{kind} `{id}` enum"))?;
