@@ -119,19 +119,27 @@ public abstract class HudView(
 
     private fun composeInitialRender(): ComposedRender {
         if (!bound) {
+            var sealed = false
             val scope =
                 object : HudScope {
                     override fun slot(
                         name: String,
                         render: () -> Component,
-                    ) = slots.bind(name, render)
+                    ) {
+                        check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
+                        slots.bind(name, render)
+                    }
 
                     override fun switch(
                         name: String,
                         render: () -> String,
-                    ) = switches.bind(name, render)
+                    ) {
+                        check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
+                        switches.bind(name, render)
+                    }
                 }
             scope.bind()
+            sealed = true
             slots.validate()
             switches.validate()
             bound = true

@@ -127,6 +127,7 @@ internal open class ContainerWindowSession<I : Any>(
     internal fun open() {
         view.attach(this, reactivity)
         view.invokeBind(bindings)
+        bindings.seal()
         bindings.validate()
         bindInput()
 

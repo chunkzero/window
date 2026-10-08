@@ -11,6 +11,9 @@ import net.kyori.adventure.text.Component
  * bound here or have a `default_action`; actions in the `window:` namespace, such as
  * `window:close`, are run by the runtime and cannot be bound.
  *
+ * Bindings are fixed once `bind()` returns: calling any binder on a retained scope afterwards, such
+ * as from `onOpen`, throws [IllegalStateException].
+ *
  * @param I the host's native item type.
  */
 public interface WindowScope<I : Any> {

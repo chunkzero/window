@@ -314,4 +314,22 @@ class ButtonStateBindingTest :
 
             shouldThrow<IllegalStateException> { view.enable() }.message shouldContain "bound in bind()"
         }
+
+        "a retained scope rejects bindings once bind() returns" {
+            val host = FakeHost()
+            lateinit var saved: WindowScope<Any>
+            val view =
+                object : TestView(closeManifest("enabled"), host) {
+                    override fun WindowScope<Any>.bind() {
+                        saved = this
+                    }
+
+                    fun disable() = buttonState("window:close", "default")
+                }
+            view.open()
+            view.disable()
+
+            shouldThrow<IllegalStateException> { saved.buttonState("window:close") { "enabled" } }
+                .message shouldContain "Bindings are fixed once bind() returns"
+        }
     })

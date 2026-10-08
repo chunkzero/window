@@ -50,12 +50,16 @@ internal class WindowBindings<I : Any>(
     override fun slot(
         name: String,
         render: () -> Component,
-    ) = slots.bind(name, render)
+    ) {
+        requireBindable(name)
+        slots.bind(name, render)
+    }
 
     override fun sprite(
         name: String,
         render: () -> String?,
     ) {
+        requireBindable(name)
         val keys = definition.requireEntry(spriteBindings, name, "sprite slot", known = "sprite slots")
         for (key in keys) {
             require(entry.spriteSlots.getValue(key).sprite == null) {
@@ -69,6 +73,7 @@ internal class WindowBindings<I : Any>(
         name: String,
         handler: (Click) -> Unit,
     ) {
+        requireBindable(name)
         if (name !in actions) {
             require(name !in definition.controls) { "Button '$name' is a hotspot and cannot be bound as an action" }
             throw IllegalArgumentException(
@@ -82,6 +87,7 @@ internal class WindowBindings<I : Any>(
         name: String,
         render: () -> I?,
     ) {
+        requireBindable(name)
         definition.requireEntry(definition.controls, name, "button or hotspot", known = "buttons")
         require(name !in buttonStates) { "Button '$name' already has a named-state binding" }
         bindOnce(buttonItems, name, render) { "Button item '$name' bound more than once" }
@@ -91,6 +97,7 @@ internal class WindowBindings<I : Any>(
         name: String,
         render: () -> I?,
     ) {
+        requireBindable(name)
         definition.requireEntry(entry.items, name, "item", known = "items")
         bindOnce(items, name, render) { "Item '$name' bound more than once" }
     }
@@ -100,6 +107,7 @@ internal class WindowBindings<I : Any>(
         render: (Int) -> I?,
         handler: (IndexedClick) -> Unit,
     ) {
+        requireBindable(name)
         val collection = definition.requireEntry(entry.collections, name, "collection", known = "collections")
         require(collection.action) {
             "Collection '$name' is display-only and cannot be bound as an action"
@@ -112,6 +120,7 @@ internal class WindowBindings<I : Any>(
         name: String,
         source: WindowCollection<I>,
     ) {
+        requireBindable(name)
         val collection = definition.requireEntry(entry.collections, name, "collection", known = "collections")
         if (collection.action) {
             collection(name, source::item) { source.click(it.index, Click(it.slot, it.shift, it.right)) }
@@ -125,6 +134,7 @@ internal class WindowBindings<I : Any>(
         name: String,
         render: (Int) -> I?,
     ) {
+        requireBindable(name)
         definition.requireEntry(entry.collections, name, "collection", known = "collections")
         bindOnce(collectionItems, name, render) {
             "Collection '$name' item renderer bound more than once"
@@ -135,6 +145,7 @@ internal class WindowBindings<I : Any>(
         name: String,
         render: () -> Int?,
     ) {
+        requireBindable(name)
         val collection = definition.requireEntry(entry.collections, name, "collection", known = "collections")
         require(collection.selection.isNotEmpty()) { "Collection '$name' has no selected sprite" }
         bindOnce(collectionSelections, name, render) { "Collection '$name' selection bound more than once" }
@@ -143,12 +154,16 @@ internal class WindowBindings<I : Any>(
     override fun switch(
         name: String,
         render: () -> String,
-    ) = switches.bind(name, render)
+    ) {
+        requireBindable(name)
+        switches.bind(name, render)
+    }
 
     override fun anvilInput(
         name: String,
         handler: (String) -> Unit,
     ) {
+        requireBindable(name)
         definition.requireEntry(entry.inputs, name, "anvil input", known = "inputs")
         bindOnce(inputHandlers, name, handler) { "Anvil input '$name' bound more than once" }
     }
@@ -157,6 +172,7 @@ internal class WindowBindings<I : Any>(
         name: String,
         render: () -> String,
     ) {
+        requireBindable(name)
         definition.requireStates(name)
         require(name !in buttonItems) { "Button '$name' already has an item binding" }
         bindOnce(buttonStates, name, render) { "Button state '$name' bound more than once" }
@@ -166,8 +182,20 @@ internal class WindowBindings<I : Any>(
         name: String,
         tooltip: ButtonTooltip?,
     ) {
+        requireBindable(name)
         val item = tooltip?.let { buildItem(definition.tooltipHitbox(it)) }
         buttonItem(name) { item }
+    }
+
+    private var sealed = false
+
+    /** Rejects further bindings; called once `bind()` has returned. */
+    fun seal() {
+        sealed = true
+    }
+
+    private fun requireBindable(name: String) {
+        check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
     }
 
     /**

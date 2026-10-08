@@ -7,6 +7,9 @@ import net.kyori.adventure.text.Component
  *
  * Every dynamic slot in the HUD manifest must be bound exactly once; static labels carrying `text`
  * render automatically and must not be bound.
+ *
+ * Bindings are fixed once `bind()` returns: calling a binder on a retained scope afterwards throws
+ * [IllegalStateException].
  */
 public interface HudScope {
     /**
