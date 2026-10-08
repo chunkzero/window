@@ -7,7 +7,7 @@ import com.chunkzero.window.manifest.WindowManifest
 internal object WindowPackData {
     val manifest: WindowManifest =
         WindowManifest(
-            version = 7,
+            version = 8,
             namespace = "window",
             font = "window:ui",
             spacers = WindowSpacers.values,

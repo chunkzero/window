@@ -78,6 +78,10 @@ public data class SwitchCaseEntry(
     @SerialName("sprite_slots") val spriteSlots: List<String> = emptyList(),
     /** Inventory regions claimed only while this case is active. */
     val regions: List<String> = emptyList(),
+    /** Item regions filled only while this case is active. */
+    val items: List<String> = emptyList(),
+    /** Collections whose cells are filled and routed only while this case is active. */
+    val collections: List<String> = emptyList(),
     /** Nested switches, active only while this case is active. */
     val switches: List<String> = emptyList(),
 )
@@ -168,6 +172,8 @@ public data class SlotEntry(
     val overflow: TextOverflow? = null,
     /** The lines content wraps onto; `null` for a single line. */
     val lines: SlotLinesEntry? = null,
+    /** The authored `debug_name` this slot comes from, for diagnostics. */
+    val source: String? = null,
 )
 
 /** How a text slot shortens content wider than its width. */
@@ -231,4 +237,6 @@ public data class SpriteSlotEntry(
      * exclusive cases, keyed `{binding}.{case path}`; `null` when the key is the binding name.
      */
     val binding: String? = null,
+    /** The authored `debug_name` this sprite slot comes from, for diagnostics. */
+    val source: String? = null,
 )

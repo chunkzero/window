@@ -83,7 +83,7 @@ internal class WindowTitle(
                 }
 
                 LayerKind.COLLECTION -> {
-                    return segments[selectionId(name)]
+                    return segments[selectionId(name)]?.takeIf { switches.collectionActive(name) }
                 }
 
                 LayerKind.SWITCH -> {
@@ -91,7 +91,12 @@ internal class WindowTitle(
                     return composer.renderStatic(switches.semanticId(name), art).sourced(switches.source(name))
                 }
             }
-        return segment?.sourced(switches.entrySource(name))
+        val source =
+            when (layer.kind) {
+                LayerKind.SLOT -> entry.slots[name]?.source
+                else -> entry.spriteSlots[name]?.source
+            }
+        return segment?.sourced(source ?: switches.entrySource(name))
     }
 
     private fun put(

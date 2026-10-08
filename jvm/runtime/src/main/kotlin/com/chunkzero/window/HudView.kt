@@ -174,7 +174,11 @@ public abstract class HudView(
                 when (layer.kind) {
                     LayerKind.SLOT -> {
                         val segment = segments[name]?.takeIf { switches.slotActive(name) }
-                        segment?.let { HudLayer.Slot(it.sourced(switches.entrySource(name))) }
+                        segment?.let {
+                            HudLayer.Slot(
+                                it.sourced(entry.slots[name]?.source ?: switches.entrySource(name)),
+                            )
+                        }
                     }
 
                     LayerKind.SWITCH -> {

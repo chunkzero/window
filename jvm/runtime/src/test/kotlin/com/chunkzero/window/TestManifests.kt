@@ -93,7 +93,7 @@ object TestManifests {
     val sampleJson: String =
         """
         {
-          "version": 7,
+          "version": 8,
           "namespace": "window",
           "font": "window:ui",
           "spacers": { "983040": -1024, "983061": 1024, "983050": -1, "983051": 1 },
@@ -205,7 +205,7 @@ object TestManifests {
                 slots.keys.map { LayerEntry(LayerKind.SLOT, it) },
     ): WindowManifest =
         WindowManifest(
-            version = 7,
+            version = 8,
             namespace = "window",
             font = "window:ui",
             spacers = spacerTable(),
@@ -253,7 +253,7 @@ object TestManifests {
             switches.keys.map { LayerEntry(LayerKind.SWITCH, it) } + slots.keys.map { LayerEntry(LayerKind.SLOT, it) },
     ): WindowManifest =
         WindowManifest(
-            version = 7,
+            version = 8,
             namespace = "window",
             font = "window:ui",
             spacers = spacerTable(),

@@ -3,6 +3,7 @@ package com.chunkzero.window
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.HitboxEntry
+import com.chunkzero.window.manifest.ItemEntry
 import com.chunkzero.window.manifest.SwitchCaseEntry
 import com.chunkzero.window.manifest.SwitchEntry
 import io.kotest.assertions.throwables.shouldThrowAny
@@ -169,5 +170,63 @@ class SwitchBindingTest :
             models() shouldBe emptyMap()
             container.clickContainer(1)
             picks shouldBe listOf("a", "b")
+        }
+
+        "nested cases swap their items and route clicks by the cases selected at click time" {
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    regions =
+                        mapOf(
+                            "a" to TestManifests.region(listOf(0), action = "a"),
+                            "x" to TestManifests.region(listOf(0), action = "x"),
+                            "y" to TestManifests.region(listOf(0), action = "y"),
+                        ),
+                    items = mapOf("coin" to ItemEntry(listOf(TestManifests.containerSlot(1)))),
+                    switches =
+                        mapOf(
+                            "tab" to
+                                SwitchEntry(
+                                    listOf(
+                                        SwitchCaseEntry("a", regions = listOf("a")),
+                                        SwitchCaseEntry("b", switches = listOf("mode")),
+                                    ),
+                                ),
+                            "mode" to
+                                SwitchEntry(
+                                    listOf(
+                                        SwitchCaseEntry("x", regions = listOf("x")),
+                                        SwitchCaseEntry("y", regions = listOf("y"), items = listOf("coin")),
+                                    ),
+                                ),
+                        ),
+                )
+            val host = FakeHost()
+            val picks = mutableListOf<String>()
+            val view =
+                object : TestView(manifest, host) {
+                    var tab by state("a")
+                    var mode by state("y")
+
+                    override fun WindowScope<Any>.bind() {
+                        switch("tab") { tab }
+                        switch("mode") { mode }
+                        item("coin") { "coin" }
+                        for (name in listOf("a", "x", "y")) button(name) { picks += name }
+                    }
+                }
+            val coin = SlotRef(SlotArea.CONTAINER, 1)
+            view.open()
+
+            host.container.items[coin] shouldBe null
+            view.tab = "b"
+            host.container.clickContainer(0)
+            host.scheduler.runAll()
+            host.container.items[coin] shouldBe "coin"
+            view.mode = "x"
+            host.container.clickContainer(0)
+            host.scheduler.runAll()
+            host.container.items[coin] shouldBe null
+            picks shouldBe listOf("y", "x")
         }
     })

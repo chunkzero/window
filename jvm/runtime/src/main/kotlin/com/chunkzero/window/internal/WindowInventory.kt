@@ -6,6 +6,7 @@ import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.SlotAreaEntry
+import com.chunkzero.window.manifest.SlotRefEntry
 import com.chunkzero.window.manifest.TooltipEntry
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.Component
@@ -14,7 +15,7 @@ import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.minimessage.MiniMessage
 
 /**
- * Renders a window's inventory items: the hitbox items of active regions, item regions, collection
+ * Renders a window's inventory items: the hitbox items of active regions, active item regions and collection
  * cells, and anvil input seeds. Rendered items collect until [drain] takes them.
  */
 internal class WindowInventory<I : Any>(
@@ -30,8 +31,10 @@ internal class WindowInventory<I : Any>(
     private val regionControls: Map<String, String> =
         definition.controls.flatMap { (control, regions) -> regions.map { it to control } }.toMap()
 
-    /** The regions whose case path was active at the last [claimRegions]. */
+    /** The regions, items, and collections whose case path was active at the last [claimCases]. */
     private val claimed = LinkedHashSet<String>()
+    private val claimedItems = LinkedHashSet<String>()
+    private val claimedCollections = LinkedHashSet<String>()
 
     /** Parsed manifest tooltips; components are immutable, so they are shared across renders. */
     private val tooltips = HashMap<TooltipEntry, Tooltip>()
@@ -50,24 +53,39 @@ internal class WindowInventory<I : Any>(
 
     /** Renders every manifest-owned inventory slot. */
     fun seed() {
-        claimRegions()
-        for (name in entry.items.keys) writeItem(name)
-        for ((name, collection) in entry.collections) {
-            for (index in collection.slots.indices) writeCollectionCell(name, index)
-        }
+        claimCases()
         for (input in entry.inputs.values) applyInput(input, input.initial)
     }
 
     /**
-     * Claims the regions of active cases: empties the fill slots of regions whose case became inactive,
-     * then fills those of newly active regions with their items.
+     * Claims the slots of active cases: empties the slots of regions, items, and collections whose case became
+     * inactive, then renders those that became active.
      */
-    fun claimRegions() {
+    fun claimCases() {
         val active = entry.regions.keys.filterTo(LinkedHashSet(), switches::regionActive)
+        val activeItems = entry.items.keys.filterTo(LinkedHashSet(), switches::itemActive)
+        val activeCollections = entry.collections.keys.filterTo(LinkedHashSet(), switches::collectionActive)
         for (name in claimed) if (name !in active) fill(name, null)
+        for (name in claimedItems) if (name !in activeItems) writeSlots(entry.items.getValue(name).slots, null)
+        for (name in claimedCollections) {
+            if (name !in activeCollections) writeSlots(entry.collections.getValue(name).slots, null)
+        }
         for (name in active) if (name !in claimed) fill(name, regionItem(name))
         claimed.clear()
         claimed.addAll(active)
+        for (name in activeItems) if (name !in claimedItems) writeItem(name)
+        claimedItems.clear()
+        claimedItems.addAll(activeItems)
+        for (name in activeCollections) {
+            if (name in claimedCollections) continue
+            for (index in entry.collections
+                .getValue(name)
+                .slots.indices) {
+                writeCollectionCell(name, index)
+            }
+        }
+        claimedCollections.clear()
+        claimedCollections.addAll(activeCollections)
     }
 
     fun renderButtonState(name: String): String {
@@ -90,7 +108,9 @@ internal class WindowInventory<I : Any>(
         for (region in claimedRegions(name)) fill(region, item)
     }
 
+    /** Renders item [name] into its slots while its case is active. */
     fun writeItem(name: String) {
+        if (!switches.itemActive(name)) return
         val render = bindings.items.getValue(name)
         val stack = reactivity.withRendering(RenderKey.Item(name)) { render() }
         setItem(name, stack)
@@ -101,13 +121,14 @@ internal class WindowInventory<I : Any>(
         stack: I?,
     ) {
         val item = definition.requireEntry(entry.items, name, "item", known = "items")
-        for (slot in item.slots) items[slot.toApi()] = stack
+        if (switches.itemActive(name)) writeSlots(item.slots, stack)
     }
 
     fun writeCollectionCell(
         name: String,
         index: Int,
     ) {
+        if (!switches.collectionActive(name)) return
         val slot =
             entry.collections
                 .getValue(name)
@@ -169,7 +190,14 @@ internal class WindowInventory<I : Any>(
         name: String,
         item: I?,
     ) {
-        for (slot in entry.regions.getValue(name).filledSlots) items[slot.toApi()] = item
+        writeSlots(entry.regions.getValue(name).filledSlots, item)
+    }
+
+    private fun writeSlots(
+        slots: List<SlotRefEntry>,
+        item: I?,
+    ) {
+        for (slot in slots) items[slot.toApi()] = item
     }
 
     private fun tooltip(source: TooltipEntry): Tooltip =

@@ -11,10 +11,10 @@ import com.chunkzero.window.manifest.WindowEntry
 /**
  * Routes clicks on typed backing slots to the active region or the collection cell that receives them.
  *
- * An action collection cell takes precedence over a region covering the same slot. Regions in
- * mutually exclusive cases may share slots; a click routes to the one whose case is active. A state
- * switch's case is read from its provider at click time, if it has one, so a click between a state change and the
- * next render routes by the current state.
+ * An action collection cell takes precedence over a region covering the same slot. Regions and collections in
+ * mutually exclusive cases may share slots; a click routes to the one whose case is active. Each switch's case is
+ * read at click time, from its state provider or binding, so a click between a change and the next render routes
+ * by the current case.
  */
 internal class SlotRoutes(
     private val entry: WindowEntry,
@@ -30,28 +30,27 @@ internal class SlotRoutes(
             }
         }
 
-    private val cells: Map<SlotRef, Cell> =
-        buildMap {
+    private val cells: Map<SlotRef, List<Cell>> =
+        buildMap<SlotRef, MutableList<Cell>> {
             for ((name, collection) in entry.collections) {
                 if (!collection.action) continue
-                for ((index, slot) in collection.slots.withIndex()) put(slot.toApi(), Cell(name, index))
+                for ((index, slot) in collection.slots.withIndex()) {
+                    getOrPut(slot.toApi(), ::ArrayList) +=
+                        Cell(name, index)
+                }
             }
         }
 
     fun dispatch(click: Click) {
-        val cell = cells[click.slot]
+        val switches = bindings.switches
+        val current = switches.current { key -> bindings.buttonStates[key]?.invoke() }
+        val cell = cells[click.slot]?.firstOrNull { switches.collectionActive(it.name, current) }
         if (cell != null) {
             val handler = bindings.collectionHandlers[cell.name] ?: return
             handler(IndexedClick(click.slot, cell.index, click.shift, click.right))
             return
         }
-        val states = HashMap<String, String?>()
-        val name =
-            regions[click.slot]?.firstOrNull { region ->
-                bindings.switches.regionActive(region) { key ->
-                    states.getOrPut(key) { bindings.buttonStates[key]?.invoke() }
-                }
-            } ?: return
+        val name = regions[click.slot]?.firstOrNull { switches.regionActive(it, current) } ?: return
         val region = entry.regions.getValue(name)
         val handler = bindings.buttonHandlers[region.action]
         if (handler != null) {
