@@ -56,7 +56,7 @@ const RENAMES: Record<Style, [RegExp, string][]> = {
 function windowSources(dir: string): string[] {
     const win = join(dir, "src", "window");
     return readdirSync(win)
-        .filter((name) => /\.tsx?$/.test(name) && name !== "theme.ts")
+        .filter((name) => /\.tsx?$/.test(name) && name !== "sprites.ts")
         .map((name) => join(win, name));
 }
 
