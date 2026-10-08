@@ -23,7 +23,7 @@ JVM tasks use the checked-in Gradle wrapper and Java 25.
 - `just fmt` / `just fmt-check`: sources, Gradle scripts, docs, config, and justfile.
 - `just lint`: Clippy with warnings denied plus formatting checks.
 - `just test-rust -p window-core <filter>`: focused Rust tests.
-- `just gradle :runtime:test --tests '*WindowPagerTest'`: focused JVM tests.
+- `just gradle :runtime:test --tests '*WindowListTest'`: focused JVM tests.
 - `just check-ts` / `just test-ts`: TypeScript plugin type-check and tests.
 - `just golden`: build the golden cases and verify their `expected.sha256` hashes.
 - `just inspector-build`: build and test the standalone inspector.
