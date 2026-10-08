@@ -1,5 +1,6 @@
-import { AnvilInput, Box, Button, Sprite, Text, Window, pattern, raw } from "#plugins/window";
+import { Box, Image, Input, Text, Window, industrial } from "#plugins/window";
 
+import { icons } from "./art.ts";
 import { back, confirm, query } from "./handles.ts";
 
 const rivets: [number, number][] = [
@@ -20,12 +21,12 @@ export default (
         bleed={{ top: 1, right: 4, bottom: 0, left: 4 }}
         text={{ color: "#ffffff", shadow: true, smallCaps: true }}
     >
-        <Box frame="shell" x={-4} y={-1} width={184} height={80} />
-        <Box frame="recess" x={30} y={3} width={116} height={12} />
-        <Box frame="panel" x={4} y={15} width={168} height={54} />
-        <Box frame="hazard_bar" x={-4} y={73} width={184} height={6} />
+        <Box frame={industrial.art.shell} x={-4} y={-1} width={184} height={80} />
+        <Box frame={industrial.art.recess} x={30} y={3} width={116} height={12} />
+        <Box frame={industrial.art.panel} x={4} y={15} width={168} height={54} />
+        <Box frame={industrial.art.hazardBar} x={-4} y={73} width={184} height={6} />
         {rivets.map(([x, y]) => (
-            <Sprite name="rivet" x={x} y={y} />
+            <Image art={industrial.art.rivet} x={x} y={y} />
         ))}
         <Text x={0} y={6} width={176} align="center">
             Catalog Search
@@ -33,29 +34,16 @@ export default (
         <Text x={10} y={24} width={44} color="#bceeff">
             Name
         </Text>
-        <AnvilInput bind={query} initial="" />
-        <Button
-            onClick={back}
-            frame="button"
-            pattern={pattern.rect({ section: "container", x: 0, y: 0, width: 1, height: 1 })}
-        >
-            <Sprite name="icon_back" />
-        </Button>
-        <Button
-            onClick={confirm}
-            frame="button_accent"
-            tooltip="Search"
-            pattern={pattern.rect({ section: "container", x: 2, y: 0, width: 1, height: 1 })}
-        >
-            <Sprite name="icon_check" translate={[-1, 0]} />
-        </Button>
-        {raw.slotRects("inventory", {
-            pattern: pattern.rect({ section: "player", x: 0, y: 0, width: 9, height: 3 }),
-            claim: "all",
-        })}
-        {raw.slotRects("hotbar", {
-            pattern: pattern.rect({ section: "hotbar", x: 0, y: 0, width: 9, height: 1 }),
-            claim: "all",
-        })}
+        <Input bind={query} initial="" />
+        <industrial.Container claim="none">
+            <industrial.Button onClick={back} at={[0, 0]}>
+                <Image art={icons.back} />
+            </industrial.Button>
+            <industrial.Button onClick={confirm} at={[2, 0]} frame={industrial.art.buttonAccent} tooltip="Search">
+                <Image art={icons.check} translate={[-1, 0]} />
+            </industrial.Button>
+        </industrial.Container>
+        <industrial.Player claim="all" />
+        <industrial.Hotbar claim="all" />
     </Window>
 );

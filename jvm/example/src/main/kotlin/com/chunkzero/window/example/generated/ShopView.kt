@@ -114,72 +114,139 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
     protected abstract fun status(): Component
 
     final override fun WindowScope<ItemStack>.bind() {
-        toggle("affordable", { affordable }) { _ ->
+        switch("affordable") { affordable.toString() }
+        switch("affordable~2") { affordable.toString() }
+        button("affordable~3") { _ ->
             affordable = !affordable
             onAffordableChanged(affordable)
         }
-        switch("affordable~2") { affordable.toString() }
+        switch("affordable~4") { affordable.toString() }
+        button("affordable~5") { _ ->
+            affordable = !affordable
+            onAffordableChanged(affordable)
+        }
         slot("balance") { balance() }
-        enabledButton("buy", { canBuy() }, handler = ::onBuy)
+        button("buy", ::onBuy)
         slot("buy_label") { buyLabel() }
-        choice("category=all", Category.ALL, { category }) { _value, _ ->
-            if (category != _value) {
-                category = _value
-                onCategoryChanged(_value)
+        slot("buy_label~2") { buyLabel() }
+        switch("can_buy") { canBuy().toString() }
+        switch("can_next") { canNext().toString() }
+        switch("can_previous") { canPrevious().toString() }
+        switch("category?all") { (category == Category.ALL).toString() }
+        button("category=all") { _ ->
+            if (category != Category.ALL) {
+                category = Category.ALL
+                onCategoryChanged(category)
             }
         }
-        choice("category=gear", Category.GEAR, { category }) { _value, _ ->
-            if (category != _value) {
-                category = _value
-                onCategoryChanged(_value)
+        button("category=all~2") { _ ->
+            if (category != Category.ALL) {
+                category = Category.ALL
+                onCategoryChanged(category)
             }
         }
-        choice("category=magic", Category.MAGIC, { category }) { _value, _ ->
-            if (category != _value) {
-                category = _value
-                onCategoryChanged(_value)
+        switch("category?gear") { (category == Category.GEAR).toString() }
+        button("category=gear") { _ ->
+            if (category != Category.GEAR) {
+                category = Category.GEAR
+                onCategoryChanged(category)
             }
         }
-        for (index in 0 until CATEGORY_LABEL_SIZE) {
-            slot("category_label[$index]") { categoryLabel(index) }
+        button("category=gear~2") { _ ->
+            if (category != Category.GEAR) {
+                category = Category.GEAR
+                onCategoryChanged(category)
+            }
         }
-        enabledButton("clear_search", { hasQuery() }, handler = ::onClearSearch)
-        toggle("favorites", { favorites }) { _ ->
+        switch("category?magic") { (category == Category.MAGIC).toString() }
+        button("category=magic") { _ ->
+            if (category != Category.MAGIC) {
+                category = Category.MAGIC
+                onCategoryChanged(category)
+            }
+        }
+        button("category=magic~2") { _ ->
+            if (category != Category.MAGIC) {
+                category = Category.MAGIC
+                onCategoryChanged(category)
+            }
+        }
+        slot("category_label[0]") { categoryLabel(0) }
+        slot("category_label[0]~2") { categoryLabel(0) }
+        slot("category_label[1]") { categoryLabel(1) }
+        slot("category_label[1]~2") { categoryLabel(1) }
+        slot("category_label[2]") { categoryLabel(2) }
+        slot("category_label[2]~2") { categoryLabel(2) }
+        button("clear_search", ::onClearSearch)
+        switch("favorites") { favorites.toString() }
+        switch("favorites~2") { favorites.toString() }
+        button("favorites~3") { _ ->
             favorites = !favorites
             onFavoritesChanged(favorites)
         }
-        switch("favorites~2") { favorites.toString() }
+        switch("favorites~4") { favorites.toString() }
+        button("favorites~5") { _ ->
+            favorites = !favorites
+            onFavoritesChanged(favorites)
+        }
         switch("has_price") { hasPrice().toString() }
-        enabledButton("next", { canNext() }, handler = ::onNext)
+        switch("has_query") { hasQuery().toString() }
+        button("next", ::onNext)
         slot("next_label") { nextLabel() }
+        slot("next_label~2") { nextLabel() }
         slot("page") { page() }
-        enabledButton("previous", { canPrevious() }, handler = ::onPrevious)
+        button("previous", ::onPrevious)
         slot("previous_label") { previousLabel() }
+        slot("previous_label~2") { previousLabel() }
         slot("price") { price() }
         collection("products", products)
         button("search", ::onSearch)
         slot("selected_name") { selectedName() }
-        choice("sort=featured", Sort.FEATURED, { sort }) { _value, _ ->
-            if (sort != _value) {
-                sort = _value
-                onSortChanged(_value)
+        switch("sort?featured") { (sort == Sort.FEATURED).toString() }
+        button("sort=featured") { _ ->
+            if (sort != Sort.FEATURED) {
+                sort = Sort.FEATURED
+                onSortChanged(sort)
             }
         }
-        choice("sort=price", Sort.PRICE, { sort }) { _value, _ ->
-            if (sort != _value) {
-                sort = _value
-                onSortChanged(_value)
+        button("sort=featured~2") { _ ->
+            if (sort != Sort.FEATURED) {
+                sort = Sort.FEATURED
+                onSortChanged(sort)
             }
         }
-        choice("sort=name", Sort.NAME, { sort }) { _value, _ ->
-            if (sort != _value) {
-                sort = _value
-                onSortChanged(_value)
+        switch("sort?price") { (sort == Sort.PRICE).toString() }
+        button("sort=price") { _ ->
+            if (sort != Sort.PRICE) {
+                sort = Sort.PRICE
+                onSortChanged(sort)
             }
         }
-        for (index in 0 until SORT_LABEL_SIZE) {
-            slot("sort_label[$index]") { sortLabel(index) }
+        button("sort=price~2") { _ ->
+            if (sort != Sort.PRICE) {
+                sort = Sort.PRICE
+                onSortChanged(sort)
+            }
         }
+        switch("sort?name") { (sort == Sort.NAME).toString() }
+        button("sort=name") { _ ->
+            if (sort != Sort.NAME) {
+                sort = Sort.NAME
+                onSortChanged(sort)
+            }
+        }
+        button("sort=name~2") { _ ->
+            if (sort != Sort.NAME) {
+                sort = Sort.NAME
+                onSortChanged(sort)
+            }
+        }
+        slot("sort_label[0]") { sortLabel(0) }
+        slot("sort_label[0]~2") { sortLabel(0) }
+        slot("sort_label[1]") { sortLabel(1) }
+        slot("sort_label[1]~2") { sortLabel(1) }
+        slot("sort_label[2]") { sortLabel(2) }
+        slot("sort_label[2]~2") { sortLabel(2) }
         slot("status") { status() }
     }
 
