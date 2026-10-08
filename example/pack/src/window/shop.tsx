@@ -1,16 +1,16 @@
-import { Box, Image, Switch, Text, Window } from "plugin:window/ui";
+import { Image, Switch, Text, containerLayout } from "plugin:window/ui";
 import type { ToggleHandle } from "plugin:window/bind";
 import {
     Button,
     Collection,
     Container,
-    Header,
     Hotbar,
     Player,
     Row,
     Show,
     Tabs,
     Toggle,
+    Window,
     art,
 } from "plugin:window/theme/industrial";
 
@@ -61,37 +61,15 @@ function LampToggle(props: { bind: ToggleHandle; title: string; tooltip: string 
     );
 }
 
-const rivets: [number, number][] = [
-    [-2, 6],
-    [173, 6],
-    [-2, 129],
-    [173, 129],
-];
+const { player } = containerLayout("generic_9x6").sections;
 
 export default (
-    <Window
-        name="shop"
-        container="generic_9x6"
-        frame={art.shell}
-        bleed={{ top: 1, right: 4, bottom: 7, left: 4 }}
-        text={{ color: "#ffffff", shadow: true, smallCaps: true }}
-    >
-        <Header padding={{ top: 3 }} align="start">
-            <Box frame={art.recess} width={116} height={12} justify="center" align="center">
-                <Text>Foundry Exchange</Text>
-            </Box>
-        </Header>
-
-        <Box frame={art.panel} x={4} y={136} width={168} height={82} />
-        <Box frame={art.hazardBar} x={-4} y={223} width={184} height={6} />
-        <Row x={52} y={131} gap={4}>
+    <Window name="shop" container="generic_9x6" title="Foundry Exchange">
+        <Row x={52} y={player.bounds.y - 8} gap={4}>
             {Array.from({ length: 8 }, () => (
                 <Image art={ventSlot} />
             ))}
         </Row>
-        {rivets.map(([x, y]) => (
-            <Image art={art.rivet} x={x} y={y} />
-        ))}
 
         <Container frame={art.panel} outset={{ top: 2, right: 3, bottom: 3, left: 3 }}>
             <Tabs bind={category} span={3} tooltip={(value) => categoryTooltips[value]}>

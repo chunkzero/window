@@ -69,6 +69,8 @@ export {
     playerSlot,
     playerSlots,
 } from "./inventory.ts";
+export { containerLayout } from "./containers.ts";
+export type { ContainerLayout, Rect, SectionLayout } from "./containers.ts";
 export { defineWindows } from "./windows.ts";
 export type { WindowsDefinition } from "./windows.ts";
 export {

@@ -1,4 +1,4 @@
-import { defineWindows, shape, texture } from "../src/ui/index.ts";
+import { containerLayout, defineWindows, shape, texture } from "../src/ui/index.ts";
 import { action, builtin, flag, input, items, selection, sprite, text, toggle, value } from "../src/bind/index.ts";
 import type { Indexed, TextHandle } from "../src/bind/index.ts";
 import * as raw from "../src/raw/index.ts";
@@ -166,3 +166,8 @@ const rawPrimitives = raw.box({
     ],
 });
 void rawPrimitives;
+
+containerLayout("anvil").input satisfies { width: number };
+containerLayout("generic_9x3").sections.container.rows satisfies 3;
+// @ts-expect-error Only an anvil has a native input field.
+void containerLayout("generic_9x3").input;

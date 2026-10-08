@@ -360,6 +360,18 @@ const raised = (fill: Token<Color>) =>
 `underlined`, `strikethrough`, `obfuscated`, `font`, `smallCaps`, `align`) for the text inside it; the nearest setting
 wins.
 
+`containerLayout(container)` is the geometry the compiler lays a window out over, in GUI pixels: the screen's `width`
+and `height`, the `title` origin, and each section's `columns`, `rows`, 16x16 slot interiors (`slots`), and their
+`bounds`; for an anvil, also the native `input` field. Its types follow the container, so
+`containerLayout("generic_9x3").sections.container.rows` is `3` and only an anvil's layout has `input`. Components use
+it to place art around a container's slots:
+
+```tsx
+const { player } = containerLayout("generic_9x6").sections;
+
+<Image art={vent} x={52} y={player.bounds.y - 8} />;
+```
+
 `<Hud anchor>` pins the HUD with the generated core shaders (requires `hudShaders`): `"top-left"`, `"top"`,
 `"top-right"`, `"left"`, `"center"`, `"right"`, `"bottom-left"`, `"bottom"`, `"bottom-right"`, or a normalized
 `{ x, y }`. The same point of the HUD is placed on that screen point, and `offset={[x, y]}` nudges it in GUI pixels.
@@ -372,17 +384,14 @@ functions, so the `raw` API calls them directly: `Button({ onClick, children })`
 the primitive; a file using both renames one on import.
 
 ```tsx
-import { Text, Window } from "plugin:window/ui";
+import { Text } from "plugin:window/ui";
 import { action, collection, flag, selection, text } from "plugin:window/bind";
-import { Button, Collection, Container, Header, Hotbar, Tabs, art } from "plugin:window/theme/industrial";
+import { Button, Collection, Container, Hotbar, Tabs, Window, art } from "plugin:window/theme/industrial";
 
 const category = selection("category", ["all", "gear", "magic"]);
 const products = collection("products", { selectable: true });
 
-<Window name="shop" container="generic_9x6" frame={art.shell} text={{ color: "#ffffff", smallCaps: true }}>
-  <Header>
-    <Text>Foundry Exchange</Text>
-  </Header>
+<Window name="shop" container="generic_9x6" title="Foundry Exchange">
   <Container frame={art.panel}>
     <Tabs bind={category} span={3}>
       {(value) => <Text>{value}</Text>}
@@ -408,10 +417,15 @@ const products = collection("products", { selectable: true });
 | `Tabs bind sprite? selectedSprite? tooltip? itemModel?` | one `Choice` per value; children render each value, or are `Tab value tooltip?` elements |
 | `Repeater cell columns rows onClick? item? itemSlot?`   | `onClick` and `item` are shaped `[cells]`; `item` fills the cell's `itemSlot` (1-based)  |
 | `Collection bind`, `Slots span claim?`, `Hotspot`       | industrial slot frames; `Slots claim="all"` blocks clicks on its slots                   |
+| `Window name container title? inventory? frame?`        | the window in industrial's shell; see below                                              |
 | `Container`, `Player`, `Hotbar`                         | the slot sections                                                                        |
 | `Header`, `Row`, `Column`, `Grid`, `Center`, `Spacer`   | layout boxes                                                                             |
 | `Show when`                                             | draws its children while a condition holds                                               |
 
+- `Window` takes the primitive's props except `bleed`, and places its shell from `containerLayout(container)`: a raised
+  `frame` (default `art.shell`) with corner rivets and a hazard bar along its bottom, `title` in a recess along the top
+  edge, and a panel under the player's inventory. `inventory={false}` claims the player and hotbar slots instead and
+  ends the shell below the container slots. Labels default to white small caps with a shadow.
 - Controls (`Button`, `Toggle`, `Choice`, `Tabs`, `Repeater` cells) inset their slot cells by 1px, so their face covers
   the 16x16 slot interiors, and center their content in a row (a column in a repeater cell) with centered labels.
   `frame`, `padding`, `gap`, `text`, `tooltip`, and `itemModel` style the face; a state's `frame` or `tooltip` replaces

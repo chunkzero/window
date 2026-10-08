@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import * as industrial from "../src/theme/industrial/index.ts";
-import { createTheme } from "../src/ui/index.ts";
+import { containerLayout, createTheme } from "../src/ui/index.ts";
 import { action, collection, flag, items, selection, toggle } from "../src/bind/index.ts";
 import { Image, Window } from "../src/ui/components.ts";
 import { resolveTokens } from "../src/ui/tokens.ts";
@@ -150,4 +150,36 @@ test("a face's text font replaces a layer's small caps", () => {
     const [label] = ofType(button, "label");
     assert.equal(label?.font, "custom");
     assert.equal(label?.small_caps, undefined);
+});
+
+test("container layouts match the compiler's screen metrics", () => {
+    const chest = containerLayout("generic_9x6");
+    assert.equal(chest.height, 222);
+    assert.deepEqual(chest.sections.container.slots[10], { x: 26, y: 36, width: 16, height: 16 });
+    assert.deepEqual(chest.sections.player.bounds, { x: 8, y: 139, width: 160, height: 52 });
+    assert.deepEqual(chest.sections.hotbar.bounds, { x: 8, y: 197, width: 160, height: 16 });
+    const anvil = containerLayout("anvil");
+    assert.deepEqual(anvil.title, { x: 60, y: 6 });
+    assert.deepEqual(
+        anvil.sections.container.slots.map((slot) => slot.x),
+        [27, 76, 134],
+    );
+    assert.deepEqual(anvil.sections.hotbar.slots[0], { x: 8, y: 142, width: 16, height: 16 });
+    assert.deepEqual(anvil.input, { x: 59, y: 20, width: 110, height: 16 });
+});
+
+test("an industrial window without its inventory claims it and ends below the container", () => {
+    const shell = (inventory: boolean) => industrial.Window({ name: "w", container: "anvil", inventory }).windows[0]!;
+    const open = shell(true);
+    assert.deepEqual(open.bleed, { top: 1, right: 4, bottom: 8, left: 4 });
+    assert.equal(ofType(open.children, "section").length, 0);
+    const closed = shell(false);
+    assert.deepEqual(closed.bleed, { top: 1, right: 4, bottom: 0, left: 4 });
+    assert.deepEqual(
+        ofType(closed.children, "section").map((section) => [section.section, section.claim]),
+        [
+            ["player", "all"],
+            ["hotbar", "all"],
+        ],
+    );
 });
