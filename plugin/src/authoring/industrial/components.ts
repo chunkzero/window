@@ -430,7 +430,7 @@ export interface RepeaterProps extends ItemStyle, DebugProps {
     /** An action indexed by cell; a click calls it with the clicked cell's index. */
     onClick?: Indexed<Action, readonly [number]>;
     tooltip?: string | Tooltip | ((i: number) => string | Tooltip);
-    /** Items indexed by cell, shown in each cell's `itemSlot`, which then takes no clicks. */
+    /** Items indexed by cell, shown in each cell's `itemSlot`; clicks on it still call `onClick`. */
     item?: Indexed<ItemsHandle, readonly [number]>;
     /** One-based slot of the cell `item` fills; defaults to 1. */
     itemSlot?: number;
@@ -475,35 +475,10 @@ export function Repeater(props: RepeaterProps): Element {
     const cells = Array.from({ length: columns * rows }, (_, i) => {
         const tip = typeof tooltip === "function" ? tooltip(i) : tooltip;
         const click = onClick?.at(i);
-        const regions = (rects: [number, number, number][]) =>
-            rects.map(([x, y, slots]) =>
-                Region({
-                    ...defined({ onClick: click, tooltip: tip }),
-                    absolute: true,
-                    left: x * SLOT,
-                    top: y * SLOT,
-                    width: slots * SLOT - 2,
-                    height: SLOT - 2,
-                }),
-            );
-        let claims: Child = Region(defined({ onClick: click, tooltip: tip }));
+        const claims = Region(defined({ onClick: click, tooltip: tip }));
         let stack: Child = null;
         if (item !== undefined) {
             const [x, y] = [(itemSlot - 1) % width, Math.floor((itemSlot - 1) / width)];
-            const rects: [number, number, number][] = [];
-            for (let row = 0; row < height; row++) {
-                if (row !== y) {
-                    rects.push([0, row, width]);
-                    continue;
-                }
-                if (x > 0) {
-                    rects.push([0, row, x]);
-                }
-                if (x < width - 1) {
-                    rects.push([x + 1, row, width - x - 1]);
-                }
-            }
-            claims = regions(rects);
             const items = Items({ bind: item.at(i) });
             stack = Box({
                 absolute: true,

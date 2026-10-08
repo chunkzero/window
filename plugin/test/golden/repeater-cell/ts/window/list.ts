@@ -5,7 +5,7 @@ const icon = items("icon", { shape: [6] });
 const price = items("price", { shape: [6] });
 const label = text("label", { shape: [6] });
 
-/** Six recessed cells of three slots under a label: an icon stack, a price stack, and a slot running `rows[i]`. */
+/** Six recessed cells of three slots under a label, showing an icon and a price stack; any click on a cell runs `rows[i]`. */
 const cells = Array.from({ length: 6 }, (_, i) => {
     const [column, row] = [(i % 3) * 3 + 1, Math.floor(i / 3) + 1];
     return [
@@ -22,7 +22,7 @@ const cells = Array.from({ length: 6 }, (_, i) => {
         }),
         raw.items(icon.at(i), { layout: { column, row } }),
         raw.items(price.at(i), { layout: { column: column + 1, row } }),
-        raw.region({ on_click: rows.at(i), layout: { column: column + 2, row } }),
+        raw.region({ on_click: rows.at(i), layout: { column: { start: column, span: 3 }, row } }),
     ];
 }).flat();
 
