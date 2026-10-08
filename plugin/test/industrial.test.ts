@@ -133,3 +133,15 @@ test("tabs rendered from plain text get the text as their tooltip", () => {
         ["all", "all", "gear", "gear"],
     );
 });
+
+test("a face's text font replaces a layer's small caps", () => {
+    const button = industrial.Button({
+        onClick: action("go"),
+        style: { base: { text: { smallCaps: true } } },
+        text: { font: "custom" },
+        children: "Go",
+    });
+    const [label] = ofType(button, "label");
+    assert.equal(label?.font, "custom");
+    assert.equal(label?.small_caps, undefined);
+});

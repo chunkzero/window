@@ -5,6 +5,7 @@
 import { Box, Case, Collection as CollectionPrimitive, Items, Region, Section, Switch } from "../jsx.ts";
 import type { Child, CollectionProps as CollectionPrimitiveProps, DebugProps, SectionProps } from "../jsx.ts";
 import { builtin } from "../handles.ts";
+import { assign } from "../styles.ts";
 import type { Action, ClickAction, Condition, Indexed, Items as ItemsHandle, Selection, Toggle } from "../handles.ts";
 import type {
     BoxStyle,
@@ -74,12 +75,13 @@ function defined<T extends object>(fields: T): { [K in keyof T]?: Exclude<T[K], 
 function face(base: readonly Layer[], state: readonly Layer[], props: FaceProps, current: StateProps = {}) {
     const explicit = defined({ frame: props.frame, padding: props.padding, gap: props.gap });
     const style: Layer[] = [FACE, ...base, explicit, ...state, defined({ frame: current.frame })];
-    const text: TextProps = Object.assign(
-        { align: "center" },
-        ...flat(style).map((entry) => entry["text"]),
-        props.text,
-    );
-    return { style, text };
+    const text: Record<string, unknown> = { align: "center" };
+    for (const fields of [...flat(style).map((entry) => entry["text"]), props.text]) {
+        if (typeof fields === "object" && fields !== null) {
+            assign(text, fields as Record<string, unknown>);
+        }
+    }
+    return { style, text: text as TextProps };
 }
 
 /** The props of `props` that place the control rather than draw it. */
