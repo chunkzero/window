@@ -1,5 +1,6 @@
 export type * from "./types.ts";
 export * as raw from "./raw.ts";
+export * as industrial from "./industrial/index.ts";
 export { theme } from "./elements.ts";
 export { shape, texture } from "./art.ts";
 export type { ShapeStyle, TextureOptions } from "./art.ts";

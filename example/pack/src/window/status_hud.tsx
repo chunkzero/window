@@ -1,5 +1,7 @@
-import { Hud, Row, Sprite, Switch, Text, flag, text } from "#plugins/window";
+import { Hud, Image, Switch, Text, flag, industrial, text } from "#plugins/window";
 import type { TextHandle, TextProps } from "#plugins/window";
+
+import { coin } from "./art.ts";
 
 const coins = text("coins");
 const rate = text("rate");
@@ -23,13 +25,13 @@ const soft = "#e0edff";
 /** A label and a right-aligned value; `coin` follows the value with a coin. */
 function Stat(props: { label: string; bind: TextHandle; color?: string; coin?: boolean }) {
     return (
-        <Row gap={2}>
+        <industrial.Row gap={2}>
             <Text width={34} color={muted}>
                 {props.label}
             </Text>
             <Text bind={props.bind} align="right" color={props.color ?? white} />
-            {props.coin === true && <Sprite name="coin" />}
-        </Row>
+            {props.coin === true && <Image art={coin} />}
+        </industrial.Row>
     );
 }
 
@@ -39,7 +41,7 @@ export default [
         name="status_top_left"
         anchor="top-left"
         offset={[4, 4]}
-        frame="hud"
+        frame={industrial.art.hud}
         padding={4}
         gap={2}
         minWidth={80}
@@ -50,7 +52,7 @@ export default [
         <Stat label="Power" bind={power} />
     </Hud>,
 
-    <Hud name="status_top_center" anchor="top" offset={[0, 4]} frame="hud" padding={3} text={style}>
+    <Hud name="status_top_center" anchor="top" offset={[0, 4]} frame={industrial.art.hud} padding={3} text={style}>
         <Text bind={runtime} width={34} align="center" />
     </Hud>,
 
@@ -58,7 +60,7 @@ export default [
         name="status_top_right"
         anchor="top-right"
         offset={[-4, 4]}
-        frame="hud"
+        frame={industrial.art.hud}
         padding={4}
         gap={2}
         minWidth={80}
@@ -81,12 +83,12 @@ export default [
 
     <Hud name="status_bottom_center" anchor="bottom" offset={[0, -72]} gap={2} align="center" text={style}>
         <Text bind={hint} width={160} align="center" color={soft} />
-        <Row gap={1}>
+        <industrial.Row gap={1}>
             {Array.from({ length: 10 }, (_, i) => (
                 <Switch on={waveProgress.at(i)}>
-                    {{ true: <Sprite name="lamp_on" />, false: <Sprite name="lamp_off" /> }}
+                    {{ true: <Image art={industrial.art.lampOn} />, false: <Image art={industrial.art.lampOff} /> }}
                 </Switch>
             ))}
-        </Row>
+        </industrial.Row>
     </Hud>,
 ];

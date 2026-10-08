@@ -44,19 +44,19 @@ if (!Number.isInteger(runs) || runs < 1 || !Number.isInteger(scale) || scale < 1
 // Window names to suffix in each copy. Narrow patterns keep same-named controls (the forge button) unchanged.
 const RENAMES: Record<Style, [RegExp, string][]> = {
     jsx: [
-        [/name="(forge)" container/g, 'name="$1$$" container'],
+        [/name="(forge)"\s+container/g, 'name="$1$$" container'],
         [/name="(forge_progress|shop|status_[a-z_]+)"/g, 'name="$1$$"'],
     ],
     fn: [
-        [/name: "(forge|forge_progress|shop)"/g, 'name: "$1$$"'],
-        [/pinned\("(status_[a-z_]+)"/g, 'pinned("$1$$"'],
+        [/name:\s*"(forge|forge_progress|shop)"/g, 'name: "$1$$"'],
+        [/pinned\(\s*"(status_[a-z_]+)"/g, 'pinned("$1$$"'],
     ],
 };
 
 function windowSources(dir: string): string[] {
     const win = join(dir, "src", "window");
     return readdirSync(win)
-        .filter((name) => /\.tsx?$/.test(name) && name !== "theme.ts")
+        .filter((name) => /\.tsx?$/.test(name) && name !== "sprites.ts")
         .map((name) => join(win, name));
 }
 

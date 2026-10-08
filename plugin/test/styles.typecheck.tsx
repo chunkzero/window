@@ -1,4 +1,17 @@
-import { create, createTheme, defineVars, derive, mix, raw, shape, variants } from "../src/authoring/index.ts";
+import {
+    action,
+    create,
+    createTheme,
+    defineVars,
+    derive,
+    flag,
+    industrial,
+    mix,
+    raw,
+    selection,
+    shape,
+    variants,
+} from "../src/authoring/index.ts";
 import type { BoxStyle, Color, Var, Variants } from "../src/authoring/index.ts";
 import {
     Box,
@@ -149,3 +162,22 @@ const rawStoredBox = raw.box({ style: storedBox });
 // @ts-expect-error A raw case takes typed styles only.
 const rawFlexStyleCase = raw.case("on", { style: { min_width: 4 } });
 void [nestedTypo, storedUnknownVar, storedTheme, rawStoredBox, rawFlexStyleCase];
+
+const tones = variants({ base: { padding: 2 }, disabled: { frame: industrial.art.buttonDisabled } });
+const contractButton = (
+    <industrial.Button onClick={action("go")} enabled={flag("can_go")} style={tones}>
+        Go
+    </industrial.Button>
+);
+const choiceStyle = variants({ selected: { frame: industrial.art.buttonSelected } });
+const contractChoice = (
+    <industrial.Choice bind={selection("mode", ["a", "b"])} value="a" style={choiceStyle}>
+        A
+    </industrial.Choice>
+);
+const contractRepeater = industrial.Repeater({ cell: [1, 1], columns: 1, rows: 1, style: variants({ cell: {} }) });
+// @ts-expect-error A button names only its base and disabled variants.
+const buttonSelected = industrial.Button({ close: true, style: choiceStyle });
+// @ts-expect-error A choice takes values of its selection.
+const choiceValue = industrial.Choice({ bind: selection("mode", ["a", "b"]), value: "c" });
+void [contractButton, contractChoice, contractRepeater, buttonSelected, choiceValue];

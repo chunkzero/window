@@ -253,7 +253,7 @@ export function variants<T extends Record<string, Style>>(
 }
 
 /** Sets `fields` over `out`; `font` and `smallCaps` are one selection, so setting either clears the other. */
-function assign(out: Fields, fields: Fields): void {
+export function assign(out: Fields, fields: Fields): void {
     if (fields["font"] !== undefined || fields["smallCaps"] !== undefined) {
         delete out["font"];
         delete out["smallCaps"];
