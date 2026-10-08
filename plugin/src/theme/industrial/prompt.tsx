@@ -51,7 +51,7 @@ export function Prompt(props: PromptProps): { windows: WindowDef[] } {
     const labelX = 10;
     return (
         <Window {...rest} container="anvil" inventory={false}>
-            {label === undefined ? null : (
+            {label === undefined || label === "" ? null : (
                 <Text x={labelX} y={input.y + 4} width={input.x - 5 - labelX} color="#bceeff">
                     {label}
                 </Text>

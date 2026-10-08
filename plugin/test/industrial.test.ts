@@ -200,4 +200,5 @@ test("a prompt has a back button only with onBack", () => {
     assert.equal(ofType(prompt({}), "anvil_input").length, 1);
     assert.deepEqual(clicks(prompt({})), ["confirm"]);
     assert.deepEqual(clicks(prompt({ onBack: action("back") })), ["back", "confirm"]);
+    assert.equal(ofType(prompt({ label: "" }), "label").length, ofType(prompt({}), "label").length);
 });
