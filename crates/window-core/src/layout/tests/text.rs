@@ -31,7 +31,7 @@ fn bold_label_auto_width_uses_bold_visible_width() {
 fn generated_label_names_in_order() {
     let w = solve_one(
         window(json!([{
-            "type": "column", "x": 8, "y": 6,
+            "type": "flex", "x": 8, "y": 6, "style": { "direction": "column" },
             "children": [
                 { "type": "label", "text": "a" },
                 { "type": "label", "text": "b" }
@@ -44,25 +44,9 @@ fn generated_label_names_in_order() {
 }
 
 #[test]
-fn duplicate_names_within_window_error() {
-    let project = themed(
-        json!({}),
-        json!([{
-            "type": "column", "x": 8, "y": 6,
-            "children": [
-                { "type": "slot", "name": "dup", "width": 10 },
-                { "type": "button", "name": "dup", "width": 10, "height": 10 }
-            ]
-        }]),
-    );
-    let err = solve(&project, &sizes(&[])).unwrap_err();
-    assert!(err.to_string().contains("duplicate name `dup`"), "{err}");
-}
-
-#[test]
 fn slot_outside_gui_errors() {
     let project = window(json!([
-        { "type": "slot", "name": "a", "width": 10, "x": 200, "y": 6 }
+        { "type": "slot", "handle": text("a"), "width": 10, "x": 200, "y": 6 }
     ]));
     let err = solve(&project, &sizes(&[])).unwrap_err();
     let msg = err.to_string();
@@ -73,7 +57,7 @@ fn slot_outside_gui_errors() {
 fn text_above_ascent_limit_errors() {
     // title_origin.y = 6 → min y is 5; y=0 is too high.
     let project = window(json!([
-        { "type": "slot", "name": "a", "width": 10, "x": 8, "y": 0 }
+        { "type": "slot", "handle": text("a"), "width": 10, "x": 8, "y": 0 }
     ]));
     let err = solve(&project, &sizes(&[])).unwrap_err();
     assert!(err.to_string().contains("ascent limit"), "{err}");
@@ -91,10 +75,10 @@ fn text_fonts_measure_labels_and_reject_unknown_names() {
 }
 
 #[test]
-fn widthless_slot_outside_button_is_rejected() {
-    let error =
-        solve(&window(json!([{ "type": "slot", "name": "caption", "x": 8, "y": 18 }])), &sizes(&[])).unwrap_err();
-    assert!(error.to_string().contains("direct, unpositioned button child"));
+fn widthless_slot_outside_a_box_is_rejected() {
+    let error = solve(&window(json!([{ "type": "slot", "handle": text("caption"), "x": 8, "y": 18 }])), &sizes(&[]))
+        .unwrap_err();
+    assert!(error.to_string().contains("requires `width` unless a box lays it out"), "{error}");
 }
 
 #[test]

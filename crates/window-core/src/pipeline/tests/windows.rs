@@ -1,20 +1,21 @@
 use super::*;
 use crate::inventory::InventorySlotRef;
+use crate::manifest::SlotRefEntry;
 
 #[test]
 fn indexed_switch_art_uses_valid_resource_paths() {
     let project = r##"{
-      "theme":{"sprites":{"dot":{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0,"width":4,"height":4}}},
       "windows":[{"name":"shop","container":"generic_9x3","children":[
-        {"type":"switch","name":"lamp","index":0,"x":8,"y":20,"children":[
-            {"type":"case","value":"on","children":[{"type":"sprite","name":"dot"}]}
+        {"type":"switch","handle":{"kind":"flag","id":"lamp","shape":[1],"at":[0]},"x":8,"y":20,"children":[
+            {"type":"case","value":"true","children":[{"type":"sprite","art":{"art":"shape","kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0,"width":4,"height":4}}]},
+            {"type":"case","value":"false","children":[]}
         ]}
       ]}]
     }"##;
     let input = crate::pipeline::CompileInput::new(std::collections::BTreeMap::new());
     let out = crate::pipeline::compile_project_json(project.as_bytes(), &input).unwrap();
     let paths: Vec<&str> = out.files.iter().map(|file| file.path.as_str()).collect();
-    assert!(paths.iter().any(|path| path.contains("_switch/lamp-0/on")), "{paths:?}");
+    assert!(paths.iter().any(|path| path.contains("_switch/lamp-0/true")), "{paths:?}");
 }
 
 #[test]
@@ -176,7 +177,7 @@ fn overlapping_buttons_error() {
 
     let err = compile_windows(&[w], &textures, "window").unwrap_err();
     match err {
-        Error::Validation(msg) => assert!(msg.contains("both own container slot 0"), "{msg}"),
+        Error::Validation(msg) => assert!(msg.contains("both route container slot 0"), "{msg}"),
         other => panic!("expected Validation, got {other:?}"),
     }
 }
@@ -232,14 +233,12 @@ fn static_glyph_codepoint_in_private_use_area() {
 fn compile_anvil_search(child: &str, options: &str) -> crate::Result<CompileOutput> {
     let project = format!(
         r##"{{
-      "theme":{{
-        "frames":{{"recess":{{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0}}}},
-        "sprites":{{"field":{{"kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0,"width":110,"height":16}}}}
-      }},
+      "sprites":{{"field":{{"art":"shape","kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0,"width":110,"height":16}}}},
       "windows":[{{"name":"search","container":"anvil","children":[
-        {{"type":"panel","frame":"recess","x":0,"y":0,"width":176,"height":166}},
+        {{"type":"flex","frame":{{"art":"shape","kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0}},
+          "x":0,"y":0,"style":{{"width":176,"height":166}}}},
         {child},
-        {{"type":"anvil_input","name":"query"}}
+        {{"type":"anvil_input","handle":{{"kind":"input","id":"query"}}}}
       ]}}],
       "options":{options}
     }}"##
@@ -270,7 +269,8 @@ fn anvil_inputs_open_the_art_over_the_native_field_and_can_restyle_it() {
 
 #[test]
 fn anvil_inputs_hide_vanilla_anvil_art_and_share_their_slot_with_a_button() {
-    let back = r#"{"type":"button","name":"back","x":26,"y":46,"width":18,"height":18}"#;
+    let back = r#"{"type":"flex","x":26,"y":46,"children":[
+        {"type":"region","on_click":{"kind":"action","id":"back"},"width":18,"height":18}]}"#;
     let out = compile_anvil_search(back, "{}").unwrap();
     for path in [
         "assets/minecraft/textures/gui/container/anvil.png",
@@ -286,7 +286,7 @@ fn anvil_inputs_hide_vanilla_anvil_art_and_share_their_slot_with_a_button() {
 
 #[test]
 fn anvil_title_updates_require_the_experimental_option() {
-    let slot = r#"{"type":"slot","name":"count","x":8,"y":70,"width":60}"#;
+    let slot = r#"{"type":"slot","handle":{"kind":"text","id":"count"},"x":8,"y":70,"width":60}"#;
     let err = compile_anvil_search(slot, "{}").unwrap_err();
     assert!(err.to_string().contains("`count` changes the title of an anvil input window"), "{err}");
 
@@ -302,9 +302,6 @@ fn switch_cases_bake_their_own_net_zero_glyphs() {
     let mut w = bare_window("shop", ContainerKind::Generic9x3, vec![badge(4)]);
     w.switches = vec![crate::ir::SwitchIr {
         name: "mode".into(),
-        binding: None,
-        states: false,
-        initial: None,
         source: None,
         cases: vec![
             crate::ir::SwitchCaseIr {
@@ -335,8 +332,8 @@ fn compile_children(children: &str) -> crate::Result<CompileOutput> {
 #[test]
 fn multi_line_slots_reserve_their_lines_and_a_font_per_line_position() {
     let out = compile_children(
-        r#"[{"type":"column","x":8,"y":20,"children":[
-            {"type":"slot","name":"name","width":46,"lines":2,"line_height":7},
+        r#"[{"type":"flex","x":8,"y":20,"style":{"direction":"column"},"children":[
+            {"type":"slot","handle":{"kind":"text","id":"name"},"width":46,"lines":2,"line_height":7},
             {"type":"label","text":"Below"}
         ]}]"#,
     )
@@ -354,27 +351,82 @@ fn multi_line_slots_reserve_their_lines_and_a_font_per_line_position() {
 
     let err = compile_children(r#"[{"type":"label","text":"Hi","x":8,"y":20,"overflow":"ellipsis"}]"#).unwrap_err();
     assert!(err.to_string().contains("label element does not accept `overflow`"), "{err}");
-    let err =
-        compile_children(r#"[{"type":"slot","name":"n","width":9,"lines":2,"line_height":4294967295}]"#).unwrap_err();
+    let err = compile_children(
+        r#"[{"type":"slot","handle":{"kind":"text","id":"n"},"width":9,"lines":2,"line_height":4294967295}]"#,
+    )
+    .unwrap_err();
     assert!(err.to_string().contains("`lines` span more than 1024 pixels"), "{err}");
 }
 
 #[test]
 fn regions_in_exclusive_cases_share_slots_and_real_overlaps_are_rejected() {
-    let buy = r#"{"type":"button","name":"buy","x":7,"y":17,"width":18,"height":18,"tooltip":"Buy",
-        "states":{"on":{"item_model":"demo:on"},"off":{}}}"#;
-    let out = compile_children(&format!("[{buy}]")).unwrap();
+    let region = |id: &str| format!(r#"{{"type":"region","on_click":{{"kind":"action","id":"{id}"}}}}"#);
+    let switch = format!(
+        r#"{{"type":"switch","handle":{{"kind":"flag","id":"open"}},"x":7,"y":17,"children":[
+            {{"type":"case","value":"true","style":{{"width":18,"height":18}},"children":[{}]}},
+            {{"type":"case","value":"false","style":{{"width":18,"height":18}},"children":[{}]}}]}}"#,
+        region("buy"),
+        region("sell"),
+    );
+    let out = compile_children(&format!("[{switch}]")).unwrap();
     crate::validation::validate_compile_output(&out).assert_valid();
     let shop = &out.manifest.windows["shop"];
-    let slots = |key: &str| shop.regions[key].slots.clone();
-    assert_eq!(slots("buy.on"), vec![InventorySlotRef::container(0).into()]);
-    assert_eq!((slots("buy.off"), slots("buy.default")), (slots("buy.on"), slots("buy.on")));
-    let state = &shop.switches["buy"];
-    assert_eq!((state.states, state.initial.as_deref()), (true, Some("default")));
+    assert_eq!(shop.regions["buy"].slots, vec![InventorySlotRef::container(0).into()]);
+    assert_eq!(shop.regions["sell"].slots, shop.regions["buy"].slots);
 
-    let info = r#"{"type":"hotspot","name":"info","x":7,"y":17,"width":18,"height":18,"tooltip":"Info"}"#;
-    let err = compile_children(&format!("[{buy},{info}]")).unwrap_err();
-    assert!(err.to_string().contains("hotspot `info` and button `buy` both own container slot 0"), "{err}");
+    let info =
+        format!(r#"{{"type":"flex","x":7,"y":17,"style":{{"width":18,"height":18}},"children":[{}]}}"#, region("info"));
+    let err = compile_children(&format!("[{switch},{info}]")).unwrap_err();
+    assert!(err.to_string().contains("both route container slot 0"), "{err}");
+}
+
+#[test]
+fn regions_route_clicks_on_item_slots_and_fill_only_unowned_slots() {
+    let item = |id: &str, index: u32| {
+        format!(
+            r#"{{"type":"item","handle":{{"kind":"items","id":"{id}"}},"slots":[{{"area":"container","index":{index}}}]}}"#
+        )
+    };
+    let region = |id: &str, width: u32| {
+        format!(
+            r#"{{"type":"flex","x":7,"y":17,"style":{{"width":{width},"height":18}},"children":[
+                {{"type":"region","on_click":{{"kind":"action","id":"{id}"}}}}]}}"#
+        )
+    };
+    let out = compile_children(&format!("[{},{},{}]", item("icon", 0), item("price", 1), region("cell", 54))).unwrap();
+    crate::validation::validate_compile_output(&out).assert_valid();
+    let shop = &out.manifest.windows["shop"];
+    let refs = |indices: &[u32]| -> Vec<SlotRefEntry> {
+        indices.iter().map(|index| InventorySlotRef::container(*index).into()).collect()
+    };
+    assert_eq!(shop.regions["cell"].slots, refs(&[0, 1, 2]));
+    assert_eq!(shop.regions["cell"].fill_slots, Some(refs(&[2])));
+    assert_eq!(shop.items["icon"].slots, refs(&[0]));
+
+    let out = compile_children(&format!("[{},{}]", item("icon", 0), region("cell", 18))).unwrap();
+    crate::validation::validate_compile_output(&out).assert_valid();
+    assert_eq!(out.manifest.windows["shop"].regions["cell"].fill_slots, Some(Vec::new()));
+
+    let err = compile_children(&format!("[{},{}]", item("icon", 0), item("other", 0))).unwrap_err();
+    assert!(err.to_string().contains("both own container slot 0"), "{err}");
+}
+
+#[test]
+fn conditional_content_owners_keep_the_region_fill() {
+    let region = r#"{"type":"flex","x":7,"y":17,"style":{"width":18,"height":18},"children":[
+        {"type":"region","on_click":{"kind":"action","id":"tip"}}]}"#;
+    let item = r#"{"type":"item","handle":{"kind":"items","id":"icon"},"slots":[{"area":"container","index":0}]}"#;
+    let switch = format!(
+        r#"{{"type":"switch","handle":{{"kind":"flag","id":"shown"}},"x":7,"y":17,"children":[
+            {{"type":"case","value":"true","style":{{"width":18,"height":18}},"children":[{item}]}},
+            {{"type":"case","value":"false","style":{{"width":18,"height":18}},"children":[]}}]}}"#
+    );
+    let out = compile_children(&format!("[{switch},{region}]")).unwrap();
+    crate::validation::validate_compile_output(&out).assert_valid();
+    assert_eq!(out.manifest.windows["shop"].regions["tip"].fill_slots, None);
+
+    let out = compile_children(&format!("[{item},{region}]")).unwrap();
+    assert_eq!(out.manifest.windows["shop"].regions["tip"].fill_slots, Some(Vec::new()));
 }
 
 fn compile_with_png(project: &str, path: &str) -> CompileOutput {

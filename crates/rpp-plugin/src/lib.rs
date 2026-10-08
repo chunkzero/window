@@ -110,7 +110,6 @@ mod tests {
     #[test]
     fn generates_kotlin_from_project() {
         let project = r##"{
-          "theme": { "colors": { "gold": "#FFD75E" } },
           "windows": [
             {
               "name": "shop",
@@ -118,7 +117,7 @@ mod tests {
               "children": [
                 {
                   "type": "slot",
-                  "name": "balance",
+                  "handle": { "kind": "text", "id": "balance" },
                   "x": 8,
                   "y": 24,
                   "width": 160,
@@ -143,9 +142,6 @@ mod tests {
         assert!(output.kotlin_files.iter().any(|file| file.path == "WindowPackData.kt"));
         assert!(output.kotlin_files.iter().any(|file| file.path == "WindowFonts.kt"));
         assert!(output.kotlin_files.iter().any(|file| file.path == "ShopView.kt"));
-        let colors = output.kotlin_files.iter().find(|file| file.path == "WindowColors.kt").unwrap();
-        let colors = std::str::from_utf8(colors.contents.as_bytes()).unwrap();
-        assert!(colors.contains("public val gold: TextColor = TextColor.color(0xffd75e)"));
     }
 
     #[test]

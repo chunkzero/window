@@ -42,7 +42,6 @@ private class RendererFixture(
     private val bindings =
         WindowBindings<Any>(
             definition,
-            { it },
             definition.titleSlots(reactivity),
             Switches("window", "w", definition.entry.switches, reactivity),
         )
@@ -105,7 +104,7 @@ class WindowRendererTest :
             swapped shouldNotContain "Ten"
         }
 
-        "a nested switch draws only under its active outer case, and a shared binding selects every copy" {
+        "a nested switch draws only under its active outer case" {
             val label = { text: String -> TestManifests.slot(8, 40, Align.LEFT, text = text) }
 
             fun stock(path: String) =
@@ -114,7 +113,6 @@ class WindowRendererTest :
                         SwitchCaseEntry("low", slots = listOf("count.$path")),
                         SwitchCaseEntry("high", static = "HIGH${path.uppercase()}"),
                     ),
-                    binding = "stock",
                 )
             val manifest =
                 TestManifests.manifest(
@@ -151,7 +149,8 @@ class WindowRendererTest :
             shown(
                 fixture.open {
                     switch("mode") { mode }
-                    switch("stock") { stock }
+                    switch("stock.buy") { stock }
+                    switch("stock.sell") { stock }
                 },
             ) shouldBe listOf("BUYART", "LOWBUY")
             stock = "high"
@@ -162,14 +161,7 @@ class WindowRendererTest :
             shown(fixture.frames.last().title) shouldBe listOf("HIGHSELL")
         }
 
-        "layers draw in tree order, and state sprites keep their layer position" {
-            val mode =
-                TestManifests.stateButton(
-                    "mode",
-                    listOf(0),
-                    mapOf("on" to HitboxEntry(), "off" to HitboxEntry()),
-                    sprites = mapOf("on" to "mode.on", "off" to "mode.off"),
-                )
+        "layers draw in tree order, and case sprites keep their layer position" {
             val manifest =
                 TestManifests.manifest(
                     container = "generic_9x1",
@@ -184,8 +176,16 @@ class WindowRendererTest :
                             "mode.on" to TestManifests.spriteSlot(x = 0, y = 6, width = 40, sprite = "selected"),
                             "mode.off" to TestManifests.spriteSlot(x = 0, y = 6, width = 40, sprite = "normal"),
                         ),
-                    regions = mode.regions,
-                    switches = mapOf("mode" to mode.switch),
+                    switches =
+                        mapOf(
+                            "mode" to
+                                SwitchEntry(
+                                    listOf(
+                                        SwitchCaseEntry("on", spriteSlots = listOf("mode.on")),
+                                        SwitchCaseEntry("off", spriteSlots = listOf("mode.off")),
+                                    ),
+                                ),
+                        ),
                     sprites =
                         mapOf(
                             "normal" to TestManifests.sprite(width = 40, glyph = "N"),
@@ -202,79 +202,47 @@ class WindowRendererTest :
                         ),
                 )
             val fixture = RendererFixture(manifest)
+            var mode by fixture.reactivity.state("off")
             val glyphs = { title: ComposedRender -> plain(title).filter { it in "MNSI" } }
 
-            glyphs(fixture.open { button("mode") {} }) shouldBe "MI"
-            glyphs(
-                fixture.renderer
-                    .setButtonState("mode", "off")
-                    .shouldNotBeNull()
-                    .title,
-            ) shouldBe "MNI"
-            fixture.renderer.setButtonState("mode", "off").shouldBeNull()
-            glyphs(
-                fixture.renderer
-                    .setButtonState("mode", "on")
-                    .shouldNotBeNull()
-                    .title,
-            ) shouldBe "MSI"
-        }
-
-        "a toggle state change re-renders the covered button item in one scheduled frame" {
-            val mode =
-                TestManifests.stateButton(
-                    "mode",
-                    listOf(0),
-                    mapOf(
-                        "on" to HitboxEntry("demo:gui/on", TooltipEntry("Enabled")),
-                        "off" to HitboxEntry("demo:gui/off", TooltipEntry("Disabled")),
-                    ),
-                )
-            val manifest =
-                TestManifests.manifest(
-                    container = "generic_9x1",
-                    regions = mode.regions,
-                    switches = mapOf("mode" to mode.switch),
-                )
-            val fixture = RendererFixture(manifest)
-            var enabled by fixture.reactivity.state(false)
-            fixture.open { toggle("mode", selected = { enabled }) {} }
-
-            fixture.renderer.seedItems().model(0) shouldBe "demo:gui/off"
-            enabled = true
-            fixture.scheduler.scheduleCount shouldBe 1
+            glyphs(fixture.open { switch("mode") { mode } }) shouldBe "MNI"
+            mode = "on"
             fixture.scheduler.runAll()
-            fixture.frames
-                .single()
-                .writes
-                .model(0) shouldBe "demo:gui/on"
+            glyphs(fixture.frames.single().title) shouldBe "MSI"
         }
 
         "slot writes rendered before a provider throws stay drainable" {
-            val mode =
-                TestManifests.stateButton(
-                    "mode",
-                    listOf(0),
-                    mapOf("on" to HitboxEntry("demo:gui/on"), "off" to HitboxEntry("demo:gui/off")),
-                )
+            val hitbox = { model: String -> HitboxEntry(model) }
             val manifest =
                 TestManifests.manifest(
                     container = "generic_9x1",
-                    regions = mode.regions,
-                    switches = mapOf("mode" to mode.switch),
+                    regions =
+                        mapOf(
+                            "on" to TestManifests.region(listOf(0), hitbox = hitbox("demo:gui/on")),
+                            "off" to TestManifests.region(listOf(0), hitbox = hitbox("demo:gui/off")),
+                        ),
+                    switches =
+                        mapOf(
+                            "mode" to
+                                SwitchEntry(
+                                    listOf(
+                                        SwitchCaseEntry("on", regions = listOf("on")),
+                                        SwitchCaseEntry("off", regions = listOf("off")),
+                                    ),
+                                ),
+                        ),
                     items = mapOf("extra" to ItemEntry(listOf(TestManifests.containerSlot(1)))),
                 )
             val fixture = RendererFixture(manifest)
             var state by fixture.reactivity.state("off")
             fixture.open {
-                button("mode") {}
-                buttonState("mode") { state }
+                switch("mode") { state }
                 item("extra") { error("boom") }
             }
 
             state = "on"
             shouldThrow<IllegalStateException> {
-                fixture.renderer.render(setOf(RenderKey.ButtonState("mode"), RenderKey.Item("extra")))
+                fixture.renderer.render(setOf(RenderKey.Switch("mode"), RenderKey.Item("extra")))
             }
             fixture.renderer.drainWrites().model(0) shouldBe "demo:gui/on"
         }

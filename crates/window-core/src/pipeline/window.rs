@@ -11,8 +11,7 @@ use crate::{Result, bake};
 
 use super::CompileContext;
 use super::glyphs::{Layers, static_key, window_key_prefix};
-use super::inventory::{compile_inventory, repeat_groups};
-use super::sprites::check_sprite_fits;
+use super::inventory::compile_inventory;
 
 pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, layers: &Layers) -> Result<WindowEntry> {
     ctx.warnings.extend(w.warnings.iter().cloned());
@@ -26,7 +25,7 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
         let entry = slot_entry(ctx, slot, slot.rect.y - title_origin.y, None)?;
         slots.insert(slot.name.clone(), entry);
     }
-    let sprite_slots = sprite_slots(ctx, w, title_origin.y)?;
+    let sprite_slots = sprite_slots(ctx, w, title_origin.y);
     let inventory = compile_inventory(ctx, w, &switches, title_origin.y)?;
 
     Ok(WindowEntry {
@@ -38,10 +37,8 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
         items: inventory.items,
         collections: inventory.collections,
         inputs: inventory.inputs,
-        groups: repeat_groups(w),
         switches,
         layers: w.layers.clone(),
-        indexed: w.indexed.clone(),
         handles: w.handles.clone(),
     })
 }
@@ -61,26 +58,14 @@ fn bake_static(
     Ok(bake::bake_static_with_advance(glyph.glyph, &comp.bounds, title_origin, glyph.advance))
 }
 
-fn sprite_slots(
-    ctx: &mut CompileContext<'_>,
-    w: &LaidOutWindow,
-    title_y: i32,
-) -> Result<BTreeMap<String, SpriteSlotEntry>> {
+fn sprite_slots(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, title_y: i32) -> BTreeMap<String, SpriteSlotEntry> {
     let mut entries = BTreeMap::new();
     for sprite_slot in &w.sprite_slots {
-        let k = sprite_slot.rect.y - title_y;
-        let font = ctx.sprite_font(k);
-        let entry = sprite_slot_entry(font, &sprite_slot.rect, sprite_slot.align, sprite_slot.sprite.clone());
-        entries.insert(
-            sprite_slot.name.clone(),
-            SpriteSlotEntry { binding: sprite_slot.binding.clone(), source: sprite_slot.source.clone(), ..entry },
-        );
-        if let Some(sprite) = &sprite_slot.sprite {
-            let subject = format!("sprite slot `{}`", sprite_slot.name);
-            check_sprite_fits(ctx.runtime_sprites, &w.name, &subject, sprite, &sprite_slot.rect)?;
-        }
+        let font = ctx.sprite_font(sprite_slot.rect.y - title_y);
+        let entry = sprite_slot_entry(font, &sprite_slot.rect, sprite_slot.align, None);
+        entries.insert(sprite_slot.name.clone(), SpriteSlotEntry { source: sprite_slot.source.clone(), ..entry });
     }
-    Ok(entries)
+    entries
 }
 
 /// Build a [`SlotEntry`] for `slot`, whose box top lies `k` pixels below the font baseline origin, registering the
@@ -115,7 +100,6 @@ pub(super) fn slot_entry(
         strikethrough: slot.strikethrough,
         obfuscated: slot.obfuscated,
         text: slot.text.clone(),
-        binding: slot.binding.clone(),
         overflow: fit.ellipsis.then_some(TextOverflow::Ellipsis),
         lines,
         source: slot.source.clone(),
@@ -124,17 +108,7 @@ pub(super) fn slot_entry(
 
 /// Build a [`SpriteSlotEntry`] covering `rect` drawn with `font`.
 pub(super) fn sprite_slot_entry(font: String, rect: &Rect, align: Align, sprite: Option<String>) -> SpriteSlotEntry {
-    SpriteSlotEntry {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-        align,
-        font,
-        sprite,
-        binding: None,
-        source: None,
-    }
+    SpriteSlotEntry { x: rect.x, y: rect.y, width: rect.width, height: rect.height, align, font, sprite, source: None }
 }
 
 fn surface_entry(surface: &Surface) -> SurfaceEntry {

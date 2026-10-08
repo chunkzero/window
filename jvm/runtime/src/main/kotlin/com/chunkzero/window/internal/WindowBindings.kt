@@ -2,12 +2,9 @@ package com.chunkzero.window.internal
 
 import com.chunkzero.window.Click
 import com.chunkzero.window.IndexedClick
-import com.chunkzero.window.Tooltip
 import com.chunkzero.window.WindowCollection
 import com.chunkzero.window.WindowDefinition
 import com.chunkzero.window.WindowScope
-import com.chunkzero.window.host.WindowItem
-import com.chunkzero.window.manifest.WindowEntry
 import net.kyori.adventure.text.Component
 
 /**
@@ -16,14 +13,10 @@ import net.kyori.adventure.text.Component
  */
 internal class WindowBindings<I : Any>(
     private val definition: WindowDefinition,
-    private val buildItem: (WindowItem) -> I,
     val slots: DynamicSlots,
     val switches: Switches,
 ) : WindowScope<I> {
     private val entry = definition.entry
-
-    /** The sprite slot keys of each binding name; a binding shared across switch cases has one per case. */
-    private val spriteBindings = entry.spriteSlots.keys.groupBy { entry.spriteSlots.getValue(it).binding ?: it }
 
     /** The action ids regions name that a handler can bind; runtime actions are resolved by the runtime. */
     private val actions: Set<String> =
@@ -36,11 +29,6 @@ internal class WindowBindings<I : Any>(
     /** Click handlers by action id. */
     val buttonHandlers = HashMap<String, (Click) -> Unit>()
 
-    /** Item renders by button or hotspot name. */
-    val buttonItems = HashMap<String, () -> I?>()
-
-    /** State renders by button or hotspot name. */
-    val buttonStates = HashMap<String, () -> String>()
     val items = HashMap<String, () -> I?>()
     val collectionItems = HashMap<String, (Int) -> I?>()
     val collectionHandlers = HashMap<String, (IndexedClick) -> Unit>()
@@ -60,13 +48,9 @@ internal class WindowBindings<I : Any>(
         render: () -> String?,
     ) {
         requireBindable(name)
-        val keys = definition.requireEntry(spriteBindings, name, "sprite slot", known = "sprite slots")
-        for (key in keys) {
-            require(entry.spriteSlots.getValue(key).sprite == null) {
-                "Sprite slot '$name' has a fixed authored sprite and must not be bound"
-            }
-            bindOnce(sprites, key, render) { "Sprite slot '$name' bound more than once" }
-        }
+        val slot = definition.requireEntry(entry.spriteSlots, name, "sprite slot", known = "sprite slots")
+        require(slot.sprite == null) { "Sprite slot '$name' has a fixed sprite and must not be bound" }
+        bindOnce(sprites, name, render) { "Sprite slot '$name' bound more than once" }
     }
 
     override fun button(
@@ -74,23 +58,10 @@ internal class WindowBindings<I : Any>(
         handler: (Click) -> Unit,
     ) {
         requireBindable(name)
-        if (name !in actions) {
-            require(name !in definition.controls) { "Button '$name' is a hotspot and cannot be bound as an action" }
-            throw IllegalArgumentException(
-                "Unknown button '$name' in window '${definition.name}'; known buttons: ${actions.sorted()}",
-            )
+        require(name in actions) {
+            "Unknown button '$name' in window '${definition.name}'; known buttons: ${actions.sorted()}"
         }
         bindOnce(buttonHandlers, name, handler) { "Button '$name' bound more than once" }
-    }
-
-    override fun buttonItem(
-        name: String,
-        render: () -> I?,
-    ) {
-        requireBindable(name)
-        definition.requireEntry(definition.controls, name, "button or hotspot", known = "buttons")
-        require(name !in buttonStates) { "Button '$name' already has a named-state binding" }
-        bindOnce(buttonItems, name, render) { "Button item '$name' bound more than once" }
     }
 
     override fun item(
@@ -168,25 +139,6 @@ internal class WindowBindings<I : Any>(
         bindOnce(inputHandlers, name, handler) { "Anvil input '$name' bound more than once" }
     }
 
-    override fun buttonState(
-        name: String,
-        render: () -> String,
-    ) {
-        requireBindable(name)
-        definition.requireStates(name)
-        require(name !in buttonItems) { "Button '$name' already has an item binding" }
-        bindOnce(buttonStates, name, render) { "Button state '$name' bound more than once" }
-    }
-
-    override fun tooltip(
-        name: String,
-        tooltip: Tooltip?,
-    ) {
-        requireBindable(name)
-        val item = tooltip?.let { buildItem(definition.tooltipHitbox(it)) }
-        buttonItem(name) { item }
-    }
-
     private var sealed = false
 
     /** Rejects further bindings; called once `bind()` has returned. */
@@ -205,11 +157,8 @@ internal class WindowBindings<I : Any>(
     fun validate() {
         slots.validate()
         switches.validate()
-        val unboundSprites =
-            entry.spriteSlots
-                .filter { (key, slot) -> slot.sprite == null && key !in sprites }
-                .map { (key, slot) -> slot.binding ?: key }
-        checkNone(unboundSprites.toSet()) { "Unbound dynamic sprite slots in window '$it'" }
+        val unboundSprites = entry.spriteSlots.filter { (key, slot) -> slot.sprite == null && key !in sprites }.keys
+        checkNone(unboundSprites) { "Unbound dynamic sprite slots in window '$it'" }
         val defaults = entry.regions.values.mapNotNull { it.defaultAction }
         val unknownDefaults = defaults.filterTo(HashSet()) { RuntimeAction.of(it) == null }
         checkNone(unknownDefaults) { "Unknown runtime actions in window '$it'" }
@@ -232,8 +181,6 @@ internal class WindowBindings<I : Any>(
         buildSet {
             slots.names.mapTo(this, RenderKey::Slot)
             sprites.keys.mapTo(this, RenderKey::Sprite)
-            buttonItems.keys.mapTo(this, RenderKey::ButtonItem)
-            buttonStates.keys.mapTo(this, RenderKey::ButtonState)
             items.keys.mapTo(this, RenderKey::Item)
             collectionSelections.keys.mapTo(this, RenderKey::CollectionSelection)
             switches.names.mapTo(this, RenderKey::Switch)
@@ -274,21 +221,3 @@ internal fun <V> WindowDefinition.requireEntry(
         "Unknown $kind '$name' in window '${this.name}'" +
             (known?.let { "; known $it: ${entries.keys.sorted()}" } ?: ""),
     )
-
-/** Throws unless button or hotspot [name] has named states. */
-internal fun WindowDefinition.requireStates(name: String) {
-    if (entry.switches[name]?.states == true) return
-    requireEntry(controls, name, "button or hotspot")
-    throw IllegalArgumentException("Button '$name' in window '${this.name}' has no named states")
-}
-
-/**
- * The region keys of each button or hotspot: the region keyed by its name, or every region of the
- * cases of its state switch. Claim-only regions belong to no control.
- */
-internal fun WindowEntry.controlRegions(): Map<String, List<String>> {
-    val stateful = switches.filterValues { it.states }.mapValues { (_, switch) -> switch.cases.flatMap { it.regions } }
-    val owned = stateful.values.flatten().toSet()
-    val plain = regions.filter { (key, region) -> key !in owned && (region.action != null || region.hitbox != null) }
-    return plain.mapValues { (key, _) -> listOf(key) } + stateful
-}

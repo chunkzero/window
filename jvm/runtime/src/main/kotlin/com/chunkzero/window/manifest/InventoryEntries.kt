@@ -39,11 +39,8 @@ public data class RegionEntry(
     /** Backing inventory slots whose clicks route to this region. */
     val slots: List<SlotRefEntry>,
     /**
-     * Slots this region fills with its hitbox item.
-     *
-     * `null` means every slot in [slots]. A repeater cell that hands one of its slots to an item
-     * control emits a strict subset here: clicks still route to the whole cell, but the yielded
-     * slot carries the item control's real stack (and therefore its native hover tooltip).
+     * Slots this region fills with its hitbox item. `null` means every slot in [slots]; a strict
+     * subset leaves the anvil input's seed item in the remaining slot.
      */
     @SerialName("fill_slots") val fillSlots: List<SlotRefEntry>? = null,
     /**
@@ -56,7 +53,7 @@ public data class RegionEntry(
     @SerialName("default_action") val defaultAction: String? = null,
     /** The item filling [filledSlots]; `null` leaves them empty. */
     val hitbox: HitboxEntry? = null,
-    /** The authored element this region comes from, such as ``button `buy` ``, for diagnostics. */
+    /** The authored element this region comes from, such as ``region `buy` ``, for diagnostics. */
     val source: String? = null,
 ) {
     /** The slots this region paints with its hitbox item: [fillSlots] when present, else [slots]. */
@@ -103,21 +100,6 @@ public data class AnvilInputEntry(
     val initial: String = "",
     /** Optional item model used for the seed item. */
     @SerialName("item_model") val itemModel: String? = null,
-)
-
-/** Group metadata for controls flattened from a repeater. */
-@Serializable
-public data class RepeatGroupEntry(
-    /** Number of repeated cells. */
-    val count: Int,
-    /** Dynamic text slots by repeated child field, each vector in index order. */
-    val slots: Map<String, List<String>> = emptyMap(),
-    /** Runtime sprite slots by repeated child field, each vector in index order. */
-    @SerialName("sprite_slots") val spriteSlots: Map<String, List<String>> = emptyMap(),
-    /** Dynamic inventory item controls by repeated child field, each vector in index order. */
-    val items: Map<String, List<String>> = emptyMap(),
-    /** The action of each cell's region, in index order. */
-    val actions: List<String> = emptyList(),
 )
 
 /** Manifest tooltip text as MiniMessage templates; the runtime parses it into a `Tooltip`. */

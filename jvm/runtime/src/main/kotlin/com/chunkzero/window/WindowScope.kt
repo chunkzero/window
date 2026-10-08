@@ -53,17 +53,6 @@ public interface WindowScope<I : Any> {
     )
 
     /**
-     * Binds a dynamic inventory item to a button or hotspot.
-     *
-     * The item replaces the hitbox item in the slots of the control's active region. Use this for
-     * custom tooltip hitboxes and item-model based visual states.
-     */
-    public fun buttonItem(
-        name: String,
-        render: () -> I?,
-    )
-
-    /**
      * Binds a dynamic inventory item region.
      *
      * The rendered item is placed into every slot owned by the item region.
@@ -116,8 +105,7 @@ public interface WindowScope<I : Any> {
     /**
      * Binds a switch to a [render] lambda returning the value of the case to draw. Only the active
      * case's art, text, sprite slots, and nested switches are drawn, and only its regions are
-     * claimed; the lambda is re-invoked whenever a reactive state it reads changes. A binding shared
-     * by switches in mutually exclusive cases selects the case of each.
+     * claimed; the lambda is re-invoked whenever a reactive state it reads changes.
      *
      * @throws IllegalArgumentException if [name] is not a switch of the window, or when rendering
      *   returns a value that is not one of its cases.
@@ -136,14 +124,6 @@ public interface WindowScope<I : Any> {
         handler: (String) -> Unit,
     )
 
-    /** Places a fixed inventory [item] on a button or hotspot. */
-    public fun buttonItem(
-        name: String,
-        item: I?,
-    ) {
-        buttonItem(name) { item }
-    }
-
     /** Places a fixed inventory [item] on a dynamic item region. */
     public fun item(
         name: String,
@@ -158,77 +138,5 @@ public interface WindowScope<I : Any> {
         sprite: String?,
     ) {
         sprite(name) { sprite }
-    }
-
-    /**
-     * Selects one of the named states declared by the Window source: the button's art, hitbox item,
-     * and tooltip follow the state. A bound state cannot also be set imperatively with
-     * `WindowView.buttonState(name, state)`, which throws for bound buttons.
-     */
-    public fun buttonState(
-        name: String,
-        render: () -> String,
-    )
-
-    /** Uses a fixed named state declared by the Window source. */
-    public fun buttonState(
-        name: String,
-        state: String,
-    ) {
-        buttonState(name) { state }
-    }
-
-    /**
-     * Sets a fixed tooltip on the invisible hitbox item for a button or hotspot. The title defaults
-     * to white and the lines to gray, neither italic.
-     */
-    public fun tooltip(
-        name: String,
-        tooltip: Tooltip?,
-    )
-
-    /**
-     * Binds a two-state toggle using states named [onState] and [offState], then registers
-     * [handler] as the click action.
-     */
-    public fun toggle(
-        name: String,
-        selected: () -> Boolean,
-        onState: String = "on",
-        offState: String = "off",
-        handler: (Click) -> Unit,
-    ) {
-        buttonState(name) { if (selected()) onState else offState }
-        button(name, handler)
-    }
-
-    /**
-     * Binds one button in a mutually exclusive choice group using `selected`/`unselected` states.
-     */
-    public fun <T> choice(
-        name: String,
-        value: T,
-        selected: () -> T,
-        selectedState: String = "selected",
-        unselectedState: String = "unselected",
-        handler: (T, Click) -> Unit,
-    ) {
-        buttonState(name) { if (selected() == value) selectedState else unselectedState }
-        button(name) { click -> handler(value, click) }
-    }
-
-    /**
-     * Binds an enabled/disabled button, updates its item state reactively, and suppresses disabled
-     * clicks.
-     */
-    public fun enabledButton(
-        name: String,
-        enabled: () -> Boolean,
-        enabledState: String = "enabled",
-        disabledState: String = "disabled",
-        handler: (Click) -> Unit,
-    ) {
-        buttonState(name) { if (enabled()) enabledState else disabledState }
-        button(name) { click -> if (enabled()) handler(click) }
     }
 }

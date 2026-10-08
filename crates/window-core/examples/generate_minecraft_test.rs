@@ -10,195 +10,351 @@ use window_core::pipeline::{CompileInput, compile_project_json};
 use window_core::validation::validate_compile_output;
 
 const PROJECT: &str = r##"{
-  "options": { "hud_shaders": true },
-  "target": { "pack_format": 88 },
-  "theme": {
-    "frames": {
-      "probe_panel": {
-        "kind": "panel",
-        "fill": "#174a5b",
-        "border_color": "#d98b2b",
-        "border_width": 2,
-        "radius": 0,
-        "inset_depth": 0
-      },
-      "probe_cell": {
-        "kind": "slot",
-        "fill": "#0b536d",
-        "border_color": "#22b8e6",
-        "border_width": 2,
-        "radius": 0,
-        "inset_depth": 1
-      },
-      "search_panel": {
-        "kind": "panel",
-        "fill": "#087da1",
-        "border_color": "#29d6ff",
-        "border_width": 2,
-        "radius": 0,
-        "inset_depth": 1
-      },
-      "hud_panel": {
-        "kind": "panel",
-        "fill": "#7f1d1d",
-        "border_color": "#ffb000",
-        "border_width": 2,
-        "radius": 0,
-        "inset_depth": 1
-      }
-    },
-    "sprites": {
-      "probe_marker": {
-        "kind": "badge",
-        "width": 8,
-        "height": 8,
-        "fill": "#ff00aa",
-        "border_color": "#ff00aa",
-        "border_width": 0,
-        "radius": 0,
-        "inset_depth": 0,
-        "highlight_color": "#ff00aa",
-        "shadow_color": "#ff00aa",
-        "accent_color": "#ff00aa"
-      }
+  "options": {
+    "hud_shaders": true
+  },
+  "target": {
+    "pack_format": 88
+  },
+  "sprites": {
+    "probe_marker": {
+      "kind": "badge",
+      "width": 8,
+      "height": 8,
+      "fill": "#ff00aa",
+      "border_color": "#ff00aa",
+      "border_width": 0,
+      "radius": 0,
+      "inset_depth": 0,
+      "highlight_color": "#ff00aa",
+      "shadow_color": "#ff00aa",
+      "accent_color": "#ff00aa",
+      "art": "shape"
     }
   },
-  "windows": [{
-    "name": "probe",
-    "container": "generic_9x3",
-    "children": [
-      {
-        "type": "panel",
-        "frame": "probe_panel",
-        "x": 16,
-        "y": 10,
-        "width": 64,
-        "height": 32
-      },
-      {
-        "type": "slot",
-        "name": "probe_text",
-        "x": 24,
-        "y": 52,
-        "width": 48,
-        "color": "#35a7ff",
-        "shadow": false
-      },
-      {
-        "type": "sprite_slot",
-        "name": "probe_sprite",
-        "x": 88,
-        "y": 20,
-        "width": 8,
-        "height": 8,
-        "align": "left"
-      },
-      {
-        "type": "collection",
-        "name": "probe_collection",
-        "frame": "probe_cell",
-        "action": false,
-        "transform": {
-          "section": "container",
-          "x": 1,
-          "y": 1,
-          "width": 3,
-          "height": 1
-        }
-      },
-      {
-        "type": "repeater",
-        "name": "probe_card",
-        "frame": "probe_cell",
-        "pattern": {
-          "kind": "grid",
-          "section": "container",
-          "x": 5,
-          "y": 0,
-          "columns": 2,
-          "rows": 1,
-          "cell_width": 2,
-          "cell_height": 2
+  "windows": [
+    {
+      "name": "probe",
+      "container": "generic_9x3",
+      "children": [
+        {
+          "type": "flex",
+          "frame": {
+            "kind": "panel",
+            "fill": "#174a5b",
+            "border_color": "#d98b2b",
+            "border_width": 2,
+            "radius": 0,
+            "inset_depth": 0,
+            "art": "shape"
+          },
+          "x": 16,
+          "y": 10,
+          "style": {
+            "width": 64,
+            "height": 32
+          }
         },
-        "children": [
-          { "type": "item", "name": "icon", "cell_slot": 1 }
-        ]
-      },
-      {
-        "type": "button",
-        "name": "probe_container_button",
-        "transform": {
-          "section": "container",
-          "x": 0,
-          "y": 0,
-          "width": 1,
-          "height": 1
+        {
+          "type": "slot",
+          "handle": {
+            "kind": "text",
+            "id": "probe_text"
+          },
+          "x": 24,
+          "y": 52,
+          "width": 48,
+          "color": "#35a7ff",
+          "shadow": false
         },
-        "tooltip": "Container runtime probe"
-      },
-      {
-        "type": "button",
-        "name": "probe_hotbar_button",
-        "transform": {
+        {
+          "type": "sprite_slot",
+          "handle": {
+            "kind": "sprite",
+            "id": "probe_sprite"
+          },
+          "x": 88,
+          "y": 20,
+          "width": 8,
+          "height": 8,
+          "align": "left"
+        },
+        {
+          "type": "collection",
+          "handle": {
+            "kind": "collection",
+            "id": "probe_collection"
+          },
+          "frame": {
+            "kind": "slot",
+            "fill": "#0b536d",
+            "border_color": "#22b8e6",
+            "border_width": 2,
+            "radius": 0,
+            "inset_depth": 1,
+            "art": "shape"
+          },
+          "action": false,
+          "transform": {
+            "section": "container",
+            "x": 1,
+            "y": 1,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "type": "item",
+          "handle": {
+            "kind": "items",
+            "id": "probe_card_icon",
+            "shape": [
+              2
+            ],
+            "at": [
+              0
+            ]
+          },
+          "slots": [
+            {
+              "area": "container",
+              "index": 5
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "handle": {
+            "kind": "items",
+            "id": "probe_card_icon",
+            "shape": [
+              2
+            ],
+            "at": [
+              1
+            ]
+          },
+          "slots": [
+            {
+              "area": "container",
+              "index": 7
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "section": "container",
+          "claim": "none",
+          "children": [
+            {
+              "type": "region",
+              "on_click": {
+                "kind": "action",
+                "id": "probe_container_button"
+              },
+              "tooltip": "Container runtime probe",
+              "layout": {
+                "column": 1,
+                "row": 1
+              }
+            },
+            {
+              "type": "flex",
+              "frame": {
+                "kind": "slot",
+                "fill": "#0b536d",
+                "border_color": "#22b8e6",
+                "border_width": 2,
+                "radius": 0,
+                "inset_depth": 1,
+                "art": "shape"
+              },
+              "layout": {
+                "column": {
+                  "start": 6,
+                  "span": 2
+                },
+                "row": {
+                  "start": 1,
+                  "span": 2
+                }
+              }
+            },
+            {
+              "type": "region",
+              "on_click": {
+                "kind": "action",
+                "id": "probe_card",
+                "shape": [
+                  2
+                ],
+                "at": [
+                  0
+                ]
+              },
+              "layout": {
+                "column": {
+                  "start": 6,
+                  "span": 2
+                },
+                "row": {
+                  "start": 1,
+                  "span": 2
+                }
+              }
+            },
+            {
+              "type": "flex",
+              "frame": {
+                "kind": "slot",
+                "fill": "#0b536d",
+                "border_color": "#22b8e6",
+                "border_width": 2,
+                "radius": 0,
+                "inset_depth": 1,
+                "art": "shape"
+              },
+              "layout": {
+                "column": {
+                  "start": 8,
+                  "span": 2
+                },
+                "row": {
+                  "start": 1,
+                  "span": 2
+                }
+              }
+            },
+            {
+              "type": "region",
+              "on_click": {
+                "kind": "action",
+                "id": "probe_card",
+                "shape": [
+                  2
+                ],
+                "at": [
+                  1
+                ]
+              },
+              "layout": {
+                "column": {
+                  "start": 8,
+                  "span": 2
+                },
+                "row": {
+                  "start": 1,
+                  "span": 2
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "section",
           "section": "hotbar",
+          "claim": "none",
+          "children": [
+            {
+              "type": "region",
+              "on_click": {
+                "kind": "action",
+                "id": "probe_hotbar_button"
+              },
+              "tooltip": "Player runtime probe",
+              "layout": {
+                "column": 1,
+                "row": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "search_probe",
+      "container": "anvil",
+      "children": [
+        {
+          "type": "flex",
+          "frame": {
+            "kind": "panel",
+            "fill": "#087da1",
+            "border_color": "#29d6ff",
+            "border_width": 2,
+            "radius": 0,
+            "inset_depth": 1,
+            "art": "shape"
+          },
+          "x": 54,
+          "y": 18,
+          "style": {
+            "width": 116,
+            "height": 20
+          }
+        },
+        {
+          "type": "label",
+          "text": "Search maps",
+          "x": 60,
+          "y": 6,
+          "width": 104,
+          "align": "center",
+          "color": "#ffffff"
+        },
+        {
+          "type": "anvil_input",
+          "handle": {
+            "kind": "input",
+            "id": "query"
+          },
+          "initial": "",
+          "item_model": "window:gui/hitbox"
+        }
+      ]
+    }
+  ],
+  "huds": [
+    {
+      "name": "probe_hud",
+      "channel": "actionbar",
+      "width": 40,
+      "height": 32,
+      "shader": {
+        "source_bottom": 59,
+        "origin": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.0
+        },
+        "x": 0,
+        "y": 8
+      },
+      "children": [
+        {
+          "type": "flex",
+          "frame": {
+            "kind": "panel",
+            "fill": "#7f1d1d",
+            "border_color": "#ffb000",
+            "border_width": 2,
+            "radius": 0,
+            "inset_depth": 1,
+            "art": "shape"
+          },
           "x": 0,
           "y": 0,
-          "width": 1,
-          "height": 1
-        },
-        "tooltip": "Player runtime probe"
-      }
-    ]
-  }, {
-    "name": "search_probe",
-    "container": "anvil",
-    "children": [
-      {
-        "type": "panel",
-        "frame": "search_panel",
-        "x": 54,
-        "y": 18,
-        "width": 116,
-        "height": 20
-      },
-      {
-        "type": "label",
-        "text": "Search maps",
-        "x": 60,
-        "y": 6,
-        "width": 104,
-        "align": "center",
-        "color": "#ffffff"
-      },
-      {
-        "type": "anvil_input",
-        "name": "query",
-        "initial": "",
-        "item_model": "window:gui/hitbox"
-      }
-    ]
-  }],
-  "huds": [{
-    "name": "probe_hud",
-    "channel": "actionbar",
-    "width": 40,
-    "height": 32,
-    "shader": {
-      "source_bottom": 59,
-      "origin": { "x": 0.5, "y": 0.0 },
-      "anchor": { "x": 0.5, "y": 0.0 },
-      "x": 0,
-      "y": 8
-    },
-    "children": [{
-      "type": "panel",
-      "frame": "hud_panel",
-      "x": 0,
-      "y": 0,
-      "width": 40,
-      "height": 32
-    }]
-  }]
+          "style": {
+            "width": 40,
+            "height": 32
+          }
+        }
+      ]
+    }
+  ]
 }"##;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -262,7 +418,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "hotbar_menu_slot": 54,
         "collection_slots": [10, 11, 12],
         "card": {
-            "repeater": "probe_card",
+            "action": "probe_card",
             "cells": [[5, 6, 14, 15], [7, 8, 16, 17]],
             "item_slots": [5, 7],
             "items": ["minecraft:diamond", "minecraft:emerald"],
@@ -291,7 +447,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "collection_frame",
             "runtime_sprite",
             "dynamic_text_and_shifted_status_marker",
-            "repeater_cell_item_and_click_routing",
+            "cell_item_and_click_routing",
             "native_anvil_input",
             "shader_hud"
         ]

@@ -5,13 +5,11 @@ use std::collections::BTreeMap;
 use crate::ir::{Hitbox, Layer, Tooltip};
 use crate::manifest::{
     AnvilInputEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry, RegionEntry,
-    RepeatGroupEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry,
-    SurfaceEntry, SwitchCaseEntry, SwitchEntry, TextOverflow,
+    SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry,
+    SwitchCaseEntry, SwitchEntry, TextOverflow,
 };
 
-use super::literals::{
-    align_expr, char_map, float_expr, kt_string, optional_string_expr, string_list_expr, string_map,
-};
+use super::literals::{align_expr, char_map, float_expr, kt_string, optional_string_expr, string_list_expr};
 use super::writer::{Call, indent, list_of};
 
 pub(super) fn surface_entry_expr(surface: &SurfaceEntry, level: usize) -> String {
@@ -65,7 +63,7 @@ pub(super) fn slot_entry_expr(slot: &SlotEntry, level: usize) -> String {
         .arg("text", optional_string_expr(slot.text.as_ref()))
         .arg("shaderMarker", optional_string_expr(slot.shader_marker.as_ref()))
         .arg("shaderColor", optional_string_expr(slot.shader_color.as_ref()));
-    let call = with_source(with_binding(call, slot.binding.as_ref()), slot.source.as_ref());
+    let call = with_source(call, slot.source.as_ref());
     let call = match slot.overflow {
         Some(TextOverflow::Ellipsis) => call.arg("overflow", "TextOverflow.ELLIPSIS"),
         None => call,
@@ -105,21 +103,13 @@ pub(super) fn sprite_slot_entry_expr(slot: &SpriteSlotEntry, level: usize) -> St
         .arg("align", align_expr(slot.align))
         .arg("font", kt_string(&slot.font))
         .arg("sprite", optional_string_expr(slot.sprite.as_ref()));
-    with_source(with_binding(call, slot.binding.as_ref()), slot.source.as_ref()).finish()
+    with_source(call, slot.source.as_ref()).finish()
 }
 
 /// Adds the `source` argument only to slots an authored `debug_name` labels.
 fn with_source(call: Call, source: Option<&String>) -> Call {
     match source {
         Some(source) => call.arg("source", kt_string(source)),
-        None => call,
-    }
-}
-
-/// Adds the `binding` argument only to slots that share a binding across switch cases.
-fn with_binding(call: Call, binding: Option<&String>) -> Call {
-    match binding {
-        Some(binding) => call.arg("binding", kt_string(binding)),
         None => call,
     }
 }
@@ -208,27 +198,10 @@ pub(super) fn anvil_input_entry_expr(input: &AnvilInputEntry, level: usize) -> S
         .finish()
 }
 
-pub(super) fn repeat_group_entry_expr(group: &RepeatGroupEntry, level: usize) -> String {
-    let inner = level + 1;
-    let string_lists = |values: &BTreeMap<String, Vec<String>>| {
-        string_map(values, inner, |strings: &Vec<String>, _| string_list_expr(strings))
-    };
-    Call::new("RepeatGroupEntry", level)
-        .arg("count", group.count)
-        .arg("slots", string_lists(&group.slots))
-        .arg("spriteSlots", string_lists(&group.sprite_slots))
-        .arg("items", string_lists(&group.items))
-        .arg("actions", string_list_expr(&group.actions))
-        .finish()
-}
-
 pub(super) fn switch_entry_expr(switch: &SwitchEntry, level: usize) -> String {
     let cases = switch.cases.iter().map(|case| switch_case_entry_expr(case, level + 2));
     Call::new("SwitchEntry", level)
         .arg("cases", list_of(cases, level + 1))
-        .arg("binding", optional_string_expr(switch.binding.as_ref()))
-        .arg("states", switch.states)
-        .arg("initial", optional_string_expr(switch.initial.as_ref()))
         .arg("source", optional_string_expr(switch.source.as_ref()))
         .finish()
 }

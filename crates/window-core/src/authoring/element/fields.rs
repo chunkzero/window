@@ -1,50 +1,19 @@
-use std::collections::BTreeMap;
-
 use super::ElementDto;
-use crate::authoring::button::TooltipDto;
-use crate::authoring::parse::{reject_unexpected_fields, validate_name};
+use crate::authoring::parse::reject_unexpected_fields;
 use crate::authoring::patterns::parse_slot_refs;
+use crate::authoring::tooltip::TooltipDto;
 use crate::geometry::{Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
-use crate::ir::{Align, CLOSE_ACTION, Rgb, Tooltip};
-use crate::model::{ControlState, CrossAlign, TextFit, TextStyle};
+use crate::ir::{Align, Rgb, Tooltip};
+use crate::model::{TextFit, TextStyle};
 use crate::{Error, Result, text_font};
 
-const PANEL_FIELDS: &[&str] = &["type", "frame", "width", "height", "x", "y", "padding", "children"];
-const STACK_FIELDS: &[&str] = &["type", "x", "y", "gap", "padding", "align", "children"];
-const SPRITE_FIELDS: &[&str] = &["type", "name", "art", "x", "y", "debug_name"];
-const SPRITE_SLOT_FIELDS: &[&str] =
-    &["type", "name", "handle", "index", "x", "y", "width", "height", "align", "sprite", "debug_name"];
-const BUTTON_FIELDS: &[&str] = &[
-    "type",
-    "name",
-    "on_click",
-    "enabled",
-    "state",
-    "frame",
-    "width",
-    "height",
-    "x",
-    "y",
-    "slots",
-    "pattern",
-    "transform",
-    "default",
-    "tooltip",
-    "states",
-    "padding",
-    "children",
-    "source",
-];
-const HOTSPOT_FIELDS: &[&str] =
-    &["type", "name", "width", "height", "x", "y", "slots", "pattern", "transform", "tooltip", "states"];
-const ITEM_FIELDS: &[&str] = &["type", "name", "handle", "slots", "pattern", "transform", "cell_slot", "debug_name"];
+const SPRITE_FIELDS: &[&str] = &["type", "art", "x", "y", "debug_name"];
+const SPRITE_SLOT_FIELDS: &[&str] = &["type", "handle", "x", "y", "width", "height", "align", "debug_name"];
+const ITEM_FIELDS: &[&str] = &["type", "handle", "slots", "pattern", "transform", "debug_name"];
 const COLLECTION_FIELDS: &[&str] =
-    &["type", "name", "handle", "frame", "selected_sprite", "slots", "pattern", "transform", "action", "debug_name"];
-const ANVIL_INPUT_FIELDS: &[&str] = &["type", "name", "handle", "initial", "item_model", "debug_name"];
-const SLOT_RECTS_FIELDS: &[&str] = &["type", "name", "frame", "pattern", "transform", "claim"];
-const REPEATER_FIELDS: &[&str] =
-    &["type", "name", "on_click", "frame", "pattern", "transform", "padding", "children", "cells"];
+    &["type", "handle", "frame", "selected_sprite", "slots", "pattern", "transform", "action", "debug_name"];
+const ANVIL_INPUT_FIELDS: &[&str] = &["type", "handle", "initial", "item_model", "debug_name"];
 const LABEL_FIELDS: &[&str] = &[
     "type",
     "text",
@@ -64,15 +33,13 @@ const LABEL_FIELDS: &[&str] = &[
     "debug_name",
 ];
 const FLEX_FIELDS: &[&str] = &["type", "x", "y", "frame", "style", "children", "debug_name"];
-const SWITCH_FIELDS: &[&str] = &["type", "name", "handle", "index", "x", "y", "children", "debug_name"];
+const SWITCH_FIELDS: &[&str] = &["type", "handle", "x", "y", "children", "debug_name"];
 const CASE_FIELDS: &[&str] = &["type", "value", "frame", "style", "children", "debug_name"];
 const SECTION_FIELDS: &[&str] = &["type", "section", "frame", "outset", "claim", "flow", "children", "debug_name"];
 const REGION_FIELDS: &[&str] = &["type", "on_click", "tooltip", "item_model", "width", "height", "debug_name"];
 const SLOT_FIELDS: &[&str] = &[
     "type",
-    "name",
     "handle",
-    "index",
     "width",
     "x",
     "y",
@@ -97,17 +64,11 @@ const FIT_FIELDS: &[&str] = &["overflow", "lines", "line_height"];
 
 fn allowed_fields(kind: &str) -> Option<&'static [&'static str]> {
     Some(match kind {
-        "panel" => PANEL_FIELDS,
-        "row" | "column" => STACK_FIELDS,
         "sprite" => SPRITE_FIELDS,
         "sprite_slot" => SPRITE_SLOT_FIELDS,
-        "button" => BUTTON_FIELDS,
-        "hotspot" => HOTSPOT_FIELDS,
         "item" => ITEM_FIELDS,
         "collection" => COLLECTION_FIELDS,
         "anvil_input" => ANVIL_INPUT_FIELDS,
-        "slot_rects" => SLOT_RECTS_FIELDS,
-        "repeater" => REPEATER_FIELDS,
         "label" => LABEL_FIELDS,
         "slot" => SLOT_FIELDS,
         "flex" => FLEX_FIELDS,
@@ -139,13 +100,17 @@ impl ElementDto {
 
     pub(super) fn required(&self, field: &str) -> Result<String> {
         match field {
-            "name" => self.name.clone(),
-            "frame" => self.frame.as_ref().map(|frame| frame.name()).transpose()?,
+            "art" => self.art.as_ref().map(|art| art.name()).transpose()?,
             "text" => self.text.clone(),
             "value" => self.value.clone(),
             _ => None,
         }
         .ok_or_else(|| Error::Validation(format!("{} element requires `{field}`", self.kind)))
+    }
+
+    /// The entry name of an element that renders or receives a handle.
+    pub(super) fn entry(&self) -> Result<String> {
+        self.name.clone().ok_or_else(|| Error::Validation(format!("{} element requires a `handle`", self.kind)))
     }
 
     fn required_u32(&self, field: &str) -> Result<u32> {
@@ -179,38 +144,8 @@ impl ElementDto {
         }
     }
 
-    /// The authored one-based `cell_slot` index, validated against the other
-    /// slot sources. Layout resolves it against the enclosing repeater cell.
-    pub(super) fn cell_slot(&self) -> Result<Option<u32>> {
-        let Some(cell_slot) = self.cell_slot else {
-            return Ok(None);
-        };
-        if self.slots.is_some() || self.pattern.is_some() || self.transform.is_some() {
-            return Err(Error::Validation(format!(
-                "{} element `cell_slot` cannot be combined with `slots`, `pattern`, or `transform`",
-                self.kind
-            )));
-        }
-        if cell_slot == 0 {
-            return Err(Error::Validation(format!(
-                "{} element `cell_slot` is one-based; use 1 for the first slot of the cell",
-                self.kind
-            )));
-        }
-        Ok(Some(cell_slot))
-    }
-
-    pub(super) fn cross_align(&self) -> Result<CrossAlign> {
-        match self.align.as_str() {
-            "" | "start" => Ok(CrossAlign::Start),
-            "center" => Ok(CrossAlign::Center),
-            "end" => Ok(CrossAlign::End),
-            other => Err(Error::Validation(format!("{} element has unknown align `{other}`", self.kind))),
-        }
-    }
-
     pub(super) fn text_style(&self) -> Result<TextStyle> {
-        let align = if self.align.is_empty() { None } else { Some(self.text_align()?) };
+        let align = self.text_align()?;
         let color = match &self.color {
             Some(color) => Rgb::parse_hex(color).ok_or_else(|| {
                 Error::Validation(format!("{} element has invalid color `{color}`; expected #rrggbb", self.kind))
@@ -281,15 +216,6 @@ impl ElementDto {
         }
     }
 
-    /// The runtime action a button's `default` names.
-    pub(super) fn default_action(&self) -> Result<Option<String>> {
-        match self.default.as_deref() {
-            None => Ok(None),
-            Some("close") => Ok(Some(CLOSE_ACTION.to_string())),
-            Some(other) => Err(Error::Validation(format!("button element has unknown default `{other}`"))),
-        }
-    }
-
     pub(super) fn slots(&self) -> Result<Option<Vec<InventorySlotRef>>> {
         self.slots.clone().map(parse_slot_refs).transpose()
     }
@@ -303,10 +229,6 @@ impl ElementDto {
             (None, Some(transform)) => transform.clone().into_rect_pattern().map(Some),
             (None, None) => Ok(None),
         }
-    }
-
-    pub(super) fn required_pattern(&self) -> Result<SlotPattern> {
-        self.pattern()?.ok_or_else(|| Error::Validation(format!("{} element requires `pattern`", self.kind)))
     }
 
     pub(super) fn claim(&self) -> Result<SlotRectClaim> {
@@ -323,14 +245,5 @@ impl ElementDto {
 
     pub(super) fn tooltip(&self) -> Result<Option<Tooltip>> {
         self.tooltip.clone().map(TooltipDto::into_tooltip).transpose()
-    }
-
-    pub(super) fn states(&self) -> Result<BTreeMap<String, ControlState>> {
-        let mut states = BTreeMap::new();
-        for (name, state) in &self.states {
-            validate_name(name, "button state")?;
-            states.insert(name.clone(), state.clone().into_state()?);
-        }
-        Ok(states)
     }
 }

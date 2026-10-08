@@ -3,36 +3,23 @@ use serde_json::json;
 use super::project_from_json;
 use crate::geometry::{Insets, Size};
 use crate::inventory::InventorySlotRef;
-use crate::ir::{HudChannel, IndexedBinding, IndexedKind, Rgb};
+use crate::ir::{HudChannel, Rgb};
 use crate::model::{Element, Frame, SpriteDef};
 
 const PROJECT_JSON: &[u8] = br##"{
-      "theme": {
-        "frames": {
-          "panel": { "texture": "window/sprites/panel.png", "insets": 8 }
-        },
-        "sprites": {
-          "coin": { "texture": "window/sprites/coin.png" }
-        }
-      },
+      "fonts": { "runes": { "texture": "window/fonts/runes.png", "chars": ["ab"] } },
       "windows": [{
         "name": "shop",
         "container": "generic_9x6",
         "children": [
-          { "type": "panel", "frame": "panel", "x": 0, "y": 0, "width": 176, "height": 222,
+          { "type": "flex", "frame": { "art": "texture", "texture": "window/sprites/panel.png", "insets": 8 },
+            "x": 0, "y": 0, "style": { "width": 176, "height": 222 },
             "children": [
-              { "type": "slot", "name": "title", "width": 160, "align": "center", "color": "#ffd700" },
-              { "type": "button", "name": "buy", "width": 18, "height": 18,
-                "tooltip": { "title": "Buy", "lines": ["Spend coins"] },
-                "states": {
-                  "on": { "item_model": "demo:gui/buy_on", "sprite": "coin", "tooltip": "Ready" },
-                  "off": { "item_model": "demo:gui/buy_off" }
-                }
-              },
-              { "type": "hotspot", "name": "info", "width": 18, "height": 18,
-                "tooltip": "Info"
-              },
-              { "type": "sprite", "name": "coin" }
+              { "type": "slot", "handle": { "kind": "text", "id": "title" }, "width": 160, "align": "center",
+                "color": "#ffd700" },
+              { "type": "region", "on_click": { "kind": "action", "id": "buy" }, "width": 18, "height": 18,
+                "tooltip": { "title": "Buy", "lines": ["Spend coins"] } },
+              { "type": "sprite", "art": { "art": "texture", "texture": "window/sprites/coin.png" } }
             ]
           }
         ]
@@ -42,30 +29,37 @@ const PROJECT_JSON: &[u8] = br##"{
 #[test]
 fn parses_project_json() {
     let project = project_from_json(PROJECT_JSON).unwrap();
-    assert_eq!(
-        project.theme.frames["panel"],
-        Frame::Texture { texture: "window/sprites/panel.png".into(), insets: Insets::uniform(8) }
-    );
-    assert_eq!(
-        project.theme.sprites["coin"],
-        SpriteDef::Texture { texture: "window/sprites/coin.png".into(), size: None }
-    );
+    let frames: Vec<&Frame> = project.art.frames.values().collect();
+    assert_eq!(frames, [&Frame::Texture { texture: "window/sprites/panel.png".into(), insets: Insets::uniform(8) }]);
+    let sprites: Vec<&SpriteDef> = project.art.sprites.values().collect();
+    assert_eq!(sprites, [&SpriteDef::Texture { texture: "window/sprites/coin.png".into(), size: None }]);
+    assert_eq!(project.fonts["runes"].chars, ["ab"]);
     assert_eq!(project.windows[0].name, "shop");
-    assert_eq!(project.windows[0].children.len(), 1);
-    let Element::Panel { children, .. } = &project.windows[0].children[0] else {
-        panic!("expected panel");
+    let Element::Flex(panel) = &project.windows[0].children[0] else {
+        panic!("expected flex");
     };
-    let Element::Button { tooltip, states, .. } = &children[1] else {
-        panic!("expected button");
+    let Element::Slot { name, .. } = &panel.children[0].element else {
+        panic!("expected slot");
     };
-    assert_eq!(tooltip.as_ref().unwrap().title, "Buy");
-    assert_eq!(states["on"].item_model.as_deref(), Some("demo:gui/buy_on"));
-    assert_eq!(states["on"].sprite.as_deref(), Some("coin"));
-    assert_eq!(states["on"].tooltip.as_ref().unwrap().title, "Ready");
-    let Element::Hotspot { tooltip, .. } = &children[2] else {
-        panic!("expected hotspot");
+    assert_eq!(name, "title");
+    let Element::Region(region) = &panel.children[1].element else {
+        panic!("expected region");
     };
-    assert_eq!(tooltip.as_ref().unwrap().title, "Info");
+    assert_eq!(region.tooltip.as_ref().unwrap().title, "Buy");
+    assert_eq!(region.name.as_deref(), Some("buy"));
+}
+
+#[test]
+fn rejects_named_art_references() {
+    let err = project_from_json(
+        json!({ "windows": [{ "name": "s", "container": "generic_9x3", "children": [
+            { "type": "sprite", "art": "coin", "x": 0, "y": 0 },
+        ] }] })
+        .to_string()
+        .as_bytes(),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("expected an art value"), "{err}");
 }
 
 #[test]
@@ -75,70 +69,14 @@ fn rejects_bad_names() {
 }
 
 #[test]
-fn parses_fixed_sprite_slot() {
-    let project = project_from_json(
-        br#"{
-          "theme": { "sprites": { "coin": { "kind": "badge", "width": 8, "height": 8 } } },
-          "windows": [{
-            "name": "shop",
-            "container": "generic_9x3",
-            "children": [{
-              "type": "sprite_slot", "name": "coin_icon",
-              "x": 8, "y": 6, "width": 8, "height": 8, "sprite": "coin"
-            }]
-          }]
-        }"#,
-    )
-    .unwrap();
-    let Element::SpriteSlot { sprite, .. } = &project.windows[0].children[0] else {
-        panic!("expected sprite slot");
-    };
-    assert_eq!(sprite.as_deref(), Some("coin"));
-}
-
-#[test]
-fn rejects_duplicate_theme_names_across_documents() {
-    let err = project_from_json(
-        br#"{
-          "themes": [
-            { "frames": { "panel": { "kind": "panel" } } },
-            { "frames": { "panel": { "kind": "button" } } }
-          ]
-        }"#,
-    )
-    .unwrap_err();
-    assert!(err.to_string().contains("duplicate frame name `panel`"));
-}
-
-#[test]
-fn merges_theme_colors_across_documents() {
-    let project = project_from_json(
-        br##"{ "themes": [{ "colors": { "gold": "#FFD75E" } }, { "colors": { "muted": "#a9d9b5" } }] }"##,
-    )
-    .unwrap();
-    assert_eq!(project.theme.colors.get("gold").map(|c| c.to_hex()).as_deref(), Some("#ffd75e"));
-    assert_eq!(project.theme.colors.len(), 2);
-
-    let err = project_from_json(
-        br##"{ "themes": [{ "colors": { "gold": "#ffd75e" } }, { "colors": { "gold": "#000000" } }] }"##,
-    )
-    .unwrap_err();
-    assert!(err.to_string().contains("duplicate color name `gold`"), "{err}");
-    let err = project_from_json(br##"{ "theme": { "colors": { "gold": "ffd75e" } } }"##).unwrap_err();
-    assert!(err.to_string().contains("expected #rrggbb"), "{err}");
-}
-
-#[test]
 fn expands_slot_ranges_in_rust() {
     let json = br#"{
       "windows": [{
         "name": "shop",
         "container": "generic_9x3",
         "children": [{
-          "type": "button",
-          "name": "buy",
-          "width": 18,
-          "height": 18,
+          "type": "item",
+          "handle": { "kind": "items", "id": "buy" },
           "slots": [
             { "area": "container", "first": 3, "last": 1 },
             { "area": "player", "first": 0, "last": 2 }
@@ -148,8 +86,8 @@ fn expands_slot_ranges_in_rust() {
     }"#;
 
     let project = project_from_json(json).unwrap();
-    let Element::Button { slots: Some(slots), .. } = &project.windows[0].children[0] else {
-        panic!("expected button with slots");
+    let Element::Item { slots: Some(slots), .. } = &project.windows[0].children[0] else {
+        panic!("expected item with slots");
     };
     assert_eq!(
         slots.as_slice(),
@@ -172,10 +110,8 @@ fn rejects_fractional_slot_range_endpoints() {
             "name": "shop",
             "container": "generic_9x3",
             "children": [{
-              "type": "button",
-              "name": "buy",
-              "width": 18,
-              "height": 18,
+              "type": "item",
+              "handle": { "kind": "items", "id": "buy" },
               "slots": [{ "area": "container", "first": 0, "last": 2.5 }]
             }]
           }]
@@ -193,8 +129,7 @@ fn rejects_fields_that_do_not_belong_to_element_kind() {
             "name": "shop",
             "container": "generic_9x3",
             "children": [{
-              "type": "button",
-              "name": "buy",
+              "type": "region",
               "width": 18,
               "height": 18,
               "claim": "unowned"
@@ -203,7 +138,7 @@ fn rejects_fields_that_do_not_belong_to_element_kind() {
         }"#,
     )
     .unwrap_err();
-    assert!(err.to_string().contains("button element does not accept field `claim`"), "{err}");
+    assert!(err.to_string().contains("region element does not accept field `claim`"), "{err}");
 }
 
 #[test]
@@ -214,8 +149,7 @@ fn rejects_unknown_element_fields() {
             "name": "shop",
             "container": "generic_9x3",
             "children": [{
-              "type": "button",
-              "name": "buy",
+              "type": "region",
               "width": 18,
               "height": 18,
               "tooltp": "Buy"
@@ -224,7 +158,7 @@ fn rejects_unknown_element_fields() {
         }"#,
     )
     .unwrap_err();
-    assert!(err.to_string().contains("button element does not accept field `tooltp`"), "{err}");
+    assert!(err.to_string().contains("region element does not accept field `tooltp`"), "{err}");
 }
 
 #[test]
@@ -236,7 +170,7 @@ fn rejects_fields_that_do_not_belong_to_pattern_kind() {
             "container": "generic_9x3",
             "children": [{
               "type": "item",
-              "name": "entry",
+              "handle": { "kind": "items", "id": "entry" },
               "pattern": { "kind": "slots", "slots": [1], "x": 0 }
             }]
           }]
@@ -247,30 +181,26 @@ fn rejects_fields_that_do_not_belong_to_pattern_kind() {
 }
 
 #[test]
-fn rejects_unknown_theme_asset_fields() {
+fn rejects_unknown_art_fields() {
     let err = project_from_json(
-        br##"{
-          "theme": {
-            "frames": {
-              "panel": { "kind": "panel", "widht": 18 }
-            }
-          }
-        }"##,
+        json!({ "windows": [{ "name": "s", "container": "generic_9x3", "children": [
+            { "type": "flex", "frame": json!({ "art": "shape", "kind": "panel", "widht": 18 }), "x": 0, "y": 0, "style": { "width": 18, "height": 18 } },
+        ] }] })
+        .to_string()
+        .as_bytes(),
     )
     .unwrap_err();
-    assert!(err.to_string().contains("generated theme asset does not accept field `widht`"), "{err}");
+    assert!(err.to_string().contains("does not accept field `widht`"), "{err}");
 }
 
 #[test]
 fn rejects_indicator_color_on_kinds_that_do_not_draw_it() {
     let err = project_from_json(
-        br##"{
-          "theme": {
-            "frames": {
-              "warning": { "kind": "hazard_bar", "indicator_color": "#ff8300" }
-            }
-          }
-        }"##,
+        json!({ "windows": [{ "name": "s", "container": "generic_9x3", "children": [
+            { "type": "flex", "frame": json!({ "art": "shape", "kind": "hazard_bar", "indicator_color": "#ff8300" }), "x": 0, "y": 0, "style": { "width": 18, "height": 18 } },
+        ] }] })
+        .to_string()
+        .as_bytes(),
     )
     .unwrap_err();
     assert!(err.to_string().contains("`indicator_color` only applies to panel, button, and slot kinds"), "{err}");
@@ -294,39 +224,34 @@ fn small_caps_selects_the_bundled_font_unless_font_is_set() {
 }
 
 #[test]
-fn parses_generated_theme_assets() {
-    let json = br##"{
-      "theme": {
-        "frames": {
-          "panel": {
-            "kind": "panel",
-            "fill": "#123456",
-            "border_color": "#abcdef",
-            "border_width": 3,
-            "radius": 5,
-            "inset_depth": 2
-          }
-        },
-        "sprites": {
-          "badge": {
-            "kind": "badge",
-            "width": 18,
-            "height": 14,
-            "accent_color": "#00ffff"
-          }
-        }
-      }
-    }"##;
-
-    let project = project_from_json(json).unwrap();
-    let Frame::Generated(panel) = &project.theme.frames["panel"] else {
+fn parses_generated_art() {
+    let frame = json!({
+        "art": "shape",
+        "kind": "panel",
+        "fill": "#123456",
+        "border_color": "#abcdef",
+        "border_width": 3,
+        "radius": 5,
+        "inset_depth": 2
+    });
+    let badge = json!({ "art": "shape", "kind": "badge", "width": 18, "height": 14, "accent_color": "#00ffff" });
+    let project = project_from_json(
+        json!({ "windows": [{ "name": "s", "container": "generic_9x3", "children": [
+            { "type": "flex", "frame": frame, "x": 0, "y": 0, "style": { "width": 18, "height": 18 } },
+            { "type": "sprite", "art": badge, "x": 0, "y": 20 },
+        ] }] })
+        .to_string()
+        .as_bytes(),
+    )
+    .unwrap();
+    let Some(Frame::Generated(panel)) = project.art.frames.values().next() else {
         panic!("expected generated panel");
     };
     assert_eq!(panel.fill, Rgb::new(0x12, 0x34, 0x56));
     assert_eq!(panel.border_color, Rgb::new(0xab, 0xcd, 0xef));
     assert_eq!(panel.border_width, 3);
     assert_eq!(panel.radius, 5);
-    let SpriteDef::Generated { size, style } = &project.theme.sprites["badge"] else {
+    let Some(SpriteDef::Generated { size, style }) = project.art.sprites.values().next() else {
         panic!("expected generated sprite");
     };
     assert_eq!(*size, Size::new(18, 14));
@@ -338,11 +263,6 @@ fn parses_hud_project_json() {
     let json = br##"{
       "options": { "hud_shaders": true },
       "target": { "pack_format": 84 },
-      "theme": {
-        "sprites": {
-          "meter": { "texture": "window/sprites/meter.png" }
-        }
-      },
       "huds": [{
         "name": "status",
         "channel": "actionbar",
@@ -356,8 +276,8 @@ fn parses_hud_project_json() {
           "y": 0
         },
         "children": [
-          { "type": "sprite", "name": "meter", "x": 0, "y": 0 },
-          { "type": "slot", "name": "coins", "x": 12, "y": 4, "width": 80 }
+          { "type": "sprite", "art": { "art": "texture", "texture": "window/sprites/meter.png" }, "x": 0, "y": 0 },
+          { "type": "slot", "handle": { "kind": "text", "id": "coins" }, "x": 12, "y": 4, "width": 80 }
         ]
       }]
     }"##;
@@ -397,78 +317,25 @@ fn rejects_invalid_flex_numeric_styles() {
 }
 
 #[test]
-fn flattens_indexed_bindings() {
-    let window = |children: &str| {
-        format!(r#"{{"windows":[{{"name":"card","container":"generic_9x3","children":[{children}]}}]}}"#)
-    };
-    let cell = |i: u32, j: u32| format!(r#"{{"type":"slot","name":"hole","index":[{i},{j}],"width":8}}"#);
-    let cells: Vec<String> = (0..2).flat_map(|i| (0..3).map(move |j| cell(i, j))).collect();
-    let project = project_from_json(window(&cells.join(",")).as_bytes()).unwrap();
-    let card = &project.windows[0];
-    assert_eq!(card.indexed["hole"], IndexedBinding { kind: IndexedKind::Slot, shape: vec![2, 3] });
-    let Element::Slot { name, .. } = &card.children[5] else {
-        panic!("expected slot");
-    };
-    assert_eq!(name, "hole[1][2]");
-    let lamp = |i: u32| {
-        format!(
-            r#"{{"type":"switch","name":"lamp","index":{i},"children":[{{"type":"case","value":"on","children":[]}}]}}"#
-        )
-    };
-    let project = project_from_json(window(&format!("{},{}", lamp(0), lamp(1))).as_bytes()).unwrap();
-    let Element::Switch(switch) = &project.windows[0].children[1] else {
-        panic!("expected switch");
-    };
-    assert_eq!(switch.name, "lamp[1]");
-
-    let cases = [
-        (cells[..5].join(","), "indexed binding `hole` is missing index [1, 2]"),
-        (
-            format!(r#"{},{{"type":"sprite_slot","name":"hole","index":[0,0],"width":8,"height":8}}"#, cell(0, 1)),
-            "indexed binding `hole` mixes element kinds",
-        ),
-        (
-            r#"{"type":"repeater","name":"row","pattern":{"kind":"grid","area":"container","x":0,"y":0,"columns":2,"rows":1},
-                "children":[{"type":"slot","name":"hole","index":[0],"width":8}]}"#
-                .to_string(),
-            "indexed binding `hole` is inside repeater `row`",
-        ),
-        (
-            r#"{"type":"sprite_slot","name":"dot","index":0,"width":8,"height":8,"sprite":"coin"}"#.to_string(),
-            "indexed binding `dot` sets a fixed `sprite`",
-        ),
-        (r#"{"type":"slot","name":"hole","index":4294967295,"width":8}"#.to_string(), "too large to cover"),
-    ];
-    for (children, message) in cases {
-        let err = project_from_json(window(&children).as_bytes()).unwrap_err();
-        assert!(err.to_string().contains(message), "{err}");
-    }
-}
-
-#[test]
 fn inline_art_is_shared_by_content_and_named_by_hash() {
     let button = json!({ "art": "shape", "kind": "button", "name": "industrial/button" });
     let project = project_from_json(
         json!({
-            "theme": { "frames": { "button": { "kind": "button" } } },
             "windows": [{ "name": "w", "container": "generic_9x3", "children": [
                 { "type": "flex", "frame": button, "x": 0, "y": 0, "style": { "width": 20, "height": 10 } },
                 { "type": "flex", "frame": button, "x": 0, "y": 20, "style": { "width": 30, "height": 10 } },
                 { "type": "flex", "frame": { "art": "shape", "kind": "panel" }, "x": 0, "y": 40,
                   "style": { "width": 10, "height": 10 } },
-                { "type": "flex", "frame": "button", "x": 0, "y": 60, "style": { "width": 10, "height": 10 } },
             ] }],
         })
         .to_string()
         .as_bytes(),
     )
     .unwrap();
-    let frames: Vec<&str> = project.theme.frames.keys().map(String::as_str).collect();
-    let [hashed, named, theme] = frames.as_slice() else { panic!("three frames: {frames:?}") };
-    assert_eq!(*theme, "button");
+    let frames: Vec<&str> = project.art.frames.keys().map(String::as_str).collect();
+    let [hashed, named] = frames.as_slice() else { panic!("two frames: {frames:?}") };
     assert!(named.starts_with("art/industrial-button-") && named.len() == "art/industrial-button-".len() + 6);
     assert!(hashed.starts_with("art/") && hashed.len() == "art/".len() + 6, "{hashed}");
-    assert_eq!(project.theme.frames[*named], project.theme.frames["button"]);
 }
 
 #[test]
@@ -480,12 +347,12 @@ fn sprite_catalog_holds_inline_art_under_its_key() {
             .as_bytes(),
     )
     .unwrap();
-    assert!(matches!(project.theme.sprites["lamp_on"], SpriteDef::Generated { .. }));
-    assert!(project.theme.sprites.contains_key("lamp_off"));
+    assert!(matches!(project.art.sprites["lamp_on"], SpriteDef::Generated { .. }));
+    assert!(project.art.sprites.contains_key("lamp_off"));
     let err = project_from_json(json!({ "sprites": { "lamp": "coin" }, "windows": [] }).to_string().as_bytes())
         .unwrap_err()
         .to_string();
-    assert!(err.contains("lamp"), "{err}");
+    assert!(err.contains("expected an art value"), "{err}");
 }
 
 #[test]
@@ -503,7 +370,7 @@ fn camel_case_catalog_keys_and_only_entries_become_snake_case() {
         .as_bytes(),
     )
     .unwrap();
-    assert!(project.theme.sprites.contains_key("lamp_on"));
+    assert!(project.art.sprites.contains_key("lamp_on"));
     assert_eq!(project.windows[0].handles["lamp"].only, ["lamp_on", "lamp_off"]);
 
     let clash = project_from_json(

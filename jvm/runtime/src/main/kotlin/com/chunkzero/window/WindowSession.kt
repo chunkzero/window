@@ -66,9 +66,8 @@ internal open class ContainerWindowSession<I : Any>(
     private val reactivity = Reactivity(scheduler) { dirty -> flush(dirty) }
 
     protected val bindings =
-        WindowBindings(
+        WindowBindings<I>(
             definition,
-            host::item,
             definition.titleSlots(reactivity),
             Switches("window", definition.name, entry.switches, reactivity),
         )
@@ -208,30 +207,10 @@ internal open class ContainerWindowSession<I : Any>(
         definition.requireEntry(entry.inputs, name, "anvil input", known = "inputs")
     }
 
-    internal fun setButtonItem(
-        name: String,
-        item: I?,
-    ) = deliver(renderer.setButtonItem(name, item))
-
     internal fun setItem(
         name: String,
         item: I?,
     ) = deliver(renderer.setItem(name, item))
-
-    internal fun setButtonState(
-        name: String,
-        state: String,
-    ) {
-        check(name !in bindings.buttonStates) {
-            "Button state '$name' is bound in bind(); set it there or remove the binding to set it imperatively"
-        }
-        deliver(renderer.setButtonState(name, state) ?: return)
-    }
-
-    internal fun setTooltip(
-        name: String,
-        tooltip: Tooltip?,
-    ) = deliver(renderer.setTooltip(name, tooltip))
 
     private fun handleClick(click: Click) {
         if (closed) return

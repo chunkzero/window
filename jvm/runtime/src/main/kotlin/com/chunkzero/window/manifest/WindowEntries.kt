@@ -27,8 +27,6 @@ public data class WindowEntry(
     val collections: Map<String, CollectionEntry> = emptyMap(),
     /** Native anvil rename-field bindings keyed by name. */
     val inputs: Map<String, AnvilInputEntry> = emptyMap(),
-    /** Group metadata for flattened repeater controls. */
-    val groups: Map<String, RepeatGroupEntry> = emptyMap(),
     /** Runtime-selected cases keyed by switch key. */
     val switches: Map<String, SwitchEntry> = emptyMap(),
     /**
@@ -39,26 +37,14 @@ public data class WindowEntry(
 )
 
 /**
- * Cases of which at most one is active: the one whose value the switch's binding returns, else
- * [initial]. A switch listed by a case's [SwitchCaseEntry.switches] is active only while that case is.
+ * Cases of which at most one is active: the one whose value the switch's binding returns. A switch
+ * listed by a case's [SwitchCaseEntry.switches] is active only while that case is.
  */
 @Serializable
 public data class SwitchEntry(
     /** Cases in authoring order. */
     val cases: List<SwitchCaseEntry>,
-    /**
-     * The binding name when this switch is one case's copy of a binding shared across mutually
-     * exclusive cases, keyed `{binding}.{case path}`; `null` when the key is the binding name.
-     */
-    val binding: String? = null,
-    /**
-     * Whether this switch selects the named states of the button or hotspot it is keyed by. It is
-     * selected through `buttonState` and its helpers, not `switch`.
-     */
-    val states: Boolean = false,
-    /** The case active until the switch is bound; `null` for none. */
-    val initial: String? = null,
-    /** The authored element this switch comes from, such as ``button `buy` ``, for diagnostics. */
+    /** The authored `debug_name` of the switch, for diagnostics. */
     val source: String? = null,
 )
 
@@ -163,11 +149,6 @@ public data class SlotEntry(
     @SerialName("shader_marker") val shaderMarker: String? = null,
     /** Optional legacy near-identical marker color used by older generated HUD shaders. */
     @SerialName("shader_color") val shaderColor: String? = null,
-    /**
-     * The binding name when this slot is one case's copy of a binding shared across mutually
-     * exclusive cases, keyed `{binding}.{case path}`; `null` when the key is the binding name.
-     */
-    val binding: String? = null,
     /** How content wider than [width] is shortened; `null` leaves it untouched. */
     val overflow: TextOverflow? = null,
     /** The lines content wraps onto; `null` for a single line. */
@@ -230,13 +211,8 @@ public data class SpriteSlotEntry(
     val align: Align,
     /** Generated sprite font for this region's vertical offset. */
     val font: String,
-    /** Fixed sprite id, or `null` when this slot must be bound by the view. */
+    /** Fixed sprite id: a collection's selected-cell sprite. `null` for sprite slots the view binds. */
     val sprite: String? = null,
-    /**
-     * The binding name when this sprite slot is one case's copy of a binding shared across mutually
-     * exclusive cases, keyed `{binding}.{case path}`; `null` when the key is the binding name.
-     */
-    val binding: String? = null,
     /** The authored `debug_name` this sprite slot comes from, for diagnostics. */
     val source: String? = null,
 )

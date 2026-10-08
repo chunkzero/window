@@ -6,7 +6,7 @@ that contract must update its Rust model, Kotlin consumers, generators, and [sch
 ## Component boundaries
 
 ```text
-TypeScript UI sources + theme assets
+TypeScript UI sources + art assets
     → rpp TypeScript package (plugin/src/plugin.ts)
     → WASIp2 component (crates/rpp-plugin)
     → pure Rust compiler (crates/window-core)
@@ -128,9 +128,9 @@ deterministically. Keep keys stable and retain allocation regression coverage wh
 ## Inventory and session contracts
 
 Inventory slots have separate ownership and click-routing assignments. Each slot has at most one item-writing owner and
-one click target. A repeater cell routes clicks from all its slots while yielding selected slots to real item controls.
-`regions.*.slots` records routing for regions with an action; `fill_slots` records the region's item ownership. Regions
-in mutually exclusive switch cases may claim the same slots.
+one click target. A region over a slot an item, collection, or the anvil input fills routes its clicks while that
+control keeps the slot's stack. `regions.*.slots` records routing for regions with an action; `fill_slots` records the
+region's item ownership. Regions in mutually exclusive switch cases may claim the same slots.
 
 Generated views expose typed bindings. The runtime validates handwritten bindings when a session opens and routes clicks
 to them. The host cancels inventory interactions (its containers also refuse native click handling, so later listeners

@@ -1,15 +1,18 @@
 import {
     action,
+    collection,
     create,
     createTheme,
     defineVars,
     derive,
     flag,
     industrial,
+    items,
     mix,
     raw,
     selection,
     shape,
+    value,
     variants,
 } from "../src/authoring/index.ts";
 import type { BoxStyle, Color, Var, Variants } from "../src/authoring/index.ts";
@@ -73,11 +76,11 @@ const styled = (
                 <Region style={s.item} />
             </Box>
             <Box style={s.tab.selected} padding={sizes.pad} frame={raised(colors.face)} />
-            <Switch bind="mode" style={s.item}>
+            <Switch bind={value("mode", ["on"])} style={s.item}>
                 <Case value="on" style={s.centered} theme={ember} />
             </Switch>
-            <Items name="stack" style={s.item} />
-            <Collection name="list" style={{ frame: shape({ fill: colors.face }) }} />
+            <Items bind={items("stack")} style={s.item} />
+            <Collection bind={collection("list")} style={{ frame: shape({ fill: colors.face }) }} />
         </Section>
         <Image art={raised(colors.face)} style={s.item} />
         <Text color={colors.text}>Hi</Text>
@@ -139,7 +142,7 @@ const rawStyled = raw.ui({
         raw.box({
             theme: roomy,
             style: [s.tab.base, { minWidth: 4 }],
-            children: [raw.label("Hi", { style: s.label })],
+            children: [raw.text("Hi", { style: s.label })],
         }),
         raw.region({ style: s.item }),
     ],

@@ -14,7 +14,7 @@ use crate::authoring::{BuildOptions, PackTarget, ParsedProject};
 use crate::compose::Texture;
 use crate::font::{shifted_suffix, spacer_table, text_font_suffix};
 use crate::geometry::Size;
-use crate::ir::{LaidOutHud, LaidOutWindow, Rgb, SlotIr};
+use crate::ir::{LaidOutHud, LaidOutWindow, SlotIr};
 use crate::manifest::{HudEntry, Manifest, SpriteEntry, VERSION, WindowEntry};
 use crate::text_font::TextFonts;
 use crate::{Error, Result, text_font, vanilla};
@@ -108,21 +108,13 @@ pub fn compile_project(project: &ParsedProject, input: &CompileInput) -> Result<
     let textures = decode_textures(&input.files)?;
 
     let texture_size = |path: &str| -> Option<Size> { textures.get(path).map(|t| Size::new(t.width, t.height)) };
-    let text_fonts = text_font::resolve(&project.theme.fonts, &textures)?;
+    let text_fonts = text_font::resolve(&project.fonts, &textures)?;
     let windows = crate::layout::solve(project, &texture_size, &text_fonts)?;
     let huds = crate::layout::solve_huds(project, &texture_size, &text_fonts)?;
     let runtime_sprites = sprites::runtime_sprite_assets(project, &textures, &input.namespace)?;
 
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &text_fonts };
-    let output = compile_layouts(
-        &windows,
-        &huds,
-        &assets,
-        &project.theme.colors,
-        &input.namespace,
-        &project.target,
-        &project.options,
-    )?;
+    let output = compile_layouts(&windows, &huds, &assets, &input.namespace, &project.target, &project.options)?;
     let validation = crate::validation::validate_compiled(&output, &input.files);
     if !validation.is_valid() {
         return Err(Error::Validation(validation.to_string()));
@@ -161,7 +153,6 @@ fn compile_layouts(
     windows: &[LaidOutWindow],
     huds: &[LaidOutHud],
     assets: &Assets<'_>,
-    colors: &BTreeMap<String, Rgb>,
     namespace: &str,
     target: &PackTarget,
     options: &BuildOptions,
@@ -184,7 +175,7 @@ fn compile_layouts(
     let Assets { textures, runtime_sprites, text_fonts } = *assets;
     let uses_runtime_sprites = uses_runtime_sprites(&windows);
     if uses_runtime_sprites && runtime_sprites.is_empty() {
-        return Err(Error::Validation("runtime sprite slots require at least one theme sprite".into()));
+        return Err(Error::Validation("runtime sprite slots require at least one catalog sprite".into()));
     }
     let mut composites = glyphs::compose_layers(&windows, &huds, textures)?;
     let mut field_warnings = Vec::new();
@@ -218,7 +209,7 @@ fn compile_layouts(
     if options.hud_shaders {
         hud::emit_shader_files(&mut ctx, target.pack_format, &huds)?;
     }
-    let manifest = ctx.manifest(sprites, window_entries, hud_entries, colors);
+    let manifest = ctx.manifest(sprites, window_entries, hud_entries);
     ctx.finish(manifest)
 }
 
@@ -299,7 +290,6 @@ impl<'a> CompileContext<'a> {
         sprites: BTreeMap<String, SpriteEntry>,
         windows: BTreeMap<String, WindowEntry>,
         huds: BTreeMap<String, HudEntry>,
-        colors: &BTreeMap<String, Rgb>,
     ) -> Manifest {
         let namespace = self.namespace;
         let text_advances: BTreeMap<char, u32> = vanilla::advances().collect();
@@ -316,7 +306,6 @@ impl<'a> CompileContext<'a> {
             sprites,
             windows,
             huds,
-            colors: colors.iter().map(|(name, rgb)| (name.clone(), rgb.to_hex())).collect(),
         }
     }
 

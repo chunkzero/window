@@ -1,4 +1,4 @@
-//! Bitmap text fonts: theme glyph sheets and the bundled small-caps font.
+//! Bitmap text fonts: project glyph sheets and the bundled small-caps font.
 //!
 //! A text font draws the characters its sheet maps and falls back to the vanilla glyphs for everything else, so its
 //! metrics are the vanilla tables overlaid with the sheet's measured glyphs. Cells are [`CELL_HEIGHT`] pixels tall and
@@ -11,7 +11,7 @@ use crate::manifest::FontMetricsEntry;
 use crate::model::FontDef;
 use crate::{Error, Result, vanilla};
 
-/// The bundled font `small_caps: true` selects. A theme font with this name replaces it.
+/// The bundled font `small_caps: true` selects. A project font with this name replaces it.
 pub const SMALL_CAPS: &str = "small_caps";
 
 const SMALL_CAPS_PNG: &[u8] = include_bytes!("text_font/small_caps.png");
@@ -100,7 +100,7 @@ impl TextFont {
     }
 }
 
-/// The theme's fonts, plus the bundled small-caps font unless the theme defines its own.
+/// The project's fonts, plus the bundled small-caps font unless the project defines its own.
 pub fn resolve(fonts: &BTreeMap<String, FontDef>, textures: &BTreeMap<String, Texture>) -> Result<TextFonts> {
     let mut resolved = TextFonts::new();
     if !fonts.contains_key(SMALL_CAPS) {

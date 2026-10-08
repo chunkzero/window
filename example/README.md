@@ -10,9 +10,9 @@ example/
 │   ├── rpp.config.ts           # pack metadata, build, and Window plugin configuration
 │   ├── src/
 │   │   └── window/             # UI sources — stripped from the built pack
-│   │       ├── index.ts        # defineWindows entry listing the theme, windows, and HUDs
+│   │       ├── index.ts        # defineWindows entry listing the sprite catalog, windows, and HUDs
 │   │       ├── handles.ts      # typed bindings shared by the shop and search windows
-│   │       ├── theme.ts        # generated industrial theme preset
+│   │       ├── art.ts          # inline art: icons, coin, vents, and the search field sprite
 │   │       ├── shop.tsx        # paged catalog, selections, toggles, and buttons
 │   │       ├── search.tsx      # linked native-anvil catalog search
 │   │       ├── status_hud.tsx  # the shader-relocated actionbar HUDs

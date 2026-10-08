@@ -2,26 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { Fragment, createElement, jsx } from "../.rpp/sdk/jsx.ts";
-import { action, flag, selection, shape, sprite, text, texture, toggle, value } from "../src/authoring/index.ts";
+import { builtin, collection, selection, shape, sprite, text, texture, toggle, value } from "../src/authoring/index.ts";
 import { raw } from "../src/authoring/index.ts";
-import {
-    Box,
-    Button,
-    Case,
-    Collection,
-    Hud,
-    Icon,
-    Image,
-    Region,
-    Repeater,
-    Section,
-    Show,
-    Switch,
-    Tab,
-    Tabs,
-    Text,
-    Window,
-} from "../src/authoring/jsx.ts";
+import { Box, Case, Collection, Hud, Image, Region, Section, Switch, Text, Window } from "../src/authoring/jsx.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
     const child = Box({ children: Text({ children: "Hello" }) });
@@ -40,46 +23,23 @@ test("JSX text defaults do not mutate reusable children", () => {
     assert.equal(label(Box({ children: child })).color, undefined);
 });
 
-test("JSX fragments preserve tabs and ignore conditional booleans", () => {
-    const tabs = Tabs({
-        name: "kind",
-        children: Fragment({ children: [true, false, null, Tab({ value: "all", children: "All" })] }),
-    });
-    assert.equal(tabs.length, 1);
-    assert.equal(tabs[0]?.type, "button");
-    assert.equal(tabs[0]?.name, "kind_all");
-    assert.throws(() => Box({ children: Tab({ value: "bad" }) }), /inside <Tabs>/);
+test("JSX fragments flatten and ignore conditional booleans", () => {
+    const box = Box({ children: Fragment({ children: [true, false, null, Text({ children: "All" })] }) });
+    assert.ok(box.type === "flex");
+    assert.equal(box.children?.length, 1);
+    assert.equal(box.children?.[0]?.type, "label");
 });
 
-test("Show is a true/false switch whose box props style the shown case", () => {
-    const show = Show({ when: "on_sale", grow: 1, justify: "center", children: Text({ children: "Sale" }) });
-    assert.equal(show.type, "switch");
-    assert.equal(show.name, "on_sale");
-    assert.deepEqual(show.layout, { grow: 1 });
-    const [shown, hidden] = show.children;
-    assert.equal(shown?.value, "true");
-    assert.deepEqual(shown.style, { direction: "column", justify: "center" });
-    assert.equal(shown.children?.[0]?.type, "label");
-    assert.deepEqual(hidden, { type: "case", value: "false", style: { direction: "column" }, children: [] });
-});
-
-test("bindings carry their index into indexed families", () => {
-    assert.deepEqual(Text({ bind: "hole", index: [1, 2], width: 8 }), {
-        type: "slot",
-        name: "hole",
-        index: [1, 2],
-        width: 8,
-    });
-    const show = Show({ when: "lit", index: 3, children: Text({ children: "On" }) });
-    assert.ok(show.type === "switch");
-    assert.equal(show.index, 3);
-    assert.throws(() => Text({ index: 0, children: "Static" }), /requires `bind`/);
+test("bound props take handles, not names", () => {
+    assert.throws(() => Text({ bind: "name" as never }), /<Text bind> must be a `text` handle/);
+    assert.throws(() => Switch({ bind: "mode" as never, children: [] }), /<Switch bind> must be/);
+    assert.throws(() => Image({ art: "coin" as never }), /<Image> requires `art`/);
 });
 
 test("bound text carries its fitting options", () => {
-    assert.deepEqual(Text({ bind: "name", width: 46, lines: 2, lineHeight: 7 }), {
+    assert.deepEqual(Text({ bind: text("name"), width: 46, lines: 2, lineHeight: 7 }), {
         type: "slot",
-        name: "name",
+        handle: { kind: "text", id: "name" },
         width: 46,
         lines: 2,
         line_height: 7,
@@ -89,11 +49,11 @@ test("bound text carries its fitting options", () => {
 
 test("cases belong directly inside a switch", () => {
     assert.throws(() => Box({ children: Case({ value: "buy" }) }), /<Case> inside <Switch>/);
-    assert.throws(() => Switch({ bind: "mode", children: "Buy" }), /children must be <Case>/);
+    assert.throws(() => Switch({ bind: value("mode", ["buy"]), children: "Buy" }), /children must be <Case>/);
 });
 
 test("explicit collection spans override the full-width default", () => {
-    assert.deepEqual(Collection({ name: "items", span: [3, 2] }).layout, {
+    assert.deepEqual(Collection({ bind: collection("items"), span: [3, 2] }).layout, {
         column: { span: 3 },
         row: { span: 2 },
     });
@@ -106,16 +66,6 @@ test("the JSX factories preserve a children prop without positional children", (
     assert.deepEqual(jsx(Text, { children: "Other" }), Text({ children: "Other" }));
 });
 
-test("button text defaults respect the button's explicit alignment", () => {
-    const button = Button({ name: "go", text: { align: "right" }, children: "Go" });
-    assert.equal(button.type, "button");
-    const row = button.children?.[0];
-    assert.equal(row?.type, "flex");
-    const label = row.children?.[0];
-    assert.equal(label?.type, "label");
-    assert.equal(label.align, "right");
-});
-
 const fields = (element: unknown): Record<string, unknown> => element as Record<string, unknown>;
 
 test("handle props serialize the handle in place of a name", () => {
@@ -125,41 +75,28 @@ test("handle props serialize the handle in place of a name", () => {
         handle: { kind: "text", id: "title" },
         width: 8,
     });
-    const buy = action("buy");
-    const canBuy = flag("can_buy");
-    const button = Button({
-        onClick: buy,
-        enabled: canBuy,
-        disabled: { frame: "button_disabled", tooltip: "Too poor" },
+    assert.deepEqual(fields(Region({ onClick: builtin("window:close") }))["on_click"], {
+        kind: "builtin",
+        id: "window:close",
     });
-    assert.ok(button.type === "button");
-    assert.equal(button.name, undefined);
-    assert.deepEqual(button.states, { enabled: {}, disabled: { frame: "button_disabled", tooltip: "Too poor" } });
-    assert.deepEqual(fields(button)["enabled"], { kind: "flag", id: "can_buy" });
-    const close = fields(Button({ close: true }));
-    assert.deepEqual(close["on_click"], { kind: "builtin", id: "window:close" });
-    assert.throws(() => Button({ name: "buy", onClick: buy }), /`onClick` with `name`/);
 });
 
 test("selection helpers carry the compared or assigned value", () => {
     const category = selection("category", ["all", "gear"], { initial: "gear" });
-    const tabs = Tabs({ bind: category, children: (value) => Text({ children: value }) });
-    assert.deepEqual(
-        tabs.map((tab) => fields(tab)["source"]),
-        ["tab", "tab"],
+    assert.deepEqual(fields(Region({ onClick: category.set("all") }))["on_click"], {
+        kind: "selection",
+        id: "category",
+        values: ["all", "gear"],
+        initial: "gear",
+        set: "all",
+    });
+    const gear = fields(
+        Switch({
+            bind: category.is("gear"),
+            children: [Case({ value: "true", children: "Gear" }), Case({ value: "false" })],
+        }),
     );
-    assert.deepEqual(
-        tabs.map((tab) => fields(tab)["on_click"]),
-        ["all", "gear"].map((set) => ({
-            kind: "selection",
-            id: "category",
-            values: ["all", "gear"],
-            initial: "gear",
-            set,
-        })),
-    );
-    const show = fields(Show({ when: category.is("gear"), children: Text({ children: "Gear" }) }));
-    assert.deepEqual(show["handle"], {
+    assert.deepEqual(gear["handle"], {
         kind: "selection",
         id: "category",
         values: ["all", "gear"],
@@ -173,17 +110,6 @@ test("selection helpers carry the compared or assigned value", () => {
         cases.children.map((c) => c.value),
         ["buy", "sell"],
     );
-    const tooltips = Tabs({
-        bind: category,
-        tooltip: (value) => `Show ${value}`,
-        itemModel: (value) => `tab_${value}`,
-        selectedSprite: "tab_selected",
-        children: (_, i) => Text({ bind: text("label", { shape: [2] }).at(i) }),
-    });
-    assert.deepEqual(fields(tooltips[1]!)["states"], {
-        selected: { item_model: "tab_gear", sprite: "tab_selected", tooltip: "Show gear" },
-        unselected: { item_model: "tab_gear", tooltip: "Show gear" },
-    });
     const lamp = Switch({ on: toggle("lamp"), children: { true: Text({ children: "On" }), false: null } });
     assert.ok(lamp.type === "switch");
     assert.deepEqual(
@@ -194,26 +120,14 @@ test("selection helpers carry the compared or assigned value", () => {
     assert.throws(() => Switch({ on: mode, children: { buy: null, sell: null, rent: null } }), /`rent`/);
 });
 
-test("a repeater rendered per cell reads indexed handles", () => {
-    const pick = action("pick", { shape: [2] });
+test("indexed handles select one entry with at()", () => {
     const names = text("names", { shape: [2] });
-    const repeater = fields(
-        Repeater({
-            cell: [1, 1],
-            columns: 2,
-            rows: 1,
-            onClick: pick,
-            children: (i) => Text({ bind: names.at(i), width: 8 }),
-        }),
-    );
-    assert.deepEqual(repeater["on_click"], { kind: "action", id: "pick", shape: [2] });
-    const cells = repeater["cells"] as Record<string, unknown>[][];
-    assert.equal(cells.length, 2);
+    assert.deepEqual(Text({ bind: names.at(1), width: 8 }), {
+        type: "slot",
+        handle: { kind: "text", id: "names", shape: [2], at: [1] },
+        width: 8,
+    });
     assert.throws(() => names.at(2), /outside its shape/);
-});
-
-test("an icon with a handle bind rejects a fixed sprite", () => {
-    assert.throws(() => Icon({ bind: sprite("icon"), sprite: "icon_clear", size: 8 }), /fixed `sprite`/);
 });
 
 test("primitives serialize inline art, regions, sections, and debug names", () => {
@@ -274,7 +188,6 @@ test("an image binds a sprite handle as a sized runtime slot", () => {
         height: 6,
         debug_name: "lamp",
     });
-    assert.deepEqual(Image({ art: "coin" }), { type: "sprite", name: "coin" });
 });
 
 test("Window and Hud carry debugName to the compiler", () => {

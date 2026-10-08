@@ -2,6 +2,7 @@ package com.chunkzero.window
 
 import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.manifest.Align
+import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.HitboxEntry
 import com.chunkzero.window.manifest.ItemEntry
 import com.chunkzero.window.manifest.SwitchCaseEntry
@@ -45,81 +46,6 @@ class SwitchBindingTest :
             view.onSale = true
             plain(view.render()) shouldContain "BADGE"
             plain(view.render()) shouldContain "Sale"
-        }
-
-        "one binding renders every case copy that shares it" {
-            val cases =
-                SwitchEntry(
-                    listOf(
-                        SwitchCaseEntry("good", slots = listOf("status.good")),
-                        SwitchCaseEntry("bad", slots = listOf("status.bad")),
-                    ),
-                )
-            val copy = TestManifests.slot(10, 60, Align.LEFT)
-            val manifest =
-                TestManifests.hudManifest(
-                    slots =
-                        mapOf(
-                            "status.good" to copy.copy(binding = "status"),
-                            "status.bad" to copy.copy(binding = "status"),
-                        ),
-                    switches = mapOf("kind" to cases),
-                )
-            val view =
-                object : TestHud(manifest) {
-                    var kind = "good"
-                    var status = "Nice"
-
-                    override fun HudScope.bind() {
-                        switch("kind") { kind }
-                        slot("status") { Component.text(status) }
-                    }
-                }
-
-            plain(view.render()) shouldContain "Nice"
-            view.kind = "bad"
-            view.status = "Oops"
-            plain(view.render()) shouldContain "Oops"
-            plain(view.render()) shouldNotContain "Nice"
-        }
-
-        "one window sprite binding fills every case copy and is validated by its binding name" {
-            val copy = TestManifests.spriteSlot(x = 8, y = 20, width = 16)
-            val manifest =
-                TestManifests.manifest(
-                    spriteSlots =
-                        mapOf(
-                            "icon.good" to copy.copy(binding = "icon"),
-                            "icon.bad" to copy.copy(binding = "icon"),
-                        ),
-                    sprites = mapOf("coin" to TestManifests.sprite()),
-                    switches =
-                        mapOf(
-                            "kind" to
-                                SwitchEntry(
-                                    listOf(
-                                        SwitchCaseEntry("good", spriteSlots = listOf("icon.good")),
-                                        SwitchCaseEntry("bad", spriteSlots = listOf("icon.bad")),
-                                    ),
-                                ),
-                        ),
-                )
-            val host = FakeHost()
-            object : TestView(manifest, host) {
-                override fun WindowScope<Any>.bind() {
-                    switch("kind") { "bad" }
-                    sprite("icon") { "coin" }
-                }
-            }.open()
-
-            plain(host.container.titles.last()) shouldContain "\uE000"
-            shouldThrowAny {
-                object : TestView(manifest, FakeHost()) {
-                    override fun WindowScope<Any>.bind() {
-                        switch("kind") { "bad" }
-                    }
-                }.open()
-            }.message shouldContain "[icon]"
         }
 
         "a case change swaps the hitbox items and click routes of its regions" {
@@ -228,5 +154,63 @@ class SwitchBindingTest :
             host.scheduler.runAll()
             host.container.items[coin] shouldBe null
             picks shouldBe listOf("y", "x")
+        }
+
+        "a region's hitbox fills a slot whenever the item or collection owning it is inactive" {
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    regions =
+                        mapOf(
+                            "tip" to
+                                TestManifests.region(
+                                    listOf(0, 1),
+                                    action = "tip",
+                                    hitbox = HitboxEntry("demo:gui/tip"),
+                                ),
+                        ),
+                    items = mapOf("coin" to ItemEntry(listOf(TestManifests.containerSlot(0)))),
+                    collections =
+                        mapOf("pets" to CollectionEntry(listOf(TestManifests.containerSlot(1)), action = false)),
+                    switches =
+                        mapOf(
+                            "shown" to
+                                SwitchEntry(
+                                    listOf(
+                                        SwitchCaseEntry("true", items = listOf("coin"), collections = listOf("pets")),
+                                        SwitchCaseEntry("false"),
+                                    ),
+                                ),
+                        ),
+                )
+            val host = FakeHost()
+            val view =
+                object : TestView(manifest, host) {
+                    var shown by state("true")
+
+                    override fun WindowScope<Any>.bind() {
+                        switch("shown") { shown }
+                        item("coin") { "coin" }
+                        collectionItem("pets") { "paper" }
+                        button("tip") {}
+                    }
+                }
+            val items = host.container.items
+            val first = SlotRef(SlotArea.CONTAINER, 0)
+            val second = SlotRef(SlotArea.CONTAINER, 1)
+            val hitbox = { slot: SlotRef -> (items.getValue(slot) as WindowItem.Hitbox).model.asString() }
+            view.open()
+            items[first] shouldBe "coin"
+            items[second] shouldBe "paper"
+
+            view.shown = "false"
+            host.scheduler.runAll()
+            hitbox(first) shouldBe "demo:gui/tip"
+            hitbox(second) shouldBe "demo:gui/tip"
+
+            view.shown = "true"
+            host.scheduler.runAll()
+            items[first] shouldBe "coin"
+            items[second] shouldBe "paper"
         }
     })

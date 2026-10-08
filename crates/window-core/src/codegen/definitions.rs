@@ -10,8 +10,8 @@ use crate::{Error, Result};
 
 use super::entries::{
     anvil_input_entry_expr, collection_entry_expr, hud_surface_entry_expr, item_entry_expr, layers_expr,
-    optional_hud_shader_entry_expr, region_entry_expr, repeat_group_entry_expr, slot_entry_expr,
-    sprite_slot_entry_expr, surface_entry_expr, switch_entry_expr,
+    optional_hud_shader_entry_expr, region_entry_expr, slot_entry_expr, sprite_slot_entry_expr, surface_entry_expr,
+    switch_entry_expr,
 };
 use super::literals::{kt_string, string_map};
 use super::naming;
@@ -94,7 +94,6 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (has_layers, "LayerEntry"),
         (has_layers, "LayerKind"),
         (any(&|w| !w.regions.is_empty()), "RegionEntry"),
-        (any(&|w| !w.groups.is_empty()), "RepeatGroupEntry"),
         (has_slot_refs, "SlotAreaEntry"),
         (has_slots, "SlotEntry"),
         (any(&|w| w.slots.values().any(|s| s.lines.is_some())), "SlotLinesEntry"),
@@ -122,8 +121,7 @@ fn window_entry_expr(window: &WindowEntry, level: usize) -> String {
         .arg("regions", string_map(&window.regions, inner, region_entry_expr))
         .arg("items", string_map(&window.items, inner, item_entry_expr))
         .arg("collections", string_map(&window.collections, inner, collection_entry_expr))
-        .arg("inputs", string_map(&window.inputs, inner, anvil_input_entry_expr))
-        .arg("groups", string_map(&window.groups, inner, repeat_group_entry_expr));
+        .arg("inputs", string_map(&window.inputs, inner, anvil_input_entry_expr));
     with_switches(call, &window.switches, &window.layers, inner).finish()
 }
 

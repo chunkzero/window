@@ -1,4 +1,4 @@
-//! Typed abstract view classes (`*View` for windows, `*Hud` for HUDs) that bind runtime members.
+//! Typed abstract view classes (`*View` for windows, `*Hud` for HUDs) whose members the surface's handles declare.
 
 use std::collections::BTreeMap;
 
@@ -10,10 +10,9 @@ use super::{KotlinTarget, naming};
 
 mod class;
 mod handles;
-mod members;
 
 use class::ViewBase;
-use members::{Members, ValueKind};
+use handles::HandleMember;
 
 const WINDOW: ViewBase = ViewBase { prefix: "Window", noun: "window", definitions: "WindowDefinitions", hosted: true };
 const HUD: ViewBase = ViewBase { prefix: "Hud", noun: "HUD", definitions: "WindowHudDefinitions", hosted: false };
@@ -25,30 +24,31 @@ pub(super) fn generate_window(
     target: KotlinTarget,
 ) -> Result<OutputFile> {
     let class_name = naming::class_name(name);
-    let (handles, members) = Members::of_window(&class_name, window)?;
-    let view = class::View { handles: &handles, members: &members, switches: &window.switches };
+    let cells = |id: &str| cell_count(id, window);
+    let handles = HandleMember::all(&class_name, &[], &window.handles, cells)?;
     Ok(OutputFile::text(
         format!("{class_name}.kt"),
-        class::render(package_name, &WINDOW, target, name, &class_name, &view),
+        class::render(package_name, &WINDOW, target, name, &class_name, &handles),
     ))
 }
 
 pub(super) fn generate_hud(name: &str, hud: &HudEntry, package_name: &str, target: KotlinTarget) -> Result<OutputFile> {
     let class_name = naming::hud_class_name(name);
-    let mut members = Members::new(&class_name, naming::HUD_RESERVED_MEMBERS);
-    let handles = members.handles(&hud.handles, &BTreeMap::new())?;
-    let handled = handles::covered(&handles);
-    members.indexed(&hud.indexed, &hud.switches)?;
-    for (slot, entry) in &hud.slots {
-        if entry.text.is_none() && !handled.contains(slot) {
-            members.value(ValueKind::Slot, entry.binding.as_ref().unwrap_or(slot))?;
-        }
-    }
-    members.switches(&hud.switches)?;
-    let members = members.finish();
-    let view = class::View { handles: &handles, members: &members, switches: &BTreeMap::new() };
+    let handles = HandleMember::all(&class_name, naming::HUD_RESERVED_MEMBERS, &hud.handles, |_| None)?;
     Ok(OutputFile::text(
         format!("{class_name}.kt"),
-        class::render(package_name, &HUD, target, name, &class_name, &view),
+        class::render(package_name, &HUD, target, name, &class_name, &handles),
     ))
 }
+
+/// The cell count shared by every collection the collection handle `id` binds; `None` when they differ.
+fn cell_count(id: &str, window: &WindowEntry) -> Option<u32> {
+    let handle = window.handles.get(id)?;
+    let collections = &window.collections;
+    let mut counts = handle.uses.iter().filter_map(|use_| collections.get(&use_.entry)).map(|c| c.slots.len() as u32);
+    let first = counts.next()?;
+    counts.all(|count| count == first).then_some(first)
+}
+
+/// Member names claimed so far, by the source each was claimed for.
+type Taken = BTreeMap<String, String>;

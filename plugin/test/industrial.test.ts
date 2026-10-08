@@ -85,7 +85,7 @@ test("a toggle switches on its handle and flips it on click", () => {
     assert.ok(regions.every((region) => (region.on_click as { kind: string }).kind === "toggle"));
 });
 
-test("a repeater's item slot shows the cell's item and leaves its clicks to the item", () => {
+test("a repeater cell's region covers the whole cell, including its item slot", () => {
     const repeater: Element = industrial.Repeater({
         onClick: action("recipe", { shape: [2] }),
         item: items("stack", { shape: [2] }),
@@ -97,10 +97,7 @@ test("a repeater's item slot shows the cell's item and leaves its clicks to the 
     const regions = ofType(repeater, "region");
     assert.equal(regions.length, 2);
     for (const region of regions) {
-        assert.deepEqual(
-            [region.width, region.height, region.layout],
-            [34, 16, { position: "absolute", top: 0, left: 18 }],
-        );
+        assert.deepEqual([region.width, region.height, region.layout], [undefined, undefined, undefined]);
     }
 });
 

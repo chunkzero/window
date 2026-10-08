@@ -2,8 +2,8 @@
 //! frontend (authoring + layout) and the backend (compose + font + bake +
 //! manifest).
 //!
-//! Everything here is fully resolved: absolute GUI-space rects, concrete
-//! texture paths, no remaining theme references.
+//! Everything here is fully resolved: absolute GUI-space rects and concrete
+//! texture paths.
 
 use std::collections::BTreeMap;
 
@@ -156,7 +156,7 @@ pub enum Draw {
         /// Destination rect in GUI space (size == intrinsic size).
         dest: Rect,
     },
-    /// Render a generated theme style directly at `dest`.
+    /// Render a generated style directly at `dest`.
     Generated {
         /// Procedural style to rasterize.
         style: GeneratedStyle,
@@ -211,45 +211,10 @@ pub struct SlotIr {
     pub obfuscated: bool,
     /// The text font to draw with, or `None` for vanilla glyphs.
     pub font: Option<String>,
-    /// Repeater metadata for grouped codegen, if this slot was emitted by a
-    /// repeated template.
-    pub repeat: Option<RepeatBindingIr>,
-    /// The binding this slot shares with its copies in the other cases of one switch.
-    pub binding: Option<String>,
     /// Runtime fitting of overflowing content; the default for static labels.
     pub fit: TextFit,
     /// The `debug_name` of the nearest authored element this slot comes from.
     pub source: Option<String>,
-}
-
-/// The kind of binding an [`IndexedBinding`] family flattens.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IndexedKind {
-    /// Dynamic text slots.
-    Slot,
-    /// Runtime sprite slots.
-    SpriteSlot,
-    /// Switches.
-    Switch,
-}
-
-/// A binding authored with an `index`, flattened to one entry named `{name}_{i}` (one dimension) or
-/// `{name}_{i}_{j}` (two dimensions) per index. Every index within `shape` is present.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IndexedBinding {
-    /// What each flattened entry is.
-    pub kind: IndexedKind,
-    /// Extent of each index dimension: one or two values.
-    pub shape: Vec<u32>,
-}
-
-impl IndexedBinding {
-    /// The flattened entry name of `family` at `index`, such as `power[3]` or `strokes[2][4]`. Authored names
-    /// cannot contain brackets, so entry names never collide with them.
-    pub fn entry_name(family: &str, index: &[u32]) -> String {
-        index.iter().fold(family.to_string(), |name, i| format!("{name}[{i}]"))
-    }
 }
 
 /// What a typed handle declares: a value Kotlin computes, runtime state the UI owns, or an event.
@@ -315,12 +280,8 @@ pub enum HandleRole {
     Input,
     /// Selects a switch case.
     Switch,
-    /// Handles a button's clicks.
+    /// Handles a region's clicks.
     Click,
-    /// Enables a button.
-    Enabled,
-    /// Selects a button's named state.
-    State,
 }
 
 /// One element's use of a handle, bound to the manifest entry `entry`.
@@ -328,12 +289,12 @@ pub enum HandleRole {
 pub struct HandleUse {
     /// How the entry uses the handle.
     pub role: HandleRole,
-    /// The manifest entry key: a slot, sprite slot, item, collection, input, switch, or button.
+    /// The manifest entry key: a slot, sprite slot, item, collection, input, switch, or region action.
     pub entry: String,
     /// The index read from an indexed handle; empty otherwise.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub at: Vec<u32>,
-    /// The value a condition compares with (`is`), or a click assigns (`set`).
+    /// The value a switch condition compares with (`is`), or a click assigns (`set`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
 }
@@ -374,6 +335,12 @@ impl Handle {
     }
 }
 
+/// The entry name of a use of handle `id` at index `at`, such as `power[3]` or `strokes[2][4]`. Handle ids cannot
+/// contain brackets, so entry names never collide with them.
+pub fn indexed_entry(id: &str, at: &[u32]) -> String {
+    at.iter().fold(id.to_string(), |name, i| format!("{name}[{i}]"))
+}
+
 /// A runtime-positioned sprite region.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SpriteSlotIr {
@@ -383,23 +350,11 @@ pub struct SpriteSlotIr {
     pub rect: Rect,
     /// Horizontal alignment within `rect`.
     pub align: Align,
-    /// Fixed sprite id, or `None` when the runtime must bind this slot.
-    pub sprite: Option<String>,
-    /// Repeater metadata for grouped codegen, if this sprite slot was emitted
-    /// by a repeated template.
-    pub repeat: Option<RepeatBindingIr>,
-    /// The binding this sprite slot shares with its copies in the other cases of one switch.
-    pub binding: Option<String>,
     /// The `debug_name` of the nearest authored element this sprite slot comes from.
     pub source: Option<String>,
 }
 
 /// An inventory region: slots it claims and fills with its hitbox item, and the action its clicks name.
-///
-/// A region distinguishes two slot sets. Its **click slots** are the slots whose clicks route to it; its **fill
-/// slots** are the slots it paints with its hitbox item. Fill slots are the click slots minus
-/// [`Self::yielded_slots`], which a repeater cell uses to hand one of its slots to a child item control so the
-/// item's real stack (and its native tooltip) survives.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RegionIr {
     /// Unique region key within the window.
@@ -408,20 +363,15 @@ pub struct RegionIr {
     pub rect: Rect,
     /// Explicit backing inventory slots, if authored. `None` means derive from the rect.
     pub slots: Option<Vec<InventorySlotRef>>,
-    /// Click slots this region must not fill because another control owns their stacks. Always a subset of the
-    /// resolved click slots.
-    pub yielded_slots: Vec<InventorySlotRef>,
     /// Whether the region claims only the slots no other control owns, after every other claim.
     pub unowned: bool,
     /// The action id a click names; `None` for a hover-only or claim-only region.
     pub action: Option<String>,
-    /// The runtime action run when no handler is bound to [`Self::action`].
+    /// The runtime action, such as `window:close`, run when no handler is bound to [`Self::action`].
     pub default_action: Option<String>,
     /// The hitbox item filling the region's slots; `None` leaves them empty.
     pub hitbox: Option<Hitbox>,
-    /// Repeater metadata for grouped codegen, if this region was emitted by a repeated template.
-    pub repeat: Option<RepeatBindingIr>,
-    /// The authored element this region comes from, such as ``button `buy` ``.
+    /// The authored element this region comes from, such as ``region `buy` ``.
     pub source: String,
 }
 
@@ -432,9 +382,6 @@ pub struct ItemIr {
     pub name: String,
     /// Backing inventory slots populated by the runtime.
     pub slots: Vec<InventorySlotRef>,
-    /// Repeater metadata for grouped codegen, if this item was emitted by a
-    /// repeated template.
-    pub repeat: Option<RepeatBindingIr>,
 }
 
 /// A dynamic repeated inventory item region.
@@ -444,13 +391,10 @@ pub struct CollectionIr {
     pub name: String,
     /// Backing inventory slots, one cell per slot in authoring order.
     pub slots: Vec<InventorySlotRef>,
-    /// Theme sprite drawn over the selected cell's 18x18 box, if any.
+    /// Sprite drawn over the selected cell's 18x18 box, if any.
     pub selected_sprite: Option<String>,
     /// Whether codegen/runtime should expect a click handler.
     pub action: bool,
-    /// Repeater metadata for grouped codegen, if this collection was emitted by
-    /// a repeated template.
-    pub repeat: Option<RepeatBindingIr>,
 }
 
 /// A native anvil text-input binding.
@@ -464,30 +408,12 @@ pub struct AnvilInputIr {
     pub item_model: Option<String>,
 }
 
-/// Metadata attached to flattened controls emitted from a repeater template.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RepeatBindingIr {
-    /// Repeater group name.
-    pub group: String,
-    /// Repeated child field name, if this is a named child. `None` means the
-    /// cell/root control itself.
-    pub field: Option<String>,
-    /// Zero-based cell index in authoring order.
-    pub index: u32,
-}
-
 /// A runtime-selected group of cases, of which at most one is active.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SwitchIr {
-    /// Unique switch key: its binding name, or `{binding}.{case path}` for a copy inside switch cases.
+    /// Unique switch key: the entry name of the handle use selecting its case.
     pub name: String,
-    /// The binding a copy shares with the other copies; `None` when it equals [`Self::name`].
-    pub binding: Option<String>,
-    /// Whether this switch selects the named states of the control [`Self::name`] instead of a binding.
-    pub states: bool,
-    /// The case active while the switch is unbound; `None` means no case.
-    pub initial: Option<String>,
-    /// The authored element this switch comes from, for derived switches such as a button's states.
+    /// The `debug_name` of the authored switch, for diagnostics.
     pub source: Option<String>,
     /// Cases in authoring order.
     pub cases: Vec<SwitchCaseIr>,
@@ -553,8 +479,6 @@ pub struct LaidOutWindow {
     pub switches: Vec<SwitchIr>,
     /// Runtime layers in authored tree order.
     pub layers: Vec<Layer>,
-    /// Indexed binding families by name.
-    pub indexed: BTreeMap<String, IndexedBinding>,
     /// Typed handles by id.
     pub handles: BTreeMap<String, Handle>,
     /// Non-fatal findings to surface to the user (e.g. overlay overflow).
@@ -584,8 +508,6 @@ pub struct LaidOutHud {
     pub switches: Vec<SwitchIr>,
     /// Runtime layers in authored tree order.
     pub layers: Vec<Layer>,
-    /// Indexed binding families by name.
-    pub indexed: BTreeMap<String, IndexedBinding>,
     /// Typed handles by id.
     pub handles: BTreeMap<String, Handle>,
     /// Non-fatal findings to surface to the user.

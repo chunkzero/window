@@ -5,8 +5,6 @@ use super::target::LayoutTarget;
 use crate::Result;
 use crate::error::Error;
 use crate::geometry::Rect;
-use crate::inventory::{InventorySlotArea, InventorySlotRef};
-use crate::surface::ContainerKind;
 use crate::text_font::TextFont;
 use crate::vanilla;
 
@@ -61,56 +59,6 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 self.target.kind(),
                 self.target.name(),
                 unsupported.join(", "),
-            ));
-        }
-    }
-
-    pub(super) fn warn_if_reserved_gutter(&mut self, rect: Rect, what: &str) {
-        let Some(kind) = self.target.container_kind() else {
-            return;
-        };
-        for gutter in kind.reserved_gutters() {
-            if rect.intersects(&gutter.rect) {
-                self.warnings.push(format!(
-                    "window `{}`: {what} rect {rect:?} overlaps reserved {} gutter {:?}; use a section-backed pattern to preserve native spacing",
-                    self.target.name(),
-                    gutter.name,
-                    gutter.rect,
-                ));
-            }
-        }
-    }
-
-    pub(super) fn warn_if_control_slot_bounds_mismatch(
-        &mut self,
-        name: &str,
-        rect: Rect,
-        slots: Option<&[InventorySlotRef]>,
-    ) {
-        let (Some(kind), Some(slots)) = (self.target.container_kind(), slots) else {
-            return;
-        };
-        let Some(slot_bounds) = kind.slot_ref_bounds(slots) else {
-            return;
-        };
-        if rect != slot_bounds {
-            self.warnings.push(format!(
-                "window `{}`: control `{name}` draws at {rect:?} but its backing slots are bounded by {slot_bounds:?}; clicks follow the backing slots, so omit x/y/width/height to use native bounds or align the artwork exactly",
-                self.target.name(),
-            ));
-        }
-    }
-
-    pub(super) fn warn_if_sparse_anvil_control(&mut self, name: &str, rect: Rect, slots: Option<&[InventorySlotRef]>) {
-        if self.target.container_kind() != Some(ContainerKind::Anvil) {
-            return;
-        }
-        let container_slots =
-            slots.unwrap_or_default().iter().filter(|slot| slot.area == InventorySlotArea::Container).count();
-        if container_slots > 1 && rect.width > 16 {
-            self.warnings.push(format!(
-                "window `{}`: control `{name}` spans {container_slots} nonuniform anvil container slots in rect {rect:?}; prefer separate single-slot controls",
-                self.target.name(),
             ));
         }
     }

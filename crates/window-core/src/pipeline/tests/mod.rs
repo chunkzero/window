@@ -16,15 +16,7 @@ fn compile_windows(
 ) -> Result<CompileOutput> {
     let fonts = text_font::resolve(&BTreeMap::new(), &BTreeMap::new()).unwrap();
     let assets = Assets { textures, runtime_sprites: &BTreeMap::new(), text_fonts: &fonts };
-    compile_layouts(
-        windows,
-        &[],
-        &assets,
-        &BTreeMap::new(),
-        namespace,
-        &PackTarget::default(),
-        &BuildOptions::default(),
-    )
+    compile_layouts(windows, &[], &assets, namespace, &PackTarget::default(), &BuildOptions::default())
 }
 
 /// A solid RGBA texture for tests.
@@ -56,7 +48,6 @@ fn bare_window(name: &str, kind: ContainerKind, draws: Vec<Draw>) -> LaidOutWind
         inputs: vec![],
         switches: vec![],
         layers: vec![],
-        indexed: BTreeMap::new(),
         handles: BTreeMap::new(),
         warnings: vec![],
     }
@@ -77,8 +68,6 @@ fn text_slot(name: &str, text: Option<&str>, rect: Rect, align: Align, color: Rg
         strikethrough: false,
         obfuscated: false,
         font: None,
-        repeat: None,
-        binding: None,
         fit: Default::default(),
         source: None,
     }
@@ -123,12 +112,10 @@ fn region(name: &str, rect: Rect, slots: Option<Vec<crate::inventory::InventoryS
         name: name.into(),
         rect,
         slots,
-        yielded_slots: Vec::new(),
         unowned: false,
         action: None,
         default_action: None,
         hitbox: None,
-        repeat: None,
         source: format!("button `{name}`"),
     }
 }

@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use super::ValidationReport;
-use super::groups::validate_groups;
 use crate::manifest::{
     CasePath, CasePaths, Manifest, RegionEntry, SlotAreaEntry, SlotRefEntry, WindowEntry, case_paths, exclusive_cases,
 };
@@ -17,43 +16,64 @@ pub(super) fn validate_inventory(manifest: &Manifest, report: &mut ValidationRep
             );
             continue;
         };
-        let mut claims = SlotClaims { window_name, kind, owners: BTreeMap::new(), routes: BTreeMap::new() };
+        let mut claims =
+            SlotClaims { window_name, kind, owners: BTreeMap::new(), fills: BTreeMap::new(), routes: BTreeMap::new() };
         let paths = case_paths(&window.switches);
-        validate_regions(window, &paths, &mut claims, report);
         for (name, item) in &window.items {
             let path = paths.items.get(name).map(Vec::as_slice).unwrap_or_default();
             claims.own(&format!("item `{name}`"), path, &item.slots, report);
         }
         validate_inputs(window, &mut claims, report);
         validate_collections(window, &paths, &mut claims, report);
-        validate_groups(window_name, window, report);
+        validate_regions(window, &paths, &mut claims, report);
     }
 }
 
-/// Slot ownership tracks the slot a control fills; routing is a separate,
-/// also-exclusive map so a repeater cell can route a slot it no longer fills. Regions in mutually exclusive switch
-/// cases may share both.
+/// Slot ownership tracks the slot a control fills; routing is a separate, also-exclusive map so a region can route a
+/// slot whose contents an item, collection, or anvil input owns. Regions in mutually exclusive switch cases may share both.
 struct SlotClaims<'a> {
     window_name: &'a str,
     kind: ContainerKind,
     owners: BTreeMap<SlotRefEntry, Vec<(String, CasePath)>>,
+    fills: BTreeMap<SlotRefEntry, Vec<(String, CasePath)>>,
     routes: BTreeMap<SlotRefEntry, Vec<(String, CasePath)>>,
 }
 
 impl SlotClaims<'_> {
-    fn own(&mut self, owner: &str, path: &[(String, String)], slots: &[SlotRefEntry], report: &mut ValidationReport) {
+    fn check_bounds(&self, owner: &str, slot: &SlotRefEntry, report: &mut ValidationReport) {
+        let valid = match slot.area {
+            SlotAreaEntry::Container => slot.index < self.kind.slot_count(),
+            SlotAreaEntry::Player => slot.index < 36,
+        };
+        if !valid {
+            report.push(
+                "inventory.slot.out_of_bounds",
+                format!("manifest.windows.{}", self.window_name),
+                format!("{owner} owns invalid {:?} slot {}", slot.area, slot.index),
+            );
+        }
+    }
+
+    /// A region's fill must not duplicate contents an owner holds whenever the region is active, nor another fill.
+    fn fill(&mut self, owner: &str, path: &[(String, String)], slots: &[SlotRefEntry], report: &mut ValidationReport) {
         for slot in slots {
-            let valid = match slot.area {
-                SlotAreaEntry::Container => slot.index < self.kind.slot_count(),
-                SlotAreaEntry::Player => slot.index < 36,
-            };
-            if !valid {
+            self.check_bounds(owner, slot, report);
+            let always = self.owners.get(slot).into_iter().flatten().find(|(_, other)| path.starts_with(other));
+            let filled = self.fills.get(slot).into_iter().flatten().find(|(_, other)| !exclusive_cases(path, other));
+            if let Some((previous, _)) = always.or(filled) {
                 report.push(
-                    "inventory.slot.out_of_bounds",
+                    "inventory.slot.duplicate_owner",
                     format!("manifest.windows.{}", self.window_name),
-                    format!("{owner} owns invalid {:?} slot {}", slot.area, slot.index),
+                    format!("{:?} slot {} is owned by both {previous} and {owner}", slot.area, slot.index),
                 );
             }
+            self.fills.entry(*slot).or_default().push((owner.to_string(), path.to_vec()));
+        }
+    }
+
+    fn own(&mut self, owner: &str, path: &[(String, String)], slots: &[SlotRefEntry], report: &mut ValidationReport) {
+        for slot in slots {
+            self.check_bounds(owner, slot, report);
             let owners = self.owners.entry(*slot).or_default();
             if let Some((previous, _)) = owners.iter().find(|(_, other)| !exclusive_cases(path, other)) {
                 report.push(
@@ -85,8 +105,8 @@ fn validate_regions(window: &WindowEntry, paths: &CasePaths, claims: &mut SlotCl
     for (name, region) in &window.regions {
         let path = paths.regions.get(name).map(Vec::as_slice).unwrap_or_default();
         let owner = format!("region `{name}`");
-        claims.own(&owner, path, region.filled_slots(), report);
-        validate_fill_slots(window, claims.window_name, name, region, report);
+        claims.fill(&owner, path, region.filled_slots(), report);
+        validate_fill_slots(claims.window_name, name, region, report);
         if region.action.is_some() {
             for slot in &region.slots {
                 claims.route(*slot, path, &owner, report);
@@ -95,14 +115,8 @@ fn validate_regions(window: &WindowEntry, paths: &CasePaths, claims: &mut SlotCl
     }
 }
 
-/// A region may fill no slot only when it routes the anvil input's slot, whose seed item the input keeps.
-fn validate_fill_slots(
-    window: &WindowEntry,
-    window_name: &str,
-    name: &str,
-    region: &RegionEntry,
-    report: &mut ValidationReport,
-) {
+/// A region fills only slots it routes; it may fill none when content owners hold every slot it routes.
+fn validate_fill_slots(window_name: &str, name: &str, region: &RegionEntry, report: &mut ValidationReport) {
     let Some(fill_slots) = &region.fill_slots else {
         return;
     };
@@ -114,14 +128,6 @@ fn validate_fill_slots(
                 format!("region `{name}` fills {:?} slot {} that it does not route", slot.area, slot.index),
             );
         }
-    }
-    let routes_input = window.inputs.values().any(|input| region.slots.contains(&input.slot));
-    if fill_slots.is_empty() && !routes_input {
-        report.push(
-            "inventory.slot.fill_empty",
-            format!("manifest.windows.{window_name}.regions.{name}.fill_slots"),
-            format!("region `{name}` fills no slot; omit `fill_slots` instead"),
-        );
     }
 }
 
@@ -162,12 +168,7 @@ fn validate_collections(
 ) {
     for (name, collection) in &window.collections {
         let path = paths.collections.get(name).map(Vec::as_slice).unwrap_or_default();
+        // An action collection's clicks take precedence over a region routing the same slot.
         claims.own(&format!("collection `{name}`"), path, &collection.slots, report);
-        if !collection.action {
-            continue;
-        }
-        for slot in &collection.slots {
-            claims.route(*slot, path, &format!("collection `{name}`"), report);
-        }
     }
 }

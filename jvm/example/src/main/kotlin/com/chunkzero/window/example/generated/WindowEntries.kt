@@ -292,7 +292,6 @@ internal object WindowEntries {
                             itemModel = null,
                         ),
                     ),
-                    groups = emptyMap(),
                     layers = listOf(
                         LayerEntry(LayerKind.SLOT, "label_0"),
                         LayerEntry(LayerKind.SLOT, "label_1"),
@@ -2104,7 +2103,6 @@ internal object WindowEntries {
                         ),
                     ),
                     inputs = emptyMap(),
-                    groups = emptyMap(),
                     switches = mapOf(
                         "affordable" to SwitchEntry(
                             cases = listOf(
@@ -2125,9 +2123,6 @@ internal object WindowEntries {
                                     switches = listOf("affordable~4"),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "affordable~2" to SwitchEntry(
@@ -2149,9 +2144,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "affordable~4" to SwitchEntry(
@@ -2173,9 +2165,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "can_buy" to SwitchEntry(
@@ -2197,9 +2186,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "can_next" to SwitchEntry(
@@ -2221,9 +2207,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "can_previous" to SwitchEntry(
@@ -2245,9 +2228,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "category?all" to SwitchEntry(
@@ -2269,9 +2249,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "category?gear" to SwitchEntry(
@@ -2293,9 +2270,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "category?magic" to SwitchEntry(
@@ -2317,9 +2291,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "favorites" to SwitchEntry(
@@ -2341,9 +2312,6 @@ internal object WindowEntries {
                                     switches = listOf("favorites~4"),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "favorites~2" to SwitchEntry(
@@ -2365,9 +2333,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "favorites~4" to SwitchEntry(
@@ -2389,9 +2354,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "has_price" to SwitchEntry(
@@ -2413,9 +2375,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "has_query" to SwitchEntry(
@@ -2437,9 +2396,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "sort?featured" to SwitchEntry(
@@ -2461,9 +2417,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "sort?name" to SwitchEntry(
@@ -2485,9 +2438,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                         "sort?price" to SwitchEntry(
@@ -2509,9 +2459,6 @@ internal object WindowEntries {
                                     switches = emptyList(),
                                 ),
                             ),
-                            binding = null,
-                            states = false,
-                            initial = null,
                             source = null,
                         ),
                     ),

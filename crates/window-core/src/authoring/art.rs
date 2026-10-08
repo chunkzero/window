@@ -1,24 +1,25 @@
-//! Inline art: art values authored in place of theme names. Each is interned into the theme under a name derived
-//! from a hash of its content, prefixed by its optional name, so identical art is shared and no art clashes with
-//! another or with a theme name.
+//! Inline art: art values authored where they are drawn. Each is interned into the project's art under a name
+//! derived from a hash of its content, prefixed by its optional name, so identical art is shared and no art clashes
+//! with another or with a catalog sprite.
 
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-use super::theme::{FrameDto, SpriteDto};
-use crate::model::{SpriteDef, Theme};
+use super::style::{FrameDto, SpriteDto};
+use crate::model::{Art, SpriteDef};
 use crate::{Error, Result};
 
-/// The prefix of every interned art name. Theme names cannot contain `/`, so interned names never clash with them.
+/// The prefix of every interned art name. Catalog sprite names cannot contain `/`, so interned names never clash
+/// with them.
 pub(crate) const ART_PREFIX: &str = "art/";
 
 /// Shortest hash suffix of an interned name; longer suffixes only resolve hash prefix collisions.
 const HASH_LEN: usize = 6;
 
-/// A frame or sprite reference: a theme name, or an inline art value.
+/// A frame or sprite reference: an inline art value, then its interned name.
 #[derive(Clone, Debug)]
 pub(super) enum ArtRefDto {
-    Named(String),
+    Interned(String),
     Inline(InlineArtDto),
 }
 
@@ -28,7 +29,7 @@ pub(super) struct InlineArtDto {
     /// `"texture"` or `"shape"`.
     art: String,
     name: Option<String>,
-    /// The frame or sprite definition, as a theme declares it.
+    /// The frame or sprite definition.
     def: serde_json::Map<String, serde_json::Value>,
 }
 
@@ -39,7 +40,6 @@ impl<'de> Deserialize<'de> for ArtRefDto {
     {
         use serde::de::Error as _;
         match serde_json::Value::deserialize(deserializer)? {
-            serde_json::Value::String(name) => Ok(Self::Named(name)),
             serde_json::Value::Object(mut def) => {
                 let art = match def.remove("art") {
                     Some(serde_json::Value::String(art)) if art == "texture" || art == "shape" => art,
@@ -52,47 +52,47 @@ impl<'de> Deserialize<'de> for ArtRefDto {
                 };
                 Ok(Self::Inline(InlineArtDto { art, name, def }))
             }
-            _ => Err(D::Error::custom("expected a theme name or an art value")),
+            _ => Err(D::Error::custom("expected an art value such as texture(...) or shape(...)")),
         }
     }
 }
 
 impl ArtRefDto {
-    /// The theme or interned name; inline art must be interned first.
+    /// The interned name; inline art must be interned first.
     pub(super) fn name(&self) -> Result<String> {
         match self {
-            Self::Named(name) => Ok(name.clone()),
+            Self::Interned(name) => Ok(name.clone()),
             Self::Inline(_) => Err(Error::Validation("inline art was not interned".into())),
         }
     }
 }
 
-/// How an art value is drawn, which decides the theme table it joins.
+/// How an art value is drawn, which decides the table it joins.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum ArtUse {
     /// Stretched over a laid-out rect.
     Frame,
     /// Drawn at its own size into static art.
     Image,
-    /// Drawn at its own size by the runtime, as a fixed sprite slot or a collection selection.
+    /// Drawn at its own size by the runtime, as a collection selection.
     Sprite,
 }
 
-/// Replaces an inline art value in `art` with the name it is interned under in `theme`.
-pub(super) fn intern(theme: &mut Theme, art: &mut Option<ArtRefDto>, usage: ArtUse) -> Result<()> {
+/// Replaces an inline art value in `art` with the name it is interned under in `table`.
+pub(super) fn intern(table: &mut Art, art: &mut Option<ArtRefDto>, usage: ArtUse) -> Result<()> {
     let Some(ArtRefDto::Inline(inline)) = art else {
         return Ok(());
     };
-    let name = intern_inline(theme, inline, usage)?;
-    *art = Some(ArtRefDto::Named(name));
+    let name = intern_inline(table, inline, usage)?;
+    *art = Some(ArtRefDto::Interned(name));
     Ok(())
 }
 
-fn intern_inline(theme: &mut Theme, inline: &InlineArtDto, usage: ArtUse) -> Result<String> {
+fn intern_inline(table: &mut Art, inline: &InlineArtDto, usage: ArtUse) -> Result<String> {
     let def = inline.def(usage)?;
-    let table = if usage == ArtUse::Frame { "frame" } else { "sprite" };
+    let kind = if usage == ArtUse::Frame { "frame" } else { "sprite" };
     let content = serde_json::Value::Object(def.clone()).to_string();
-    let digest = Sha256::digest(format!("{}\0{table}\0{content}", inline.art).as_bytes());
+    let digest = Sha256::digest(format!("{}\0{kind}\0{content}", inline.art).as_bytes());
     let hash: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
     let prefix = match &inline.name {
         Some(name) => format!("{ART_PREFIX}{}-", slug(name)?),
@@ -100,15 +100,15 @@ fn intern_inline(theme: &mut Theme, inline: &InlineArtDto, usage: ArtUse) -> Res
     };
     if usage == ArtUse::Frame {
         let frame = inline.parse::<FrameDto>(def)?.into_frame()?;
-        let key = free_key(&prefix, &hash, |key| theme.frames.get(key).is_none_or(|existing| *existing == frame));
-        theme.frames.insert(key.clone(), frame);
+        let key = free_key(&prefix, &hash, |key| table.frames.get(key).is_none_or(|existing| *existing == frame));
+        table.frames.insert(key.clone(), frame);
         return Ok(key);
     }
     let sprite = inline.parse::<SpriteDto>(def)?.into_sprite()?;
-    let key = free_key(&prefix, &hash, |key| theme.sprites.get(key).is_none_or(|existing| *existing == sprite));
-    theme.sprites.insert(key.clone(), sprite);
+    let key = free_key(&prefix, &hash, |key| table.sprites.get(key).is_none_or(|existing| *existing == sprite));
+    table.sprites.insert(key.clone(), sprite);
     if usage == ArtUse::Sprite {
-        theme.runtime_art.insert(key.clone());
+        table.runtime.insert(key.clone());
     }
     Ok(key)
 }
@@ -119,7 +119,7 @@ impl InlineArtDto {
         self.parse::<SpriteDto>(self.def(ArtUse::Sprite)?)?.into_sprite()
     }
 
-    /// The theme definition of this art drawn as `usage`.
+    /// The definition of this art drawn as `usage`.
     fn def(&self, usage: ArtUse) -> Result<serde_json::Map<String, serde_json::Value>> {
         let mut def = self.def.clone();
         if usage == ArtUse::Frame {
@@ -161,7 +161,7 @@ fn slug(name: &str) -> Result<String> {
     Ok(name.replace(['/', '_'], "-"))
 }
 
-/// Whether `name` is an interned art name rather than a theme name.
+/// Whether `name` is an interned art name rather than a catalog sprite name.
 pub(crate) fn is_inline(name: &str) -> bool {
     name.starts_with(ART_PREFIX)
 }

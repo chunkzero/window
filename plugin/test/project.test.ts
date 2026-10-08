@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { defineWindows, raw, texture, theme } from "../src/authoring/index.ts";
+import { defineWindows, raw, texture } from "../src/authoring/index.ts";
 import type { WindowDocument } from "../src/authoring/types.ts";
 import { buildProject, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
 import type { CompileOutput, KotlinOptions, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
@@ -58,20 +58,28 @@ test("a discovered module without a default document fails naming its path", () 
     assert.throws(() => collectInputs(ctx), /window\/a\.ts must export default/);
 });
 
-test("project JSON omits empty themes", () => {
+test("project JSON omits empty fonts and sprites", () => {
     assert.deepEqual(JSON.parse(JSON.stringify(buildProject([shop], {}, 88))), {
         windows: shop.windows,
         huds: [],
         options: { hud_shaders: false },
         target: { pack_format: 88 },
     });
-    const themed: WindowDocument = theme({ sprites: { badge: { kind: "badge", width: 1, height: 1 } } });
-    const project = buildProject([themed, { ...status, window: shop.windows[0]! }], { hudShaders: true }, 84);
-    assert.equal(project.themes?.length, 1);
+    const runes = { texture: "window/runes.png", chars: ["ab"] };
+    const project = buildProject(
+        [{ fonts: { runes } }, { ...status, window: shop.windows[0]! }],
+        { hudShaders: true },
+        84,
+    );
+    assert.deepEqual(project.fonts, { runes });
     assert.deepEqual(project.windows, shop.windows);
     assert.deepEqual(project.huds, status.huds);
     assert.deepEqual(project.options, { hud_shaders: true });
     assert.deepEqual(project.target, { pack_format: 84 });
+    assert.throws(
+        () => buildProject([{ fonts: { runes } }, { fonts: { runes } }], {}, 84),
+        /fonts declare `runes` twice/,
+    );
 });
 
 test("referenced resource textures are added once", () => {
@@ -79,18 +87,18 @@ test("referenced resource textures are added once", () => {
     assert.equal(resourceTexturePath("window:gui/badge.png"), "assets/window/textures/gui/badge.png");
     assert.equal(resourceTexturePath("gui/badge.png"), undefined);
 
-    const sprites = theme({
+    const sprites: WindowDocument = {
         sprites: {
-            a: { texture: "window:gui/badge.png" },
-            b: { texture: "window:gui/badge" },
-            c: { texture: "window:gui/missing.png" },
+            a: texture("window:gui/badge.png"),
+            b: texture("window:gui/badge"),
+            c: texture("window:gui/missing.png"),
         },
-    });
-    const texture = "assets/window/textures/gui/badge.png";
-    const { ctx } = fake({ "window/theme.ts": sprites }, { [texture]: "png" });
+    };
+    const badge = "assets/window/textures/gui/badge.png";
+    const { ctx } = fake({ "window/sprites.ts": sprites }, { [badge]: "png" });
     assert.deepEqual(
         collectInputs(ctx).files.map((file) => file.path),
-        [texture],
+        [badge],
     );
 });
 
@@ -167,15 +175,17 @@ test("a missing or unknown Kotlin target is rejected", () => {
 });
 
 test("a window/index entry lists every document; other modules are ordinary", () => {
-    const themed = theme({ colors: { gold: "#ffd75e" } });
-    const entry = defineWindows({ themes: [themed], windows: [shop], huds: [status.huds[0]!] });
+    const runes = { texture: "window/runes.png", chars: ["ab"] };
+    const entry = defineWindows({ fonts: { runes }, windows: [shop], huds: [status.huds[0]!] });
     const { ctx } = fake({ "window/index.ts": entry, "window/handles.ts": undefined, "window/shop.tsx": shop });
     const { documents, warnings } = collectInputs(ctx);
     const project = buildProject(documents, {}, 84);
-    assert.deepEqual(project.themes, [themed.theme]);
+    assert.deepEqual(project.fonts, { runes });
     assert.deepEqual(project.windows, shop.windows);
     assert.deepEqual(project.huds, status.huds);
     assert.deepEqual(warnings, []);
+    const legacy = fake({ "window/index.ts": { themes: [], windows: [shop] } });
+    assert.throws(() => collectInputs(legacy.ctx), /no longer takes `themes`/);
 });
 
 test("defineWindows lists flatten nested lists and reject documents of another kind", () => {
@@ -187,7 +197,7 @@ test("defineWindows lists flatten nested lists and reject documents of another k
         project.huds.map((h) => h.name),
         ["a", "b"],
     );
-    const wrong = fake({ "window/index.ts": { windows: [shop, theme({})] } });
+    const wrong = fake({ "window/index.ts": { windows: [shop, { sprites: {} }] } });
     assert.throws(() => collectInputs(wrong.ctx), /window\/index\.ts: defineWindows `windows` entry 1 is not a window/);
     const bare = fake({ "window/index.ts": { huds: [shop.windows[0]] } });
     assert.throws(() => collectInputs(bare.ctx), /`huds` entry 0 is not a hud/);
@@ -206,7 +216,7 @@ test("defineWindows sprites become the catalog and inline art textures are input
     const window = raw.ui({
         name: "w",
         container: "generic_9x1",
-        children: [raw.flex({ frame: texture("window:gui/frame.png", { insets: 2 }) })],
+        children: [raw.box({ frame: texture("window:gui/frame.png", { insets: 2 }) })],
     });
     const entry = defineWindows({ sprites: { lamp }, windows: [window] });
     const files = { "assets/window/textures/gui/lamp.png": "png", "assets/window/textures/gui/frame.png": "png" };

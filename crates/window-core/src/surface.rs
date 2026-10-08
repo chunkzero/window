@@ -18,15 +18,6 @@ pub enum Surface {
     Container(ContainerKind),
 }
 
-/// A named vertical gap between visible inventory sections.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct InventoryGutter {
-    /// Stable human-readable name used in authoring diagnostics.
-    pub name: &'static str,
-    /// Reserved GUI-space rectangle.
-    pub rect: Rect,
-}
-
 impl Surface {
     /// The title cursor origin in GUI space.
     pub fn title_origin(&self) -> Point {
@@ -231,26 +222,6 @@ impl ContainerKind {
             bounds = bounds.union(&rect);
         }
         bounds
-    }
-
-    /// Canonical gaps between the container, player inventory, and hotbar.
-    ///
-    /// Slot-backed controls should not overlap these rectangles. Decorative
-    /// chassis panels may cover them because they are not interactive content.
-    pub fn reserved_gutters(&self) -> [InventoryGutter; 2] {
-        let container = self.section_bounds(InventorySlotSection::Container);
-        let player = self.section_bounds(InventorySlotSection::Player);
-        let hotbar = self.section_bounds(InventorySlotSection::Hotbar);
-        [
-            InventoryGutter {
-                name: "container-to-player",
-                rect: Rect::new(player.x, container.bottom(), player.width, (player.y - container.bottom()) as u32),
-            },
-            InventoryGutter {
-                name: "player-to-hotbar",
-                rect: Rect::new(player.x, player.bottom(), player.width, (hotbar.y - player.bottom()) as u32),
-            },
-        ]
     }
 
     /// Resolve a zero-based local section slot index to its backing inventory slot.

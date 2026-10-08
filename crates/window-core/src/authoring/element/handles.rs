@@ -4,11 +4,8 @@ use serde::Deserialize;
 
 use super::ElementDto;
 use crate::authoring::parse::{sprite_key, validate_name};
-use crate::ir::{Handle, HandleKind, HandleRole, HandleUse, IndexedBinding};
+use crate::ir::{CLOSE_ACTION, Handle, HandleKind, HandleRole, HandleUse, indexed_entry};
 use crate::{Error, Result};
-
-/// The runtime action `builtin("window:close")`.
-const CLOSE: &str = "window:close";
 
 /// A typed handle as an element references it: the declaration plus how this element reads it.
 #[derive(Clone, Debug, Deserialize)]
@@ -42,16 +39,9 @@ pub(in crate::authoring) fn collect_handles(
 ) -> Result<BTreeMap<String, Handle>> {
     let mut collector = Collector { owner, hud, handles: BTreeMap::new(), names: BTreeSet::new() };
     for child in children {
-        collector.visit(child, &Scope::default())?;
+        collector.visit(child)?;
     }
     Ok(collector.handles)
-}
-
-/// Whether an element sits in a template repeater, or in a cell of a repeater with `cells`.
-#[derive(Clone, Default)]
-struct Scope {
-    template: Option<String>,
-    cells: Option<u32>,
 }
 
 struct Collector<'a> {
@@ -62,18 +52,7 @@ struct Collector<'a> {
 }
 
 impl Collector<'_> {
-    fn visit(&mut self, dto: &mut ElementDto, scope: &Scope) -> Result<()> {
-        let refs = [&dto.handle, &dto.on_click, &dto.enabled, &dto.state];
-        if refs.iter().any(|r| r.is_some()) {
-            if let Some(repeater) = &scope.template {
-                return Err(self.err(format!(
-                    "handles cannot be used inside repeater `{repeater}`; render its cells with a function"
-                )));
-            }
-            if dto.index.is_some() {
-                return Err(self.err(format!("{} element sets both a handle and `index`; use `.at()`", dto.kind)));
-            }
-        }
+    fn visit(&mut self, dto: &mut ElementDto) -> Result<()> {
         let role = match dto.kind.as_str() {
             "slot" => Some(HandleRole::Slot),
             "sprite_slot" => Some(HandleRole::SpriteSlot),
@@ -84,42 +63,20 @@ impl Collector<'_> {
             _ => None,
         };
         if let (Some(role), Some(handle)) = (role, dto.handle.clone()) {
-            self.primary(dto, role, &handle, scope)?;
+            self.primary(dto, role, &handle)?;
         }
-        if dto.kind == "button" || dto.kind == "region" {
-            self.button(dto, scope)?;
-        }
-        let mut inner = scope.clone();
-        if dto.kind == "repeater" {
-            match dto.cells.is_some() {
-                true => inner.cells = Some(self.repeater(dto)?),
-                false => inner.template = inner.template.or_else(|| dto.name.clone()),
-            }
+        if let Some(click) = dto.on_click.clone() {
+            self.click(dto, &click)?;
         }
         for child in &mut dto.children {
-            self.visit(child, &inner)?;
-        }
-        if let Some(cells) = &mut dto.cells {
-            for cell in cells {
-                for child in cell {
-                    self.visit(child, &inner)?;
-                }
-            }
+            self.visit(child)?;
         }
         Ok(())
     }
 
     /// Names an element that binds one handle: a text, sprite, or item slot, a collection, an input, or a switch.
-    fn primary(&mut self, dto: &mut ElementDto, role: HandleRole, handle: &HandleRefDto, scope: &Scope) -> Result<()> {
-        if dto.name.is_some() {
-            return Err(self.err(format!("{} element sets both `name` and a handle", dto.kind)));
-        }
-        if role == HandleRole::SpriteSlot && dto.sprite.is_some() {
-            return Err(
-                self.err(format!("sprite slot bound to `{}` sets a fixed `sprite`, which needs no binding", handle.id))
-            );
-        }
-        let kind = self.declare(handle, role, scope)?;
+    fn primary(&mut self, dto: &mut ElementDto, role: HandleRole, handle: &HandleRefDto) -> Result<()> {
+        let kind = self.declare(handle, role)?;
         if role == HandleRole::Collection && dto.selected_sprite.is_some() && !handle.selectable {
             return Err(self
                 .err(format!("collection `{}` draws a selected cell, but its handle is not `selectable`", handle.id)));
@@ -147,94 +104,27 @@ impl Collector<'_> {
         Ok(())
     }
 
-    /// Names a button or region after its click handle and records its click, enabled, and state uses.
-    fn button(&mut self, dto: &mut ElementDto, scope: &Scope) -> Result<()> {
-        let Some(click) = dto.on_click.clone() else {
-            if dto.enabled.is_some() || dto.state.is_some() {
-                return Err(self.err("a button with `enabled` or `state` requires a click handle".into()));
-            }
-            return Ok(());
-        };
-        if dto.name.is_some() {
-            return Err(self.err("button element sets both `name` and `on_click`".into()));
-        }
-        let kind = self.declare(&click, HandleRole::Click, scope)?;
+    /// Names a region after its click handle and records its click.
+    fn click(&mut self, dto: &mut ElementDto, click: &HandleRefDto) -> Result<()> {
+        let kind = self.declare(click, HandleRole::Click)?;
         let suffix = click.set.as_ref().map(|value| format!("={value}"));
         let entry = self.entry(&click.id, &click.at, suffix.as_deref());
         if kind == HandleKind::Builtin {
-            dto.default = Some("close".into());
-        }
-        if let (Some(_), Some(_)) = (&dto.enabled, &dto.state) {
-            return Err(self.err(format!("button `{entry}` sets both `enabled` and `state`")));
-        }
-        if let Some(enabled) = dto.enabled.clone() {
-            self.declare(&enabled, HandleRole::Enabled, scope)?;
-            self.record(&enabled, HandleRole::Enabled, entry.clone(), enabled.is.clone());
-        }
-        if let Some(state) = dto.state.clone() {
-            self.declare(&state, HandleRole::State, scope)?;
-            let keys: Vec<&String> = dto.states.keys().collect();
-            let mut values: Vec<&String> = state.values.iter().collect();
-            values.sort_unstable();
-            if keys != values {
-                return Err(self.err(format!(
-                    "button `{entry}` must declare one state per value of `{}`: {}",
-                    state.id,
-                    state.values.join(", ")
-                )));
-            }
-            self.record(&state, HandleRole::State, entry.clone(), None);
+            dto.default_action = Some(click.id.clone());
         }
         dto.name = Some(entry.clone());
-        self.record(&click, HandleRole::Click, entry, click.set.clone());
+        self.record(click, HandleRole::Click, entry, click.set.clone());
         Ok(())
     }
 
-    /// Names the cells of a repeater rendered per cell and returns its cell count. Cells click into the indexed
-    /// `on_click` action, one index per cell.
-    fn repeater(&mut self, dto: &mut ElementDto) -> Result<u32> {
-        if !dto.children.is_empty() {
-            return Err(self.err("repeater element sets both `children` and `cells`".into()));
-        }
-        let count = dto.cells.as_ref().map_or(0, Vec::len) as u32;
-        if count == 0 {
-            return Err(self.err("repeater `cells` must render at least one cell".into()));
-        }
-        let Some(click) = dto.on_click.clone() else {
-            let name = dto.name.clone().ok_or_else(|| self.err("repeater requires `name` or `on_click`".into()))?;
-            validate_name(&name, "repeater")?;
-            dto.cell_buttons = (0..count).map(|i| self.entry(&name, &[i], None)).collect();
-            return Ok(count);
-        };
-        if dto.name.is_some() {
-            return Err(self.err("repeater element sets both `name` and `on_click`".into()));
-        }
-        if click.kind != "action" || !click.at.is_empty() || click.shape != [count] {
-            return Err(self.err(format!(
-                "repeater `on_click` must be an action indexed by its {count} cells (`shape: [{count}]`), not `{}`",
-                click.id
-            )));
-        }
-        self.declare(&HandleRefDto { at: vec![0], ..click.clone() }, HandleRole::Click, &Scope::default())?;
-        dto.name = Some(self.entry(&click.id, &[], None));
-        dto.cell_buttons = Vec::with_capacity(count as usize);
-        for i in 0..count {
-            let entry = self.entry(&click.id, &[i], None);
-            dto.cell_buttons.push(entry.clone());
-            self.record(&HandleRefDto { at: vec![i], ..click.clone() }, HandleRole::Click, entry, None);
-        }
-        dto.cell_action = true;
-        Ok(count)
-    }
-
     /// Validates `handle` for `role` and merges its declaration into this surface's handles.
-    fn declare(&mut self, handle: &HandleRefDto, role: HandleRole, scope: &Scope) -> Result<HandleKind> {
+    fn declare(&mut self, handle: &HandleRefDto, role: HandleRole) -> Result<HandleKind> {
         let id = &handle.id;
         let kind = parse_kind(&handle.kind)
             .ok_or_else(|| self.err(format!("handle `{id}` has unknown kind `{}`", handle.kind)))?;
         if kind == HandleKind::Builtin {
-            if id != CLOSE {
-                return Err(self.err(format!("unknown runtime action `{id}`; known actions: {CLOSE}")));
+            if id != CLOSE_ACTION {
+                return Err(self.err(format!("unknown runtime action `{id}`; known actions: {CLOSE_ACTION}")));
             }
         } else {
             validate_name(id, "handle")?;
@@ -284,15 +174,6 @@ impl Collector<'_> {
         if let Some((i, len)) = handle.at.iter().zip(&handle.shape).find(|(i, len)| i >= len) {
             return Err(self.err(format!("{} `{id}` index {i} is outside its size {len}", kind.id())));
         }
-        if let (Some(cells), false) = (scope.cells, handle.at.is_empty()) {
-            let size = handle.shape.iter().product::<u32>();
-            if size != cells {
-                return Err(self.err(format!(
-                    "{} `{id}` has {size} entries, but the repeater rendering it has {cells} cells",
-                    kind.id()
-                )));
-            }
-        }
         let initial = match (kind, &handle.initial) {
             (HandleKind::Toggle, None) => Some("false".to_string()),
             (HandleKind::Toggle, Some(serde_json::Value::Bool(value))) => Some(value.to_string()),
@@ -327,12 +208,8 @@ impl Collector<'_> {
         };
         check_value(&handle.is, "is")?;
         check_value(&handle.set, "set")?;
-        let condition = matches!(role, HandleRole::Switch | HandleRole::Enabled);
-        if handle.is.is_some() && !(condition && enumerated) {
-            return Err(self.err(format!("`{id}.is()` is a condition for `when` or `enabled`")));
-        }
-        if role == HandleRole::Enabled && enumerated && handle.is.is_none() {
-            return Err(self.err(format!("`enabled` needs a condition such as `{id}.is(...)`")));
+        if handle.is.is_some() && !(role == HandleRole::Switch && enumerated) {
+            return Err(self.err(format!("`{id}.is()` is a condition for a switch")));
         }
         if (handle.set.is_some()) != (role == HandleRole::Click && kind == HandleKind::Selection) {
             return Err(self.err(format!("selection `{id}` is set on click with `{id}.set(...)`")));
@@ -367,7 +244,7 @@ impl Collector<'_> {
 
     /// A unique entry name for a use of `id` at `at`.
     fn entry(&mut self, id: &str, at: &[u32], suffix: Option<&str>) -> String {
-        let base = format!("{}{}", IndexedBinding::entry_name(id, at), suffix.unwrap_or_default());
+        let base = format!("{}{}", indexed_entry(id, at), suffix.unwrap_or_default());
         let mut name = base.clone();
         let mut copy = 1;
         while !self.names.insert(name.clone()) {
@@ -431,9 +308,8 @@ fn role_accepts(role: HandleRole, kind: HandleKind) -> bool {
         HandleRole::Item => kind == K::Items,
         HandleRole::Collection => kind == K::Collection,
         HandleRole::Input => kind == K::Input,
-        HandleRole::Switch | HandleRole::Enabled => matches!(kind, K::Flag | K::Toggle | K::Value | K::Selection),
+        HandleRole::Switch => matches!(kind, K::Flag | K::Toggle | K::Value | K::Selection),
         HandleRole::Click => matches!(kind, K::Action | K::Builtin | K::Selection | K::Toggle),
-        HandleRole::State => matches!(kind, K::Value | K::Selection),
     }
 }
 
@@ -446,7 +322,5 @@ fn role_noun(role: HandleRole) -> &'static str {
         HandleRole::Input => "an anvil input",
         HandleRole::Switch => "a switch or show condition",
         HandleRole::Click => "a click",
-        HandleRole::Enabled => "a button's `enabled`",
-        HandleRole::State => "a button's `state`",
     }
 }

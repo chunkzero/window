@@ -1,57 +1,48 @@
 mod build;
 mod fields;
 mod handles;
-mod indexed;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use serde::Deserialize;
 
 use super::art::{ArtRefDto, ArtUse, intern};
-use super::button::{ButtonStateDto, TooltipDto};
 use super::flex::{FlexStyleDto, ItemLayoutDto};
 use super::insets::InsetsDto;
 use super::parse::json_object_fields;
 use super::patterns::{SlotPatternDto, SlotRectPatternDto, SlotRefDto};
-use crate::model::{Element, LayoutChild, Theme};
+use super::tooltip::TooltipDto;
+use crate::model::{Art, Element, LayoutChild};
 use crate::{Error, Result};
 
 use handles::HandleRefDto;
 pub(super) use handles::{check_shared, collect_handles};
-pub(super) use indexed::flatten_indexed;
 
 #[derive(Debug)]
 pub(super) struct ElementDto {
     fields: BTreeSet<String>,
     kind: String,
+    /// The entry name, assigned while collecting handles.
     name: Option<String>,
-    index: Option<Vec<u32>>,
     frame: Option<ArtRefDto>,
     art: Option<ArtRefDto>,
     text: Option<String>,
     value: Option<String>,
     initial: Option<String>,
     item_model: Option<String>,
-    sprite: Option<ArtRefDto>,
     selected_sprite: Option<ArtRefDto>,
-    default: Option<String>,
-    source: Option<String>,
     slots: Option<Vec<SlotRefDto>>,
     pattern: Option<SlotPatternDto>,
     transform: Option<SlotRectPatternDto>,
     claim: Option<String>,
     action: Option<bool>,
-    cell_slot: Option<u32>,
     x: Option<i32>,
     y: Option<i32>,
     width: Option<u32>,
     height: Option<u32>,
-    padding: u32,
-    gap: u32,
     align: String,
     color: Option<String>,
     tooltip: Option<TooltipDto>,
-    states: BTreeMap<String, ButtonStateDto>,
     shadow: bool,
     bold: bool,
     italic: bool,
@@ -71,61 +62,36 @@ pub(super) struct ElementDto {
     children: Vec<ElementDto>,
     handle: Option<HandleRefDto>,
     on_click: Option<HandleRefDto>,
-    enabled: Option<HandleRefDto>,
-    state: Option<HandleRefDto>,
-    cells: Option<Vec<Vec<ElementDto>>>,
     debug_name: Option<String>,
-    /// Cell button names of a repeater with `cells`, assigned while collecting handles.
-    cell_buttons: Vec<String>,
-    /// Whether the cells of a repeater with `cells` route clicks to a handler.
-    cell_action: bool,
-}
-
-/// An indexed binding's `index`: one number, or one number per dimension.
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum IndexDto {
-    One(u32),
-    Many(Vec<u32>),
+    /// The runtime action a region bound to a builtin runs, assigned while collecting handles.
+    default_action: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ElementShapeDto {
     #[serde(rename = "type")]
     kind: String,
-    name: Option<String>,
-    index: Option<IndexDto>,
     frame: Option<ArtRefDto>,
     art: Option<ArtRefDto>,
     text: Option<String>,
     value: Option<String>,
     initial: Option<String>,
     item_model: Option<String>,
-    sprite: Option<ArtRefDto>,
     selected_sprite: Option<ArtRefDto>,
-    default: Option<String>,
-    source: Option<String>,
     #[serde(default)]
     slots: Option<Vec<SlotRefDto>>,
     pattern: Option<SlotPatternDto>,
     transform: Option<SlotRectPatternDto>,
     claim: Option<String>,
     action: Option<bool>,
-    cell_slot: Option<u32>,
     x: Option<i32>,
     y: Option<i32>,
     width: Option<u32>,
     height: Option<u32>,
     #[serde(default)]
-    padding: u32,
-    #[serde(default)]
-    gap: u32,
-    #[serde(default)]
     align: String,
     color: Option<String>,
     tooltip: Option<TooltipDto>,
-    #[serde(default)]
-    states: BTreeMap<String, ButtonStateDto>,
     #[serde(default)]
     shadow: bool,
     #[serde(default)]
@@ -153,9 +119,6 @@ struct ElementShapeDto {
     children: Vec<ElementDto>,
     handle: Option<HandleRefDto>,
     on_click: Option<HandleRefDto>,
-    enabled: Option<HandleRefDto>,
-    state: Option<HandleRefDto>,
-    cells: Option<Vec<Vec<ElementDto>>>,
     debug_name: Option<String>,
 }
 
@@ -176,37 +139,26 @@ impl ElementDto {
         Self {
             fields,
             kind: shape.kind,
-            name: shape.name,
-            index: shape.index.map(|index| match index {
-                IndexDto::One(index) => vec![index],
-                IndexDto::Many(index) => index,
-            }),
+            name: None,
             frame: shape.frame,
             art: shape.art,
             text: shape.text,
             value: shape.value,
             initial: shape.initial,
             item_model: shape.item_model,
-            sprite: shape.sprite,
             selected_sprite: shape.selected_sprite,
-            default: shape.default,
-            source: shape.source,
             slots: shape.slots,
             pattern: shape.pattern,
             transform: shape.transform,
             claim: shape.claim,
             action: shape.action,
-            cell_slot: shape.cell_slot,
             x: shape.x,
             y: shape.y,
             width: shape.width,
             height: shape.height,
-            padding: shape.padding,
-            gap: shape.gap,
             align: shape.align,
             color: shape.color,
             tooltip: shape.tooltip,
-            states: shape.states,
             shadow: shape.shadow,
             bold: shape.bold,
             italic: shape.italic,
@@ -226,30 +178,19 @@ impl ElementDto {
             children: shape.children,
             handle: shape.handle,
             on_click: shape.on_click,
-            enabled: shape.enabled,
-            state: shape.state,
-            cells: shape.cells,
             debug_name: shape.debug_name,
-            cell_buttons: Vec::new(),
-            cell_action: false,
+            default_action: None,
         }
     }
 }
 
-/// Interns the inline art of `children` and their subtrees into `theme`.
-pub(super) fn intern_art(children: &mut [ElementDto], theme: &mut Theme) -> Result<()> {
+/// Interns the inline art of `children` and their subtrees into `table`.
+pub(super) fn intern_art(children: &mut [ElementDto], table: &mut Art) -> Result<()> {
     for child in children {
-        intern(theme, &mut child.frame, ArtUse::Frame)?;
-        intern(theme, &mut child.art, ArtUse::Image)?;
-        intern(theme, &mut child.sprite, ArtUse::Sprite)?;
-        intern(theme, &mut child.selected_sprite, ArtUse::Sprite)?;
-        for state in child.states.values_mut() {
-            state.intern_art(theme)?;
-        }
-        intern_art(&mut child.children, theme)?;
-        for cell in child.cells.iter_mut().flatten() {
-            intern_art(cell, theme)?;
-        }
+        intern(table, &mut child.frame, ArtUse::Frame)?;
+        intern(table, &mut child.art, ArtUse::Image)?;
+        intern(table, &mut child.selected_sprite, ArtUse::Sprite)?;
+        intern_art(&mut child.children, table)?;
     }
     Ok(())
 }

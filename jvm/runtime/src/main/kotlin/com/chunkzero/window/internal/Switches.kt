@@ -4,10 +4,10 @@ import com.chunkzero.window.manifest.SwitchCaseEntry
 import com.chunkzero.window.manifest.SwitchEntry
 
 /**
- * The switches of one window or HUD: binds each binding name to a lambda selecting the case of
- * every switch copy that shares it, and tracks which cases are active.
+ * The switches of one window or HUD: binds each switch to a lambda selecting its case, and tracks
+ * which cases are active.
  *
- * A switch's selected case is the one its binding last returned, else its `initial` case. A case is
+ * A switch's selected case is the one its binding last returned. A case is
  * active while it is selected and its switch is active; a switch nested in a case is active only
  * while that case is, and so are the slots, sprite slots, regions, items, and collections a case lists.
  */
@@ -19,12 +19,8 @@ internal class Switches(
     /** Captures state reads per binding; `null` for surfaces that render without reactivity. */
     private val reactivity: Reactivity?,
 ) {
-    /** The switch keys of each binding name. State switches are selected by key through [select] instead. */
-    private val bindings: Map<String, List<String>> =
-        switches.filterValues { !it.states }.keys.groupBy { switches.getValue(it).binding ?: it }
-
-    /** Binding names. */
-    val names: Set<String> = bindings.keys
+    /** Switch keys. */
+    val names: Set<String> = switches.keys
 
     private val parents = HashMap<String, Case>()
     private val slotCases = HashMap<String, Case>()
@@ -33,7 +29,7 @@ internal class Switches(
     private val itemCases = HashMap<String, Case>()
     private val collectionCases = HashMap<String, Case>()
 
-    /** The authored element owning each slot and sprite slot of a derived switch's cases. */
+    /** The `debug_name` of the switch owning each slot and sprite slot of its cases. */
     private val sources = HashMap<String, String>()
 
     private val renders = HashMap<String, () -> String>()
@@ -41,7 +37,6 @@ internal class Switches(
 
     init {
         for ((key, switch) in switches) {
-            switch.initial?.let { selected[key] = it }
             for (case in switch.cases) {
                 val owner = Case(key, case.value)
                 for (name in case.switches) parents[name] = owner
@@ -60,7 +55,7 @@ internal class Switches(
         name: String,
         render: () -> String,
     ) {
-        require(name in bindings) {
+        require(name in switches) {
             "Unknown switch '$name' in $surface '$ownerName'; known switches: ${names.sorted()}"
         }
         require(renders.put(name, render) == null) { "Switch '$name' bound more than once" }
@@ -73,40 +68,25 @@ internal class Switches(
 
     fun semanticId(key: String): String = "$surface/$ownerName/switch/$key"
 
-    /** The authored element switch [key] comes from, if it is derived. */
+    /** The `debug_name` of switch [key], if it has one. */
     fun source(key: String): String? = switches.getValue(key).source
 
-    /** The authored element a slot or sprite slot of a derived switch's case comes from. */
+    /** The `debug_name` of the switch whose case holds slot or sprite slot [name]. */
     fun entrySource(name: String): String? = sources[name]
 
     /**
-     * Evaluates binding [name] under dependency capture and selects the returned case in every switch
-     * sharing it; returns whether any selection changed.
+     * Evaluates switch [name]'s binding under dependency capture and selects the returned case;
+     * returns whether the selection changed.
      */
     fun update(name: String): Boolean {
         val render = renders.getValue(name)
         val value = if (reactivity == null) render() else reactivity.withRendering(RenderKey.Switch(name), render)
-        var changed = false
-        for (key in bindings.getValue(name)) changed = select(key, value) || changed
-        return changed
-    }
-
-    /** Selects case [value] of switch [key]; returns whether the selection changed. */
-    fun select(
-        key: String,
-        value: String,
-    ): Boolean {
-        val switch = switches.getValue(key)
+        val switch = switches.getValue(name)
         require(switch.cases.any { it.value == value }) {
-            val known = switch.cases.map { it.value }
-            if (switch.states) {
-                "Unknown state '$value' for button '$key' in $surface '$ownerName'; known states: ${known.sorted()}"
-            } else {
-                "Unknown case '$value' for switch '${switch.binding ?: key}' in $surface '$ownerName'; " +
-                    "known cases: $known"
-            }
+            "Unknown case '$value' for switch '$name' in $surface '$ownerName'; " +
+                "known cases: ${switch.cases.map { it.value }}"
         }
-        return selected.put(key, value) != value
+        return selected.put(name, value) != value
     }
 
     /** The active case of switch [key], or `null` while the switch is inactive or has no case selected. */
@@ -127,27 +107,13 @@ internal class Switches(
     fun collectionActive(name: String): Boolean = collectionCases[name]?.let(::isActive) ?: true
 
     /**
-     * Reads the case each switch selects now rather than at its last render, for routing clicks: a state switch
-     * reads [state] for its key, and a bound switch evaluates its binding without dependency capture. A `null`
-     * result, or a binding that throws, keeps the selected case. Each switch is read at most once per lookup.
+     * Reads the case each switch selects now rather than at its last render, for routing clicks: each binding is
+     * evaluated without dependency capture. A binding that throws keeps the selected case. Each switch is read at
+     * most once per lookup.
      */
-    fun current(state: (String) -> String?): (String) -> String? {
+    fun current(): (String) -> String? {
         val values = HashMap<String, String?>()
-        return { key ->
-            if (key in values) {
-                values[key]
-            } else {
-                val switch = switches.getValue(key)
-                val value =
-                    if (switch.states) {
-                        state(key)
-                    } else {
-                        renders[switch.binding ?: key]?.let { render -> runCatching(render).getOrNull() }
-                    }
-                values[key] = value
-                value
-            }
-        }
+        return { key -> values.getOrPut(key) { renders[key]?.let { render -> runCatching(render).getOrNull() } } }
     }
 
     /** Whether region [name] is active when each switch selects the case [current] returns for its key. */

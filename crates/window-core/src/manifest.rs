@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::inventory::{InventorySlotArea, InventorySlotRef};
-use crate::ir::{Align, Handle, Hitbox, IndexedBinding, Layer};
+use crate::ir::{Align, Handle, Hitbox, Layer};
 use crate::{Error, Result};
 
 mod hud;
@@ -16,7 +16,7 @@ mod hud;
 pub use hud::{HudEntry, HudShaderEntry, HudSurfaceEntry};
 
 /// Current compiled definition schema version.
-pub const VERSION: u32 = 8;
+pub const VERSION: u32 = 9;
 
 /// Root compiled pack definition.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -51,9 +51,6 @@ pub struct Manifest {
     /// All compiled HUDs by name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub huds: BTreeMap<String, HudEntry>,
-    /// Theme palette colors by name, lowercase `#rrggbb`.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub colors: BTreeMap<String, String>,
 }
 
 /// Per-font text metrics.
@@ -94,9 +91,6 @@ pub struct WindowEntry {
     /// Native inventory text inputs by name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub inputs: BTreeMap<String, AnvilInputEntry>,
-    /// Group metadata for flattened repeater controls.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub groups: BTreeMap<String, RepeatGroupEntry>,
     /// Runtime-selected cases by key. Switches named by a case's `switches` are active only while that case is.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub switches: BTreeMap<String, SwitchEntry>,
@@ -104,10 +98,6 @@ pub struct WindowEntry {
     /// runtime composes them above the static chrome.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub layers: Vec<Layer>,
-    /// Indexed binding families by name. Their flattened entries appear under their own names in `slots`,
-    /// `sprite_slots`, and `switches`.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub indexed: BTreeMap<String, IndexedBinding>,
     /// Typed handles by id, each with the entries that use it. Kotlin codegen declares one member per handle and
     /// binds every use; the runtime ignores this table.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -117,18 +107,7 @@ pub struct WindowEntry {
 /// Cases of which the runtime draws and claims only the one its binding names.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SwitchEntry {
-    /// The binding name when this switch is one case's copy of a binding shared across mutually exclusive switch
-    /// cases; the switch is then keyed `{binding}.{case path}`. Absent when the key is the binding name.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub binding: Option<String>,
-    /// Whether this switch selects the named states of the control it is keyed by. Codegen declares no member for
-    /// it; `buttonState` and the toggle, choice, and enabled helpers select its case.
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub states: bool,
-    /// The case active while the switch is unbound; absent means no case is active until it is bound.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub initial: Option<String>,
-    /// The authored element a derived switch comes from, such as ``tab `category_new` ``, for diagnostics.
+    /// The authored `debug_name` of the switch, for diagnostics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     /// Cases in authoring order.
@@ -253,10 +232,6 @@ pub struct SlotEntry {
     /// Present for static labels; the runtime renders these automatically.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
-    /// The binding name when this slot is one case's copy of a binding shared across a switch's cases; the slot
-    /// is then keyed `{binding}.{case}`. Absent when the key is the binding name.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub binding: Option<String>,
     /// How content wider than [`Self::width`] is shortened; absent leaves it untouched.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overflow: Option<TextOverflow>,
@@ -341,13 +316,9 @@ pub struct SpriteSlotEntry {
     pub align: Align,
     /// Generated sprite font id for this vertical offset.
     pub font: String,
-    /// Fixed sprite id, or `None` when the runtime must bind this slot.
+    /// Fixed sprite id: a collection's selected-cell sprite. Absent for sprite slots, which the runtime binds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sprite: Option<String>,
-    /// The binding name when this sprite slot is one case's copy of a binding shared across a switch's cases;
-    /// the slot is then keyed `{binding}.{case}`. Absent when the key is the binding name.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub binding: Option<String>,
     /// The authored `debug_name` this sprite slot comes from, for diagnostics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
@@ -367,8 +338,7 @@ pub struct RegionEntry {
     /// Backing inventory slots whose clicks route to this region.
     pub slots: Vec<SlotRefEntry>,
     /// Slots this region fills with its hitbox item. Absent means every slot in [`Self::slots`]; present means a
-    /// strict subset, because a repeater cell yielded the remaining slots to item controls that own the real stack
-    /// (and therefore the native hover tooltip) in those slots, or the slot holds the anvil input's seed item.
+    /// strict subset, because the anvil input's seed item holds the remaining slot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill_slots: Option<Vec<SlotRefEntry>>,
     /// The action id a click names: the handler bound to it runs, else [`Self::default_action`]. Ids in the
@@ -382,7 +352,7 @@ pub struct RegionEntry {
     /// The hitbox item filling [`Self::filled_slots`]; absent leaves them empty.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hitbox: Option<Hitbox>,
-    /// The authored element this region comes from, such as ``button `buy` ``, for diagnostics.
+    /// The authored element this region comes from, such as ``region `buy` ``, for diagnostics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 }
@@ -427,26 +397,6 @@ pub struct AnvilInputEntry {
     /// Optional item model for the seed item in the input slot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item_model: Option<String>,
-}
-
-/// Group metadata for controls flattened from a repeater.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RepeatGroupEntry {
-    /// Number of repeated cells.
-    pub count: u32,
-    /// Dynamic text slots by repeated child field, each vector in index order.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub slots: BTreeMap<String, Vec<String>>,
-    /// Runtime sprite slots by repeated child field, each vector in index order.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub sprite_slots: BTreeMap<String, Vec<String>>,
-    /// Dynamic inventory item controls by repeated child field, each vector in
-    /// index order.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub items: BTreeMap<String, Vec<String>>,
-    /// The action of each cell's region, in index order.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub actions: Vec<String>,
 }
 
 fn default_action() -> bool {

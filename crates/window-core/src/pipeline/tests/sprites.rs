@@ -44,10 +44,11 @@ fn resource_runtime_sprite_uses_decoded_pack_texture_metrics_when_available() {
     let mut textures = BTreeMap::new();
     textures.insert("assets/example/textures/backpack/galactic_bucket.png".into(), texture);
     let mut project = ParsedProject::default();
-    project.theme.sprites.insert(
+    project.art.sprites.insert(
         "backpack_galactic_bucket".into(),
         SpriteDef::Texture { texture: "example:backpack/galactic_bucket.png".into(), size: Some(Size::new(18, 18)) },
     );
+    project.art.runtime.insert("backpack_galactic_bucket".into());
 
     let sprites = runtime_sprite_assets(&project, &textures, "window").unwrap();
     let sprite = sprites.get("backpack_galactic_bucket").unwrap();
@@ -60,15 +61,7 @@ fn resource_runtime_sprite_uses_decoded_pack_texture_metrics_when_available() {
 }
 
 fn empty_sprite_slot(name: &str, rect: Rect) -> SpriteSlotIr {
-    SpriteSlotIr {
-        name: name.into(),
-        rect,
-        align: Align::Center,
-        sprite: None,
-        repeat: None,
-        binding: None,
-        source: None,
-    }
+    SpriteSlotIr { name: name.into(), rect, align: Align::Center, source: None }
 }
 
 fn pickaxe_sprite() -> BTreeMap<String, RuntimeSpriteAsset> {
@@ -97,16 +90,7 @@ fn runtime_sprites_are_duplicated_by_y_font_not_texture() {
     let runtime_sprites = pickaxe_sprite();
 
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &TextFonts::new() };
-    let out = compile_layouts(
-        &[w],
-        &[],
-        &assets,
-        &BTreeMap::new(),
-        "window",
-        &PackTarget::default(),
-        &BuildOptions::default(),
-    )
-    .unwrap();
+    let out = compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
     let paths: Vec<&str> = out.files.iter().map(|f| f.path.as_str()).collect();
     assert!(paths.contains(&"assets/window/font/sprite_y0.json"));
     assert!(paths.contains(&"assets/window/font/sprite_y18.json"));
@@ -136,21 +120,11 @@ fn collection_selection_places_its_sprite_over_each_cell_box() {
         slots: vec![InventorySlotRef::container(9), InventorySlotRef::container(10)],
         selected_sprite: Some("pickaxe".into()),
         action: true,
-        repeat: None,
     }];
 
     let runtime_sprites = pickaxe_sprite();
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &TextFonts::new() };
-    let out = compile_layouts(
-        &[w],
-        &[],
-        &assets,
-        &BTreeMap::new(),
-        "window",
-        &PackTarget::default(),
-        &BuildOptions::default(),
-    )
-    .unwrap();
+    let out = compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
     let cells = &out.manifest.windows["shop"].collections["products"].selection;
     let boxes: Vec<_> = cells.iter().map(|cell| (cell.x, cell.y, cell.width, cell.height)).collect();
     assert_eq!(boxes, [(7, 35, 18, 18), (25, 35, 18, 18)]);

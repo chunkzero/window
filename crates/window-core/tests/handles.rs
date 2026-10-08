@@ -25,17 +25,21 @@ fn window(name: &str, container: &str, children: Value) -> Value {
 }
 
 fn project(windows: Value) -> Value {
-    json!({
-        "theme": {
-            "frames": { "button": { "kind": "button" } },
-            "sprites": { "selected": { "kind": "slot", "width": 18, "height": 18 } }
-        },
-        "windows": windows
-    })
+    json!({ "windows": windows })
 }
 
 fn slots(x: u32, width: u32) -> Value {
     json!({ "kind": "rect", "section": "container", "x": x, "y": 0, "width": width, "height": 1 })
+}
+
+/// A region in the first container row at `column` that runs `click`.
+fn region(click: Value, column: u32) -> Value {
+    json!({ "type": "region", "on_click": click, "layout": { "column": column + 1, "row": 1 } })
+}
+
+/// The container section holding `children`.
+fn section(children: Value) -> Value {
+    json!({ "type": "section", "section": "container", "claim": "none", "children": children })
 }
 
 fn assert_lines(source: &str, lines: &[&str]) {
@@ -69,17 +73,21 @@ fn every_handle_kind_declares_its_member_and_binds_each_use() {
                 { "type": "case", "value": "true", "children": [] },
                 { "type": "case", "value": "false", "children": [] }
             ] },
-            { "type": "button", "on_click": { "kind": "action", "id": "buy" }, "enabled": can_buy,
-              "states": { "enabled": {}, "disabled": { "tooltip": "Too poor" } }, "pattern": slots(0, 1) },
-            { "type": "button", "on_click": favorites, "states": { "on": {}, "off": {} }, "pattern": slots(1, 1) },
-            { "type": "button", "on_click": with("set", "all"), "states": { "selected": {}, "unselected": {} }, "pattern": slots(2, 1) },
-            { "type": "button", "on_click": with("set", "gear"), "pattern": slots(3, 1) },
-            { "type": "button", "on_click": { "kind": "action", "id": "trade" }, "state": mode,
-              "states": { "buy": {}, "sell": {} }, "pattern": slots(4, 1) },
-            { "type": "button", "on_click": { "kind": "builtin", "id": "window:close" }, "pattern": slots(5, 1) },
+            { "type": "switch", "handle": can_buy, "x": 140, "y": 60, "children": [
+                { "type": "case", "value": "true", "children": [] },
+                { "type": "case", "value": "false", "children": [] }
+            ] },
+            section(json!([
+                region(json!({ "kind": "action", "id": "buy" }), 0),
+                region(favorites, 1),
+                region(with("set", "all"), 2),
+                region(with("set", "gear"), 3),
+                region(json!({ "kind": "builtin", "id": "window:close" }), 5),
+            ])),
             { "type": "item", "handle": { "kind": "items", "id": "stack" }, "pattern": slots(6, 1) },
             { "type": "collection", "handle": { "kind": "collection", "id": "products", "selectable": true },
-              "selected_sprite": "selected", "pattern": { "kind": "rect", "section": "container", "x": 0, "y": 1, "width": 9, "height": 1 } }
+              "selected_sprite": { "art": "shape", "kind": "slot", "width": 18, "height": 18 },
+              "pattern": { "kind": "rect", "section": "container", "x": 0, "y": 1, "width": 9, "height": 1 } }
         ]),
     );
     let search =
@@ -102,18 +110,18 @@ fn every_handle_kind_declares_its_member_and_binds_each_use() {
             "protected open fun onFavoritesChanged(value: Boolean) {}",
             "protected abstract val products: WindowCollection<ItemStack>",
             "protected abstract fun onBuy(click: Click)",
-            "protected abstract fun onTrade(click: Click)",
             "slot(\"title\") { title() }",
             "sprite(\"icon\") { iconSprite()?.id }",
             "item(\"stack\") { stack() }",
             "switch(\"mode\") { mode().value }",
             "switch(\"category?gear\") { (category == Category.GEAR).toString() }",
-            "enabledButton(\"buy\", { canBuy() }, handler = ::onBuy)",
-            "toggle(\"favorites\", { favorites }) {",
-            "choice(\"category=all\", Category.ALL, { category }) { _value, _ ->",
-            "button(\"category=gear\") {",
-            "buttonState(\"trade\") { mode().value }",
-            "button(\"trade\", ::onTrade)",
+            "switch(\"can_buy\") { canBuy().toString() }",
+            "button(\"buy\", ::onBuy)",
+            "button(\"favorites\") { _ ->",
+            "    favorites = !favorites",
+            "button(\"category=all\") { _ ->",
+            "    if (category != Category.ALL) {",
+            "button(\"category=gear\") { _ ->",
             "collection(\"products\", products)",
             "public const val PRODUCTS_SIZE: Int = 9",
         ],
@@ -126,11 +134,11 @@ fn every_handle_kind_declares_its_member_and_binds_each_use() {
 }
 
 #[test]
-fn repeater_cells_read_indexed_handles_in_loops_with_shape_constants() {
+fn indexed_handles_bind_in_loops_with_shape_constants() {
     let cell = |i: u32| {
         json!([
-            { "type": "item", "handle": { "kind": "items", "id": "entry_stack", "shape": [2], "at": [i] }, "cell_slot": 1 },
-            { "type": "slot", "handle": { "kind": "text", "id": "entry_name", "shape": [2], "at": [i] }, "width": 30 }
+            { "type": "item", "handle": { "kind": "items", "id": "entry_stack", "shape": [2], "at": [i] }, "pattern": slots(3 * i, 1) },
+            { "type": "slot", "handle": { "kind": "text", "id": "entry_name", "shape": [2], "at": [i] }, "x": 8 + 54 * i, "y": 40, "width": 30 }
         ])
     };
     let lamp = |row: u32, column: u32| {
@@ -140,17 +148,11 @@ fn repeater_cells_read_indexed_handles_in_loops_with_shape_constants() {
                     { "type": "case", "value": "false", "children": [] }
                 ] })
     };
-    let shop = window(
-        "shop",
-        "generic_9x3",
-        json!([
-            { "type": "repeater", "on_click": { "kind": "action", "id": "pick", "shape": [2] },
-              "pattern": { "kind": "grid", "section": "container", "x": 0, "y": 0, "columns": 2, "rows": 1, "cell_width": 3, "cell_height": 1 },
-              "cells": [cell(0), cell(1)] },
-            lamp(0, 0),
-            lamp(0, 1)
-        ]),
-    );
+    let pick = |i: u32| json!({ "kind": "action", "id": "pick", "shape": [2], "at": [i] });
+    let [a, b] = [cell(0), cell(1)];
+    let mut children = vec![section(json!([region(pick(0), 1), region(pick(1), 4)])), lamp(0, 0), lamp(0, 1)];
+    children.extend(a.as_array().unwrap().iter().chain(b.as_array().unwrap()).cloned());
+    let shop = window("shop", "generic_9x3", Value::Array(children));
     let files = compile(&project(json!([shop]))).unwrap();
     let shop = &files["ShopView.kt"];
     assert_lines(
@@ -171,18 +173,6 @@ fn repeater_cells_read_indexed_handles_in_loops_with_shape_constants() {
             "public const val LAMP_COLUMNS: Int = 2",
         ],
     );
-
-    let short = window(
-        "short",
-        "generic_9x3",
-        json!([{ "type": "repeater", "name": "grid",
-            "pattern": { "kind": "grid", "section": "container", "x": 0, "y": 0, "columns": 2, "rows": 1, "cell_width": 1, "cell_height": 1 },
-            "cells": [
-                [{ "type": "item", "handle": { "kind": "items", "id": "cell", "shape": [3], "at": [0] }, "cell_slot": 1 }],
-                [{ "type": "item", "handle": { "kind": "items", "id": "cell", "shape": [3], "at": [1] }, "cell_slot": 1 }]
-            ] }]),
-    );
-    assert!(error(&project(json!([short]))).contains("has 3 entries, but the repeater rendering it has 2 cells"));
 }
 
 #[test]
@@ -226,71 +216,30 @@ fn handle_values_and_uses_are_checked() {
 }
 
 #[test]
-fn string_binds_keep_their_inferred_members_beside_handles() {
-    let shop = window(
-        "shop",
-        "generic_9x1",
-        json!([
-            { "type": "slot", "name": "balance", "x": 8, "y": 6, "width": 40 },
-            { "type": "slot", "handle": { "kind": "text", "id": "title" }, "x": 60, "y": 6, "width": 40 },
-            { "type": "button", "name": "exit", "default": "close", "pattern": slots(0, 1) },
-            { "type": "button", "name": "buy", "pattern": slots(1, 1) }
-        ]),
-    );
-    let files = compile(&project(json!([shop]))).unwrap();
-    assert_lines(
-        &files["ShopView.kt"],
-        &[
-            "protected abstract fun balance(): Component",
-            "protected abstract fun title(): Component",
-            "protected open fun onExit(click: Click): Unit = close()",
-            "protected abstract fun onBuy(click: Click)",
-            "slot(\"balance\") { balance() }",
-            "button(\"exit\", ::onExit)",
-        ],
-    );
-}
-
-#[test]
-fn selection_choices_do_not_shadow_state_named_value() {
+fn selection_clicks_assign_state_named_value() {
     let value = json!({ "kind": "selection", "id": "value", "values": ["a", "b"] });
     let tabs = window(
         "tabs",
         "generic_9x1",
-        json!([{ "type": "button", "on_click": { "kind": "selection", "id": "value", "values": ["a", "b"], "set": "a" },
-                 "states": { "selected": {}, "unselected": {} }, "pattern": slots(0, 1) },
+        json!([section(json!([region(json!({ "kind": "selection", "id": "value", "values": ["a", "b"], "set": "a" }), 0)])),
                { "type": "switch", "handle": value, "x": 8, "y": 6, "children": [
                  { "type": "case", "value": "a", "children": [] }, { "type": "case", "value": "b", "children": [] }] }]),
     );
     let files = compile(&project(json!([tabs]))).unwrap();
-    assert_lines(&files["TabsView.kt"], &["if (value != _value) {", "    value = _value"]);
+    assert_lines(&files["TabsView.kt"], &["if (value != Value.A) {", "    value = Value.A"]);
 }
 
 #[test]
 fn click_lambdas_do_not_shadow_state_named_it() {
     let toggle = json!({ "kind": "toggle", "id": "it" });
-    let other =
-        window("flip", "generic_9x1", json!([{ "type": "button", "on_click": toggle, "pattern": slots(0, 1) }]));
+    let other = window("flip", "generic_9x1", json!([section(json!([region(toggle, 0)]))]));
     let pick = json!({ "kind": "selection", "id": "pick", "values": ["a", "b"], "set": "a" });
     let named = json!({ "kind": "selection", "id": "it", "values": ["a", "b"], "set": "b" });
-    let tabs = window(
-        "tabs",
-        "generic_9x1",
-        json!([{ "type": "button", "on_click": named, "pattern": slots(1, 1) },
-               { "type": "button", "on_click": pick, "pattern": slots(2, 1) }]),
-    );
+    let tabs = window("tabs", "generic_9x1", json!([section(json!([region(named, 1), region(pick, 2)]))]));
     let mut files = compile(&project(json!([tabs]))).unwrap();
     files.extend(compile(&project(json!([other]))).unwrap());
     assert_lines(&files["FlipView.kt"], &["button(\"it\") { _ ->", "    it = !it"]);
     assert_lines(&files["TabsView.kt"], &["    if (it != It.B) {", "    it = It.B"]);
-}
-
-#[test]
-fn fixed_sprites_cannot_be_bound_to_handles() {
-    let icon = json!({ "type": "sprite_slot", "handle": { "kind": "sprite", "id": "icon" },
-                       "sprite": "icon_clear", "x": 0, "y": 0, "width": 8, "height": 8 });
-    let message = error(&project(json!([window("a", "generic_9x1", json!([icon]))])));
-    assert!(message.contains("sets a fixed `sprite`"), "{message}");
 }
 
 #[test]
@@ -304,7 +253,7 @@ fn nested_enums_cannot_shadow_runtime_types() {
 
 #[test]
 fn is_prefixed_toggles_claim_kotlins_real_accessor_names() {
-    let toggle = |id: &str, slot: u32| json!({ "type": "button", "on_click": { "kind": "toggle", "id": id }, "pattern": slots(slot, 1) });
+    let toggle = |id: &str, column: u32| section(json!([region(json!({ "kind": "toggle", "id": id }), column)]));
     let flag = |id: &str| {
         json!({ "type": "switch", "handle": { "kind": "flag", "id": id }, "x": 8, "y": 6, "children": [
             { "type": "case", "value": "true", "children": [] },
@@ -319,8 +268,7 @@ fn is_prefixed_toggles_claim_kotlins_real_accessor_names() {
 
 #[test]
 fn handle_names_cannot_clash_with_generated_accessors_or_the_companion() {
-    let toggle =
-        json!({ "type": "button", "on_click": { "kind": "toggle", "id": "favorites" }, "pattern": slots(0, 1) });
+    let toggle = section(json!([region(json!({ "kind": "toggle", "id": "favorites" }), 0)]));
     let flag = json!({ "type": "switch", "handle": { "kind": "flag", "id": "get_favorites" }, "x": 8, "y": 6, "children": [
         { "type": "case", "value": "true", "children": [] },
         { "type": "case", "value": "false", "children": [] }] });
@@ -332,28 +280,6 @@ fn handle_names_cannot_clash_with_generated_accessors_or_the_companion() {
                             "x": 8, "y": 6, "children": [{ "type": "case", "value": "a", "children": [] }] });
     let message = error(&project(json!([window("a", "generic_9x1", json!([companion]))])));
     assert!(message.contains("reserved WindowView member `Companion`"), "{message}");
-}
-
-#[test]
-fn runtime_action_buttons_select_state_cases_without_a_handler() {
-    let close = |extra: Value| {
-        let mut button = json!({ "type": "button", "on_click": { "kind": "builtin", "id": "window:close" },
-            "states": { "enabled": {}, "disabled": {} }, "pattern": slots(0, 1) });
-        button.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
-        button
-    };
-    let can_close = json!({ "kind": "flag", "id": "can_close" });
-    let files =
-        compile(&project(json!([window("gate", "generic_9x1", json!([close(json!({ "enabled": can_close }))]))])))
-            .unwrap();
-    let view = &files["GateView.kt"];
-    assert!(view.contains("buttonState(\"window:close\") { if (canClose()) \"enabled\" else \"disabled\" }"), "{view}");
-    assert!(!view.contains("enabledButton") && !view.contains("button(\"window:close\""), "{view}");
-    let entries = &files["WindowEntries.kt"];
-    let disabled = entries.split("\"window:close.disabled\" to").nth(1).unwrap().split("source =").next().unwrap();
-    assert!(disabled.contains("action = null") && disabled.contains("defaultAction = null"), "{disabled}");
-    let enabled = entries.split("\"window:close.enabled\" to").nth(1).unwrap().split("source =").next().unwrap();
-    assert!(enabled.contains("action = \"window:close\""), "{enabled}");
 }
 
 #[test]

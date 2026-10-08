@@ -3,7 +3,7 @@ package com.chunkzero.window
 import com.chunkzero.window.host.WindowHost
 import com.chunkzero.window.internal.LazyState
 import com.chunkzero.window.internal.Reactivity
-import com.chunkzero.window.internal.bindingSlot
+import com.chunkzero.window.internal.dynamicSlot
 import net.kyori.adventure.text.Component
 import kotlin.properties.ReadWriteProperty
 
@@ -105,31 +105,12 @@ public abstract class WindowView<I : Any>(
         requireSession().refreshAll()
     }
 
-    /** Sets or clears the item backing a button/hotspot hover region. */
-    protected fun buttonItem(
-        name: String,
-        item: I?,
-    ) {
-        requireSession().setButtonItem(name, item)
-    }
-
-    /** Sets or clears the item in a dynamic item region, including a repeater cell item. */
+    /** Sets or clears the item in a dynamic item region. */
     protected fun item(
         name: String,
         item: I?,
     ) {
         requireSession().setItem(name, item)
-    }
-
-    /**
-     * Uses one of the named manifest states declared by the Window source. A button's state is either
-     * bound in `bind()` or set here, never both: throws [IllegalStateException] if [name] is bound.
-     */
-    protected fun buttonState(
-        name: String,
-        state: String,
-    ) {
-        requireSession().setButtonState(name, state)
     }
 
     /**
@@ -143,21 +124,12 @@ public abstract class WindowView<I : Any>(
         requireSession().setInput(name, value)
     }
 
-    /** Sets or clears a tooltip on the invisible hitbox item for a button/hotspot. */
-    protected fun tooltip(
-        name: String,
-        tooltip: Tooltip?,
-    ) {
-        requireSession().setTooltip(name, tooltip)
-    }
-
     /**
      * [value] shortened with an ellipsis so that it, followed by [suffix], fits the width of slot [slot] when drawn in
      * its font and style; followed by [suffix], which is kept even when it alone is wider. Content that already fits is returned unchanged. Use it to keep a
      * suffix, such as a score, while shortening the text before it.
      *
-     * [slot] is the slot's authored name, or its flattened entry name such as `name[2]` for an indexed binding. A
-     * binding shared across a switch's cases measures with its copy in the first case that has one.
+     * [slot] is the slot's entry name, such as `name[2]` for one entry of an indexed handle.
      *
      * @throws IllegalArgumentException if [slot] is not a dynamic text slot of this window.
      */
@@ -168,7 +140,7 @@ public abstract class WindowView<I : Any>(
     ): Component {
         val entry = definition.entry
         return definition.composer.fit(
-            entry.slots.bindingSlot(slot, entry.switches, "window", definition.name),
+            entry.slots.dynamicSlot(slot, "window", definition.name),
             value,
             suffix,
         )

@@ -1,13 +1,13 @@
 import { root } from "./authoring/elements.ts";
 import { resolveTokens } from "./authoring/tokens.ts";
-import type { Art, Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
+import type { Art, Hud, TextFont, Window, WindowDocument } from "./authoring/types.ts";
 
 export interface WindowOptions {
     /** Namespace of the generated assets. Defaults to `window`. */
     namespace?: string;
     /** Emit HUD shader assets. */
     hudShaders?: boolean;
-    /** A 110x16 theme sprite that restyles every anvil's native text field; see docs/AUTHORING.md. */
+    /** A 110x16 catalog sprite that restyles every anvil's native text field; see docs/AUTHORING.md. */
     anvilFieldSprite?: string;
     /**
      * Experimental: let anvil input windows change their title at runtime. Each change reopens the anvil,
@@ -68,7 +68,7 @@ export type Compile = (
 ) => CompileOutput;
 
 export interface ProjectJson {
-    themes?: Theme[];
+    fonts?: Record<string, TextFont>;
     sprites?: Record<string, Art>;
     windows: Window[];
     huds: Hud[];
@@ -118,31 +118,34 @@ export function buildProject(
     options: WindowOptions,
     packFormat: number,
 ): ProjectJson {
-    const themes: Theme[] = [];
+    const fonts: Record<string, TextFont> = Object.create(null) as Record<string, TextFont>;
     const sprites: Record<string, Art> = Object.create(null) as Record<string, Art>;
     const windows: Window[] = [];
     const huds: Hud[] = [];
     for (const doc of documents) {
-        if (doc.theme !== undefined) {
-            themes.push(doc.theme);
+        for (const [name, font] of Object.entries(doc.fonts ?? {})) {
+            if (Object.hasOwn(fonts, name)) {
+                throw new Error(`fonts declare \`${name}\` twice`);
+            }
+            fonts[name] = font;
         }
         for (const [name, art] of Object.entries(doc.sprites ?? {})) {
             if (Object.hasOwn(sprites, name)) {
                 throw new Error(`sprite catalog declares \`${name}\` twice`);
             }
-            sprites[name] = art;
+            sprites[name] = resolveTokens(art);
         }
-        windows.push(...(doc.windows ?? []));
-        huds.push(...(doc.huds ?? []));
+        windows.push(...(doc.windows ?? []).map(resolveTokens));
+        huds.push(...(doc.huds ?? []).map(resolveTokens));
         if (doc.window !== undefined) {
-            windows.push(doc.window);
+            windows.push(resolveTokens(doc.window));
         }
         if (doc.hud !== undefined) {
-            huds.push(doc.hud);
+            huds.push(resolveTokens(doc.hud));
         }
     }
     return {
-        ...(themes.length > 0 ? { themes } : {}),
+        ...(Object.keys(fonts).length > 0 ? { fonts: { ...fonts } } : {}),
         ...(Object.keys(sprites).length > 0 ? { sprites: { ...sprites } } : {}),
         windows,
         huds,
@@ -167,16 +170,12 @@ function defaultExport(path: string, module: Record<string, unknown>): WindowDoc
 
 /** Per `defineWindows` list: the key of its documents and the key of one bare definition. */
 const LISTS = {
-    themes: ["theme", "theme"],
     windows: ["windows", "window"],
     huds: ["huds", "hud"],
 } as const;
 
 /** Whether `entry` is a bare definition for `list`: a window has a `container`, a HUD a `name` and no `container`. */
 function isDefinition(list: keyof typeof LISTS, entry: Fields): boolean {
-    if (list === "themes") {
-        return true;
-    }
     return typeof entry["name"] === "string" && "container" in entry === (list === "windows");
 }
 
@@ -194,10 +193,10 @@ function listDocuments(path: string, list: keyof typeof LISTS, entries: unknown)
             return { [documents]: listed[documents] };
         }
         const entry =
-            list !== "themes" && isFields(listed) && isDefinition(list, listed)
+            isFields(listed) && isDefinition(list, listed)
                 ? root(listed as unknown as Window | Hud, `${single} \`${String(listed["name"])}\``)
                 : resolveTokens(listed);
-        const other = isFields(entry) && ["theme", "windows", "huds"].some((key) => key in entry);
+        const other = isFields(entry) && ["windows", "huds"].some((key) => key in entry);
         if (!isFields(entry) || other || !isDefinition(list, entry)) {
             throw new Error(`${path}: defineWindows \`${list}\` entry ${i} is not a ${single} document`);
         }
@@ -208,15 +207,27 @@ function listDocuments(path: string, list: keyof typeof LISTS, entries: unknown)
 /** The documents of a `defineWindows` definition. */
 function entryDocuments(path: string, value: unknown): WindowDocument[] {
     if (!isFields(value)) {
-        throw new Error(`${path} must export default defineWindows({ themes, windows, huds })`);
+        throw new Error(`${path} must export default defineWindows({ windows, huds })`);
     }
-    const documents = (["themes", "windows", "huds"] as const).flatMap((key) => listDocuments(path, key, value[key]));
+    if (value["themes"] !== undefined) {
+        throw new Error(
+            `${path}: defineWindows no longer takes \`themes\`; use inline art, \`sprites\`, and \`fonts\``,
+        );
+    }
+    const documents = (["windows", "huds"] as const).flatMap((key) => listDocuments(path, key, value[key]));
     const sprites = value["sprites"];
     if (sprites !== undefined) {
         if (!isFields(sprites) || Array.isArray(sprites)) {
             throw new Error(`${path}: defineWindows \`sprites\` must map names to art`);
         }
         documents.push({ sprites: resolveTokens(sprites) as Record<string, Art> });
+    }
+    const fonts = value["fonts"];
+    if (fonts !== undefined) {
+        if (!isFields(fonts) || Array.isArray(fonts)) {
+            throw new Error(`${path}: defineWindows \`fonts\` must map names to fonts`);
+        }
+        documents.push({ fonts: fonts as Record<string, TextFont> });
     }
     return documents;
 }
@@ -240,7 +251,7 @@ function inlineTextures(value: unknown, out: string[]): string[] {
 
 /**
  * The definition documents and the compiler's source files: the non-TypeScript files under `window/` plus every
- * texture the themes reference. Everything under `window/` leaves the pack.
+ * texture id that art and fonts reference. Everything under `window/` leaves the pack.
  *
  * A `window/index.ts(x)` entry's `defineWindows` default export lists every document, and the other modules are
  * ordinary modules. Without one, every module under `window/` default-exports documents, read in path order, and
@@ -267,7 +278,7 @@ export function collectInputs(ctx: WindowContext): {
         if (modules.length > 0) {
             warnings.push(
                 "Window: no window/index.ts(x) entry; reading the default export of every file under window/. " +
-                    "Default-export defineWindows({ themes, windows, huds }) from window/index.ts(x) instead.",
+                    "Default-export defineWindows({ windows, huds }) from window/index.ts(x) instead.",
             );
         }
     }
@@ -289,7 +300,7 @@ export function collectInputs(ctx: WindowContext): {
         ctx.remove(path);
     }
     const textures = documents.flatMap((doc) => [
-        ...Object.values(doc.theme?.sprites ?? {}).map((sprite) => sprite.texture),
+        ...Object.values(doc.fonts ?? {}).map((font) => font.texture),
         ...inlineTextures(doc, []),
     ]);
     for (const texture of textures) {

@@ -12,7 +12,6 @@ fn sample() -> Manifest {
         sprites: BTreeMap::new(),
         windows: BTreeMap::from([("shop".into(), sample_window())]),
         huds: BTreeMap::new(),
-        colors: BTreeMap::new(),
     }
 }
 
@@ -35,17 +34,15 @@ fn sample_window() -> WindowEntry {
         static_text: "\u{E000}".into(),
         slots: BTreeMap::from([("title".into(), sample_title_slot())]),
         sprite_slots: BTreeMap::new(),
-        regions: BTreeMap::from([("buy.on".into(), sample_buy_region()), ("buy.off".into(), sample_buy_region())]),
+        regions: BTreeMap::from([("buy".into(), sample_buy_region()), ("buy~2".into(), sample_buy_region())]),
         items: BTreeMap::new(),
         collections: BTreeMap::new(),
         inputs: BTreeMap::new(),
-        groups: BTreeMap::new(),
         switches: BTreeMap::from([
-            ("mode".into(), switch(None, &[("shop", &[], &["buy"])])),
-            ("buy".into(), switch(Some("button `buy`"), &[("on", &["buy.on"], &[]), ("off", &["buy.off"], &[])])),
+            ("mode".into(), switch(&[("shop", &[], &["open"])])),
+            ("open".into(), switch(&[("true", &["buy"], &[]), ("false", &["buy~2"], &[])])),
         ]),
-        layers: vec![Layer::Switch("mode".into()), Layer::Switch("buy".into()), Layer::Slot("title".into())],
-        indexed: BTreeMap::new(),
+        layers: vec![Layer::Switch("mode".into()), Layer::Switch("open".into()), Layer::Slot("title".into())],
         handles: BTreeMap::new(),
     }
 }
@@ -67,7 +64,6 @@ fn sample_title_slot() -> SlotEntry {
         strikethrough: false,
         obfuscated: false,
         text: None,
-        binding: None,
         overflow: None,
         lines: None,
         source: None,
@@ -75,11 +71,9 @@ fn sample_title_slot() -> SlotEntry {
 }
 
 /// A switch with `(value, regions, switches)` cases.
-fn switch(source: Option<&str>, cases: &[(&str, &[&str], &[&str])]) -> SwitchEntry {
+fn switch(cases: &[(&str, &[&str], &[&str])]) -> SwitchEntry {
     let names = |names: &[&str]| names.iter().map(|name| name.to_string()).collect();
     SwitchEntry {
-        states: source.is_some(),
-        source: source.map(Into::into),
         cases: cases
             .iter()
             .map(|(value, regions, switches)| SwitchCaseEntry {
@@ -107,7 +101,7 @@ fn sample_buy_region() -> RegionEntry {
         action: Some("buy".into()),
         default_action: None,
         hitbox: Some(Hitbox { item_model: Some("demo:gui/buy".into()), tooltip: None }),
-        source: Some("button `buy`".into()),
+        source: Some("region `buy`".into()),
     }
 }
 
@@ -137,9 +131,9 @@ fn rejects_unknown_version() {
 #[test]
 fn case_paths_follow_nested_switches() {
     let paths = case_paths(&sample_window().switches).regions;
-    let on = &paths["buy.on"];
-    assert_eq!(on, &vec![("mode".to_string(), "shop".to_string()), ("buy".to_string(), "on".to_string())]);
-    assert!(exclusive_cases(on, &paths["buy.off"]));
+    let on = &paths["buy"];
+    assert_eq!(on, &vec![("mode".to_string(), "shop".to_string()), ("open".to_string(), "true".to_string())]);
+    assert!(exclusive_cases(on, &paths["buy~2"]));
     assert!(!exclusive_cases(on, &on[..1]));
     assert!(!exclusive_cases(on, &[]));
 }
