@@ -12,7 +12,6 @@ pub(super) fn validate_sprite_fonts(manifest: &Manifest, files: &BTreeMap<&str, 
     for (window_name, window) in &manifest.windows {
         let context = WindowSprites { manifest, window_name, window, expected_glyphs: &expected_glyphs, files };
         context.validate_slots(report);
-        context.validate_buttons(report);
     }
     validate_sprite_catalog(manifest, report);
 }
@@ -39,27 +38,6 @@ impl WindowSprites<'_> {
                     format!("manifest.windows.{window_name}.sprite_slots.{slot_name}.sprite"),
                     format!("unknown sprite `{sprite}`"),
                 );
-            }
-        }
-    }
-
-    fn validate_buttons(&self, report: &mut ValidationReport) {
-        let Self { manifest, window_name, window, .. } = self;
-        for (button_name, button) in &window.buttons {
-            if let Some(font) = &button.sprite_font {
-                let expected_ascent = i64::from(7 - (button.y - window.surface.title_origin[1]));
-                self.validate_font(font, expected_ascent, &format!("{window_name}.{button_name}"), report);
-            }
-            for (state_name, state) in &button.states {
-                if let Some(sprite) = &state.sprite
-                    && !manifest.sprites.contains_key(sprite)
-                {
-                    report.push(
-                        "sprite.reference.unknown",
-                        format!("manifest.windows.{window_name}.buttons.{button_name}.states.{state_name}.sprite"),
-                        format!("unknown sprite `{sprite}`"),
-                    );
-                }
             }
         }
     }

@@ -6,8 +6,8 @@ use crate::authoring::parse::{reject_unexpected_fields, validate_name};
 use crate::authoring::patterns::parse_slot_refs;
 use crate::geometry::{Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
-use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, Rgb};
-use crate::model::{CrossAlign, TextFit, TextStyle};
+use crate::ir::{Align, ButtonTooltip, CLOSE_ACTION, Rgb};
+use crate::model::{ControlState, CrossAlign, TextFit, TextStyle};
 use crate::{Error, Result, text_font};
 
 const PANEL_FIELDS: &[&str] = &["type", "frame", "width", "height", "x", "y", "padding", "children"];
@@ -34,6 +34,7 @@ const BUTTON_FIELDS: &[&str] = &[
     "states",
     "padding",
     "children",
+    "source",
 ];
 const HOTSPOT_FIELDS: &[&str] =
     &["type", "name", "width", "height", "x", "y", "slots", "pattern", "transform", "tooltip", "states"];
@@ -276,10 +277,11 @@ impl ElementDto {
         }
     }
 
-    pub(super) fn button_default(&self) -> Result<Option<ButtonDefault>> {
+    /// The runtime action a button's `default` names.
+    pub(super) fn default_action(&self) -> Result<Option<String>> {
         match self.default.as_deref() {
             None => Ok(None),
-            Some("close") => Ok(Some(ButtonDefault::Close)),
+            Some("close") => Ok(Some(CLOSE_ACTION.to_string())),
             Some(other) => Err(Error::Validation(format!("button element has unknown default `{other}`"))),
         }
     }
@@ -319,7 +321,7 @@ impl ElementDto {
         self.tooltip.clone().map(TooltipDto::into_tooltip).transpose()
     }
 
-    pub(super) fn states(&self) -> Result<BTreeMap<String, ButtonState>> {
+    pub(super) fn states(&self) -> Result<BTreeMap<String, ControlState>> {
         let mut states = BTreeMap::new();
         for (name, state) in &self.states {
             validate_name(name, "button state")?;

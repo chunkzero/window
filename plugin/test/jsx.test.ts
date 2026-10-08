@@ -109,10 +109,14 @@ test("handle props serialize the handle in place of a name", () => {
     });
     const buy = action("buy");
     const canBuy = flag("can_buy");
-    const button = Button({ onClick: buy, enabled: canBuy, disabled: { tooltip: "Too poor" } });
+    const button = Button({
+        onClick: buy,
+        enabled: canBuy,
+        disabled: { frame: "button_disabled", tooltip: "Too poor" },
+    });
     assert.ok(button.type === "button");
     assert.equal(button.name, undefined);
-    assert.deepEqual(button.states, { enabled: {}, disabled: { tooltip: "Too poor" } });
+    assert.deepEqual(button.states, { enabled: {}, disabled: { frame: "button_disabled", tooltip: "Too poor" } });
     assert.deepEqual(fields(button)["enabled"], { kind: "flag", id: "can_buy" });
     const close = fields(Button({ close: true }));
     assert.deepEqual(close["on_click"], { kind: "builtin", id: "window:close" });
@@ -122,6 +126,10 @@ test("handle props serialize the handle in place of a name", () => {
 test("selection helpers carry the compared or assigned value", () => {
     const category = selection("category", ["all", "gear"], { initial: "gear" });
     const tabs = Tabs({ bind: category, children: (value) => Text({ children: value }) });
+    assert.deepEqual(
+        tabs.map((tab) => fields(tab)["source"]),
+        ["tab", "tab"],
+    );
     assert.deepEqual(
         tabs.map((tab) => fields(tab)["on_click"]),
         ["all", "gear"].map((set) => ({

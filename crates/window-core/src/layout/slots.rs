@@ -1,5 +1,5 @@
+use super::Solver;
 use super::target::LayoutTarget;
-use super::{ActiveCase, Solver};
 use crate::Result;
 use crate::error::Error;
 use crate::geometry::{Point, Rect, Size};
@@ -169,18 +169,18 @@ impl<T: LayoutTarget> Solver<'_, T> {
     }
 
     /// The emitted name for `name`: prefixed by the active repeater group and suffixed by its cell index, or
-    /// `{name}.{case}` for a binding shared across the cases of the active switch.
+    /// `{name}.{case path}` for a binding shared across mutually exclusive switch cases.
     pub(super) fn scoped_name(&self, name: &str) -> String {
         match (self.active_repeat.as_ref().filter(|repeat| repeat.scoped), self.case_binding(name)) {
             (Some(repeat), _) => format!("{}_{}_{}", repeat.group, name, repeat.index),
-            (None, Some(case)) => format!("{name}.{}", case.value),
+            (None, Some(binding)) => format!("{binding}.{}", self.case_path.join(".")),
             (None, None) => name.to_string(),
         }
     }
 
-    /// The active switch case when `name` is a binding shared across that switch's cases.
-    pub(super) fn case_binding(&self, name: &str) -> Option<&ActiveCase> {
-        self.active_case.as_ref().filter(|case| case.shared.contains(name))
+    /// The binding `name` shares across switch cases, when it is shared and emitted inside a case.
+    pub(super) fn case_binding(&self, name: &str) -> Option<String> {
+        (!self.case_path.is_empty() && self.shared.contains(name)).then(|| name.to_string())
     }
 
     pub(super) fn repeat_binding(&self, field: &str) -> Option<RepeatBindingIr> {

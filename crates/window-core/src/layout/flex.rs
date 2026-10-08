@@ -10,10 +10,10 @@ use taffy::style_helpers::{TaffyAuto, TaffyGridLine, TaffyGridSpan, TaffyMaxCont
 use taffy::{AvailableSpace, Dimension, FlexDirection, GridPlacement, LengthPercentageAuto, Line, NodeId, TaffyTree};
 
 use super::target::LayoutTarget;
-use super::{ActiveCase, Solver, pos_of};
+use super::{Solver, pos_of};
 use crate::geometry::{Point, Rect, Size};
 use crate::inventory::{SlotGridPattern, SlotPattern, SlotRectClaim, SlotRectPattern};
-use crate::ir::{SwitchCaseIr, SwitchIr};
+use crate::ir::{Layer, SwitchCaseIr, SwitchIr};
 use crate::model::{Element, FlexBox, ItemLayout, SlotSection, Switch};
 use crate::{Error, Result};
 
@@ -136,7 +136,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         tree.new_with_children(style, &cases).map_err(|e| self.taffy_err(e))
     }
 
-    /// Rejects slot-bound controls and nested switches inside `switch`'s cases.
+    /// Rejects slot-bound controls inside `switch`'s cases.
     fn check_switch(&self, switch: &Switch) -> Result<()> {
         for case in &switch.cases {
             for child in &case.body.children {
@@ -216,37 +216,65 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(rect)
     }
 
-    /// Emits each case box over the switch rect, collecting its draws and text regions into its own case.
+    /// Emits each case box over the switch rect, collecting its draws and the regions directly inside it into its
+    /// own case.
     fn emit_switch(&mut self, tree: &Tree, id: NodeId, switch: &Switch, parent: Point) -> Result<Rect> {
         if let Some(repeat) = self.active_repeat.as_ref().filter(|repeat| repeat.scoped) {
             return Err(self
                 .target
                 .layout_err(format!("switch `{}` cannot be inside repeater `{}`", switch.name, repeat.group)));
         }
-        self.register_name(&switch.name)?;
-        let shared = shared_bindings(switch).map_err(|message| self.target.layout_err(message))?;
-        for name in &shared {
-            self.register_name(name)?;
-        }
+        let key = self.scoped_name(&switch.name);
+        let binding = self.case_binding(&switch.name);
+        self.register_name(&key)?;
+        self.layers.push(Layer::Switch(key.clone()));
         let rect = self.node_rect(tree, id, parent)?;
         let ids = tree.children(id).map_err(|e| self.taffy_err(e))?;
         let mut cases = Vec::with_capacity(switch.cases.len());
         for (case, case_id) in switch.cases.iter().zip(ids) {
-            let outer_draws = std::mem::take(&mut self.draws);
-            let (slots, sprite_slots) = (self.slots.len(), self.sprite_slots.len());
-            self.active_case = Some(ActiveCase { value: case.value.clone(), shared: shared.iter().cloned().collect() });
-            let emitted = self.emit_box(tree, case_id, &case.body, rect.origin());
-            self.active_case = None;
-            emitted?;
-            cases.push(SwitchCaseIr {
-                value: case.value.clone(),
-                draws: std::mem::replace(&mut self.draws, outer_draws),
-                slots: self.slots[slots..].iter().map(|slot| slot.name.clone()).collect(),
-                sprite_slots: self.sprite_slots[sprite_slots..].iter().map(|slot| slot.name.clone()).collect(),
-            });
+            self.case_path.push(case.value.clone());
+            let emitted =
+                self.emit_case(&case.value, |s| s.emit_box(tree, case_id, &case.body, rect.origin()).map(|_| ()));
+            self.case_path.pop();
+            cases.push(emitted?);
         }
-        self.switches.push(SwitchIr { name: switch.name.clone(), cases });
+        self.switches.push(SwitchIr { name: key, binding, states: false, initial: None, source: None, cases });
         Ok(rect)
+    }
+
+    /// Runs `emit` as switch case `value`: its draws, and the slots, sprite slots, regions, and switches it emits
+    /// outside any nested switch, become the case.
+    pub(super) fn emit_case(
+        &mut self,
+        value: &str,
+        emit: impl FnOnce(&mut Self) -> Result<()>,
+    ) -> Result<SwitchCaseIr> {
+        let outer_draws = std::mem::take(&mut self.draws);
+        let starts = (self.slots.len(), self.sprite_slots.len(), self.regions.len(), self.switches.len());
+        let emitted = emit(self);
+        let draws = std::mem::replace(&mut self.draws, outer_draws);
+        emitted?;
+        let nested = &self.switches[starts.3..];
+        let inner = |pick: fn(&SwitchCaseIr) -> &Vec<String>| -> BTreeSet<&String> {
+            nested.iter().flat_map(|switch| switch.cases.iter().flat_map(pick)).collect()
+        };
+        let direct = |names: Vec<&String>, inner: BTreeSet<&String>| -> Vec<String> {
+            names.into_iter().filter(|name| !inner.contains(name)).cloned().collect()
+        };
+        Ok(SwitchCaseIr {
+            value: value.to_string(),
+            draws,
+            slots: direct(self.slots[starts.0..].iter().map(|slot| &slot.name).collect(), inner(|c| &c.slots)),
+            sprite_slots: direct(
+                self.sprite_slots[starts.1..].iter().map(|slot| &slot.name).collect(),
+                inner(|c| &c.sprite_slots),
+            ),
+            regions: direct(
+                self.regions[starts.2..].iter().map(|region| &region.name).collect(),
+                inner(|c| &c.regions),
+            ),
+            switches: direct(nested.iter().map(|switch| &switch.name).collect(), inner(|c| &c.switches)),
+        })
     }
 
     /// Emits a leaf in its solved box: text takes the box width and is vertically centered, and other
@@ -406,7 +434,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 width: dims.width,
                 height: dims.height,
             });
-            self.place_slot_rects(&format!("{label}_section"), None, &all, section.claim)?;
+            self.place_slot_rects(&format!("{label}_section"), &format!("{label} section"), None, &all, section.claim)?;
         }
         Ok(Size::new(0, 0))
     }
@@ -611,7 +639,11 @@ fn case_conflict(el: &Element, switch: &str) -> Option<String> {
             ));
         }
         Element::Switch(inner) => {
-            return Some(format!("switch `{}` cannot be nested inside switch `{switch}`", inner.name));
+            return inner
+                .cases
+                .iter()
+                .flat_map(|case| &case.body.children)
+                .find_map(|c| case_conflict(&c.element, switch));
         }
         Element::Flex(node) => return node.children.iter().find_map(|c| case_conflict(&c.element, switch)),
         Element::Panel { children, .. } | Element::Row { children, .. } | Element::Column { children, .. } => children,
@@ -620,55 +652,107 @@ fn case_conflict(el: &Element, switch: &str) -> Option<String> {
     children.iter().find_map(|c| case_conflict(c, switch))
 }
 
-/// The bindings that appear in more than one case of `switch`. Each case emits its copy as `{name}.{case}`, so a
-/// shared binding may appear only once per case and must be the same kind in every case.
-fn shared_bindings(switch: &Switch) -> std::result::Result<BTreeSet<String>, String> {
-    let mut found: BTreeMap<String, (&'static str, usize)> = BTreeMap::new();
-    let mut repeated: Vec<(String, &str)> = Vec::new();
-    for case in &switch.cases {
-        let mut names = Vec::new();
-        for child in &case.body.children {
-            case_bindings(&child.element, &mut names);
-        }
-        let mut seen = BTreeSet::new();
-        for (name, kind) in names {
-            let (first_kind, cases) = found.entry(name.clone()).or_insert((kind, 0));
-            if *first_kind != kind {
-                return Err(format!(
-                    "binding `{name}` is a {first_kind} in one case of switch `{}` and a {kind} in another",
-                    switch.name
-                ));
-            }
-            if seen.insert(name.clone()) {
-                *cases += 1;
-            } else {
-                repeated.push((name, &case.value));
-            }
-        }
-    }
-    let shared: BTreeSet<String> =
-        found.into_iter().filter(|(_, (_, cases))| *cases > 1).map(|(name, _)| name).collect();
-    if let Some((name, case)) = repeated.into_iter().find(|(name, _)| shared.contains(name)) {
-        return Err(format!("binding `{name}` appears more than once in case `{case}` of switch `{}`", switch.name));
-    }
-    Ok(shared)
+/// One authored use of a binding name: its kind and the switch cases it sits in, outermost first, each as
+/// `(switch occurrence, switch name, case value)`.
+struct Occurrence<'e> {
+    kind: &'static str,
+    path: Vec<(usize, &'e str, &'e str)>,
 }
 
-/// The text slot and runtime sprite slot bindings in `el`, with their kind.
-fn case_bindings(el: &Element, out: &mut Vec<(String, &'static str)>) {
-    let children: &[Element] = match el {
-        Element::Slot { name, .. } => return out.push((name.clone(), "text slot")),
-        Element::SpriteSlot { name, sprite: None, .. } => return out.push((name.clone(), "sprite slot")),
-        Element::Flex(node) => {
-            for child in &node.children {
-                case_bindings(&child.element, out);
+/// Whether two case paths can never be active together: they pick different cases of one switch occurrence.
+fn exclusive(a: &[(usize, &str, &str)], b: &[(usize, &str, &str)]) -> bool {
+    for (x, y) in a.iter().zip(b) {
+        if x.0 != y.0 {
+            return false;
+        }
+        if x.2 != y.2 {
+            return true;
+        }
+    }
+    false
+}
+
+impl<T: LayoutTarget> Solver<'_, T> {
+    /// Finds the bindings whose every use sits in a mutually exclusive switch case, so that each copy is keyed by its
+    /// case path and shares the binding, and reserves their names.
+    pub(super) fn share_bindings(&mut self, children: &[Element]) -> Result<()> {
+        let mut found: BTreeMap<&str, Vec<Occurrence<'_>>> = BTreeMap::new();
+        let mut switches = 0;
+        for child in children {
+            collect_bindings(child, &mut Vec::new(), &mut switches, &mut found);
+        }
+        for (name, uses) in &found {
+            if uses.len() < 2 {
+                continue;
+            }
+            let pairs = || (0..uses.len()).flat_map(|i| (i + 1..uses.len()).map(move |j| (&uses[i], &uses[j])));
+            if pairs().all(|(a, b)| exclusive(&a.path, &b.path)) {
+                if let Some((a, b)) = pairs().find(|(a, b)| a.kind != b.kind) {
+                    let switch = a.path.iter().zip(&b.path).find(|(x, y)| x.2 != y.2).map_or("", |(x, _)| x.1);
+                    return Err(self.target.layout_err(format!(
+                        "binding `{name}` is a {} in one case of switch `{switch}` and a {} in another",
+                        a.kind, b.kind
+                    )));
+                }
+                self.shared.insert(name.to_string());
+            } else if pairs().any(|(a, b)| exclusive(&a.path, &b.path)) {
+                let (a, b) = pairs().find(|(a, b)| !exclusive(&a.path, &b.path)).expect("a pair is not exclusive");
+                let common = a.path.iter().zip(&b.path).take_while(|(x, y)| x == y).last().map(|(x, _)| x);
+                return Err(self.target.layout_err(match common {
+                    Some((_, switch, case)) => {
+                        format!("binding `{name}` appears more than once in case `{case}` of switch `{switch}`")
+                    }
+                    None => {
+                        let switch = a.path.first().or(b.path.first()).map_or("", |x| x.1);
+                        format!("binding `{name}` appears both inside and outside the cases of switch `{switch}`")
+                    }
+                }));
+            }
+        }
+        for name in self.shared.clone() {
+            self.register_name(&name)?;
+        }
+        Ok(())
+    }
+}
+
+/// Records the text slot, runtime sprite slot, and switch bindings in `el` whose names are not scoped by a
+/// repeater, with the case path `path` of each.
+fn collect_bindings<'e>(
+    el: &'e Element,
+    path: &mut Vec<(usize, &'e str, &'e str)>,
+    switches: &mut usize,
+    found: &mut BTreeMap<&'e str, Vec<Occurrence<'e>>>,
+) {
+    let mut record = |name: &'e str, kind: &'static str, path: &[(usize, &'e str, &'e str)]| {
+        found.entry(name).or_default().push(Occurrence { kind, path: path.to_vec() });
+    };
+    let children: Vec<&Element> = match el {
+        Element::Slot { name, .. } => return record(name, "text slot", path),
+        Element::SpriteSlot { name, sprite: None, .. } => return record(name, "sprite slot", path),
+        Element::Switch(switch) => {
+            record(&switch.name, "switch", path);
+            let id = *switches;
+            *switches += 1;
+            for case in &switch.cases {
+                path.push((id, &switch.name, &case.value));
+                for child in &case.body.children {
+                    collect_bindings(&child.element, path, switches, found);
+                }
+                path.pop();
             }
             return;
         }
-        Element::Panel { children, .. } | Element::Row { children, .. } | Element::Column { children, .. } => children,
-        _ => &[],
+        Element::Flex(node) => node.children.iter().map(|child| &child.element).collect(),
+        Element::Section(section) => section.children.iter().map(|child| &child.element).collect(),
+        Element::Panel { children, .. }
+        | Element::Row { children, .. }
+        | Element::Column { children, .. }
+        | Element::Button { children, .. } => children.iter().collect(),
+        Element::Repeater { cells: Some(cells), .. } => cells.children.iter().flatten().collect(),
+        _ => Vec::new(),
     };
     for child in children {
-        case_bindings(child, out);
+        collect_bindings(child, path, switches, found);
     }
 }

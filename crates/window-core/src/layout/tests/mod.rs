@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 
 use crate::authoring::{ParsedProject, project_from_json};
 use crate::geometry::{Rect, Size};
-use crate::ir::{Align, Draw, LaidOutWindow, Rgb};
+use crate::ir::{Align, Draw, LaidOutWindow, Layer, Rgb};
 use crate::{text_font, vanilla};
 
 /// Solve `project` with the bundled text fonts.

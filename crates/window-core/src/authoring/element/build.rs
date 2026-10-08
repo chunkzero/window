@@ -84,9 +84,10 @@ impl ElementDto {
             slots: self.slots()?,
             pattern: self.pattern()?,
             padding: self.padding,
-            default: self.button_default()?,
+            default_action: self.default_action()?,
             tooltip: self.tooltip()?,
             states: self.states()?,
+            source: self.source.clone(),
             children: convert_children(self.children)?,
         })
     }

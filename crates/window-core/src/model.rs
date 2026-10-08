@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
-use crate::ir::{Align, ButtonDefault, ButtonState, ButtonTooltip, Handle, HudChannel, HudShader, IndexedBinding, Rgb};
+use crate::ir::{Align, ButtonTooltip, Handle, HudChannel, HudShader, IndexedBinding, Rgb};
 use crate::surface::ContainerKind;
 
 mod flex;
@@ -205,6 +205,19 @@ pub struct RepeaterCells {
     pub action: bool,
 }
 
+/// One named state of a button or hotspot.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ControlState {
+    /// Item model id of the hitbox item, e.g. `example:gui/shop_button_active`.
+    pub item_model: Option<String>,
+    /// Theme frame drawn over the control rect instead of the control's own frame.
+    pub frame: Option<String>,
+    /// Theme sprite drawn at the control's top-left corner.
+    pub sprite: Option<String>,
+    /// Tooltip override.
+    pub tooltip: Option<ButtonTooltip>,
+}
+
 /// An element of the authored tree.
 #[derive(Clone, Debug)]
 pub enum Element {
@@ -286,12 +299,14 @@ pub enum Element {
         pattern: Option<SlotPattern>,
         /// Inner padding.
         padding: u32,
-        /// Built-in default behavior, if any.
-        default: Option<ButtonDefault>,
+        /// The runtime action run when no click handler is bound, such as `window:close`.
+        default_action: Option<String>,
         /// Default tooltip shown when hovering the button.
         tooltip: Option<ButtonTooltip>,
-        /// Named inventory item states for dynamic visual/tooltip toggles.
-        states: BTreeMap<String, ButtonState>,
+        /// Named states, each drawn and hovered only while selected.
+        states: BTreeMap<String, ControlState>,
+        /// The authored widget kind this button comes from, such as `tab`; `None` for a plain button.
+        source: Option<String>,
         /// Visual children (centered content lives here).
         children: Vec<Element>,
     },
@@ -311,8 +326,8 @@ pub enum Element {
         pattern: Option<SlotPattern>,
         /// Default tooltip shown when hovering the hotspot.
         tooltip: Option<ButtonTooltip>,
-        /// Named inventory item states for dynamic visual/tooltip toggles.
-        states: BTreeMap<String, ButtonState>,
+        /// Named states, each hovered only while selected.
+        states: BTreeMap<String, ControlState>,
     },
     /// A dynamic inventory item region with no click handler.
     Item {

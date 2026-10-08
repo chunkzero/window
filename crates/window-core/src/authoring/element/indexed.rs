@@ -9,22 +9,27 @@ use crate::{Error, Result};
 struct Family {
     kind: IndexedKind,
     rank: usize,
-    /// Each authored index and the switch cases it appears in; `None` outside any switch case.
-    seen: BTreeMap<Vec<u32>, Vec<Option<CaseScope>>>,
+    /// Each authored index and the case path of every use.
+    seen: BTreeMap<Vec<u32>, Vec<CasePath>>,
     /// Case values of a switch family, in authoring order.
     cases: Vec<String>,
 }
 
-/// Where an element sits: its enclosing repeater, its closest switch, and the switch case it is in, with each
-/// switch numbered in authoring order.
+/// Where an element sits: its enclosing repeater, its closest switch, and the switch cases it is in, outermost
+/// first, with each switch numbered in authoring order.
 #[derive(Clone, Default)]
 struct Scope {
     repeater: Option<String>,
     switch: Option<usize>,
-    case: Option<CaseScope>,
+    path: CasePath,
 }
 
-type CaseScope = (usize, String);
+type CasePath = Vec<(usize, String)>;
+
+/// Whether two case paths can never be active together: they pick different cases of one switch.
+fn exclusive(a: &CasePath, b: &CasePath) -> bool {
+    a.iter().zip(b).find(|(x, y)| x != y).is_some_and(|(x, y)| x.0 == y.0)
+}
 
 /// Renames every element authored with an `index` to its flattened entry name and returns the families by name.
 ///
@@ -60,7 +65,7 @@ fn collect(
             *switches += 1;
             inner.switch = Some(*switches);
         }
-        "case" => inner.case = inner.switch.zip(dto.value.clone()),
+        "case" => inner.path.extend(inner.switch.zip(dto.value.clone())),
         _ => {}
     }
     for child in &mut dto.children {
@@ -123,18 +128,12 @@ fn flatten(
             "{owner}: indexed switch `{name}` must use the same case values at every index"
         )));
     }
-    // An index may repeat only once in each case of one switch, where the copies share the entry's binding.
-    let scopes = family.seen.entry(index.to_vec()).or_default();
-    let repeats = match &scope.case {
-        Some((switch, case)) => {
-            !scopes.iter().all(|other| other.as_ref().is_some_and(|(other, value)| other == switch && value != case))
-        }
-        None => !scopes.is_empty(),
-    };
-    if repeats {
+    // An index may repeat only in mutually exclusive switch cases, where the copies share the entry's binding.
+    let paths = family.seen.entry(index.to_vec()).or_default();
+    if !paths.iter().all(|other| exclusive(other, &scope.path)) {
         return Err(Error::Validation(format!("{owner}: indexed binding `{name}` repeats index {index:?}")));
     }
-    scopes.push(scope.case.clone());
+    paths.push(scope.path.clone());
     Ok(name)
 }
 

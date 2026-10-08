@@ -133,7 +133,11 @@ fn bindings_shared_across_cases_key_each_copy_by_case() {
             json!({ "type": "column" }),
             "binding `status` is a sprite slot in one case of switch `kind` and a text slot in another",
         ),
-        (status, json!({ "type": "slot", "name": "status", "width": 40 }), "duplicate name `status`"),
+        (
+            status,
+            json!({ "type": "slot", "name": "status", "width": 40 }),
+            "binding `status` appears both inside and outside the cases of switch `kind`",
+        ),
     ];
     for (good, extra, message) in cases {
         let err = solve(&themed(json!({}), switch(good, extra)), &sizes(&[])).unwrap_err();
@@ -156,12 +160,11 @@ fn indexed_bindings_repeat_once_per_case_and_fixed_sprites_do_not_share() {
     let power = |i: u32| json!({ "type": "slot", "name": "power", "index": i, "width": 9 });
     let project = themed(json!({}), cases(json!([power(0), power(1)]), json!([power(0), power(1)])));
     assert_eq!(project.windows[0].indexed["power"].shape, vec![2]);
-    // A switch nested in the first case must not move the second case to another switch.
+    // A switch nested in the first case does not move the second case to another switch.
     let inner =
         json!({ "type": "switch", "name": "inner", "children": [{ "type": "case", "value": "on", "children": [] }] });
     let nested = themed(json!({}), cases(json!([power(0), inner, power(1)]), json!([power(0), power(1)])));
-    let err = solve(&nested, &sizes(&[])).unwrap_err();
-    assert!(err.to_string().contains("switch `inner` cannot be nested"), "{err}");
+    assert_eq!(solve_one(nested, &sizes(&[])).switches[1].cases[0].switches, vec!["inner"]);
     let laid = solve_one(project, &sizes(&[]));
     let keys: Vec<(&str, Option<&str>)> =
         laid.slots.iter().map(|slot| (slot.name.as_str(), slot.binding.as_deref())).collect();
@@ -188,4 +191,99 @@ fn indexed_bindings_repeat_once_per_case_and_fixed_sprites_do_not_share() {
     let both = cases(json!([icon(None)]), json!([icon(None), { "type": "column", "children": [icon(Some("dot"))] }]));
     let err = solve(&themed(theme, both), &sizes(&[])).unwrap_err();
     assert!(err.to_string().contains("duplicate name `icon`"), "{err}");
+}
+
+/// `{ outer: a { slot status, inner: x { slot status, sprite_slot status_icon } | y { slot status } } | b { slot status } }`
+fn nested_switches() -> serde_json::Value {
+    let status = json!({ "type": "slot", "name": "status", "width": 40 });
+    json!([{
+        "type": "switch",
+        "name": "outer",
+        "children": [
+            { "type": "case", "value": "a", "children": [{
+                "type": "switch",
+                "name": "inner",
+                "children": [
+                    { "type": "case", "value": "x", "children": [
+                        status,
+                        { "type": "sprite_slot", "name": "icon", "width": 8, "height": 8 },
+                    ] },
+                    { "type": "case", "value": "y", "children": [status] },
+                ],
+            }, { "type": "label", "text": "A" }] },
+            { "type": "case", "value": "b", "children": [status] },
+        ],
+    }])
+}
+
+#[test]
+fn nested_switches_key_shared_bindings_by_their_case_path() {
+    let laid = solve_one(themed(json!({}), nested_switches()), &sizes(&[]));
+    let keys: Vec<(&str, Option<&str>)> =
+        laid.slots.iter().map(|slot| (slot.name.as_str(), slot.binding.as_deref())).collect();
+    assert_eq!(
+        keys,
+        vec![
+            ("status.a.x", Some("status")),
+            ("status.a.y", Some("status")),
+            ("label_0", None),
+            ("status.b", Some("status")),
+        ]
+    );
+    let [inner, outer] = laid.switches.as_slice() else { panic!("two switches") };
+    assert_eq!((inner.name.as_str(), outer.name.as_str()), ("inner", "outer"));
+    // A case lists only what sits directly in it; the nested switch's entries stay with its own cases.
+    assert_eq!(outer.cases[0].slots, vec!["label_0"]);
+    assert_eq!(outer.cases[0].switches, vec!["inner"]);
+    assert_eq!(outer.cases[1].slots, vec!["status.b"]);
+    assert_eq!(inner.cases[0].slots, vec!["status.a.x"]);
+    assert_eq!(inner.cases[0].sprite_slots, vec!["icon"]);
+}
+
+#[test]
+fn bindings_repeated_in_one_nested_case_are_rejected() {
+    let status = json!({ "type": "slot", "name": "status", "width": 40 });
+    let children = json!([{
+        "type": "switch",
+        "name": "outer",
+        "children": [
+            { "type": "case", "value": "a", "children": [status, {
+                "type": "switch",
+                "name": "inner",
+                "children": [{ "type": "case", "value": "x", "children": [status] }],
+            }] },
+            { "type": "case", "value": "b", "children": [status] },
+        ],
+    }]);
+    let err = solve(&themed(json!({}), children), &sizes(&[])).unwrap_err();
+    assert!(err.to_string().contains("binding `status` appears more than once in case `a` of switch `outer`"), "{err}");
+}
+
+#[test]
+fn indexed_families_repeat_only_along_exclusive_case_paths() {
+    let power = json!({ "type": "slot", "name": "power", "index": 0, "width": 9 });
+    let nested = |inner_cases: serde_json::Value, outer_extra: serde_json::Value| {
+        json!({ "windows": [{ "name": "s", "container": "generic_9x3", "children": [{
+            "type": "switch",
+            "name": "outer",
+            "children": [
+                { "type": "case", "value": "a", "children": [outer_extra, {
+                    "type": "switch", "name": "inner", "children": inner_cases,
+                }] },
+                { "type": "case", "value": "b", "children": [power] },
+            ],
+        }] }] })
+        .to_string()
+    };
+    let cases = json!([
+        { "type": "case", "value": "x", "children": [power] },
+        { "type": "case", "value": "y", "children": [power] },
+    ]);
+    let project = super::project_from_json(nested(cases.clone(), json!({ "type": "column" })).as_bytes()).unwrap();
+    let laid = solve_one(project, &sizes(&[]));
+    let keys: Vec<&str> = laid.slots.iter().map(|slot| slot.name.as_str()).collect();
+    assert_eq!(keys, ["power[0].a.x", "power[0].a.y", "power[0].b"]);
+
+    let err = super::project_from_json(nested(cases, power.clone()).as_bytes()).unwrap_err();
+    assert!(err.to_string().contains("indexed binding `power` repeats index [0]"), "{err}");
 }

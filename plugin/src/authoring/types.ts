@@ -140,7 +140,9 @@ export interface Tooltip {
 export interface ButtonState {
     /** Item model id, e.g. "example:gui/shop_button_active". */
     item_model?: string;
-    /** Theme sprite name drawn in this state. */
+    /** Theme frame drawn over the button instead of its `frame` in this state. */
+    frame?: string;
+    /** Theme sprite name drawn at the button's top-left corner in this state. */
     sprite?: string;
     tooltip?: string | Tooltip;
 }
@@ -493,6 +495,8 @@ export interface SpriteSlotElement extends SpriteSlotOptions {
 export interface ButtonElement extends ButtonOptions {
     type: "button";
     name: string;
+    /** The widget kind that produced this button, such as `"toggle"`, for diagnostics. */
+    source?: string;
 }
 export interface HotspotElement extends HotspotOptions {
     type: "hotspot";

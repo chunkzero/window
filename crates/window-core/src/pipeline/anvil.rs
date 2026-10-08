@@ -66,13 +66,20 @@ pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut 
     }
     let slots = w.slots.iter().filter(|slot| slot.text.is_none()).map(|slot| &slot.name);
     let sprites = w.sprite_slots.iter().filter(|slot| slot.sprite.is_none()).map(|slot| &slot.name);
-    let buttons = w.buttons.iter().filter(|button| button.states.values().any(|state| state.sprite.is_some()));
     let collections = w.collections.iter().filter(|collection| collection.selected_sprite.is_some());
+    // A switch whose cases only swap regions changes inventory items, not the title.
+    let drawing = w.switches.iter().filter(|switch| {
+        switch.cases.iter().any(|case| {
+            !case.draws.is_empty()
+                || !case.slots.is_empty()
+                || !case.sprite_slots.is_empty()
+                || !case.switches.is_empty()
+        })
+    });
     let updates = slots
         .chain(sprites)
-        .chain(buttons.map(|button| &button.name))
         .chain(collections.map(|collection| &collection.name))
-        .chain(w.switches.iter().map(|switch| &switch.name));
+        .chain(drawing.map(|switch| &switch.name));
     for name in updates {
         if !experimental {
             return Err(Error::Validation(format!(

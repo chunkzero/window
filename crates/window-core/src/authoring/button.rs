@@ -1,6 +1,7 @@
 use serde::Deserialize;
 
-use crate::ir::{ButtonState, ButtonTooltip};
+use crate::ir::ButtonTooltip;
+use crate::model::ControlState;
 use crate::{Error, Result};
 
 #[derive(Clone, Debug, Deserialize)]
@@ -35,14 +36,16 @@ impl TooltipDto {
 #[serde(deny_unknown_fields)]
 pub(super) struct ButtonStateDto {
     item_model: Option<String>,
+    frame: Option<String>,
     sprite: Option<String>,
     tooltip: Option<TooltipDto>,
 }
 
 impl ButtonStateDto {
-    pub(super) fn into_state(self) -> Result<ButtonState> {
-        Ok(ButtonState {
+    pub(super) fn into_state(self) -> Result<ControlState> {
+        Ok(ControlState {
             item_model: self.item_model,
+            frame: self.frame,
             sprite: self.sprite,
             tooltip: self.tooltip.map(TooltipDto::into_tooltip).transpose()?,
         })

@@ -155,14 +155,14 @@ fn nested_shop_window_exact_rects() {
     assert_eq!(title.align, Align::Center);
 
     // Row begins below title: y = 6 + 8 + 6 = 20.
-    let minus = w.buttons.iter().find(|b| b.name == "minus").unwrap();
+    let minus = w.regions.iter().find(|b| b.name == "minus").unwrap();
     assert_eq!(minus.rect, Rect::new(8, 20, 18, 18));
     // quantity: after minus(18)+gap(4) → x=30; row height 18, slot 8 tall,
     // default cross align start → y=20.
     let quantity = w.slots.iter().find(|s| s.name == "quantity").unwrap();
     assert_eq!(quantity.rect, Rect::new(30, 20, 40, 8));
     // plus: after quantity(40)+gap(4) → x=74.
-    let plus = w.buttons.iter().find(|b| b.name == "plus").unwrap();
+    let plus = w.regions.iter().find(|b| b.name == "plus").unwrap();
     assert_eq!(plus.rect, Rect::new(74, 20, 18, 18));
 
     // Button frames + panel frame = 3 NineSlice draws.

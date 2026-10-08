@@ -27,20 +27,20 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
         slots.insert(slot.name.clone(), entry);
     }
     let sprite_slots = sprite_slots(ctx, w, title_origin.y)?;
-    let inventory = compile_inventory(ctx, w, title_origin.y)?;
+    let inventory = compile_inventory(ctx, w, &switches, title_origin.y)?;
 
     Ok(WindowEntry {
         surface: surface_entry(&w.surface),
         static_text,
         slots,
         sprite_slots,
-        buttons: inventory.buttons,
+        regions: inventory.regions,
         items: inventory.items,
         collections: inventory.collections,
         inputs: inventory.inputs,
-        slot_rects: inventory.slot_rects,
         groups: repeat_groups(w),
         switches,
+        layers: w.layers.clone(),
         indexed: w.indexed.clone(),
         handles: w.handles.clone(),
     })

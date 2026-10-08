@@ -35,13 +35,16 @@ fn sample_window() -> WindowEntry {
         static_text: "\u{E000}".into(),
         slots: BTreeMap::from([("title".into(), sample_title_slot())]),
         sprite_slots: BTreeMap::new(),
-        buttons: BTreeMap::from([("buy".into(), sample_buy_button())]),
+        regions: BTreeMap::from([("buy.on".into(), sample_buy_region()), ("buy.off".into(), sample_buy_region())]),
         items: BTreeMap::new(),
         collections: BTreeMap::new(),
         inputs: BTreeMap::new(),
-        slot_rects: BTreeMap::new(),
         groups: BTreeMap::new(),
-        switches: BTreeMap::new(),
+        switches: BTreeMap::from([
+            ("mode".into(), switch(None, &[("shop", &[], &["buy"])])),
+            ("buy".into(), switch(Some("button `buy`"), &[("on", &["buy.on"], &[]), ("off", &["buy.off"], &[])])),
+        ]),
+        layers: vec![Layer::Switch("mode".into()), Layer::Switch("buy".into()), Layer::Slot("title".into())],
         indexed: BTreeMap::new(),
         handles: BTreeMap::new(),
     }
@@ -70,8 +73,27 @@ fn sample_title_slot() -> SlotEntry {
     }
 }
 
-fn sample_buy_button() -> ButtonEntry {
-    ButtonEntry {
+/// A switch with `(value, regions, switches)` cases.
+fn switch(source: Option<&str>, cases: &[(&str, &[&str], &[&str])]) -> SwitchEntry {
+    let names = |names: &[&str]| names.iter().map(|name| name.to_string()).collect();
+    SwitchEntry {
+        states: source.is_some(),
+        source: source.map(Into::into),
+        cases: cases
+            .iter()
+            .map(|(value, regions, switches)| SwitchCaseEntry {
+                value: value.to_string(),
+                regions: names(regions),
+                switches: names(switches),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    }
+}
+
+fn sample_buy_region() -> RegionEntry {
+    RegionEntry {
         x: 26,
         y: 36,
         width: 36,
@@ -81,11 +103,10 @@ fn sample_buy_button() -> ButtonEntry {
             SlotRefEntry { area: SlotAreaEntry::Container, index: 11 },
         ],
         fill_slots: None,
-        default: None,
-        action: true,
-        tooltip: None,
-        states: BTreeMap::new(),
-        sprite_font: None,
+        action: Some("buy".into()),
+        default_action: None,
+        hitbox: Some(Hitbox { item_model: Some("demo:gui/buy".into()), tooltip: None }),
+        source: Some("button `buy`".into()),
     }
 }
 
@@ -110,4 +131,14 @@ fn rejects_unknown_version() {
     m.version = 99;
     let bytes = serde_json::to_vec(&m).unwrap();
     assert!(Manifest::from_json(&bytes).is_err());
+}
+
+#[test]
+fn region_case_paths_follow_nested_switches() {
+    let paths = region_case_paths(&sample_window().switches);
+    let on = &paths["buy.on"];
+    assert_eq!(on, &vec![("mode".to_string(), "shop".to_string()), ("buy".to_string(), "on".to_string())]);
+    assert!(exclusive_cases(on, &paths["buy.off"]));
+    assert!(!exclusive_cases(on, &on[..1]));
+    assert!(!exclusive_cases(on, &[]));
 }

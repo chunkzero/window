@@ -55,7 +55,7 @@ fn cell_item_owns_one_slot_while_the_cell_button_routes_all_of_them() {
     );
 
     // Cell 0 covers container slots 18,19,20,27,28,29. `cell_slot = 2` is 19.
-    let cell = &window.buttons["entry_0"];
+    let cell = &window.regions["entry_0"];
     let routed: Vec<u32> = cell.slots.iter().map(|slot| slot.index).collect();
     assert_eq!(routed, [18, 19, 20, 27, 28, 29]);
     let filled: Vec<u32> = cell.filled_slots().iter().map(|slot| slot.index).collect();
@@ -63,7 +63,7 @@ fn cell_item_owns_one_slot_while_the_cell_button_routes_all_of_them() {
     assert_eq!(window.items["entry_icon_0"].slots[0].index, 19);
 
     // Cell 3 opens the second grid row: container slots 36..38 and 45..47.
-    let cell = &window.buttons["entry_3"];
+    let cell = &window.regions["entry_3"];
     assert_eq!(cell.slots.iter().map(|slot| slot.index).collect::<Vec<_>>(), [36, 37, 38, 45, 46, 47]);
     let icon = window.items["entry_icon_3"].slots[0];
     assert_eq!(icon.index, 37);
@@ -93,8 +93,8 @@ fn an_item_with_absolute_slots_inside_a_repeater_is_unchanged() {
     validate_compile_output(&output).assert_valid();
     let window = &output.manifest.windows["catalog"];
     assert_eq!(window.items["entry_icon_0"].slots[0].index, 4);
-    assert!(window.buttons["entry_0"].fill_slots.is_none());
-    assert_eq!(window.buttons["entry_0"].filled_slots().len(), 6);
+    assert!(window.regions["entry_0"].fill_slots.is_none());
+    assert_eq!(window.regions["entry_0"].filled_slots().len(), 6);
 }
 
 #[test]

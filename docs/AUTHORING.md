@@ -275,6 +275,7 @@ export const title = text("title");
 <Switch on={canBuy}>{{ true: <Sprite name="lamp_on" />, false: <Sprite name="lamp_off" /> }}</Switch>
 <Show when={category.is("gear")}><Sprite name="gear_badge" /></Show>
 <Button onClick={buy} enabled={canBuy} disabled={{ tooltip: "Not enough coins", sprite: "buy_disabled" }} />
+<Button onClick={sell} enabled={canSell} frame="button" disabled={{ frame: "button_disabled", tooltip: "Nothing to sell" }}>Sell</Button>
 <Button onClick={category.set("magic")}>Magic</Button>
 <Button close>Exit</Button>
 ```
@@ -302,8 +303,8 @@ export const title = text("title");
 - `.is(value)` is a condition for `<Show when>` and `<Button enabled>`; `.set(value)` is a click. Values outside the
   handle's list are type errors, and `<Switch on>` needs a case for every value, or `true` and `false` for a flag or
   toggle.
-- `<Button onClick enabled={condition}>` draws its `disabled` state (`tooltip`, `sprite`, `itemModel`) while the
-  condition is false and ignores those clicks. `state={value}` picks one of `states`, which is keyed by the handle's
+- `<Button onClick enabled={condition}>` draws its `disabled` state (`tooltip`, `frame`, `sprite`, `itemModel`) while
+  the condition is false and ignores those clicks. `state={value}` picks one of `states`, which is keyed by the handle's
   values. A `<Toggle bind>` draws `on`/`off`, and a `<Choice onClick={selection.set(v)}>` or a `<Tabs bind>` tab draws
   `selected`/`unselected`, from the state.
 - `<Tabs bind={selection}>` renders each tab with `children(value, index)`. `tooltip={(value) => …}` sets each tab's
@@ -568,10 +569,26 @@ raw.choice("quality", {
 });
 ```
 
-A state may set `sprite` to draw a Window theme sprite across the button rect. This title-layer visual changes together
-with the state's item model and tooltip. State sprites are opt-in: omit the button's normal `frame` when the state
-sprite is the complete background, and size every referenced sprite to fit the button. This is intended for selected
-tabs, toggles, locked actions, and pager states; it is server-driven and does not provide mouse-hover animation.
+A state may set `sprite` to draw a Window theme sprite at the button's top-left corner, and `frame` to draw a theme
+frame across the button rect in place of the button's own `frame`. These title-layer visuals change together with the
+state's item model and tooltip. State sprites are opt-in: omit the button's normal `frame` when the state sprite is the
+complete background, and size every referenced sprite to fit the button. State frames resize with the button. When any
+state sets `frame`, every state draws its frame (or the button's `frame`) with the button's static content above it, and
+the button's content is baked once per state. This is intended for selected tabs, toggles, locked actions, and pager
+states; it is server-driven and does not provide mouse-hover animation.
+
+```ts
+raw.button("sell", {
+  frame: "button",
+  width: 52,
+  height: 16,
+  states: {
+    enabled: {},
+    disabled: { frame: "button_disabled", tooltip: "Nothing to sell" },
+  },
+  children: [raw.label("Sell")],
+});
+```
 
 Use a fixed sprite slot for foreground art that must remain above a state background:
 
@@ -583,9 +600,26 @@ raw.spriteSlot("quality_icon", {
 });
 ```
 
-Fixed sprite slots require no generated Kotlin binding. Window composes button-state backgrounds, then collection
-selections, then fixed/runtime sprite slots, then text, so icons and labels remain visible above an opaque selected
-background.
+Fixed sprite slots require no generated Kotlin binding.
+
+### Draw order
+
+Window draws the static chrome first, then every runtime layer in authored tree order: text and labels, fixed and
+runtime sprite slots, a button's state art (its state sprite, and its state frame with the static content baked above
+it), switch case art, and collection selections. Later elements draw above earlier ones, so a button's state sprite
+draws below the button's own label and icon children, and anything authored after the button draws above it. Elements in
+a row or column draw in authored order whether they flow or set `x`/`y`.
+
+Earlier versions drew runtime layers by kind: button-state sprites, then collection selections, then sprite slots, then
+text, with switch case art below all of them, and placed positioned row/column children after their in-flow siblings.
+Output changes only where layers overlap:
+
+- text, icons, or selections authored before a stateful button now draw below its state sprite;
+- sprites, text, or icons authored before a collection now draw below its selection;
+- text or icons authored before a switch now draw below its case art, and icons authored after a collection or a switch
+  draw above them;
+- static art of positioned row/column children now overlaps in authored order, and their labels take `label_N` names in
+  authored order.
 
 The runtime provides `toggle`, typed `choice`, and `enabledButton` helpers. `WindowView.list(...)` creates a
 `WindowList` that pages or scrolls a reactive list through a fixed number of cells and keeps its selection by key; its
@@ -712,13 +746,14 @@ raw.show("on_sale", { children: [raw.sprite("sale_badge")] });
   `style` (flex style; `direction` defaults to `"column"`), and `children`; `switchOn` and `show` take `x`/`y` (set
   both), and `show` also takes the case options for its shown case. The JSX `text` prop, which cascades text styling to
   descendants, has no `raw` equivalent; style labels and slots directly.
-- Cases are visual: sprites, frames, labels, and `<Text bind>`/`<Icon bind>` bindings. Slot-bound controls, nested
-  switches, and switches inside repeaters are build errors.
-- A `<Text bind>` or `<Icon bind>` name may appear once in each of several cases of one switch. Each case keeps its own
-  position and style, which lets a shader HUD give one value a different color per case, and Kotlin binds the name once.
-  Other bindings inside cases keep their own window-wide names.
-- Each case's art becomes its own layer. Windows redraw the title when the case changes, and a HUD draws the new case on
-  its next `render()`; case art draws above the static chrome and below the text and icon slots.
+- Cases are visual: sprites, frames, labels, `<Text bind>`/`<Icon bind>` bindings, and other switches. A switch inside a
+  case is shown only while that case is. Slot-bound controls and switches inside repeaters are build errors.
+- A `<Text bind>`, `<Icon bind>`, or `<Switch bind>` name may appear once in each of several mutually exclusive cases,
+  including cases of nested switches: two cases are exclusive when they are different cases of one switch, or sit inside
+  such cases. Each copy keeps its own position and style, which lets a shader HUD give one value a different color per
+  case, and Kotlin binds the name once. Other bindings inside cases keep their own window-wide names.
+- Each case's art becomes its own layer, drawn at the switch's place in the [draw order](#draw-order). Windows redraw
+  the title when the case changes, and a HUD draws the new case on its next `render()`.
 - Generated Kotlin returns the active case: an enum of the case values (`protected abstract fun mode(): Mode` with
   `enum class Mode { BUY, SELL }`), or `Boolean` when the cases are exactly `true` and `false`
   (`protected abstract fun onSale(): Boolean`). Views without generated bindings use
@@ -755,7 +790,8 @@ protected abstract fun strokes(row: Int, column: Int): Component
 - A family covers every index from zero up to its largest one, uses one element kind and number of dimensions, and, for
   switches, the same case values at every index. Repeaters already index their cells, so indexed bindings inside one are
   build errors.
-- Like other bindings, an indexed entry may appear once in each of several cases of one switch, sharing its binding.
+- Like other bindings, an indexed entry may appear once in each of several mutually exclusive cases, sharing its
+  binding.
 
 ## Native anvil search
 
@@ -768,8 +804,9 @@ GUI.
 
 Anvil input windows are static: their title never changes after open. Vanilla can only change a container title by
 reopening the screen, and each anvil reopen resets the player's edit box mid-typing. The compiler rejects text slots,
-unbound sprite slots, button state sprites, and collection selected sprites in a window with an `anvilInput`. Static
-art, labels, fixed sprites, buttons, and inventory items are all allowed, since none of them change the title.
+unbound sprite slots, button state sprites and frames, switches, and collection selected sprites in a window with an
+`anvilInput`; states that only change the item model or tooltip are allowed. Static art, labels, fixed sprites, buttons,
+and inventory items are all allowed, since none of them change the title.
 
 A typical search screen is a title, the input, and buttons on the anvil's three slots. Anvil slots sit at fixed, uneven
 positions, so each button covers one slot and only that slot's 16x16 box takes clicks. A button over the input's slot

@@ -2,7 +2,7 @@ use super::Solver;
 use super::target::LayoutTarget;
 use crate::Result;
 use crate::geometry::{Insets, Point, Rect, Size};
-use crate::ir::{Align, Draw, RepeatBindingIr, SlotIr, SpriteSlotIr, TextureKey};
+use crate::ir::{Align, Draw, Layer, RepeatBindingIr, SlotIr, SpriteSlotIr, TextureKey};
 use crate::model::{Element, Frame, SpriteDef, TextFit, TextStyle};
 
 impl<T: LayoutTarget> Solver<'_, T> {
@@ -21,7 +21,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
     ) -> Result<Size> {
         self.require_sprite_slots(name)?;
         // Fixed sprites need no binding, so they never join one shared across switch cases.
-        let binding = self.case_binding(name).filter(|_| sprite.is_none()).map(|_| name.to_string());
+        let binding = self.case_binding(name).filter(|_| sprite.is_none());
         let actual_name = if binding.is_none() && self.repeat_binding(name).is_none() {
             name.to_string()
         } else {
@@ -38,6 +38,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 )));
             }
         }
+        self.layers.push(Layer::SpriteSlot(actual_name.clone()));
         self.sprite_slots.push(SpriteSlotIr {
             name: actual_name,
             rect,
@@ -67,6 +68,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         if width.is_some() {
             self.warn_if_static_text_overflow(text, measured, w, &name);
         }
+        self.layers.push(Layer::Slot(name.clone()));
         self.slots.push(text_slot_ir(name, Some(text.to_string()), rect, style, None, None, TextFit::default()));
         Ok(rect.size())
     }
@@ -86,7 +88,8 @@ impl<T: LayoutTarget> Solver<'_, T> {
         self.check_text_constraints(rect, name, true)?;
         self.text_font(style)?;
         let repeat = self.repeat_binding(name);
-        let binding = self.case_binding(name).map(|_| name.to_string());
+        let binding = self.case_binding(name);
+        self.layers.push(Layer::Slot(actual_name.clone()));
         self.slots.push(text_slot_ir(actual_name, None, rect, style, repeat, binding, fit));
         Ok(rect.size())
     }
@@ -103,6 +106,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
     }
 
     pub(super) fn emit_frame(&mut self, frame: &str, dest: Rect, referenced_by: &str) -> Result<()> {
+        let draw = self.frame_draw(frame, dest, referenced_by)?;
+        self.draws.push(draw);
+        Ok(())
+    }
+
+    /// The draw of `frame` stretched over `dest`, after checking the frame and warning about overflow.
+    pub(super) fn frame_draw(&mut self, frame: &str, dest: Rect, referenced_by: &str) -> Result<Draw> {
         let project = self.project;
         let def = project
             .theme
@@ -118,11 +128,10 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 if tex_size.width < min_w || tex_size.height < min_h {
                     return Err(self.target.frame_too_small_err(frame, texture, tex_size, min_w, min_h));
                 }
-                self.draws.push(Draw::NineSlice { texture: TextureKey(texture.clone()), insets: *insets, dest });
+                Ok(Draw::NineSlice { texture: TextureKey(texture.clone()), insets: *insets, dest })
             }
-            Frame::Generated(style) => self.draws.push(Draw::Generated { style: style.clone(), dest }),
+            Frame::Generated(style) => Ok(Draw::Generated { style: style.clone(), dest }),
         }
-        Ok(())
     }
 }
 

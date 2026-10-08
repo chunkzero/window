@@ -156,24 +156,24 @@ fn catches_shifted_font_provider_metric_drift() {
 fn catches_fill_slots_that_are_not_routed() {
     let mut output = compile(project());
     let window = output.manifest.windows.get_mut("validation").unwrap();
-    let buy = window.buttons.get_mut("buy").unwrap();
+    let buy = window.regions.get_mut("buy").unwrap();
     buy.fill_slots = Some(vec![SlotRefEntry { area: SlotAreaEntry::Container, index: 8 }]);
     let report = validate_compile_output(&output);
     assert!(report.issues.iter().any(|issue| issue.code == "inventory.slot.fill_not_routed"), "{report}");
 }
 
 #[test]
-fn catches_two_buttons_routing_one_slot() {
+fn catches_two_regions_routing_one_slot() {
     let mut output = compile(project());
     let window = output.manifest.windows.get_mut("validation").unwrap();
-    let buy = window.buttons.get("buy").unwrap().clone();
-    // A second button routes `buy`'s slots but fills none of them, so the
+    let buy = window.regions.get("buy").unwrap().clone();
+    // A second region routes `buy`'s slots but fills none of them, so the
     // ownership map stays clean and only the routing map catches it.
-    window.buttons.insert(
+    window.regions.insert(
         "shadow".into(),
-        crate::manifest::ButtonEntry { fill_slots: Some(buy.slots[..1].to_vec()), ..buy.clone() },
+        crate::manifest::RegionEntry { fill_slots: Some(buy.slots[..1].to_vec()), ..buy.clone() },
     );
-    window.buttons.get_mut("buy").unwrap().fill_slots = Some(buy.slots[1..].to_vec());
+    window.regions.get_mut("buy").unwrap().fill_slots = Some(buy.slots[1..].to_vec());
     let report = validate_compile_output(&output);
     assert!(report.issues.iter().any(|issue| issue.code == "inventory.slot.duplicate_route"), "{report}");
 }
@@ -182,7 +182,7 @@ fn catches_two_buttons_routing_one_slot() {
 fn catches_inventory_ownership_and_bounds_corruption() {
     let mut output = compile(project());
     let window = output.manifest.windows.get_mut("validation").unwrap();
-    let buy = window.buttons.get_mut("buy").unwrap();
+    let buy = window.regions.get_mut("buy").unwrap();
     buy.slots.push(SlotRefEntry { area: SlotAreaEntry::Container, index: 99 });
     window.items.insert("duplicate".into(), crate::manifest::ItemEntry { slots: buy.slots.clone() });
     let report = validate_compile_output(&output);

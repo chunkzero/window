@@ -7,7 +7,7 @@ use crate::codegen::writer::KotlinWriter;
 
 use std::collections::BTreeMap;
 
-use crate::manifest::ButtonEntry;
+use crate::manifest::SwitchEntry;
 
 use super::handles::{self, HandleMember};
 use super::members::{Member, ValueKind};
@@ -28,8 +28,8 @@ pub(super) struct ViewBase {
 pub(super) struct View<'a> {
     pub(super) handles: &'a [HandleMember],
     pub(super) members: &'a [Member],
-    /// The surface's buttons, whose states decide how a handle binds them.
-    pub(super) buttons: &'a BTreeMap<String, ButtonEntry>,
+    /// The surface's switches; a button's state switch decides how a handle binds it.
+    pub(super) switches: &'a BTreeMap<String, SwitchEntry>,
 }
 
 pub(super) fn render(
@@ -71,7 +71,7 @@ pub(super) fn render(
         w.line(format_args!("final override fun {prefix}Scope{type_args}.bind() {{}}"));
     } else {
         w.open(format_args!("final override fun {prefix}Scope{type_args}.bind() {{"));
-        handles::bind(&mut w, view.handles, view.buttons);
+        handles::bind(&mut w, view.handles, view.switches);
         for member in members {
             bind(&mut w, member);
         }

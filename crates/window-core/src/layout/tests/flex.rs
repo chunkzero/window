@@ -6,7 +6,7 @@ use crate::inventory::InventorySlotRef;
 use crate::ir::Align;
 
 fn button_slots(laid: &crate::ir::LaidOutWindow, name: &str) -> Vec<InventorySlotRef> {
-    laid.buttons.iter().find(|b| b.name == name).and_then(|b| b.slots.clone()).expect("button slots")
+    laid.regions.iter().find(|b| b.name == name).and_then(|b| b.slots.clone()).expect("region slots")
 }
 
 #[test]
@@ -27,8 +27,8 @@ fn section_children_auto_flow_through_slot_tracks() {
     // `b` does not fit beside `a`, so it wraps to the next row.
     assert_eq!(button_slots(&laid, "b"), (9..16).map(InventorySlotRef::container).collect::<Vec<_>>());
     assert_eq!(button_slots(&laid, "c"), vec![InventorySlotRef::container(26)]);
-    let claim = laid.slot_rects.iter().find(|r| r.name == "container_section").expect("section claim");
-    assert_eq!(claim.slots.len(), 27);
+    let claim = laid.regions.iter().find(|r| r.name == "container_section").expect("section claim");
+    assert_eq!(claim.slots.as_ref().map(Vec::len), Some(27));
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn section_patterns_are_relative_to_their_area() {
     );
     // `go` auto-places after the 4-slot block with a 3x1 area and covers its last two slots.
     assert_eq!(button_slots(&laid, "go"), vec![InventorySlotRef::player(14), InventorySlotRef::player(15)]);
-    assert!(laid.slot_rects.iter().all(|r| r.name != "player_section"));
+    assert!(laid.regions.iter().all(|r| r.name != "player_section"));
 }
 
 #[test]

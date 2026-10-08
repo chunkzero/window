@@ -4,45 +4,52 @@ use super::slots::{PatternCell, ResolvedControl, cells_bounds};
 use super::target::LayoutTarget;
 use super::{ActiveRepeat, Solver};
 use crate::Result;
-use crate::geometry::{Insets, Point, Size};
+use crate::geometry::{Insets, Point, Rect, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{
-    AnvilInputIr, ButtonDefault, ButtonIr, ButtonState, ButtonTooltip, CollectionIr, ItemIr, RepeatBindingIr,
-    SlotRectIr,
+    AnvilInputIr, ButtonTooltip, CollectionIr, Draw, Hitbox, ItemIr, Layer, RegionIr, RepeatBindingIr, SpriteSlotIr,
+    SwitchIr,
 };
-use crate::model::{Element, RepeaterCells};
+use crate::model::{ControlState, Element, RepeaterCells};
 use crate::surface::ContainerKind;
 
-/// The fields buttons and hotspots share.
+/// Where a button or hotspot sits: its authored kind, name, and slot placement.
 pub(super) struct ControlSpec<'e> {
-    name: &'e str,
-    size: Option<Size>,
-    slots: Option<&'e Vec<InventorySlotRef>>,
-    pattern: Option<&'e SlotPattern>,
-    tooltip: Option<&'e ButtonTooltip>,
-    states: &'e BTreeMap<String, ButtonState>,
+    /// The authored widget kind, such as `button`, `tab`, or `hotspot`.
+    pub(super) kind: &'e str,
+    pub(super) name: &'e str,
+    pub(super) size: Option<Size>,
+    pub(super) slots: Option<&'e Vec<InventorySlotRef>>,
+    pub(super) pattern: Option<&'e SlotPattern>,
 }
 
-impl<'e> ControlSpec<'e> {
-    pub(super) fn new(
-        name: &'e str,
-        size: Option<Size>,
-        slots: Option<&'e Vec<InventorySlotRef>>,
-        pattern: Option<&'e SlotPattern>,
-        tooltip: &'e Option<ButtonTooltip>,
-        states: &'e BTreeMap<String, ButtonState>,
-    ) -> Self {
-        Self { name, size, slots, pattern, tooltip: tooltip.as_ref(), states }
-    }
+/// What a button or hotspot shows and does: its hitbox tooltip, named states, and default runtime action.
+pub(super) struct ControlBehavior<'e> {
+    pub(super) tooltip: Option<&'e ButtonTooltip>,
+    pub(super) states: &'e BTreeMap<String, ControlState>,
+    pub(super) default_action: Option<&'e str>,
 }
+
+/// A control's art outside its content: its frame, and whether its states draw their own frames.
+struct ControlArt<'e> {
+    frame: Option<&'e str>,
+    framed_states: bool,
+    /// Static draws of the control's content, copied into each state when states draw frames.
+    content: Vec<Draw>,
+    /// Index in the surface layers where the control's state layers go, before its content.
+    layer: usize,
+}
+
+/// The state case a control shows while its state switch is unbound, unless it declares one.
+const DEFAULT_STATE: &str = "default";
 
 impl<T: LayoutTarget> Solver<'_, T> {
     pub(super) fn place_button(
         &mut self,
         control: ControlSpec<'_>,
+        behavior: ControlBehavior<'_>,
         frame: Option<&str>,
         padding: u32,
-        default: Option<ButtonDefault>,
         children: &[Element],
         origin: Point,
     ) -> Result<Size> {
@@ -50,30 +57,46 @@ impl<T: LayoutTarget> Solver<'_, T> {
         self.require_interaction(name)?;
         let resolved =
             self.resolve_control_rect_and_slots(name, origin, control.size, control.slots, control.pattern)?;
-        if let Some(frame) = frame {
-            self.emit_frame(frame, resolved.rect, &format!("button `{name}` frame `{frame}`"))?;
+        let framed_states = behavior.states.values().any(|state| state.frame.is_some());
+        if let Some(frame) = frame.filter(|_| !framed_states) {
+            self.emit_frame(frame, resolved.rect, &format!("{} `{name}` frame `{frame}`", control.kind))?;
         }
+        let layer = self.layers.len();
+        let draws = self.draws.len();
         self.layout_button_children(name, children, resolved.rect, padding)?;
-        let actual_name = self.register_control("button", name, &resolved)?;
-        Ok(self.push_control(&control, actual_name, resolved, default, true))
+        let content = if framed_states { self.draws.split_off(draws) } else { Vec::new() };
+        let actual_name = self.register_control(&control, &resolved)?;
+        let action = Some(actual_name.clone());
+        let art = ControlArt { frame, framed_states, content, layer };
+        let size = resolved.rect.size();
+        self.push_control(&control, &behavior, actual_name, resolved, action, art)?;
+        Ok(size)
     }
 
-    pub(super) fn place_hotspot(&mut self, control: ControlSpec<'_>, origin: Point) -> Result<Size> {
+    pub(super) fn place_hotspot(
+        &mut self,
+        control: ControlSpec<'_>,
+        behavior: ControlBehavior<'_>,
+        origin: Point,
+    ) -> Result<Size> {
         let name = control.name;
         self.require_interaction(name)?;
         let resolved =
             self.resolve_control_rect_and_slots(name, origin, control.size, control.slots, control.pattern)?;
-        let actual_name = self.register_control("hotspot", name, &resolved)?;
-        if control.tooltip.is_none() && control.states.is_empty() {
+        let actual_name = self.register_control(&control, &resolved)?;
+        if behavior.tooltip.is_none() && behavior.states.is_empty() {
             return Err(self.target.layout_err(format!("hotspot `{name}` must define `tooltip` or `states`")));
         }
-        Ok(self.push_control(&control, actual_name, resolved, None, false))
+        let art = ControlArt { frame: None, framed_states: false, content: Vec::new(), layer: self.layers.len() };
+        let size = resolved.rect.size();
+        self.push_control(&control, &behavior, actual_name, resolved, None, art)?;
+        Ok(size)
     }
 
     /// Registers a resolved button or hotspot, checks its bounds, and records
     /// placement warnings. Returns the scoped name.
-    fn register_control(&mut self, kind: &str, name: &str, resolved: &ResolvedControl) -> Result<String> {
-        let rect = resolved.rect;
+    fn register_control(&mut self, control: &ControlSpec<'_>, resolved: &ResolvedControl) -> Result<String> {
+        let (kind, name, rect) = (control.kind, control.name, resolved.rect);
         let actual_name = self.scoped_name(name);
         self.register_name(&actual_name)?;
         self.check_inside_bounds(rect, &format!("{kind} `{name}`"))?;
@@ -83,26 +106,102 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(actual_name)
     }
 
+    /// Emits a control's region, or with states a state switch whose cases each hold the state's region, frame,
+    /// and sprite.
     fn push_control(
         &mut self,
         control: &ControlSpec<'_>,
+        behavior: &ControlBehavior<'_>,
         actual_name: String,
         resolved: ResolvedControl,
-        default: Option<ButtonDefault>,
-        action: bool,
-    ) -> Size {
-        self.buttons.push(ButtonIr {
-            name: actual_name,
+        action: Option<String>,
+        art: ControlArt<'_>,
+    ) -> Result<()> {
+        let source = format!("{} `{actual_name}`", control.kind);
+        let region = |name: String, hitbox: Option<Hitbox>, repeat: Option<RepeatBindingIr>| RegionIr {
+            name,
             rect: resolved.rect,
-            slots: resolved.slots,
+            slots: resolved.slots.clone(),
             yielded_slots: Vec::new(),
-            default,
-            action,
-            tooltip: control.tooltip.cloned(),
-            states: control.states.clone(),
-            repeat: self.repeat_binding(control.name),
+            unowned: false,
+            action: action.clone(),
+            default_action: behavior.default_action.map(str::to_string),
+            hitbox,
+            repeat,
+            source: source.clone(),
+        };
+        let base_hitbox = behavior.tooltip.map(|tooltip| Hitbox { item_model: None, tooltip: Some(tooltip.clone()) });
+        let repeat = self.repeat_binding(control.name);
+        if behavior.states.is_empty() {
+            self.regions.push(region(actual_name, base_hitbox, repeat));
+            return Ok(());
+        }
+
+        let mut states: BTreeMap<&str, Option<&ControlState>> =
+            behavior.states.iter().map(|(value, state)| (value.as_str(), Some(state))).collect();
+        states.entry(DEFAULT_STATE).or_insert(None);
+        let mut cases = Vec::with_capacity(states.len());
+        let mut layers = vec![Layer::Switch(actual_name.clone())];
+        for (value, state) in states {
+            let key = format!("{actual_name}.{value}");
+            let hitbox = match state {
+                Some(state) => Some(Hitbox {
+                    item_model: state.item_model.clone(),
+                    tooltip: state.tooltip.clone().or_else(|| behavior.tooltip.cloned()),
+                }),
+                None => base_hitbox.clone(),
+            };
+            let frame = state.and_then(|state| state.frame.as_deref()).or(art.frame);
+            let sprite = state.and_then(|state| state.sprite.as_deref());
+            let case = self.emit_case(value, |s| {
+                if let (true, Some(frame)) = (art.framed_states, frame) {
+                    let subject = format!("{source} state `{value}` frame `{frame}`");
+                    let draw = s.frame_draw(frame, resolved.rect, &subject)?;
+                    s.draws.push(draw);
+                }
+                if art.framed_states {
+                    s.draws.extend(art.content.iter().cloned());
+                }
+                if let Some(sprite) = sprite {
+                    s.push_state_sprite(&key, sprite, resolved.rect, &format!("{source} state `{value}`"))?;
+                    layers.push(Layer::SpriteSlot(key.clone()));
+                }
+                s.regions.push(region(key.clone(), hitbox, repeat.clone()));
+                Ok(())
+            })?;
+            cases.push(case);
+        }
+        self.layers.splice(art.layer..art.layer, layers);
+        self.switches.push(SwitchIr {
+            name: actual_name,
+            binding: None,
+            states: true,
+            initial: Some(DEFAULT_STATE.to_string()),
+            source: Some(source),
+            cases,
         });
-        resolved.rect.size()
+        Ok(())
+    }
+
+    /// A state's sprite: a fixed sprite slot at the control's top-left corner.
+    fn push_state_sprite(&mut self, key: &str, sprite: &str, rect: Rect, subject: &str) -> Result<()> {
+        self.require_sprite_slots(key)?;
+        let size = self.sprite_size(sprite, self.sprite_def(sprite)?)?;
+        if size.width > rect.width || size.height > rect.height {
+            return Err(self.target.layout_err(format!(
+                "{subject} sprite `{sprite}` does not fit its {}x{} rect ({}x{})",
+                rect.width, rect.height, size.width, size.height
+            )));
+        }
+        self.sprite_slots.push(SpriteSlotIr {
+            name: key.to_string(),
+            rect,
+            align: crate::ir::Align::Left,
+            sprite: Some(sprite.to_string()),
+            repeat: None,
+            binding: None,
+        });
+        Ok(())
     }
 
     pub(super) fn place_item(
@@ -143,6 +242,9 @@ impl<T: LayoutTarget> Solver<'_, T> {
             return Err(self.target.layout_err(format!("collection `{name}` must define at least one slot")));
         }
         self.emit_slot_frames("collection", name, frame, &slots)?;
+        if selected_sprite.is_some() {
+            self.layers.push(Layer::Collection(actual_name.clone()));
+        }
         self.collections.push(CollectionIr {
             name: actual_name,
             slots,
@@ -170,9 +272,11 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(Size::new(0, 0))
     }
 
+    /// Draws slot frames and, unless `claim` is `None`, emits a claim-only region over the slots.
     pub(super) fn place_slot_rects(
         &mut self,
         name: &str,
+        source: &str,
         frame: Option<&str>,
         pattern: &SlotPattern,
         claim: SlotRectClaim,
@@ -185,7 +289,21 @@ impl<T: LayoutTarget> Solver<'_, T> {
             return Err(self.target.layout_err(format!("slot_rects `{name}` resolved to no slots")));
         }
         self.emit_slot_frames("slot_rects", name, frame, &slots)?;
-        self.slot_rects.push(SlotRectIr { name: actual_name, slots, claim });
+        if claim != SlotRectClaim::None {
+            let rect = self.target.container_kind().and_then(|kind| kind.slot_ref_bounds(&slots)).unwrap_or_default();
+            self.regions.push(RegionIr {
+                name: actual_name,
+                rect,
+                slots: Some(slots),
+                yielded_slots: Vec::new(),
+                unowned: claim == SlotRectClaim::Unowned,
+                action: None,
+                default_action: None,
+                hitbox: None,
+                repeat: None,
+                source: source.to_string(),
+            });
+        }
         Ok(Size::new(0, 0))
     }
 
@@ -261,21 +379,22 @@ impl<T: LayoutTarget> Solver<'_, T> {
         }
         self.register_name(&content.button)?;
         self.check_inside_bounds(cell.rect, &format!("repeater `{group}` cell {index}"))?;
-        // The cell button keeps every cell slot as a click route. It is pushed
+        // The cell region keeps every cell slot as a click route. It is pushed
         // before its children so document order is stable; any slot a child
         // item claims is subtracted afterwards.
-        let button_index = self.buttons.len();
+        let region_index = self.regions.len();
         let repeat = content.scoped.then(|| RepeatBindingIr { group: group.to_string(), field: None, index });
-        self.buttons.push(ButtonIr {
+        self.regions.push(RegionIr {
+            action: content.action.then(|| content.button.clone()),
             name: content.button,
             rect: cell.rect,
             slots: Some(cell.slots.clone()),
             yielded_slots: Vec::new(),
-            default: None,
-            action: content.action,
-            tooltip: None,
-            states: BTreeMap::new(),
+            unowned: false,
+            default_action: None,
+            hitbox: None,
             repeat,
+            source: format!("repeater `{group}` cell {index}"),
         });
         let previous = self.active_repeat.replace(ActiveRepeat {
             group: group.to_string(),
@@ -288,7 +407,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         let finished = std::mem::replace(&mut self.active_repeat, previous);
         placed?;
         if let Some(finished) = finished {
-            self.buttons[button_index].yielded_slots = finished.yielded;
+            self.regions[region_index].yielded_slots = finished.yielded;
         }
         Ok(())
     }

@@ -53,10 +53,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
         let content_cross = self.content_cross(children, axis)?;
         let content_origin = Point::new(origin.x + pad.left as i32, origin.y + pad.top as i32);
 
+        // Children are placed in authored order, so their art and runtime layers follow the tree.
+        let mut origins = Vec::with_capacity(children.len());
         let mut cursor_main = 0i32;
         let mut first = true;
         for child in children {
-            if pos_of(child).is_some() {
+            if let Some(p) = pos_of(child) {
+                origins.push(Point::new(content_origin.x + p.x, content_origin.y + p.y));
                 continue;
             }
             let s = self.measure(child)?;
@@ -70,14 +73,11 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 CrossAlign::Center => (content_cross as i32 - child_cross as i32) / 2,
                 CrossAlign::End => content_cross as i32 - child_cross as i32,
             };
-            self.place(child, axis.place(content_origin, cursor_main, cross_off))?;
+            origins.push(axis.place(content_origin, cursor_main, cross_off));
             cursor_main += child_main as i32;
         }
-
-        for child in children {
-            if let Some(p) = pos_of(child) {
-                self.place(child, Point::new(content_origin.x + p.x, content_origin.y + p.y))?;
-            }
+        for (child, origin) in children.iter().zip(origins) {
+            self.place(child, origin)?;
         }
 
         Ok(total)
