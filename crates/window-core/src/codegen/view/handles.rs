@@ -357,7 +357,12 @@ fn bind_button(
     if let Some((owner, use_)) = state {
         w.line(format_args!("buttonState({entry}) {{ {}.value }}", owner.read(&literal_args(&use_.at))));
     }
-    if handle.handle.kind == HandleKind::Builtin && modifiers.is_empty() {
+    if handle.handle.kind == HandleKind::Builtin {
+        // A runtime action cannot be bound; its disabled state region carries no action, so it never routes clicks.
+        if let (None, Some((owner, use_))) = (state, enabled) {
+            let condition = owner.condition(&literal_args(&use_.at), use_.value.as_deref());
+            w.line(format_args!("buttonState({entry}) {{ if ({condition}) \"enabled\" else \"disabled\" }}"));
+        }
         return;
     }
     let handler = Handler::of(handle, click, args);

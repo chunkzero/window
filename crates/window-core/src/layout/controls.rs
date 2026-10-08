@@ -166,7 +166,13 @@ impl<T: LayoutTarget> Solver<'_, T> {
                     s.push_state_sprite(&key, sprite, resolved.rect, &format!("{source} state `{value}`"))?;
                     layers.push(Layer::SpriteSlot(key.clone()));
                 }
-                s.regions.push(region(key.clone(), hitbox, repeat.clone()));
+                let mut region = region(key.clone(), hitbox, repeat.clone());
+                // A runtime action has no handler to wrap, so its disabled state routes no clicks.
+                if value == "disabled" && action.as_deref().is_some_and(|id| id.starts_with("window:")) {
+                    region.action = None;
+                    region.default_action = None;
+                }
+                s.regions.push(region);
                 Ok(())
             })?;
             cases.push(case);

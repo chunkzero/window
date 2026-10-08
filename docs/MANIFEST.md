@@ -464,7 +464,10 @@ Notes:
   for it: the `toggle`, `choice`, and `enabled` helpers and `buttonState(name, state)` select its case.
 - A slot, sprite slot, or switch with `binding` is one case's copy of a binding shared across mutually exclusive switch
   cases. It is keyed `{binding}.{case path}`, joining the values of every enclosing case outermost first (for example
-  `status.a.x`), and binding the name `binding` binds every copy.
+  `status.a.x`), and binding the name `binding` binds every copy. Copies of a shared switch must declare the same set of
+  case values (in any order).
+- A runtime-action control with states (`window:close`) has no `action` or `default_action` on its `disabled` region, so
+  a disabled state never runs the action; codegen only selects the state case.
 - `layers` lists every slot, sprite slot, switch, and collection with a selected sprite exactly once, in authored tree
   order. The runtime composes `static` first, then these layers in order, skipping entries in inactive cases. A switch
   layer draws its active case's `static`; a collection layer draws its selected cell's `selection` sprite.

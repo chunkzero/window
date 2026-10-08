@@ -241,6 +241,26 @@ fn nested_switches_key_shared_bindings_by_their_case_path() {
 }
 
 #[test]
+fn shared_switches_must_have_the_same_case_values() {
+    let inner = |values: [&str; 2]| {
+        let cases: Vec<_> = values.iter().map(|v| json!({ "type": "case", "value": v, "children": [] })).collect();
+        json!({ "type": "switch", "name": "inner", "children": cases })
+    };
+    let outer = |a: [&str; 2], b: [&str; 2]| {
+        themed(
+            json!({}),
+            json!([{ "type": "switch", "name": "outer", "children": [
+                { "type": "case", "value": "a", "children": [inner(a)] },
+                { "type": "case", "value": "b", "children": [inner(b)] },
+            ] }]),
+        )
+    };
+    let err = solve(&outer(["one", "two"], ["three", "four"]), &sizes(&[])).unwrap_err();
+    assert!(err.to_string().contains("switch `inner` is shared across exclusive cases but has cases [one, two] in one and [four, three] in another"), "{err}");
+    assert!(solve(&outer(["one", "two"], ["two", "one"]), &sizes(&[])).is_ok());
+}
+
+#[test]
 fn bindings_repeated_in_one_nested_case_are_rejected() {
     let status = json!({ "type": "slot", "name": "status", "width": 40 });
     let children = json!([{

@@ -653,9 +653,10 @@ fn case_conflict(el: &Element, switch: &str) -> Option<String> {
 }
 
 /// One authored use of a binding name: its kind and the switch cases it sits in, outermost first, each as
-/// `(switch occurrence, switch name, case value)`.
+/// `(switch occurrence, switch name, case value)`. A switch also records its case values, sorted.
 struct Occurrence<'e> {
     kind: &'static str,
+    cases: Vec<&'e str>,
     path: Vec<(usize, &'e str, &'e str)>,
 }
 
@@ -694,6 +695,14 @@ impl<T: LayoutTarget> Solver<'_, T> {
                         a.kind, b.kind
                     )));
                 }
+                if let Some((a, b)) = pairs().find(|(a, b)| a.cases != b.cases) {
+                    return Err(self.target.layout_err(format!(
+                        "switch `{name}` is shared across exclusive cases but has cases [{}] in one and [{}] in \
+                         another; shared copies must have the same set of case values",
+                        a.cases.join(", "),
+                        b.cases.join(", ")
+                    )));
+                }
                 self.shared.insert(name.to_string());
             } else if pairs().any(|(a, b)| exclusive(&a.path, &b.path)) {
                 let (a, b) = pairs().find(|(a, b)| !exclusive(&a.path, &b.path)).expect("a pair is not exclusive");
@@ -724,14 +733,16 @@ fn collect_bindings<'e>(
     switches: &mut usize,
     found: &mut BTreeMap<&'e str, Vec<Occurrence<'e>>>,
 ) {
-    let mut record = |name: &'e str, kind: &'static str, path: &[(usize, &'e str, &'e str)]| {
-        found.entry(name).or_default().push(Occurrence { kind, path: path.to_vec() });
+    let mut record = |name: &'e str, kind: &'static str, cases: Vec<&'e str>, path: &[(usize, &'e str, &'e str)]| {
+        found.entry(name).or_default().push(Occurrence { kind, cases, path: path.to_vec() });
     };
     let children: Vec<&Element> = match el {
-        Element::Slot { name, .. } => return record(name, "text slot", path),
-        Element::SpriteSlot { name, sprite: None, .. } => return record(name, "sprite slot", path),
+        Element::Slot { name, .. } => return record(name, "text slot", Vec::new(), path),
+        Element::SpriteSlot { name, sprite: None, .. } => return record(name, "sprite slot", Vec::new(), path),
         Element::Switch(switch) => {
-            record(&switch.name, "switch", path);
+            let mut cases: Vec<&str> = switch.cases.iter().map(|case| case.value.as_str()).collect();
+            cases.sort_unstable();
+            record(&switch.name, "switch", cases, path);
             let id = *switches;
             *switches += 1;
             for case in &switch.cases {
