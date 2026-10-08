@@ -117,7 +117,7 @@ export function buildProject(
     packFormat: number,
 ): ProjectJson {
     const themes: Theme[] = [];
-    const sprites: Record<string, Art> = {};
+    const sprites: Record<string, Art> = Object.create(null) as Record<string, Art>;
     const windows: Window[] = [];
     const huds: Hud[] = [];
     for (const doc of documents) {
@@ -125,7 +125,7 @@ export function buildProject(
             themes.push(doc.theme);
         }
         for (const [name, art] of Object.entries(doc.sprites ?? {})) {
-            if (name in sprites) {
+            if (Object.hasOwn(sprites, name)) {
                 throw new Error(`sprite catalog declares \`${name}\` twice`);
             }
             sprites[name] = art;
@@ -141,7 +141,7 @@ export function buildProject(
     }
     return {
         ...(themes.length > 0 ? { themes } : {}),
-        ...(Object.keys(sprites).length > 0 ? { sprites } : {}),
+        ...(Object.keys(sprites).length > 0 ? { sprites: { ...sprites } } : {}),
         windows,
         huds,
         options: {

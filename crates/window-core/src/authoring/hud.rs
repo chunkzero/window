@@ -22,6 +22,7 @@ pub(super) struct HudDto {
     shader: Option<HudShaderDto>,
     #[serde(default)]
     children: Vec<ElementDto>,
+    pub(super) debug_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,6 +86,7 @@ impl HudDto {
             children,
             indexed,
             handles,
+            debug_name: self.debug_name,
         })
     }
 }

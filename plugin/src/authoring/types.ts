@@ -748,6 +748,7 @@ export interface Window {
     /** Frame drawn first, over the GUI rect grown by `bleed`. */
     frame?: ArtRef;
     children?: Element[];
+    debug_name?: string;
 }
 
 export interface Hud {
@@ -762,6 +763,7 @@ export interface Hud {
     frame?: ArtRef;
     shader?: HudShader;
     children?: Element[];
+    debug_name?: string;
 }
 
 export interface WindowDocument {

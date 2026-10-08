@@ -412,7 +412,7 @@ export interface SectionOfProps extends SectionProps {
     of: SlotSection;
 }
 
-export interface WindowProps {
+export interface WindowProps extends DebugProps {
     name: string;
     container: ContainerKind;
     bleed?: Insets;
@@ -1213,6 +1213,7 @@ export function Window(props: WindowProps): { windows: WindowDef[] } {
         bleed: props.bleed,
         frame: props.frame,
         children: nodes(props.children),
+        ...debug(props),
     }) as WindowDef;
     return cascade(ui(def), props.text);
 }
@@ -1235,12 +1236,13 @@ const ANCHORS: Record<HudAnchor, [number, number]> = {
  */
 export function Hud(props: HudProps): { huds: HudDef[] } {
     requireName(props.name, "Hud");
-    const { name, channel, bleed, frame, anchor, offset, sourceBottom, width, height, ...box } = props;
+    const { name, channel, bleed, frame, anchor, offset, sourceBottom, width, height, debugName, ...box } = props;
     const fixed = typeof width === "number" && typeof height === "number";
     if (!fixed && (width !== undefined || height !== undefined)) {
         throw new Error("<Hud> `width` and `height` must both be pixel numbers, or both be omitted");
     }
-    const root = Box({ direction: "column", ...box });
+    const named = debugName === undefined ? {} : { debugName };
+    const root = Box({ direction: "column", ...named, ...box });
     let shader: HudDef["shader"];
     if (anchor !== undefined) {
         const [x, y] = typeof anchor === "string" ? ANCHORS[anchor] : [anchor.x, anchor.y];
@@ -1261,6 +1263,7 @@ export function Hud(props: HudProps): { huds: HudDef[] } {
         width: fixed ? width : undefined,
         height: fixed ? height : undefined,
         children: [root],
+        ...debug(named),
     }) as HudDef;
     return hud(def);
 }

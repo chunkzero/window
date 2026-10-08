@@ -215,3 +215,10 @@ test("defineWindows sprites become the catalog and inline art textures are input
     assert.deepEqual(buildProject(documents, {}, 84).sprites, { lamp });
     assert.deepEqual(inputs.map((file) => file.path).sort(), Object.keys(files).sort());
 });
+
+test("sprite catalog names that match inherited properties are ordinary names", () => {
+    const art = texture("window:gui/lamp");
+    const documents: WindowDocument[] = [{ sprites: { constructor: art } }, { sprites: { toString: art } }];
+    assert.deepEqual(Object.keys(buildProject(documents, {}, 84).sprites ?? {}), ["constructor", "toString"]);
+    assert.throws(() => buildProject([documents[0]!, documents[0]!], {}, 84), /declares `constructor` twice/);
+});

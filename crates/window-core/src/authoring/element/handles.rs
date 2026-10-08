@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::Deserialize;
 
 use super::ElementDto;
-use crate::authoring::parse::validate_name;
+use crate::authoring::parse::{sprite_key, validate_name};
 use crate::ir::{Handle, HandleKind, HandleRole, HandleUse, IndexedBinding};
 use crate::{Error, Result};
 
@@ -309,11 +309,13 @@ impl Collector<'_> {
         if !handle.only.is_empty() && kind != HandleKind::Sprite {
             return Err(self.err(format!("{} `{id}` cannot take `only`; only sprite handles narrow", kind.id())));
         }
-        for (i, sprite) in handle.only.iter().enumerate() {
-            validate_name(sprite, &format!("sprite `{id}` `only` entry"))?;
-            if handle.only[..i].contains(sprite) {
+        let mut only: Vec<String> = Vec::with_capacity(handle.only.len());
+        for sprite in &handle.only {
+            let key = sprite_key(sprite, &format!("sprite `{id}` `only` entry"))?;
+            if only.contains(&key) {
                 return Err(self.err(format!("sprite `{id}` lists `{sprite}` twice in `only`")));
             }
+            only.push(key);
         }
         let check_value = |value: &Option<String>, field: &str| -> Result<()> {
             match value {
@@ -341,7 +343,7 @@ impl Collector<'_> {
             shape: handle.shape.clone(),
             initial,
             selectable: handle.selectable,
-            only: handle.only.clone(),
+            only,
             uses: Vec::new(),
         };
         match self.handles.get(id) {

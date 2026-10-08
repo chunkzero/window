@@ -7,7 +7,7 @@ use super::art::{ArtRefDto, ArtUse, intern};
 use super::element::{ElementDto, check_shared, collect_handles, convert_children, flatten_indexed, intern_art};
 use super::hud::HudDto;
 use super::insets::InsetsDto;
-use super::parse::validate_name;
+use super::parse::{sprite_key, validate_name};
 use super::theme::ThemeDto;
 use super::{BuildOptions, PackTarget, ParsedProject};
 use crate::ir::Handle;
@@ -62,6 +62,7 @@ struct WindowDto {
     frame: Option<ArtRefDto>,
     #[serde(default)]
     children: Vec<ElementDto>,
+    debug_name: Option<String>,
 }
 
 impl ProjectDto {
@@ -106,8 +107,12 @@ impl ProjectDto {
 
 /// Adds the runtime sprite catalog to the theme's sprites; catalog and theme sprite names are global.
 fn add_catalog(sprites: BTreeMap<String, ArtRefDto>, theme: &mut Theme) -> Result<()> {
-    for (name, art) in sprites {
-        validate_name(&name, "sprite")?;
+    let mut declared = BTreeMap::new();
+    for (authored, art) in sprites {
+        let name = sprite_key(&authored, "sprite")?;
+        if let Some(first) = declared.insert(name.clone(), authored.clone()) {
+            return Err(Error::Validation(format!("catalog sprites `{first}` and `{authored}` both become `{name}`")));
+        }
         if theme.sprites.contains_key(&name) || theme.frames.contains_key(&name) {
             return Err(Error::Validation(format!(
                 "catalog sprite `{name}` collides with a theme asset of the same name"
@@ -142,7 +147,8 @@ fn convert_windows(windows: Vec<WindowDto>, theme: &mut Theme) -> Result<Vec<Win
         if !seen.insert(window.name.clone()) {
             return Err(Error::Validation(format!("duplicate window name `{}`", window.name)));
         }
-        out.push(window.into_window(theme)?);
+        let debug_name = window.debug_name.clone();
+        out.push(window.into_window(theme).map_err(|error| error.with_debug_name(debug_name.as_deref()))?);
     }
     Ok(out)
 }
@@ -155,7 +161,8 @@ fn convert_huds(huds: Vec<HudDto>, theme: &mut Theme) -> Result<Vec<Hud>> {
         if !seen.insert(hud.name.clone()) {
             return Err(Error::Validation(format!("duplicate hud name `{}`", hud.name)));
         }
-        out.push(hud.into_hud(theme)?);
+        let debug_name = hud.debug_name.clone();
+        out.push(hud.into_hud(theme).map_err(|error| error.with_debug_name(debug_name.as_deref()))?);
     }
     Ok(out)
 }
@@ -189,6 +196,7 @@ impl WindowDto {
             children: convert_children(children)?,
             indexed,
             handles,
+            debug_name: self.debug_name,
         })
     }
 }

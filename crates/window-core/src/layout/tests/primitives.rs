@@ -232,3 +232,39 @@ fn slots_carry_the_nearest_debug_name() {
     let sources: Vec<Option<&str>> = laid.slots.iter().map(|slot| slot.source.as_deref()).collect();
     assert_eq!(sources, [Some("header"), Some("price-text")]);
 }
+
+#[test]
+fn anonymous_regions_never_collide_with_authored_names() {
+    let laid = solve_one(
+        themed(
+            json!({}),
+            in_container(vec![
+                json!({ "type": "region", "on_click": { "kind": "action", "id": "region_0" }, "layout": { "column": { "span": 1 } } }),
+                json!({ "type": "region", "tooltip": "Hint", "layout": { "column": { "span": 1 } } }),
+            ]),
+        ),
+        &sizes(&[]),
+    );
+    let actions: Vec<Option<&str>> = laid.regions.iter().map(|region| region.action.as_deref()).collect();
+    assert_eq!(actions, [Some("region_0"), None]);
+}
+
+#[test]
+fn windows_and_huds_name_themselves_in_errors() {
+    let bad = json!([{ "type": "sprite", "name": "missing", "x": 0, "y": 0 }]);
+    let window = json!({ "name": "s", "container": "generic_9x3", "children": bad, "debug_name": "shop" });
+    let project = super::project(json!({ "windows": [window] }));
+    let err = super::solve(&project, &sizes(&[])).unwrap_err().to_string();
+    assert!(err.contains("(in `shop`)"), "{err}");
+
+    let hud = json!({ "name": "h", "children": bad, "debug_name": "bar" });
+    let project = super::project(json!({ "huds": [hud] }));
+    let err = crate::layout::solve_huds(
+        &project,
+        &sizes(&[]),
+        &crate::text_font::resolve(&BTreeMap::new(), &BTreeMap::new()).unwrap(),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("(in `bar`)"), "{err}");
+}

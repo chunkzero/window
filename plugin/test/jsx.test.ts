@@ -3,11 +3,13 @@ import { test } from "node:test";
 
 import { Fragment, createElement, jsx } from "../.rpp/sdk/jsx.ts";
 import { action, flag, selection, shape, sprite, text, texture, toggle, value } from "../src/authoring/index.ts";
+import { raw } from "../src/authoring/index.ts";
 import {
     Box,
     Button,
     Case,
     Collection,
+    Hud,
     Icon,
     Image,
     Region,
@@ -18,6 +20,7 @@ import {
     Tab,
     Tabs,
     Text,
+    Window,
 } from "../src/authoring/jsx.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
@@ -272,4 +275,10 @@ test("an image binds a sprite handle as a sized runtime slot", () => {
         debug_name: "lamp",
     });
     assert.deepEqual(Image({ art: "coin" }), { type: "sprite", name: "coin" });
+});
+
+test("Window and Hud carry debugName to the compiler", () => {
+    assert.equal(Window({ name: "w", container: "generic_9x3", debugName: "shop" }).windows[0]?.debug_name, "shop");
+    assert.equal(Hud({ name: "h", debugName: "bar" }).huds[0]?.debug_name, "bar");
+    assert.equal(raw.ui({ name: "w", container: "generic_9x3", debug_name: "shop" }).windows[0]?.debug_name, "shop");
 });

@@ -487,3 +487,34 @@ fn sprite_catalog_holds_inline_art_under_its_key() {
         .to_string();
     assert!(err.contains("lamp"), "{err}");
 }
+
+#[test]
+fn camel_case_catalog_keys_and_only_entries_become_snake_case() {
+    let lamp = |fill: &str| json!({ "art": "shape", "kind": "badge", "width": 4, "height": 4, "fill": fill });
+    let handle = json!({ "kind": "sprite", "id": "lamp", "only": ["lampOn", "lamp_off"] });
+    let project = project_from_json(
+        json!({
+            "sprites": { "lampOn": lamp("#00ff00"), "lamp_off": lamp("#ff0000") },
+            "windows": [{ "name": "s", "container": "generic_9x3", "children": [
+                { "type": "sprite_slot", "handle": handle, "width": 4, "height": 4 },
+            ] }],
+        })
+        .to_string()
+        .as_bytes(),
+    )
+    .unwrap();
+    assert!(project.theme.sprites.contains_key("lamp_on"));
+    assert_eq!(project.windows[0].handles["lamp"].only, ["lamp_on", "lamp_off"]);
+
+    let clash = project_from_json(
+        json!({ "sprites": { "lampOn": lamp("#00ff00"), "lamp_on": lamp("#ff0000") }, "windows": [] })
+            .to_string()
+            .as_bytes(),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(clash.contains("`lampOn` and `lamp_on` both become `lamp_on`"), "{clash}");
+    let mixed =
+        project_from_json(json!({ "sprites": { "Lamp_on": lamp("#00ff00") }, "windows": [] }).to_string().as_bytes());
+    assert!(mixed.is_err());
+}

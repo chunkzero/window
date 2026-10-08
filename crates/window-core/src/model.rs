@@ -92,6 +92,8 @@ pub struct Window {
     pub indexed: BTreeMap<String, IndexedBinding>,
     /// Typed handles by id; their elements carry the entry names of their uses.
     pub handles: BTreeMap<String, Handle>,
+    /// Authored name shown in errors and diagnostics.
+    pub debug_name: Option<String>,
 }
 
 /// One authored HUD.
@@ -116,6 +118,8 @@ pub struct Hud {
     pub indexed: BTreeMap<String, IndexedBinding>,
     /// Typed handles by id; their elements carry the entry names of their uses.
     pub handles: BTreeMap<String, Handle>,
+    /// Authored name shown in errors and diagnostics.
+    pub debug_name: Option<String>,
 }
 
 /// Cross-axis alignment for `row`/`column` children.

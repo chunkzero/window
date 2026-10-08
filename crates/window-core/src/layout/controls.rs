@@ -262,7 +262,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         let name = match &region.name {
             Some(name) => name.clone(),
             None => {
-                let name = format!("region_{}", self.next_region);
+                let name = format!("region~{}", self.next_region);
                 self.next_region += 1;
                 name
             }

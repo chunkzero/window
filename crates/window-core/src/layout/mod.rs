@@ -59,7 +59,10 @@ pub fn solve(
 ) -> Result<Vec<LaidOutWindow>> {
     let mut out = Vec::with_capacity(project.windows.len());
     for window in &project.windows {
-        out.push(solve_window(project, window, texture_size, fonts)?);
+        out.push(
+            solve_window(project, window, texture_size, fonts)
+                .map_err(|error| error.with_debug_name(window.debug_name.as_deref()))?,
+        );
     }
     Ok(out)
 }
@@ -72,7 +75,10 @@ pub fn solve_huds(
 ) -> Result<Vec<LaidOutHud>> {
     let mut out = Vec::with_capacity(project.huds.len());
     for hud in &project.huds {
-        out.push(solve_hud(project, hud, texture_size, fonts)?);
+        out.push(
+            solve_hud(project, hud, texture_size, fonts)
+                .map_err(|error| error.with_debug_name(hud.debug_name.as_deref()))?,
+        );
     }
     Ok(out)
 }
