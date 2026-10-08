@@ -132,6 +132,8 @@ export interface IndustrialArt {
     lampOff: Var<ShapeArt>;
     /** 18x18, over a collection's selected cell. */
     slotSelected: Var<ShapeArt>;
+    /** 110x16, a sunken field for the `anvilFieldSprite` plugin option. */
+    inputField: Var<ShapeArt>;
 }
 
 export const art: IndustrialArt = {
@@ -220,4 +222,5 @@ export const art: IndustrialArt = {
         height: 18,
         name: "industrial/slot-selected",
     }),
+    inputField: sunken(colors.recess, { kind: "panel", width: 110, height: 16, name: "industrial/input-field" }),
 };

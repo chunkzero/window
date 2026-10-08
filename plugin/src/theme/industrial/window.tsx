@@ -21,14 +21,16 @@ export interface WindowProps extends Omit<BaseWindowProps, "frame" | "bleed"> {
 
 /**
  * A container window in the industrial shell: a raised shell with corner rivets and a hazard bar along its bottom, a
- * title recess, and a panel under the player's inventory. Labels default to white small caps with a shadow.
+ * title recess, a panel under an anvil's input and slots, and a panel under the player's inventory. Labels default to
+ * white small caps with a shadow.
  */
 export function Window(props: WindowProps): { windows: WindowDef[] } {
     const { title, inventory = true, frame = art.shell, text, children, ...rest } = props;
-    const { height, sections } = containerLayout(props.container);
-    const { container, player, hotbar } = sections;
+    const layout = containerLayout(props.container);
+    const { container, player, hotbar } = layout.sections;
     const panel = { x: 4, y: player.bounds.y - 3, bottom: hotbar.bounds.y + hotbar.bounds.height + 5 };
-    const end = inventory ? panel.bottom : container.bounds.y + container.bounds.height + 5;
+    const containerBottom = container.bounds.y + container.bounds.height + 5;
+    const end = inventory ? panel.bottom : containerBottom;
     const hazard = end + 5;
     const rivetY = inventory ? panel.y - 7 : end;
     const rivets = [6, rivetY].flatMap((y) => [
@@ -38,10 +40,19 @@ export function Window(props: WindowProps): { windows: WindowDef[] } {
     return (
         <BaseWindow
             {...rest}
-            bleed={{ top: 1, right: 4, bottom: Math.max(0, hazard + 6 - height), left: 4 }}
+            bleed={{ top: 1, right: 4, bottom: Math.max(0, hazard + 6 - layout.height), left: 4 }}
             text={{ color: "#ffffff", shadow: true, smallCaps: true, ...text }}
         >
             <Box frame={frame} x={-4} y={-1} width={184} height={hazard + 7} />
+            {"input" in layout ? (
+                <Box
+                    frame={art.panel}
+                    x={4}
+                    y={layout.input.y - 5}
+                    width={168}
+                    height={containerBottom - (layout.input.y - 5)}
+                />
+            ) : null}
             {inventory ? (
                 <Box frame={art.panel} x={panel.x} y={panel.y} width={168} height={panel.bottom - panel.y} />
             ) : (

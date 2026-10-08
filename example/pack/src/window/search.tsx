@@ -1,4 +1,4 @@
-import { Box, Image, Input, Text } from "plugin:window/ui";
+import { Image, Input, Text } from "plugin:window/ui";
 import { Button, Container, Window, art } from "plugin:window/theme/industrial";
 
 import { icons } from "./art.ts";
@@ -10,7 +10,6 @@ import { back, confirm, query } from "./handles.ts";
  */
 export default (
     <Window name="catalog_search" container="anvil" title="Catalog Search" inventory={false}>
-        <Box frame={art.panel} x={4} y={15} width={168} height={54} />
         <Text x={10} y={24} width={44} color="#bceeff">
             Name
         </Text>
