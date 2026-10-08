@@ -632,9 +632,6 @@ export type FlexAlign = "start" | "end" | "center" | "stretch" | "baseline";
 export type FlexJustify = "start" | "end" | "center" | "stretch" | "between" | "around" | "evenly";
 export type GridFlow = "row" | "column" | "row-dense" | "column-dense";
 
-/** A raw box or case `style`: container fields, styles from `create`, or a nested array of them. */
-export type BoxStyleValue<S> = FlexStyle | StyleValue<S> | readonly BoxStyleValue<S>[];
-
 /** Container style of a flex element. */
 export interface FlexStyle {
     display?: "flex" | "grid";
@@ -687,11 +684,15 @@ export interface FlexOptions extends FlexItemOptions, DebugName {
     y?: number;
     /** Frame stretched over the box's laid-out size. */
     frame?: ArtRef;
-    /** Container fields, or styles from `create` (later entries win per property). */
-    style?: BoxStyleValue<BoxStyle>;
+    style?: FlexStyle;
     /** Overrides vars for this box and everything inside it. */
     theme?: VarTheme;
     children?: Element[];
+}
+
+/** Options of `box`: `style` takes styles from `create` (later entries win per property) instead of `FlexStyle`. */
+export interface BoxOptions extends Omit<FlexOptions, "style"> {
+    style?: StyleValue<BoxStyle>;
 }
 
 export interface FlexElement extends FlexOptions {
@@ -717,8 +718,8 @@ export interface SectionElement extends SectionOptions {
 /** A case of `switchOn`, or the shown case of `show`: a flex box that stretches to the switch unless sized. */
 export interface CaseOptions extends DebugName {
     frame?: ArtRef;
-    /** Box layout, or styles from `create`; `direction` defaults to `"column"`. */
-    style?: BoxStyleValue<CaseStyle>;
+    /** Styles from `create`; `direction` defaults to `"column"`. */
+    style?: StyleValue<CaseStyle>;
     /** Overrides vars for this case and everything inside it. */
     theme?: VarTheme;
     children?: Element[];

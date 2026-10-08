@@ -88,9 +88,9 @@ export function defineVars<const T extends Record<string, VarValue>>(defaults: T
 }
 
 /** A theme overriding some of `vars`; pass it to the `theme` prop of a `Window`, `Hud`, or `Box`. */
-export function createTheme<V extends Record<string, Var<Color> | Var<number>>>(
+export function createTheme<V extends Record<string, Var<Color> | Var<number>>, O extends ThemeOverrides<V>>(
     vars: V,
-    overrides: ThemeOverrides<V>,
+    overrides: O & { readonly [K in keyof O]: K extends keyof V ? O[K] : never },
 ): VarTheme {
     const values = new Map<VarData, unknown>();
     for (const [name, value] of Object.entries(overrides)) {

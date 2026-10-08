@@ -1,3 +1,4 @@
+import { root } from "./authoring/elements.ts";
 import { resolveTokens } from "./authoring/tokens.ts";
 import type { Art, Hud, Theme, Window, WindowDocument } from "./authoring/types.ts";
 
@@ -192,7 +193,10 @@ function listDocuments(path: string, list: keyof typeof LISTS, entries: unknown)
         if (isFields(listed) && documents in listed) {
             return { [documents]: listed[documents] };
         }
-        const entry = resolveTokens(listed);
+        const entry =
+            list !== "themes" && isFields(listed) && isDefinition(list, listed)
+                ? root(listed as unknown as Window | Hud, `${single} \`${String(listed["name"])}\``)
+                : resolveTokens(listed);
         const other = isFields(entry) && ["theme", "windows", "huds"].some((key) => key in entry);
         if (!isFields(entry) || other || !isDefinition(list, entry)) {
             throw new Error(`${path}: defineWindows \`${list}\` entry ${i} is not a ${single} document`);

@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import { create, createTheme, defineVars, derive, mix, raw, shape, variants } from "../src/authoring/index.ts";
 import type { Color, Var } from "../src/authoring/index.ts";
+import { defineWindows } from "../src/authoring/index.ts";
+import { collectInputs } from "../src/project.ts";
 import { Box, Case, Hud, Image, Switch, Text, Window } from "../src/authoring/jsx.ts";
 import type { Element } from "../src/authoring/types.ts";
 
@@ -161,7 +163,7 @@ test("raw primitives take styles and themes", () => {
         style: { frame: shape({ fill: colors.face }) },
         children: [
             raw.box({
-                style: [s.panel, { direction: "row", min_width: 4 }],
+                style: [s.panel, { direction: "row", minWidth: 4 }],
                 layout: { shrink: 0 },
                 children: [raw.label("A"), raw.label("B", { style: s.label, color: "#000000" })],
             }),
@@ -186,4 +188,69 @@ test("raw primitives take styles and themes", () => {
     const caseEl = toggle.children[0]!;
     assert.deepEqual(caseEl.style, { direction: "column", justify: "center" });
     assert.deepEqual(caseEl.frame, { fill: "#c0503a", art: "shape" });
+});
+
+test("font and smallCaps are one selection across styles and props", () => {
+    const text = (el: Element) => el as unknown as Record<string, unknown>;
+    const a = text(Text({ style: { smallCaps: true }, font: "custom", children: "A" }));
+    assert.equal(a["font"], "custom");
+    assert.equal(a["small_caps"], undefined);
+    const b = text(Text({ style: { font: "custom" }, smallCaps: true, children: "B" }));
+    assert.equal(b["small_caps"], true);
+    assert.equal(b["font"], undefined);
+    const c = text(Text({ style: [{ font: "custom" }, { smallCaps: true }], children: "C" }));
+    assert.equal(c["small_caps"], true);
+    assert.equal(c["font"], undefined);
+    const d = text(Text({ style: [{ smallCaps: true }, { font: "custom" }], children: "D" }));
+    assert.equal(d["font"], "custom");
+    assert.equal(d["small_caps"], undefined);
+});
+
+test("raw boxes and cases take only typed styles", () => {
+    const merged = raw.box({ style: [{ minWidth: 4 }, { minWidth: 8 }] });
+    assert.deepEqual(merged.style, { min_width: 8 });
+    assert.throws(() => raw.box({ style: { min_width: 4 } as never }), /does not accept style property `min_width`/);
+    const stored = create({ label: { color: "#ffffff" } });
+    assert.throws(() => raw.box({ style: stored.label as never }), /does not accept style property `color`/);
+    assert.throws(() => raw.case("on", { style: stored.label as never }), /does not accept style property `color`/);
+    assert.deepEqual(raw.flex({ style: { min_width: 4 } }).style, { min_width: 4 });
+});
+
+test("create rejects unknown nested text properties", () => {
+    assert.throws(
+        () => create({ label: { text: { color: "#ffffff", colour: "#aaaaaa" } } as never }),
+        /unknown text property `colour`/,
+    );
+    assert.throws(() => variants({ base: { text: { colour: "#aaaaaa" } } as never }), /unknown text property `colour`/);
+});
+
+test("bare window and HUD definitions apply their styles", () => {
+    const frame = shape({ fill: colors.face });
+    const style = { frame, text: { color: colors.text } };
+    const { documents } = collectInputs({
+        discovered: (glob: unknown) =>
+            glob === "jsx"
+                ? []
+                : [
+                      {
+                          path: "window/index.ts",
+                          module: {
+                              default: defineWindows({
+                                  windows: [{ name: "w", container: "generic_9x1", style, children: [raw.label("A")] }],
+                                  huds: [{ name: "h", style, children: [raw.label("B")] }],
+                              }),
+                          },
+                      },
+                  ],
+        sourceFiles: () => [],
+        remove: () => {},
+        read: () => undefined,
+        readSource: () => undefined,
+    } as never);
+    const [window, hud] = documents.map((doc) => (doc.window ?? doc.hud)!);
+    for (const doc of [window!, hud!]) {
+        assert.deepEqual(doc.frame, { fill: "#0994c6", art: "shape" });
+        assert.ok(!("style" in doc));
+        assert.equal((children(doc)[0] as { color?: string }).color, "#ffffff");
+    }
 });

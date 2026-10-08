@@ -134,3 +134,18 @@ const rawStyled = raw.ui({
 // @ts-expect-error A raw label takes text styles.
 const rawLabelFrame = raw.label("Hi", { style: s.tab.base });
 void [rawStyled, rawLabelFrame];
+
+const storedText = { label: { text: { color: "#ffffff", colour: "#aaaaaa" } } };
+// @ts-expect-error Nested text properties are checked, even on a stored object.
+const nestedTypo = create(storedText);
+const storedOverrides = { face: "#000000", typo: "#aaaaaa" } as const;
+// @ts-expect-error A stored theme names only vars of its set.
+const storedUnknownVar = createTheme(colors, storedOverrides);
+const storedGood = { face: "#000000" } as const;
+const storedTheme = createTheme(colors, storedGood);
+const storedBox = create({ box: { padding: 1, color: "#ffffff" } }).box;
+// @ts-expect-error A stored style with text properties is not a raw box style.
+const rawStoredBox = raw.box({ style: storedBox });
+// @ts-expect-error A raw case takes typed styles only.
+const rawFlexStyleCase = raw.case("on", { style: { min_width: 4 } });
+void [nestedTypo, storedUnknownVar, storedTheme, rawStoredBox, rawFlexStyleCase];

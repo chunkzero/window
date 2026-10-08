@@ -129,7 +129,8 @@ export type Variants<K extends string = string, S = Style> = { readonly [VARIANT
     readonly [P in K]: StyleFor<S>;
 };
 
-type Exact<S> = { [P in keyof S]: P extends keyof Style ? S[P] : never };
+type ExactText<T> = { [P in keyof T]: P extends keyof TextProps ? T[P] : never };
+type Exact<S> = { [P in keyof S]: P extends "text" ? ExactText<S[P]> : P extends keyof Style ? S[P] : never };
 type Checked<T> = { [K in keyof T]: T[K] extends { readonly [VARIANTS]: string } ? T[K] : Exact<T[K]> };
 
 const ITEM_KEYS = [
@@ -201,6 +202,7 @@ export const STYLE_KEYS: Readonly<Record<string, readonly string[]>> = {
 };
 
 const ALL_KEYS: ReadonlySet<string> = new Set(Object.values(STYLE_KEYS).flat());
+const TEXT_PROP_KEYS: ReadonlySet<string> = new Set(TEXT_KEYS.map(([key]) => key));
 
 function checkStyle(style: unknown, label: string): void {
     if (typeof style !== "object" || style === null || Array.isArray(style) || VARIANTS in style) {
@@ -209,6 +211,14 @@ function checkStyle(style: unknown, label: string): void {
     for (const key of Object.keys(style)) {
         if (!ALL_KEYS.has(key)) {
             throw new Error(`${label} has unknown style property \`${key}\``);
+        }
+    }
+    const text = (style as Fields)["text"];
+    if (typeof text === "object" && text !== null) {
+        for (const key of Object.keys(text)) {
+            if (!TEXT_PROP_KEYS.has(key)) {
+                throw new Error(`${label} has unknown text property \`${key}\``);
+            }
         }
     }
 }
@@ -242,6 +252,19 @@ export function variants<T extends Record<string, Style>>(
     return Object.freeze({ ...out, [VARIANTS]: Object.keys(out).join("|") }) as never;
 }
 
+/** Sets `fields` over `out`; `font` and `smallCaps` are one selection, so setting either clears the other. */
+function assign(out: Fields, fields: Fields): void {
+    if (fields["font"] !== undefined || fields["smallCaps"] !== undefined) {
+        delete out["font"];
+        delete out["smallCaps"];
+    }
+    for (const [key, field] of Object.entries(fields)) {
+        if (field !== undefined) {
+            out[key] = field;
+        }
+    }
+}
+
 /** Merges a `style` value: falsy entries are skipped, arrays flatten, and later entries win per property. */
 export function mergeStyle(value: unknown, allowed: readonly string[], label: string): Fields {
     const out: Fields = {};
@@ -261,14 +284,12 @@ export function mergeStyle(value: unknown, allowed: readonly string[], label: st
         if (VARIANTS in entry) {
             throw new Error(`${label} style is a variants group; pass one of its variants, such as \`style.base\``);
         }
-        for (const [key, field] of Object.entries(entry)) {
+        for (const key of Object.keys(entry)) {
             if (!allowed.includes(key)) {
                 throw new Error(`${label} does not accept style property \`${key}\``);
             }
-            if (field !== undefined) {
-                out[key] = field;
-            }
         }
+        assign(out, entry as Fields);
     };
     add(value);
     return out;
@@ -285,11 +306,7 @@ export function withStyle<P extends { style?: unknown }>(
         return rest;
     }
     const out = mergeStyle(style, allowed, `<${component}>`);
-    for (const [key, value] of Object.entries(rest)) {
-        if (value !== undefined) {
-            out[key] = value;
-        }
-    }
+    assign(out, rest);
     return out as Omit<P, "style">;
 }
 
@@ -304,20 +321,17 @@ export function textFields(props: Fields): Fields {
     return out;
 }
 
-/** The `FlexStyle` of container props, which may also be written as `FlexStyle` fields. */
+/** The `FlexStyle` of container props. */
 export function flexStyle(props: Fields): FlexStyle | undefined {
     const out: Fields = {};
     for (const [from, to] of FLEX_KEYS) {
-        const value = props[from] ?? props[to];
+        const value = props[from];
         if (value !== undefined) {
             out[to] = value;
         }
     }
     return Object.keys(out).length === 0 ? undefined : (out as FlexStyle);
 }
-
-/** `FlexStyle` field names, which raw boxes accept in `style` beside container props. */
-export const FLEX_STYLE_KEYS: readonly string[] = FLEX_KEYS.map(([, key]) => key);
 
 export function spanOf(span: ItemStyle["span"]): [number | undefined, number | undefined] {
     if (span === undefined) {
@@ -387,7 +401,7 @@ export function cascade<T>(node: T, style: TextProps | undefined): T {
 
 /**
  * A raw element with its `style` field applied: explicit fields win, `layout` merges per property, and `text` fills
- * the text inside. `kind` selects the primitive's style properties; boxes and cases take `FlexStyle` fields too.
+ * the text inside. `kind` selects the primitive's style properties.
  */
 export function applyStyle(out: Fields, kind: string, label: string): Fields {
     const { style, ...rest } = out;
@@ -395,8 +409,7 @@ export function applyStyle(out: Fields, kind: string, label: string): Fields {
         return rest;
     }
     const box = kind === "box" || kind === "case";
-    const allowed = box ? [...STYLE_KEYS[kind]!, ...FLEX_STYLE_KEYS] : STYLE_KEYS[kind]!;
-    const merged = mergeStyle(style, allowed, label);
+    const merged = mergeStyle(style, STYLE_KEYS[kind]!, label);
     const result: Fields = { ...rest };
     if (merged.frame !== undefined && result.frame === undefined) {
         result.frame = merged.frame;

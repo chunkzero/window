@@ -8,6 +8,7 @@ import type {
     ButtonElement,
     ButtonOptions,
     CaseElement,
+    BoxOptions,
     CaseOptions,
     ChoiceOptions,
     CollectionElement,
@@ -115,8 +116,7 @@ function copyKnown(
 
 /** The `style` properties each element type accepts, by primitive. */
 const STYLE_KINDS: Readonly<Record<string, string>> = {
-    flex: "box",
-    grid: "box",
+    box: "box",
     label: "text",
     slot: "text",
     sprite: "item",
@@ -140,7 +140,7 @@ function element(
 }
 
 /** A root definition with its `style` applied and its vars resolved. */
-function root<T extends Window | Hud>(def: T, label: string): T {
+export function root<T extends Window | Hud>(def: T, label: string): T {
     return resolveTokens(applyStyle({ ...def }, "section", label)) as T;
 }
 
@@ -183,6 +183,12 @@ export function panel(opts: PanelOptions): PanelElement {
 export function flex(opts?: FlexOptions): FlexElement {
     const out = element("flex", opts, FLEX_KEYS);
     return { ...out, children: out.children ?? [] } as unknown as FlexElement;
+}
+
+/** A flexbox or grid whose `style` is built from the same styles as `<Box>`. */
+export function box(opts?: BoxOptions): FlexElement {
+    const out = element("box", opts, FLEX_KEYS);
+    return { ...out, type: "flex", children: out.children ?? [] } as unknown as FlexElement;
 }
 
 /** A CSS grid: `flex` with `style.display` set to `"grid"`. */

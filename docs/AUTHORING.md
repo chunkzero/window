@@ -532,11 +532,11 @@ with element children) keep their grouped members and cannot read handles.
 by hand or with `flex`/`grid`/`section` layouts, and named by string bindings. It builds the same documents as JSX, so
 both styles can be mixed in one pack; prefer JSX and handles for new UIs.
 
-The primitives `ui`, `hud`, `box`, `grid`, `text`, `image`, `region`, `items`, `collection`, `switchOn`, `case`, and
-`section` take a `style` field with the same [styles](#styles) as their JSX primitive; explicit fields win, and an
-explicit `layout` merges over the style's item properties per field. A box or case `style` may also mix in its
-`FlexStyle` fields, such as `min_width`. `ui`, `hud`, `box`, and `case` take a `theme`, and vars resolve when `ui` or
-`hud` builds its document.
+The primitives `ui`, `hud`, `box`, `text`, `image`, `region`, `items`, `collection`, `switchOn`, `case`, and `section`
+take a `style` field with the same [styles](#styles) as their JSX primitive; explicit fields win, and an explicit
+`layout` merges over the style's item properties per field. `flex` and `grid` keep their `FlexStyle` `style`
+(`min_width`) and take no styles. `ui`, `hud`, `box`, and `case` take a `theme`, and vars resolve when `ui` or `hud`
+builds its document.
 
 ### Windows
 
