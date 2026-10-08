@@ -230,6 +230,19 @@ fn nested_measurement_errors_name_the_primitive() {
 }
 
 #[test]
+fn nested_containers_name_the_innermost_failing_scope() {
+    let project = themed(
+        json!({}),
+        json!([{ "type": "flex", "x": 0, "y": 0, "debug_name": "outer-box", "children": [
+            { "type": "flex", "debug_name": "inner-box", "children": [{ "type": "sprite", "name": "missing" }] },
+        ] }]),
+    );
+    let err = super::solve(&project, &sizes(&[])).unwrap_err().to_string();
+    assert_eq!(err.matches("(in `").count(), 1, "{err}");
+    assert!(err.contains("(in `inner-box`)"), "{err}");
+}
+
+#[test]
 fn slots_carry_the_nearest_debug_name() {
     let laid = solve_one(
         themed(

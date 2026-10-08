@@ -53,7 +53,7 @@ impl Error {
             return self;
         };
         let suffix = format!(" (in `{debug_name}`)");
-        let append = |message: String| if message.ends_with(&suffix) { message } else { message + &suffix };
+        let append = |message: String| if message.contains(" (in `") { message } else { message + &suffix };
         match self {
             Error::Validation(message) => Error::Validation(append(message)),
             Error::Layout { window, message } => Error::Layout { window, message: append(message) },

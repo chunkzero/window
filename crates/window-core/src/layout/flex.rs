@@ -97,6 +97,10 @@ impl<T: LayoutTarget> Solver<'_, T> {
     }
 
     fn add_box(&self, tree: &mut Tree, node: &FlexBox, item: Option<&ItemLayout>) -> Result<NodeId> {
+        self.add_box_node(tree, node, item).map_err(|error| error.with_debug_name(node.debug_name.as_deref()))
+    }
+
+    fn add_box_node(&self, tree: &mut Tree, node: &FlexBox, item: Option<&ItemLayout>) -> Result<NodeId> {
         let mut style = node.style.clone();
         if let Some(item) = item {
             if let Some(pos) = node.pos {
@@ -120,6 +124,10 @@ impl<T: LayoutTarget> Solver<'_, T> {
     /// A switch is a one-cell grid whose cases all occupy the cell, so it takes the largest case's size and
     /// every case box fills it.
     fn add_switch(&self, tree: &mut Tree, switch: &Switch, item: Option<&ItemLayout>) -> Result<NodeId> {
+        self.add_switch_node(tree, switch, item).map_err(|error| error.with_debug_name(switch.debug_name.as_deref()))
+    }
+
+    fn add_switch_node(&self, tree: &mut Tree, switch: &Switch, item: Option<&ItemLayout>) -> Result<NodeId> {
         self.check_switch(switch)?;
         let mut style = taffy::Style { display: taffy::Display::Grid, ..Default::default() };
         if let Some(item) = item {
