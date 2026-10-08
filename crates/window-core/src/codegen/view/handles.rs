@@ -23,6 +23,20 @@ pub(super) struct HandleMember {
     pub(super) constants: Vec<(String, u32)>,
 }
 
+/// The JVM getter and setter names Kotlin gives a property: `isFoo` keeps its getter name and sets via `setFoo`.
+fn jvm_accessors(property: &str) -> (String, Option<String>) {
+    let capitalize = |name: &str| {
+        let (first, rest) = name.split_at(name.chars().next().map_or(0, char::len_utf8));
+        format!("{}{rest}", first.to_uppercase())
+    };
+    match property.strip_prefix("is") {
+        Some(rest) if rest.chars().next().is_some_and(|c| !c.is_lowercase()) => {
+            (property.into(), Some(format!("set{rest}")))
+        }
+        _ => (format!("get{}", capitalize(property)), Some(format!("set{}", capitalize(property)))),
+    }
+}
+
 impl HandleMember {
     /// Names the members of `handle`; `cells` is a collection's cell count, and `claim` rejects invalid or colliding
     /// names.
@@ -43,14 +57,14 @@ impl HandleMember {
         if !member.is_empty() {
             claim(&member, format!("{kind} `{id}`"))?;
         }
-        let accessors = match handle.kind {
-            HandleKind::Toggle | HandleKind::Selection => vec!["get", "set"],
-            HandleKind::Collection => vec!["get"],
-            _ => Vec::new(),
-        };
-        for prefix in accessors {
-            let (first, rest) = member.split_at(member.chars().next().map_or(0, char::len_utf8));
-            claim(&format!("{prefix}{}{rest}", first.to_uppercase()), format!("{kind} `{id}` property accessor"))?;
+        if matches!(handle.kind, HandleKind::Toggle | HandleKind::Selection | HandleKind::Collection) {
+            let (getter, setter) = jvm_accessors(&member);
+            let mutable = handle.kind != HandleKind::Collection;
+            for accessor in
+                [Some(getter).filter(|getter| *getter != member), setter.filter(|_| mutable)].into_iter().flatten()
+            {
+                claim(&accessor, format!("{kind} `{id}` property accessor"))?;
+            }
         }
         let enum_name = matches!(handle.kind, HandleKind::Value | HandleKind::Selection).then(|| naming::type_name(id));
         if let Some(name) = &enum_name {

@@ -303,6 +303,21 @@ fn nested_enums_cannot_shadow_runtime_types() {
 }
 
 #[test]
+fn is_prefixed_toggles_claim_kotlins_real_accessor_names() {
+    let toggle = |id: &str, slot: u32| json!({ "type": "button", "on_click": { "kind": "toggle", "id": id }, "pattern": slots(slot, 1) });
+    let flag = |id: &str| {
+        json!({ "type": "switch", "handle": { "kind": "flag", "id": id }, "x": 8, "y": 6, "children": [
+            { "type": "case", "value": "true", "children": [] },
+            { "type": "case", "value": "false", "children": [] }] })
+    };
+    let clash = json!([toggle("foo", 0), toggle("is_foo", 1)]);
+    let message = error(&project(json!([window("a", "generic_9x1", clash)])));
+    assert!(message.contains("both map to member `setFoo`"), "{message}");
+    let distinct = json!([toggle("is_foo", 0), flag("get_is_foo")]);
+    project(json!([window("a", "generic_9x1", distinct)]));
+}
+
+#[test]
 fn handle_names_cannot_clash_with_generated_accessors_or_the_companion() {
     let toggle =
         json!({ "type": "button", "on_click": { "kind": "toggle", "id": "favorites" }, "pattern": slots(0, 1) });
