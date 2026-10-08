@@ -14,23 +14,29 @@ export interface WindowProps extends Omit<BaseWindowProps, "frame" | "bleed" | "
     title?: Child;
     /**
      * Shows the player's inventory and hotbar on a panel. `false` claims their slots, so no items show there, and
-     * omits the panel; the window then rejects its own `<Player>` and `<Hotbar>` sections. An anvil also ends the shell
-     * below its slots, since packs with an `<Input>` hide vanilla's anvil art.
+     * omits the panel; the window then rejects its own `<Player>` and `<Hotbar>` sections. An anvil window with an
+     * `<Input>` also ends the shell below its slots, since packs with an `<Input>` hide vanilla's anvil art.
      */
     inventory?: boolean;
     /** Art of the shell; defaults to `art.shell`. */
     frame?: ArtRef;
 }
 
-function claimsInventory(child: unknown): boolean {
+interface Scan {
+    claimsInventory: boolean;
+    hasInput: boolean;
+}
+
+function scan(child: unknown, found: Scan = { claimsInventory: false, hasInput: false }): Scan {
     if (Array.isArray(child)) {
-        return child.some(claimsInventory);
+        child.forEach((entry) => scan(entry, found));
+    } else if (typeof child === "object" && child !== null) {
+        const node = child as { type?: unknown; section?: unknown; children?: unknown };
+        found.claimsInventory ||= node.type === "section" && node.section !== "container";
+        found.hasInput ||= node.type === "anvil_input";
+        scan(node.children, found);
     }
-    if (typeof child !== "object" || child === null) {
-        return false;
-    }
-    const node = child as { type?: unknown; section?: unknown; children?: unknown };
-    return (node.type === "section" && node.section !== "container") || claimsInventory(node.children);
+    return found;
 }
 
 /**
@@ -40,7 +46,8 @@ function claimsInventory(child: unknown): boolean {
  */
 export function Window(props: WindowProps): { windows: WindowDef[] } {
     const { title, inventory = true, frame = art.shell, text, children, ...rest } = props;
-    if (!inventory && claimsInventory(children)) {
+    const { claimsInventory, hasInput } = scan(children);
+    if (!inventory && claimsInventory) {
         throw new Error(
             "<Window inventory={false}> claims the player inventory and hotbar; remove its <Player> and <Hotbar> sections",
         );
@@ -51,7 +58,7 @@ export function Window(props: WindowProps): { windows: WindowDef[] } {
     const { container, player, hotbar } = layout.sections;
     const panel = { x: 4, y: player.bounds.y - 3, bottom: hotbar.bounds.y + hotbar.bounds.height + 5 };
     const containerBottom = container.bounds.y + container.bounds.height + 5;
-    const endsEarly = !inventory && "input" in layout;
+    const endsEarly = !inventory && hasInput;
     const end = endsEarly ? containerBottom : panel.bottom;
     const hazard = end + 5;
     const rivetY = endsEarly ? end : panel.y - 7;

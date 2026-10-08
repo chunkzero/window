@@ -4,8 +4,8 @@ import { test } from "node:test";
 
 import * as industrial from "../src/theme/industrial/index.ts";
 import { containerLayout, createTheme } from "../src/ui/index.ts";
-import { action, collection, flag, items, selection, toggle } from "../src/bind/index.ts";
-import { Image, Window } from "../src/ui/components.ts";
+import { action, collection, flag, input, items, selection, toggle } from "../src/bind/index.ts";
+import { Image, Input, Window } from "../src/ui/components.ts";
 import { resolveTokens } from "../src/ui/tokens.ts";
 import type { Element } from "../src/ui/document.ts";
 
@@ -169,11 +169,13 @@ test("container layouts match the compiler's screen metrics", () => {
 });
 
 test("an industrial window without its inventory claims it and ends below the container", () => {
-    const shell = (inventory: boolean) => industrial.Window({ name: "w", container: "anvil", inventory }).windows[0]!;
+    const field = Input({ bind: input("query") });
+    const shell = (inventory: boolean, children: Element[] = []) =>
+        industrial.Window({ name: "w", container: "anvil", inventory, children }).windows[0]!;
     const open = shell(true);
     assert.deepEqual(open.bleed, { top: 1, right: 4, bottom: 8, left: 4 });
     assert.equal(ofType(open.children, "section").length, 0);
-    const closed = shell(false);
+    const closed = shell(false, [field]);
     assert.deepEqual(closed.bleed, { top: 1, right: 4, bottom: 0, left: 4 });
     assert.deepEqual(
         ofType(closed.children, "section").map((section) => [section.section, section.claim]),
@@ -182,6 +184,7 @@ test("an industrial window without its inventory claims it and ends below the co
             ["hotbar", "all"],
         ],
     );
+    assert.deepEqual(shell(false).bleed, open.bleed);
     const generic = (inventory: boolean) =>
         industrial.Window({ name: "w", container: "generic_9x3", inventory }).windows[0]!;
     assert.deepEqual(generic(false).bleed, generic(true).bleed);
