@@ -438,6 +438,128 @@ nearest setting wins. Button content defaults to centered text.
 
 Generated Kotlin is the same as for the `raw` API: binding names come from `name` and `bind`.
 
+## Industrial
+
+`industrial`, exported from `#plugins/window`, is Window's default look as plain components built from the
+[primitives](#primitives) and [handles](#handles). It needs no theme file: its art is inline, and its runtime state is
+switches on handles.
+
+```tsx
+import { Text, Window, action, collection, flag, industrial, selection, text } from "#plugins/window";
+
+const category = selection("category", ["all", "gear", "magic"]);
+const products = collection("products", { selectable: true });
+
+<Window name="shop" container="generic_9x6" frame={industrial.art.shell} text={{ color: "#ffffff", smallCaps: true }}>
+  <industrial.Header>
+    <Text>Foundry Exchange</Text>
+  </industrial.Header>
+  <industrial.Container frame={industrial.art.panel}>
+    <industrial.Tabs bind={category} span={3}>
+      {(value) => <Text>{value}</Text>}
+    </industrial.Tabs>
+    <industrial.Collection bind={products} rows={3} />
+  </industrial.Container>
+  <industrial.Hotbar>
+    <industrial.Button
+      onClick={action("buy")}
+      enabled={flag("can_buy")}
+      disabled={{ tooltip: "Too expensive" }}
+      span={6}
+    >
+      <Text bind={text("buy_label")} />
+    </industrial.Button>
+    <industrial.Button close span={3}>
+      Exit
+    </industrial.Button>
+  </industrial.Hotbar>
+</Window>;
+```
+
+| component                                               | notes                                                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `Button onClick \| close, enabled?, disabled?`          | `disabled` (`tooltip`, `itemModel`, `frame`) shows while `enabled` is false; no clicks   |
+| `Toggle bind on? off?`                                  | flips a `toggle` handle; `on`/`off` are its states                                       |
+| `Choice bind value selected? unselected?`               | sets a selection to `value`                                                              |
+| `Tabs bind sprite? selectedSprite? tooltip? itemModel?` | one `Choice` per value; children render each value, or are `Tab value tooltip?` elements |
+| `Repeater cell columns rows onClick? item? itemSlot?`   | `onClick` and `item` are shaped `[cells]`; `item` fills the cell's `itemSlot` (1-based)  |
+| `Collection bind`, `Slots span claim?`, `Hotspot`       | industrial slot frames; `Slots claim="all"` blocks clicks on its slots                   |
+| `Container`, `Player`, `Hotbar`                         | the slot sections                                                                        |
+| `Header`, `Row`, `Column`, `Grid`, `Center`, `Spacer`   | layout boxes                                                                             |
+| `Show when`                                             | draws its children while a condition holds                                               |
+
+- Controls (`Button`, `Toggle`, `Choice`, `Tabs`, `Repeater` cells) inset their slot cells by 1px, so their face covers
+  the 16x16 slot interiors, and center their content in a row (a column in a repeater cell) with centered labels.
+  `frame`, `padding`, `gap`, `text`, `tooltip`, and `itemModel` style the face; a state's `frame` or `tooltip` replaces
+  them in that state. State frames are drawn at the control's size.
+- `industrial.art` holds the frames `shell`, `panel`, `recess`, `slot`, `button`, `buttonSelected`, `buttonDisabled`,
+  `buttonAccent`, `buttonDanger`, `buttonConfirm`, `hud`, and `hazardBar`, and the images `rivet` (5x5), `lampOn` and
+  `lampOff` (4x4), and `slotSelected` (18x18).
+- `industrial.raised(fill, options?)` and `industrial.sunken(fill, options?)` are the bevel recipes behind them, and
+  `industrial.tones` their light and dark tones.
+
+### Variant contracts
+
+Each control's `style` takes the [variants](#styles) it names, each a box style; a group with another variant is a type
+error. Industrial's own styles, `industrial.styles`, come first, and `style` adds to them.
+
+| component        | variants                         |
+| ---------------- | -------------------------------- |
+| `Button`         | `base`, `disabled`               |
+| `Toggle`         | `base`, `on`, `off`              |
+| `Choice`, `Tabs` | `base`, `selected`, `unselected` |
+| `Repeater`       | `cell`                           |
+
+```tsx
+const ghost = variants({
+  base: { frame: industrial.art.recess, padding: 2 },
+  disabled: { frame: industrial.art.slot },
+});
+
+<industrial.Button onClick={buy} enabled={canBuy} style={ghost}>
+  Buy
+</industrial.Button>;
+```
+
+### Theming industrial
+
+`industrial.colors` are [vars](#vars-and-themes), and every industrial art value derives from them, so a theme recolors
+the art under it:
+
+```tsx
+const ember = createTheme(industrial.colors, { panel: "#8c3a1c", button: "#c0503a" });
+
+<Box theme={ember}>…</Box>;
+```
+
+| var                           | `presets.industrial` option                     |
+| ----------------------------- | ----------------------------------------------- |
+| `border`, `highlight`         | `border_color`, `highlight_color`               |
+| `shell`, `panel`, `recess`    | `shell_fill`, `panel_fill`, `recess_fill`       |
+| `slot`, `button`              | `slot_fill`, `button_fill`                      |
+| `selected`, `disabled`        | `selected_fill`, `disabled_fill`                |
+| `accent`, `danger`, `confirm` | `accent_color`, `danger_color`, `confirm_color` |
+| `hud`, `lamp`                 | `hud_fill`, `lamp_color`                        |
+| `hazard`, `hazardStripe`      | `stripe_fill`, `stripe_color`                   |
+
+Art Kotlin selects at runtime, such as lamp images for a `sprite` handle, goes in the [sprite catalog](#sprite-catalog).
+
+### Migration
+
+Moving a window from the theme, `presets`, string bindings, and the legacy components to `industrial` and handles
+changes its generated Kotlin:
+
+- A button with `enabled`, a toggle, a choice, and a tab are switches on their handle, each state a region: the view
+  binds `switch(…)` and `button(…)` entries in place of `enabledButton`, `toggle`, and `choice`. Its abstract members
+  (`canBuy()`, `var favorites`, `var category`, `on…Changed`) are unchanged.
+- Content repeated in each state of a control binds once per state: a bound `<Text>` in a toggle generates text slots
+  `label` and `label~2`, both filled from the same member.
+- A disabled button's slots take no clicks rather than calling a disabled handler.
+- A click on a repeater's `item` slot no longer calls the cell's `onClick`.
+- `WindowSprite` lists only [sprite catalog](#sprite-catalog) entries: theme sprites drawn as inline art, such as button
+  state sprites, no longer generate constants.
+- Section claims are named after their section (`player_section`) rather than a `<Slots name>`.
+
 ## Handles
 
 A handle declares one binding and the Kotlin member it generates. Declare handles in an ordinary module and pass them to
