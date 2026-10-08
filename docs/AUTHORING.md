@@ -168,10 +168,12 @@ Every window is built from a few primitives, which the [`industrial`](#industria
 - A region without `width` and `height` fills its parent box and claims the slots the box covers; in a section it claims
   its `span`/`at` area. Its `onClick` is an `action`, `selection.set(value)`, `toggle`, or `builtin`; without one it
   only shows its `tooltip` and hitbox item.
+- A region may cover slots whose stacks an `<Items>` or `<Collection>` shows: it routes clicks on every slot it covers
+  and fills its hitbox item only into the others. A click on an action collection's cell still goes to the collection.
 - Switch cases may hold regions, items, and collections, including in nested switches. Their slots are claimed only
   while their case is drawn, so regions and items in mutually exclusive cases may cover the same slots: a click routes
-  to the region of the case selected when it arrives, and the items swap with the case. Overlapping slots outside
-  mutually exclusive cases are a build error.
+  to the region of the case selected when it arrives, and the items swap with the case. Two regions, or two item
+  controls, covering the same slot outside mutually exclusive cases are a build error.
 - Every primitive takes `debugName`, which build errors name (``… (in `buy-hitbox`)``) and the inspector shows as the
   source of the layers it draws.
 
@@ -898,8 +900,8 @@ additional iconography instead of relying on Minecraft's missing-glyph fallback.
   player slots `0..8`.
 - Sections preserve Minecraft's native vertical gutters. For a generic 9xN screen, the container/player gutter is 16px
   and the player/hotbar gutter is 6px. Anvil screens reserve 21px and 6px respectively.
-- A region routes clicks on every slot it covers and fills them with its hitbox item, except a region over the anvil
-  input's slot, which routes clicks there while the input keeps its seed item.
+- A region routes clicks on every slot it covers and fills its hitbox item into those whose stacks no items, collection,
+  or anvil input owns; those keep their own stacks, and the input its seed item.
 - Player inventory slots are temporarily taken over by the runtime while the menu is open and restored when it closes.
   Use these for menu controls in the visible player inventory area, not for permanent inventory mutation.
 - Window emits an invisible `{namespace}:gui/hitbox` item model for region hitboxes. Hover tooltips are native Minecraft
@@ -928,7 +930,7 @@ inline art, and `industrial` components:
 | `raw.button`, `toggle`, `choice`, `hotspot`, `repeater`, `slotRects`, `show`              | `industrial.Button(…)` and the other components called as functions, or `raw.region` in a section |
 | `raw.item`, `raw.anvilInput`                                                              | `raw.items`, `raw.input`                                                                          |
 | a button's `pattern`/`transform` or `x`/`y`/`width`/`height`                              | its place in a `section` (`at`, `span`), or a region in a positioned box                          |
-| a fixed sprite slot                                                                       | `<Image art>`                                                                                     |
+| a fixed sprite slot                                                                       | `<Image art>`, or a `<Box frame>` of the sprite's declared size when its texture is another size  |
 
 Centering changed for content that does not fill its box: legacy buttons centered children by floor division, while a
 box centers with CSS rounding, so content with an odd leftover width sits one pixel further right. Give such content a
@@ -941,7 +943,6 @@ Generated Kotlin is built from handles only. The abstract members of handles are
   repeated in each state of a control binds once per state: a bound `<Text>` in a toggle generates text entries `label`
   and `label~2`, both filled from the same member.
 - A disabled button's slots take no clicks rather than calling a disabled handler.
-- A click on a repeater's `item` slot no longer calls the cell's `onClick`.
 - `WindowSprite` lists only [sprite catalog](#sprite-catalog) entries.
 - Section claims are named after their section (`player_section`) rather than a `<Slots name>`.
 - `WindowColors` is no longer generated.

@@ -128,9 +128,9 @@ deterministically. Keep keys stable and retain allocation regression coverage wh
 ## Inventory and session contracts
 
 Inventory slots have separate ownership and click-routing assignments. Each slot has at most one item-writing owner and
-one click target. A region over the anvil input's slot routes its clicks while the input keeps the slot's seed item.
-`regions.*.slots` records routing for regions with an action; `fill_slots` records the region's item ownership. Regions
-in mutually exclusive switch cases may claim the same slots.
+one click target. A region over a slot an item, collection, or the anvil input fills routes its clicks while that
+control keeps the slot's stack. `regions.*.slots` records routing for regions with an action; `fill_slots` records the
+region's item ownership. Regions in mutually exclusive switch cases may claim the same slots.
 
 Generated views expose typed bindings. The runtime validates handwritten bindings when a session opens and routes clicks
 to them. The host cancels inventory interactions (its containers also refuse native click handling, so later listeners

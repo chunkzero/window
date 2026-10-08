@@ -391,12 +391,13 @@ Notes:
   their section area, or the slots their parent box covers.
 - Slot _ownership_ and slot _routing_ are separate contracts. Exactly one active control fills any given slot:
   `regions.*.fill_slots` (defaulting to `regions.*.slots`), `items.*.slots`, `collections.*.slots`, and `inputs.*.slot`
-  must be disjoint. Independently, the `slots` of regions with an `action` and of action collections must be disjoint,
-  because a slot can only route its clicks to one control. Regions, items, and collections in mutually exclusive switch
-  cases are exempt from both: two entries are exclusive when their case paths (the cases enclosing them, outermost
-  first) pick different cases of the same switch. A region over an anvil input's slot relies on the ownership/routing
-  split: it routes the slot while the input fills it, and may leave `fill_slots` empty. The runtime writes the hitbox
-  into `fill_slots` of every active region and routes `slots`.
+  must be disjoint. Independently, the `slots` of regions with an `action` must be disjoint, because a slot can only
+  route its clicks to one region. Regions, items, and collections in mutually exclusive switch cases are exempt from
+  both: two entries are exclusive when their case paths (the cases enclosing them, outermost first) pick different cases
+  of the same switch. A region over a slot an item, collection, or anvil input fills relies on the ownership/routing
+  split: it routes the slot while the other control fills it, and `fill_slots` leaves the slot out (it may be empty).
+  The runtime writes the hitbox into `fill_slots` of every active region and routes `slots`; a click on an action
+  collection's cell goes to the collection even when a region also routes that slot.
 - `regions.*.action` names the handler a click runs. The runtime runs the handler bound to that id, else
   `default_action`; a region without `action` ignores clicks. Ids in the `window:` namespace (`window:close`) are
   runtime actions: codegen declares no member for them, and they always carry the same `default_action`, so they work
