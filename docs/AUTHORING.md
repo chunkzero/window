@@ -426,9 +426,8 @@ const products = collection("products", { selectable: true });
   `containerLayout(container)`: a raised `frame` (default `art.shell`) with corner rivets and a hazard bar along its
   bottom, `title` in a recess along the top edge, a panel under an anvil's input and slots, and a panel under the
   player's inventory. `inventory={false}` claims the player and hotbar slots instead (so it rejects its own `<Player>`
-  and `<Hotbar>`). An anvil window with an `<Input>` then ends its shell below the slots, since packs with an `<Input>`
-  hide vanilla's anvil art; without one the shell keeps its full height. Labels default to white small caps with a
-  shadow.
+  and `<Hotbar>`); an anvil then ends its shell below the slots. That relies on the pack hiding vanilla's anvil art,
+  which any pack with an `<Input>` does. Labels default to white small caps with a shadow.
 - Controls (`Button`, `Toggle`, `Choice`, `Tabs`, `Repeater` cells) inset their slot cells by 1px, so their face covers
   the 16x16 slot interiors, and center their content in a row (a column in a repeater cell) with centered labels.
   `frame`, `padding`, `gap`, `text`, `tooltip`, and `itemModel` style the face; a state's `frame` or `tooltip` replaces
