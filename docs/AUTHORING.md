@@ -360,6 +360,18 @@ const raised = (fill: Token<Color>) =>
 `underlined`, `strikethrough`, `obfuscated`, `font`, `smallCaps`, `align`) for the text inside it; the nearest setting
 wins.
 
+`containerLayout(container)` is the geometry the compiler lays a window out over, in GUI pixels: the screen's `width`
+and `height`, the `title` origin, and each section's `columns`, `rows`, 16x16 slot interiors (`slots`), and their
+`bounds`; for an anvil, also the native `input` field. Its types follow the container, so
+`containerLayout("generic_9x3").sections.container.rows` is `3` and only an anvil's layout has `input`. Components use
+it to place art around a container's slots:
+
+```tsx
+const { player } = containerLayout("generic_9x6").sections;
+
+<Image art={vent} x={52} y={player.bounds.y - 8} />;
+```
+
 `<Hud anchor>` pins the HUD with the generated core shaders (requires `hudShaders`): `"top-left"`, `"top"`,
 `"top-right"`, `"left"`, `"center"`, `"right"`, `"bottom-left"`, `"bottom"`, `"bottom-right"`, or a normalized
 `{ x, y }`. The same point of the HUD is placed on that screen point, and `offset={[x, y]}` nudges it in GUI pixels.
@@ -372,17 +384,14 @@ functions, so the `raw` API calls them directly: `Button({ onClick, children })`
 the primitive; a file using both renames one on import.
 
 ```tsx
-import { Text, Window } from "plugin:window/ui";
+import { Text } from "plugin:window/ui";
 import { action, collection, flag, selection, text } from "plugin:window/bind";
-import { Button, Collection, Container, Header, Hotbar, Tabs, art } from "plugin:window/theme/industrial";
+import { Button, Collection, Container, Hotbar, Tabs, Window, art } from "plugin:window/theme/industrial";
 
 const category = selection("category", ["all", "gear", "magic"]);
 const products = collection("products", { selectable: true });
 
-<Window name="shop" container="generic_9x6" frame={art.shell} text={{ color: "#ffffff", smallCaps: true }}>
-  <Header>
-    <Text>Foundry Exchange</Text>
-  </Header>
+<Window name="shop" container="generic_9x6" title="Foundry Exchange">
   <Container frame={art.panel}>
     <Tabs bind={category} span={3}>
       {(value) => <Text>{value}</Text>}
@@ -408,10 +417,17 @@ const products = collection("products", { selectable: true });
 | `Tabs bind sprite? selectedSprite? tooltip? itemModel?` | one `Choice` per value; children render each value, or are `Tab value tooltip?` elements |
 | `Repeater cell columns rows onClick? item? itemSlot?`   | `onClick` and `item` are shaped `[cells]`; `item` fills the cell's `itemSlot` (1-based)  |
 | `Collection bind`, `Slots span claim?`, `Hotspot`       | industrial slot frames; `Slots claim="all"` blocks clicks on its slots                   |
+| `Window name container title? inventory? frame?`        | the window in industrial's shell; see below                                              |
 | `Container`, `Player`, `Hotbar`                         | the slot sections                                                                        |
 | `Header`, `Row`, `Column`, `Grid`, `Center`, `Spacer`   | layout boxes                                                                             |
 | `Show when`                                             | draws its children while a condition holds                                               |
 
+- `Window` takes the primitive's props except `bleed` and `style`, and places its shell from
+  `containerLayout(container)`: a raised `frame` (default `art.shell`) with corner rivets and a hazard bar along its
+  bottom, `title` in a recess along the top edge, a panel under an anvil's input and slots, and a panel under the
+  player's inventory. `inventory={false}` claims the player and hotbar slots instead (so it rejects its own `<Player>`
+  and `<Hotbar>`); an anvil then ends its shell below the slots. That relies on the pack hiding vanilla's anvil art,
+  which any pack with an `<Input>` does. Labels default to white small caps with a shadow.
 - Controls (`Button`, `Toggle`, `Choice`, `Tabs`, `Repeater` cells) inset their slot cells by 1px, so their face covers
   the 16x16 slot interiors, and center their content in a row (a column in a repeater cell) with centered labels.
   `frame`, `padding`, `gap`, `text`, `tooltip`, and `itemModel` style the face; a state's `frame` or `tooltip` replaces
@@ -421,7 +437,7 @@ const products = collection("products", { selectable: true });
   face, or an icon in a box one pixel wider than it.
 - `art` holds the frames `shell`, `panel`, `recess`, `slot`, `button`, `buttonSelected`, `buttonDisabled`,
   `buttonAccent`, `buttonDanger`, `buttonConfirm`, `hud`, and `hazardBar`, and the images `rivet` (5x5), `lampOn` and
-  `lampOff` (4x4), and `slotSelected` (18x18).
+  `lampOff` (4x4), `slotSelected` (18x18), and `inputField` (110x16, for the `anvilFieldSprite` plugin option).
 - `raised(fill, options?)` and `sunken(fill, options?)` are the bevel recipes behind them, and `tones` their light and
   dark tones.
 
@@ -774,7 +790,8 @@ inventory items are all allowed, since none of them change the title.
 A typical search screen is a title, the input, and buttons on the anvil's three slots. Anvil slots sit at fixed, uneven
 positions, so each button covers one slot and only that slot's 16x16 box takes clicks. A region over the input's slot
 routes its clicks while the input keeps the slot's item, which shows no tooltip. Claiming the player's slots hides their
-items, so the screen ends where the art does:
+items, so the screen ends where the art does. Industrial's `<Window inventory={false}>` claims the player and hotbar
+slots this way, and its `Window` draws the anvil's panel under the input and slots. The raw form:
 
 ```ts
 export default raw.ui({
@@ -813,7 +830,7 @@ updates in place and the binding receives the value.
 Window keeps the client's own rename box visible, with its cursor, selection, and font: in every window with an input,
 the field's rect (59, 20, 110x16) stays transparent in Window's art. Text drawn over that rect produces a warning. The
 plugin option `anvilFieldSprite: "<sprite>"` names a 110x16 [catalog sprite](#sprite-catalog) that replaces vanilla's
-anvil text-field sprites for the whole pack.
+anvil text-field sprites for the whole pack; industrial's `art.inputField` is one, registered in `sprites`.
 
 The plugin option `experimentalAnvilUpdates: true` lifts the static-title rule. Title changes then reopen the anvil:
 Window holds them until the player pauses typing and rebases edits typed during a reopen, but the screen can still

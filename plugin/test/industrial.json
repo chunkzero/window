@@ -164,6 +164,18 @@
       "shadow_color": "#207597",
       "width": 18,
       "height": 18
+    },
+    "input_field": {
+      "kind": "panel",
+      "fill": "#071a43",
+      "border_color": "#03091f",
+      "border_width": 1,
+      "radius": 0,
+      "inset_depth": 1,
+      "highlight_color": "#05123a",
+      "shadow_color": "#215a7b",
+      "width": 110,
+      "height": 16
     }
   }
 }

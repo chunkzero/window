@@ -10,3 +10,5 @@ export { Center, Column, Container, Grid, Header, Hotbar, Player, Row, Show, Spa
 export type { ShowProps } from "./layout.tsx";
 export { Collection, Repeater, Slots } from "./slots.tsx";
 export type { CollectionProps, RepeaterProps, SlotsProps } from "./slots.tsx";
+export { Window } from "./window.tsx";
+export type { WindowProps } from "./window.tsx";

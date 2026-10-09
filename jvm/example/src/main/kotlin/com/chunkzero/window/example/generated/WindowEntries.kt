@@ -33,11 +33,11 @@ internal object WindowEntries {
                     static = "\uDB80\uDC04\uF838\uDB80\uDC04\uDB80\uDC05\uDB80\uDC06\uDB80\uDC07\uDB80\uDC0A",
                     slots = mapOf(
                         "label_0" to SlotEntry(
-                            x = 0,
-                            y = 6,
-                            width = 176,
-                            align = Align.CENTER,
-                            font = "window:small_caps/y0",
+                            x = 54,
+                            y = 5,
+                            width = 69,
+                            align = Align.LEFT,
+                            font = "window:small_caps/ym1",
                             color = "#ffffff",
                             shadow = true,
                             bold = false,
