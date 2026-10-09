@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import * as industrial from "../src/theme/industrial/index.ts";
 import { containerLayout, createTheme } from "../src/ui/index.ts";
-import { action, collection, flag, items, selection, toggle } from "../src/bind/index.ts";
+import { action, collection, flag, input, items, selection, toggle } from "../src/bind/index.ts";
 import { Image, Window } from "../src/ui/components.ts";
 import { resolveTokens } from "../src/ui/tokens.ts";
 import type { Element } from "../src/ui/document.ts";
