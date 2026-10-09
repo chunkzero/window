@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import * as industrial from "../src/theme/industrial/index.ts";
 import { containerLayout, createTheme } from "../src/ui/index.ts";
-import { action, collection, flag, items, selection, toggle } from "../src/bind/index.ts";
+import { action, collection, flag, input, items, selection, toggle } from "../src/bind/index.ts";
 import { Image, Window } from "../src/ui/components.ts";
 import { resolveTokens } from "../src/ui/tokens.ts";
 import type { Element } from "../src/ui/document.ts";
@@ -190,4 +190,15 @@ test("an industrial window without its inventory claims it and ends below the co
     const [label] = ofType(custom.children, "label");
     assert.equal(label?.["font"], "custom");
     assert.equal("small_caps" in label! || "smallCaps" in label!, false);
+});
+
+test("a prompt has a back button only with onBack", () => {
+    const prompt = (props: object) =>
+        industrial.Prompt({ name: "p", bind: input("query"), onConfirm: action("confirm"), ...props }).windows;
+    const clicks = (windows: unknown) =>
+        ofType(windows, "region").map((region) => (region.on_click as { id: string }).id);
+    assert.equal(ofType(prompt({}), "anvil_input").length, 1);
+    assert.deepEqual(clicks(prompt({})), ["confirm"]);
+    assert.deepEqual(clicks(prompt({ onBack: action("back") })), ["back", "confirm"]);
+    assert.equal(ofType(prompt({ label: "" }), "label").length, ofType(prompt({}), "label").length);
 });

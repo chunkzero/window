@@ -418,6 +418,7 @@ const products = collection("products", { selectable: true });
 | `Repeater cell columns rows onClick? item? itemSlot?`   | `onClick` and `item` are shaped `[cells]`; `item` fills the cell's `itemSlot` (1-based)  |
 | `Collection bind`, `Slots span claim?`, `Hotspot`       | industrial slot frames; `Slots claim="all"` blocks clicks on its slots                   |
 | `Window name container title? inventory? frame?`        | the window in industrial's shell; see below                                              |
+| `Prompt name bind onConfirm onBack? label? title?`      | an anvil text prompt in the window; see [Native anvil search](#native-anvil-search)      |
 | `Container`, `Player`, `Hotbar`                         | the slot sections                                                                        |
 | `Header`, `Row`, `Column`, `Grid`, `Center`, `Spacer`   | layout boxes                                                                             |
 | `Show when`                                             | draws its children while a condition holds                                               |
@@ -791,7 +792,41 @@ A typical search screen is a title, the input, and buttons on the anvil's three 
 positions, so each button covers one slot and only that slot's 16x16 box takes clicks. A region over the input's slot
 routes its clicks while the input keeps the slot's item, which shows no tooltip. Claiming the player's slots hides their
 items, so the screen ends where the art does. Industrial's `<Window inventory={false}>` claims the player and hotbar
-slots this way, and its `Window` draws the anvil's panel under the input and slots. The raw form:
+slots this way, and its `Window` draws the anvil's panel under the input and slots.
+
+Industrial's `Prompt` is that screen ready-made: an `inventory={false}` anvil `Window` with `<Input bind initial?>`, a
+static `label` left of the field, a back button on the first anvil slot when `onBack` is set, and an `art.buttonAccent`
+confirm button on the third. `back` and `confirm` replace the buttons' content (`"<"` and `"OK"`), `confirmTooltip` sets
+the confirm tooltip, and `children` are drawn after the prompt's own content.
+
+```tsx
+import { Prompt } from "plugin:window/theme/industrial";
+
+<Prompt name="catalog_search" title="Catalog Search" label="Name" bind={query} onConfirm={confirm} onBack={back} />;
+```
+
+A callback-style view hands the result back to its opener:
+
+```kotlin
+class CatalogSearch(player: Player, private val initial: String, private val done: (String?) -> Unit) :
+    CatalogSearchView(player) {
+    private var query = initial
+
+    override fun onOpen() {
+        if (initial.isNotEmpty()) input("query", initial)
+    }
+
+    override fun onQueryChanged(value: String) {
+        query = value.trim()
+    }
+
+    override fun onConfirm(click: Click) = done(query)
+
+    override fun onBack(click: Click) = done(null)
+}
+```
+
+The raw form:
 
 ```ts
 export default raw.ui({

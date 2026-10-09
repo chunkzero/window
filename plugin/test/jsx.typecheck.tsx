@@ -2,6 +2,7 @@ import { containerLayout, defineWindows, shape, texture } from "../src/ui/index.
 import { action, builtin, flag, input, items, selection, sprite, text, toggle, value } from "../src/bind/index.ts";
 import type { Indexed, TextHandle } from "../src/bind/index.ts";
 import * as raw from "../src/raw/index.ts";
+import { Prompt } from "../src/theme/industrial/index.ts";
 import { Box, Case, Hud, Image, Items, Region, Section, Switch, Text, Window } from "../src/ui/components.ts";
 
 const recess = shape({ kind: "slot", fill: "#102040" });
@@ -171,3 +172,7 @@ containerLayout("anvil").input satisfies { width: number };
 containerLayout("generic_9x3").sections.container.rows satisfies 3;
 // @ts-expect-error Only an anvil has a native input field.
 void containerLayout("generic_9x3").input;
+
+// @ts-expect-error A prompt needs `onConfirm`.
+const unconfirmed = <Prompt name="prompt" bind={input("query")} />;
+void unconfirmed;

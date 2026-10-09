@@ -8,6 +8,8 @@ export type { ButtonProps, ChoiceProps, HotspotProps, TabProps, TabsProps, Toggl
 export type { StateProps, VariantStyle } from "./face.ts";
 export { Center, Column, Container, Grid, Header, Hotbar, Player, Row, Show, Spacer } from "./layout.tsx";
 export type { ShowProps } from "./layout.tsx";
+export { Prompt } from "./prompt.tsx";
+export type { PromptProps } from "./prompt.tsx";
 export { Collection, Repeater, Slots } from "./slots.tsx";
 export type { CollectionProps, RepeaterProps, SlotsProps } from "./slots.tsx";
 export { Window } from "./window.tsx";
