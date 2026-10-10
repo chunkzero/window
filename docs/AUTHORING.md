@@ -155,8 +155,9 @@ percentages; margins and insets also accept `"auto"`.
 - Children take item properties: `grow` (`true` is 1), `shrink`, `basis`, `alignSelf`, `justifySelf`, `margin`, grid
   placement, and `absolute` with `top`/`right`/`bottom`/`left`. `x`/`y` position a child absolutely.
 - `translate={[x, y]}` moves an element and its subtree after layout.
-- Text is at least 8px tall, fills its box's width, and is vertically centered in it. Static text measures its content;
-  `<Text bind>` without `width` grows to fill a horizontal box and stretches across a vertical one.
+- Text is at least 8px tall and vertically centered in its box, and `align` positions it within the box's width. Text
+  without `width` stretches across a vertical box; in a horizontal one static text takes its content width and
+  `<Text bind>` grows to fill the box.
 - Images keep their size and are centered in their box.
 - A `<Region>`, `<Items>`, or `<Collection>` without its own slots covers its box and claims the inventory slots the box
   covers.

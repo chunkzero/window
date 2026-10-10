@@ -4,6 +4,7 @@ use super::{panel, project, sizes, solve, solve_one, text, window};
 use crate::geometry::Rect;
 use crate::inventory::InventorySlotRef;
 use crate::ir::Align;
+use crate::vanilla;
 
 fn region_slots(laid: &crate::ir::LaidOutWindow, name: &str) -> Vec<InventorySlotRef> {
     laid.regions.iter().find(|b| b.name == name).and_then(|b| b.slots.clone()).expect("region slots")
@@ -98,6 +99,31 @@ fn flex_text_fills_and_centers_in_its_box() {
     assert_eq!(value.rect, Rect::new(label.rect.right() + 4, 26, 78 - label.rect.width, 8));
     assert_eq!(value.align, Align::Right);
     assert_eq!(fixed.rect, Rect::new(98, 27, 10, 8));
+}
+
+#[test]
+fn widthless_static_text_stretches_across_a_column_and_keeps_its_width_in_a_row() {
+    let boxed = |direction: &str| {
+        let laid = solve_one(
+            window(json!([{
+                "type": "flex",
+                "x": 10,
+                "y": 20,
+                "style": { "width": 52, "height": 34, "direction": direction },
+                "children": [
+                    { "type": "label", "text": "Coins", "align": "center" },
+                    { "type": "slot", "handle": text("coins"), "align": "center" },
+                ],
+            }])),
+            &sizes(&[]),
+        );
+        laid.slots.iter().find(|s| s.text.as_deref() == Some("Coins")).expect("label").clone()
+    };
+    let column = boxed("column");
+    assert_eq!((column.rect.x, column.rect.width), (10, 52));
+    assert_eq!(column.align, Align::Center);
+    let row = boxed("row");
+    assert_eq!((row.rect.x, row.rect.width), (10, vanilla::text_visible_width("Coins")));
 }
 
 #[test]

@@ -1,13 +1,16 @@
 //! Taffy-solved `flex` boxes and slot `section` grids.
 //!
 //! A box's subtree is solved as one taffy tree and then emitted through the regular placement code, so
-//! every element keeps its usual validation. Leaves are fixed-size taffy nodes measured from fonts and
-//! sprites; text is vertically centered in its box and fills its width, and fixed-size art is centered.
+//! every element keeps its usual validation. Leaves are taffy nodes measured from fonts and sprites; text
+//! is vertically centered in its box and fills its width, and fixed-size art is centered.
 
 use std::collections::BTreeSet;
 
 use taffy::style_helpers::{TaffyAuto, TaffyGridLine, TaffyGridSpan, TaffyMaxContent, length};
-use taffy::{AvailableSpace, Dimension, FlexDirection, GridPlacement, LengthPercentageAuto, Line, NodeId, TaffyTree};
+use taffy::{
+    AvailableSpace, Dimension, FlexDirection, GridPlacement, LengthPercentageAuto, Line, NodeId, TaffyTree,
+    compute_leaf_layout,
+};
 
 use super::target::LayoutTarget;
 use super::{Solver, debug_name_of, pos_of};
@@ -17,7 +20,8 @@ use crate::ir::{Layer, SwitchCaseIr, SwitchIr};
 use crate::model::{Element, FlexBox, ItemLayout, SlotSection, Switch};
 use crate::{Error, Result};
 
-type Tree = TaffyTree<()>;
+/// A leaf's context is its content width: the text width of a static label without a `width`.
+type Tree = TaffyTree<u32>;
 
 impl<T: LayoutTarget> Solver<'_, T> {
     /// The max-content size of a box placed outside any content box.
@@ -92,7 +96,11 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 height: AvailableSpace::Definite(fill.height as f32),
             };
         }
-        tree.compute_layout(root, available).map_err(|e| self.taffy_err(e))?;
+        tree.compute_layout_with_measure(root, available, |inputs, _, content_width, style| {
+            let content = taffy::Size { width: content_width.map_or(0.0, |width| *width as f32), height: 0.0 };
+            compute_leaf_layout(inputs, style, |_, _| 0.0, |_, _| content)
+        })
+        .map_err(|e| self.taffy_err(e))?;
         Ok((tree, root))
     }
 
@@ -157,10 +165,12 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(())
     }
 
-    /// Text leaves stretch across their line and are at least as tall as their lines; dynamic text without a
-    /// width also grows along a horizontal parent. Other leaves keep their measured size.
+    /// Text leaves are at least as tall as their lines, and without a width they stretch across their line:
+    /// static text has its text width as content, and dynamic text also grows along a horizontal parent. Other
+    /// leaves keep their measured size.
     fn add_leaf(&self, tree: &mut Tree, el: &Element, item: &ItemLayout, horizontal: bool) -> Result<NodeId> {
         let mut style = taffy::Style { flex_shrink: 0.0, ..Default::default() };
+        let mut content_width = None;
         match el {
             _ if fills_box(el) => {
                 style.position = taffy::Position::Absolute;
@@ -178,7 +188,14 @@ impl<T: LayoutTarget> Solver<'_, T> {
             Element::Label { .. } | Element::Slot { .. } => {
                 let size = self.leaf_size(el)?;
                 let unsized_slot = matches!(el, Element::Slot { width: None, .. });
-                let width = if unsized_slot { Dimension::AUTO } else { length(size.width as f32) };
+                let width = match el {
+                    Element::Label { width: None, .. } => {
+                        content_width = Some(size.width);
+                        Dimension::AUTO
+                    }
+                    _ if unsized_slot => Dimension::AUTO,
+                    _ => length(size.width as f32),
+                };
                 style.size = taffy::Size { width, height: Dimension::AUTO };
                 style.min_size.height = LengthPercentageAuto::length(size.height as f32);
                 if unsized_slot && horizontal {
@@ -194,7 +211,11 @@ impl<T: LayoutTarget> Solver<'_, T> {
             absolute_at(&mut style, pos);
         }
         item.apply(&mut style);
-        tree.new_leaf(style).map_err(|e| self.taffy_err(e))
+        match content_width {
+            Some(width) => tree.new_leaf_with_context(style, width),
+            None => tree.new_leaf(style),
+        }
+        .map_err(|e| self.taffy_err(e))
     }
 
     fn leaf_size(&self, el: &Element) -> Result<Size> {
