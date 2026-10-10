@@ -165,9 +165,9 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(())
     }
 
-    /// Text leaves are at least as tall as their lines, and without a width they stretch across their line:
-    /// static text has its text width as content, and dynamic text also grows along a horizontal parent. Other
-    /// leaves keep their measured size.
+    /// Text leaves are at least as tall as their lines. Without a width, dynamic text stretches across its line
+    /// and grows along a horizontal parent, and static text keeps its text width in a horizontal parent and
+    /// otherwise stretches with that width as its content. Other leaves keep their measured size.
     fn add_leaf(&self, tree: &mut Tree, el: &Element, item: &ItemLayout, horizontal: bool) -> Result<NodeId> {
         let mut style = taffy::Style { flex_shrink: 0.0, ..Default::default() };
         let mut content_width = None;
@@ -189,7 +189,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 let size = self.leaf_size(el)?;
                 let unsized_slot = matches!(el, Element::Slot { width: None, .. });
                 let width = match el {
-                    Element::Label { width: None, .. } => {
+                    Element::Label { width: None, .. } if !horizontal => {
                         content_width = Some(size.width);
                         Dimension::AUTO
                     }

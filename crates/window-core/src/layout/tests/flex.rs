@@ -102,16 +102,16 @@ fn flex_text_fills_and_centers_in_its_box() {
 }
 
 #[test]
-fn widthless_static_text_stretches_across_a_column_and_keeps_its_width_in_a_row() {
-    let boxed = |direction: &str| {
+fn widthless_static_text_stretches_across_a_column_and_keeps_its_row_sizing() {
+    let boxed = |direction: &str, width: u32| {
         let laid = solve_one(
             window(json!([{
                 "type": "flex",
                 "x": 10,
                 "y": 20,
-                "style": { "width": 52, "height": 34, "direction": direction },
+                "style": { "width": width, "height": 34, "direction": direction },
                 "children": [
-                    { "type": "label", "text": "Coins", "align": "center" },
+                    { "type": "label", "text": "Coins", "align": "center", "layout": { "shrink": 1 } },
                     { "type": "slot", "handle": text("coins"), "align": "center" },
                 ],
             }])),
@@ -119,11 +119,13 @@ fn widthless_static_text_stretches_across_a_column_and_keeps_its_width_in_a_row(
         );
         laid.slots.iter().find(|s| s.text.as_deref() == Some("Coins")).expect("label").clone()
     };
-    let column = boxed("column");
+    let column = boxed("column", 52);
     assert_eq!((column.rect.x, column.rect.width), (10, 52));
     assert_eq!(column.align, Align::Center);
-    let row = boxed("row");
+    let row = boxed("row", 52);
     assert_eq!((row.rect.x, row.rect.width), (10, vanilla::text_visible_width("Coins")));
+    // A row narrower than the text can still shrink it.
+    assert_eq!(boxed("row", 20).rect.width, 20);
 }
 
 #[test]

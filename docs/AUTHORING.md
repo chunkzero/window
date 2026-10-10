@@ -156,8 +156,8 @@ percentages; margins and insets also accept `"auto"`.
   placement, and `absolute` with `top`/`right`/`bottom`/`left`. `x`/`y` position a child absolutely.
 - `translate={[x, y]}` moves an element and its subtree after layout.
 - Text is at least 8px tall and vertically centered in its box, and `align` positions it within the box's width. Text
-  without `width` stretches across a vertical box; in a horizontal one static text takes its content width and
-  `<Text bind>` grows to fill the box.
+  without `width` stretches across a vertical box under the default stretch alignment; in a horizontal one static text
+  takes its content width and `<Text bind>` grows to fill the box.
 - Images keep their size and are centered in their box.
 - A `<Region>`, `<Items>`, or `<Collection>` without its own slots covers its box and claims the inventory slots the box
   covers.
