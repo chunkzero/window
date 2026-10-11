@@ -122,7 +122,7 @@ export default (
         </Container>
 
         <Player>
-            <Tabs bind={sort} span={3} tooltip={(value) => sortTooltips[value]}>
+            <Tabs bind={sort} span={3} tooltip={(value) => sortTooltips[value]} hover={false}>
                 {(_, i) => <Text bind={sortLabel.at(i)} />}
             </Tabs>
 
@@ -159,7 +159,7 @@ export default (
             >
                 <Text bind={buyLabel} color="#2a1200" shadow={false} />
             </Button>
-            <Button close span={3} tooltip="Close market">
+            <Button close span={3}>
                 Exit
             </Button>
         </Hotbar>
