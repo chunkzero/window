@@ -315,19 +315,24 @@ test("previews are rendered into the previews output only when it is configured"
     assert.throws(() => preview([shop, status]), /preview\(\) takes one window or HUD/);
 });
 
-test("previews of a target no document lists still reach the renderer or the missing-output warning", (t) => {
+test("previews of a target no document lists are rendered against an empty project", (t) => {
     const warn = t.mock.method(console, "warn", () => {});
     const entry = { "window/index.ts": defineWindows({ previews: [preview(shop)] }) };
     const compile = () => assert.fail("nothing is compiled");
-    const render = () => {
-        throw new Error("preview `shop`: there is no window `shop`");
+    const calls: { project: { windows?: unknown[]; huds?: unknown[] }; previews: unknown }[] = [];
+    const render = (project: string, _files: SourceFile[], previews: string) => {
+        calls.push({ project: JSON.parse(project), previews: JSON.parse(previews) });
+        return [];
     };
 
-    assert.throws(
-        () => generate(fake(entry, {}, { previews: { output: "build/previews" } }).ctx, compile, render),
-        /there is no window `shop`/,
-    );
+    generate(fake(entry, {}, { previews: { output: "build/previews" } }).ctx, compile, render);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0]!.previews, [{ name: "shop", target: { kind: "window", name: "shop" }, state: [] }]);
+    assert.deepEqual(calls[0]!.project.windows ?? [], []);
+    assert.deepEqual(calls[0]!.project.huds ?? [], []);
+
     generate(fake(entry).ctx, compile, render);
+    assert.equal(calls.length, 1);
     assert.match(String(warn.mock.calls[0]?.arguments[0]), /1 previews are declared, but `previews.output` is not set/);
 });
 

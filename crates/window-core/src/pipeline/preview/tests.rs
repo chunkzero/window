@@ -19,9 +19,17 @@ fn preview(children: Value, state: Value) -> Result<Texture> {
 
 /// Renders one preview request of `project` and returns its pixels.
 fn render_one(project: Value, request: Value) -> Result<Texture> {
+    render_with(project, request, Vec::new())
+}
+
+/// Like [`render_one`], with `extra` textures beside the solid 4x4 ones.
+fn render_with(project: Value, request: Value, extra: Vec<(&str, Texture)>) -> Result<Texture> {
     let project = crate::authoring::project_from_json(project.to_string().as_bytes())?;
     let files = [("red.png", RED), ("green.png", GREEN), ("blue.png", BLUE)];
-    let input = CompileInput::new(files.into_iter().map(|(path, rgba)| (path.to_string(), solid(rgba))).collect());
+    let mut files: Vec<(String, Vec<u8>)> =
+        files.into_iter().map(|(path, rgba)| (path.to_string(), solid(rgba))).collect();
+    files.extend(extra.into_iter().map(|(path, texture)| (path.to_string(), texture.encode_png().unwrap())));
+    let input = CompileInput::new(files.into_iter().collect());
     let files = render(&project, &input, &requests_from_json(json!([request]).to_string().as_bytes())?)?;
     Texture::decode_png(files[0].contents.as_bytes())
 }
@@ -170,4 +178,84 @@ fn legacy_codes_are_consumed_with_bold_and_color_drawn() {
     let blue = shot("§9Hi");
     assert!(columns(&blue, RED).is_none() && columns(&blue, [0x55, 0x55, 0xff, 255]).is_some());
     assert!(columns(&shot("§9§rHi"), RED).is_some(), "`§r` restores the slot's color");
+}
+
+/// A `width` x `height` texture whose columns `opaque` are red and the rest transparent.
+fn striped(width: u32, height: u32, opaque: std::ops::Range<u32>) -> Texture {
+    let mut texture = Texture::transparent(width, height);
+    for y in 0..height {
+        for x in opaque.clone() {
+            let i = ((y * width + x) * 4) as usize;
+            texture.rgba[i..i + 4].copy_from_slice(&RED);
+        }
+    }
+    texture
+}
+
+/// Previews `generic_9x1` window `shop` holding a sprite slot at (`x`, 10) of `slot` size, showing sprite `icon`.
+fn runtime_sprite(art: Value, texture: Texture, x: u32, slot: (u32, u32)) -> Result<Texture> {
+    let handle = json!({ "kind": "sprite", "id": "icon" });
+    let project = json!({
+        "sprites": { "icon": art },
+        "windows": [{ "name": "shop", "container": "generic_9x1", "children": [
+            { "type": "sprite_slot", "handle": handle, "x": x, "y": 10, "width": slot.0, "height": slot.1 },
+        ] }],
+    });
+    let request = json!({
+        "name": "shot", "target": { "kind": "window", "name": "shop" }, "state": [{ "handle": "icon", "value": "icon" }],
+    });
+    render_with(project, request, vec![("icon.png", texture)])
+}
+
+#[test]
+fn a_runtime_sprite_wider_than_its_slot_grows_the_canvas() {
+    let art = json!({ "art": "texture", "texture": "icon.png", "width": 32, "height": 4 });
+    let shot = runtime_sprite(art, striped(32, 4, 0..32), 160, (16, 4)).unwrap();
+
+    assert_eq!(shot.width, 192);
+    assert_eq!(columns(&shot, RED), Some((160, 191)));
+}
+
+#[test]
+fn a_padded_runtime_sprite_paints_the_columns_its_metrics_report() {
+    let art = json!({ "art": "texture", "texture": "icon.png", "width": 5, "height": 5 });
+    let shot = runtime_sprite(art, striped(9, 9, 1..8), 10, (20, 5)).unwrap();
+
+    // `x_offset` 1 and `glyph_width` 3, with the ink starting at the slot's left edge.
+    assert_eq!(columns(&shot, RED), Some((10, 12)));
+}
+
+#[test]
+fn a_runtime_sprite_resampled_past_the_pixel_limit_fails_without_allocating() {
+    let art = json!({ "art": "texture", "texture": "icon.png", "width": 131072, "height": 512 });
+    let error = runtime_sprite(art, striped(256, 1, 0..256), 10, (16, 16)).unwrap_err().to_string();
+
+    assert!(error.starts_with("preview `shot`: its 1310"), "{error}");
+    assert!(error.contains("exceeds the limit"), "{error}");
+}
+
+#[test]
+fn a_sprite_at_an_extreme_position_fails_instead_of_overflowing() {
+    let children = json!([{ "type": "sprite", "x": i32::MIN, "y": 0, "art": { "art": "texture", "texture": "red.png", "width": 1, "height": 1 } }]);
+    let error = preview(children, json!([])).unwrap_err().to_string();
+
+    assert!(error.starts_with("preview `shot`: its ") && error.contains("exceeds the limit"), "{error}");
+}
+
+#[test]
+fn a_preview_of_an_unknown_target_names_the_preview_and_target() {
+    let project = json!({ "windows": [{ "name": "shop", "container": "generic_9x1", "children": [] }] });
+    let request = json!({ "name": "shot", "target": { "kind": "window", "name": "bank" } });
+
+    assert_eq!(render_one(project, request).unwrap_err().to_string(), "preview `shot`: there is no window `bank`");
+}
+
+#[test]
+fn long_text_ellipsizes_to_the_longest_fitting_prefix() {
+    let slot = json!([{ "type": "slot", "handle": { "kind": "text", "id": "title" }, "x": 20, "y": 30, "width": 40,
+                        "color": "#ff0000", "shadow": false, "overflow": "ellipsis" }]);
+    let shot = |text: &str| preview(slot.clone(), json!([{ "handle": "title", "value": text }])).unwrap();
+    let short = shot("Overflowing");
+
+    assert_eq!(shot(&"Overflowing".repeat(2000)).rgba, short.rgba);
 }

@@ -113,8 +113,8 @@ fn measure(glyphs: &[Glyph]) -> Width {
 }
 
 /// Where text `visual` pixels wide starts in a box at `x` that is `width` wide.
-pub(super) fn origin(align: Align, x: i32, width: u32, visual: u32) -> i32 {
-    let (width, visual) = (width as i32, visual as i32);
+pub(super) fn origin(align: Align, x: i32, width: u32, visual: u32) -> i64 {
+    let (x, width, visual) = (i64::from(x), i64::from(width), i64::from(visual));
     match align {
         Align::Left => x,
         Align::Center => x + (width - visual) / 2,
@@ -162,7 +162,7 @@ impl<'a> TextPainter<'a> {
             let step = if fit.lines > 1 { unused + 2 * j as i32 } else { 0 };
             let visual = measure(line).visual.max(0) as u32;
             let at = Point::new(
-                origin(slot.align, slot.rect.x, slot.rect.width, visual),
+                origin(slot.align, slot.rect.x, slot.rect.width, visual) as i32,
                 slot.rect.y + step * fit.line_height as i32 / 2,
             );
             self.draw_glyphs(canvas, font, line, at, slot.color, shadow);
@@ -370,11 +370,15 @@ fn ellipsized(
     width: i32,
     ellipsis: &dyn Fn(Option<&Glyph>) -> Vec<Glyph>,
 ) -> Vec<Glyph> {
+    let mut prefixes = vec![Width::default()];
+    for glyph in &glyphs[from..to] {
+        prefixes.push(prefixes[prefixes.len() - 1].append(glyph.width));
+    }
     let mut end = to;
     loop {
         let kept = trim_end(glyphs, from, end);
         let tail = ellipsis(glyphs[from..kept].last());
-        if measure(&glyphs[from..kept]).append(measure(&tail)).visual <= width {
+        if prefixes[kept - from].append(measure(&tail)).visual <= width {
             return glyphs[from..kept].iter().chain(&tail).copied().collect();
         }
         if kept <= from {

@@ -15,15 +15,15 @@ use crate::compose::{Composite, Texture, blit_sprite};
 use crate::geometry::{Point, Rect, Size};
 use crate::inventory::InventorySlotRef;
 use crate::ir::{
-    Align, AnvilInputIr, CollectionIr, Handle, HandleKind, HandleRole, HandleUse, ItemIr, LaidOutHud, LaidOutWindow,
-    Layer, RegionIr, Rgb, SlotIr, SpriteSlotIr, SwitchIr,
+    Align, AnvilInputIr, CollectionIr, Draw, Handle, HandleKind, HandleRole, HandleUse, ItemIr, LaidOutHud,
+    LaidOutWindow, Layer, RegionIr, Rgb, SlotIr, SpriteSlotIr, SwitchIr,
 };
 use crate::model::SpriteDef;
 use crate::surface::{ContainerKind, Surface};
 use crate::{Error, Result, text_font};
 
 use super::glyphs::{Layers, compose_layers};
-use super::metrics::{bitmap_metrics, scale_boundary};
+use super::metrics::{GlyphMetrics, bitmap_metrics};
 use super::sprites::texture_source_path;
 use super::{CompileInput, OutputFile, anvil, decode_textures};
 
@@ -155,47 +155,73 @@ pub fn render(project: &ParsedProject, input: &CompileInput, requests: &[Preview
     let mut files = Vec::with_capacity(requests.len());
     for request in requests {
         let preview = &request.name;
+        let scale = request.scale.unwrap_or(1);
         let canvas = match &request.target {
             PreviewTarget::Window(name) => {
                 let window = windows
                     .iter()
                     .find(|w| &w.name == name)
                     .ok_or_else(|| fail(preview, format!("there is no window `{name}`")))?;
+                let pane = Pane::window(window);
+                pane.bounds().into_rect(preview, scale)?;
                 let mut composites = compose_layers(&[window], &[], &textures)?;
                 let mut layers = composites.windows.remove(0);
                 anvil::open_field(window, &mut layers, &mut Vec::new());
-                scene.draw(request, &Pane::window(window), &layers)?
+                scene.draw(request, &pane, &layers)?
             }
             PreviewTarget::Hud(name) => {
                 let hud = huds
                     .iter()
                     .find(|h| &h.name == name)
                     .ok_or_else(|| fail(preview, format!("there is no HUD `{name}`")))?;
+                let pane = Pane::hud(hud);
+                pane.bounds().into_rect(preview, scale)?;
                 let mut composites = compose_layers(&[], &[hud], &textures)?;
-                scene.draw(request, &Pane::hud(hud), &composites.huds.remove(0))?
+                scene.draw(request, &pane, &composites.huds.remove(0))?
             }
         };
-        let scale = request.scale.unwrap_or(1);
         let image = resize(&canvas.texture, canvas.texture.width * scale, canvas.texture.height * scale);
         files.push(OutputFile::binary(format!("{preview}.png"), image.encode_png()?));
     }
     Ok(files)
 }
 
-/// Fails when the image of `rect` at `scale` would hold more than [`MAX_PIXELS`], before any buffer exists.
-fn check_size(preview: &str, rect: &Rect, scale: u32) -> Result<()> {
-    let pixels = u64::from(rect.width)
-        .checked_mul(u64::from(scale))
-        .zip(u64::from(rect.height).checked_mul(u64::from(scale)))
-        .and_then(|(width, height)| width.checked_mul(height));
-    if pixels.is_none_or(|pixels| pixels > MAX_PIXELS) {
-        let (width, height) = (rect.width, rect.height);
-        return Err(fail(
-            preview,
-            format!("its {width}x{height} image at scale {scale} exceeds the limit of {MAX_PIXELS} pixels"),
-        ));
+/// The extent of what a preview draws, in wide arithmetic so extreme positions cannot overflow.
+struct Bounds {
+    left: i64,
+    top: i64,
+    right: i64,
+    bottom: i64,
+}
+
+impl Bounds {
+    fn new(rect: &Rect) -> Self {
+        let mut bounds = Self { left: i64::MAX, top: i64::MAX, right: i64::MIN, bottom: i64::MIN };
+        bounds.include(i64::from(rect.x), i64::from(rect.y), rect.width, rect.height);
+        bounds
     }
-    Ok(())
+
+    fn include(&mut self, x: i64, y: i64, width: u32, height: u32) {
+        self.left = self.left.min(x);
+        self.top = self.top.min(y);
+        self.right = self.right.max(x + i64::from(width));
+        self.bottom = self.bottom.max(y + i64::from(height));
+    }
+
+    /// The rect covered, failing when its image at `scale` would hold more than [`MAX_PIXELS`], before any buffer
+    /// exists.
+    fn into_rect(self, preview: &str, scale: u32) -> Result<Rect> {
+        let (width, height) = ((self.right - self.left) as u64, (self.bottom - self.top) as u64);
+        let scale = u64::from(scale);
+        let pixels = (width * scale).checked_mul(height * scale);
+        if pixels.is_none_or(|pixels| pixels > MAX_PIXELS) {
+            return Err(fail(
+                preview,
+                format!("its {width}x{height} image at scale {scale} exceeds the limit of {MAX_PIXELS} pixels"),
+            ));
+        }
+        Ok(Rect::new(self.left as i32, self.top as i32, width as u32, height as u32))
+    }
 }
 
 fn fail(preview: &str, message: String) -> Error {
@@ -214,6 +240,7 @@ struct Pane<'a> {
     slots: &'a [SlotIr],
     sprite_slots: &'a [SpriteSlotIr],
     switches: &'a [SwitchIr],
+    draws: &'a [Draw],
     layers: &'a [Layer],
     handles: &'a BTreeMap<String, Handle>,
     regions: &'a [RegionIr],
@@ -233,6 +260,7 @@ impl<'a> Pane<'a> {
             slots: &w.slots,
             sprite_slots: &w.sprite_slots,
             switches: &w.switches,
+            draws: &w.draws,
             layers: &w.layers,
             handles: &w.handles,
             regions: &w.regions,
@@ -251,6 +279,7 @@ impl<'a> Pane<'a> {
             slots: &h.slots,
             sprite_slots: &[],
             switches: &h.switches,
+            draws: &h.draws,
             layers: &h.layers,
             handles: &h.handles,
             regions: &[],
@@ -258,6 +287,16 @@ impl<'a> Pane<'a> {
             collections: &[],
             input: None,
         }
+    }
+
+    /// The surface and every static draw, before they are composed.
+    fn bounds(&self) -> Bounds {
+        let cases = self.switches.iter().flat_map(|switch| &switch.cases).flat_map(|case| &case.draws);
+        let mut bounds = Bounds::new(&self.rect);
+        for rect in self.draws.iter().chain(cases).map(Draw::dest) {
+            bounds.include(i64::from(rect.x), i64::from(rect.y), rect.width, rect.height);
+        }
+        bounds
     }
 
     /// The GUI rect of a backing inventory slot.
@@ -517,10 +556,18 @@ impl Scene<'_> {
             .collect();
         let hidden = Hidden::new(pane.switches, &active);
 
+        let placements =
+            pane.layers.iter().map(|layer| self.placement(layer, pane, &state, &hidden)).collect::<Result<Vec<_>>>()?;
         let composites = std::iter::once(&layers.base).chain(layers.cases.iter().flatten());
-        let rect = composites.filter(|comp| comp.has_content).fold(pane.rect, |rect, comp| rect.union(&comp.bounds));
-        check_size(&request.name, &rect, request.scale.unwrap_or(1))?;
-        let mut canvas = Canvas::new(rect);
+        let mut bounds = Bounds::new(&pane.rect);
+        for comp in composites.filter(|comp| comp.has_content) {
+            let b = &comp.bounds;
+            bounds.include(i64::from(b.x), i64::from(b.y), b.width, b.height);
+        }
+        for placement in placements.iter().flatten() {
+            placement.include_in(&mut bounds);
+        }
+        let mut canvas = Canvas::new(bounds.into_rect(&request.name, request.scale.unwrap_or(1))?);
         let field = ContainerKind::ANVIL_TEXT_FIELD;
         if pane.container == Some(ContainerKind::Anvil)
             && let Replacement::Sprite(sprite) = &self.project.options.vanilla.anvil.field
@@ -529,17 +576,16 @@ impl Scene<'_> {
         }
         blit_composite(&mut canvas, &layers.base);
 
-        for layer in pane.layers {
+        for (layer, placement) in pane.layers.iter().zip(&placements) {
             match layer {
                 Layer::Slot(name) if hidden.shows(Member::Slot, name) => {
                     let slot = find(pane.slots, name, |slot| &slot.name)?;
                     let content = slot.text.as_deref().or_else(|| state.text(HandleRole::Slot, name));
                     self.painter.draw_slot(&mut canvas, slot, content.unwrap_or_default(), pane.shadow)?;
                 }
-                Layer::SpriteSlot(name) if hidden.shows(Member::SpriteSlot, name) => {
-                    if let Some(sprite) = state.text(HandleRole::SpriteSlot, name) {
-                        let slot = find(pane.sprite_slots, name, |slot| &slot.name)?;
-                        self.draw_sprite(&mut canvas, sprite, &slot.rect, slot.align)?;
+                Layer::SpriteSlot(_) | Layer::Collection(_) => {
+                    if let Some(placement) = placement {
+                        placement.draw(&mut canvas);
                     }
                 }
                 Layer::Switch(name) if hidden.shows(Member::Switch, name) => {
@@ -548,15 +594,6 @@ impl Scene<'_> {
                         && let Some(case) = active[index]
                     {
                         blit_composite(&mut canvas, &layers.cases[index][case]);
-                    }
-                }
-                Layer::Collection(name) if hidden.shows(Member::Collection, name) => {
-                    let collection = find(pane.collections, name, |collection| &collection.name)?;
-                    if let (Some(sprite), (_, Some(selected))) =
-                        (&collection.selected_sprite, state.collection(collection)?)
-                        && let Some(cell) = pane.slot_rect(collection.slots[selected])
-                    {
-                        self.draw_sprite(&mut canvas, sprite, &cell.slot_box(), Align::Left)?;
                     }
                 }
                 _ => {}
@@ -594,15 +631,35 @@ impl Scene<'_> {
         }
     }
 
-    /// Draws catalog sprite `name` in `rect` as the runtime places it: its ink aligned within the rect's width.
-    fn draw_sprite(&self, canvas: &mut Canvas, name: &str, rect: &Rect, align: Align) -> Result<()> {
+    /// Where a runtime sprite layer draws its sprite, if it shows one.
+    fn placement(
+        &self,
+        layer: &Layer,
+        pane: &Pane<'_>,
+        state: &State<'_>,
+        hidden: &Hidden<'_>,
+    ) -> Result<Option<Placement<'_>>> {
+        let (name, rect, align) = match layer {
+            Layer::SpriteSlot(name) if hidden.shows(Member::SpriteSlot, name) => {
+                let Some(sprite) = state.text(HandleRole::SpriteSlot, name) else { return Ok(None) };
+                let slot = find(pane.sprite_slots, name, |slot| &slot.name)?;
+                (sprite, slot.rect, slot.align)
+            }
+            Layer::Collection(name) if hidden.shows(Member::Collection, name) => {
+                let collection = find(pane.collections, name, |collection| &collection.name)?;
+                let (Some(sprite), (_, Some(selected))) = (&collection.selected_sprite, state.collection(collection)?)
+                else {
+                    return Ok(None);
+                };
+                let Some(cell) = pane.slot_rect(collection.slots[selected]) else { return Ok(None) };
+                (sprite.as_str(), cell.slot_box(), Align::Left)
+            }
+            _ => return Ok(None),
+        };
         let (texture, size) = self.sprite(name)?;
         let metrics = bitmap_metrics(&texture, size);
-        let width = scale_boundary(texture.width, texture.height, size.height);
-        let texture = resize(&texture, width, size.height);
-        let x = text::origin(align, rect.x, rect.width, metrics.glyph_width) - metrics.x_offset as i32;
-        canvas.blit(&texture, Point::new(x, rect.y));
-        Ok(())
+        let ink_x = text::origin(align, rect.x, rect.width, metrics.glyph_width);
+        Ok(Some(Placement { texture, height: size.height, metrics, ink_x, y: i64::from(rect.y) }))
     }
 
     /// The pixels and rendered size of sprite `name`.
@@ -615,6 +672,44 @@ impl Scene<'_> {
                 Ok((Cow::Borrowed(texture), size.unwrap_or(Size::new(texture.width, texture.height))))
             }
             SpriteDef::Generated { size, style } => Ok((Cow::Owned(crate::raster::render(style, *size)?), *size)),
+        }
+    }
+}
+
+/// A runtime sprite placed in a rect: its ink aligned within the rect's width.
+struct Placement<'a> {
+    texture: Cow<'a, Texture>,
+    /// The height the sprite renders at.
+    height: u32,
+    metrics: GlyphMetrics,
+    /// The GUI x of the first ink column.
+    ink_x: i64,
+    y: i64,
+}
+
+impl Placement<'_> {
+    fn include_in(&self, bounds: &mut Bounds) {
+        if self.metrics.glyph_width > 0 {
+            bounds.include(self.ink_x, self.y, self.metrics.glyph_width, self.height);
+        }
+    }
+
+    /// Draws the ink columns, each from the last source column whose scaled start (`scale_boundary`) is at or
+    /// before it, so the painted columns are exactly those `metrics` reports.
+    fn draw(&self, canvas: &mut Canvas) {
+        let texture = &*self.texture;
+        if texture.width == 0 || texture.height == 0 || self.height == 0 {
+            return;
+        }
+        let (source, rendered) = (u64::from(texture.height), u64::from(self.height));
+        for column in self.metrics.x_offset..self.metrics.x_offset + self.metrics.glyph_width {
+            let source_x =
+                ((source * (2 * u64::from(column) + 1) - 1) / (2 * rendered)).min(u64::from(texture.width) - 1);
+            let x = (self.ink_x + i64::from(column - self.metrics.x_offset)) as i32;
+            for row in 0..self.height {
+                let source_y = u64::from(row) * source / rendered;
+                canvas.blend(x, (self.y + i64::from(row)) as i32, texture.get(source_x as u32, source_y as u32));
+            }
         }
     }
 }
