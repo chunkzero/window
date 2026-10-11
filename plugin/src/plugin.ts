@@ -6,7 +6,8 @@ import type { WindowOptions } from "./project.ts";
 
 const plugin: Plugin<WindowOptions> = definePlugin<WindowOptions>({
     generate(ctx) {
-        generate(ctx, components.load("compiler").exports.compile);
+        const { compile, renderPreviews } = components.load("compiler").exports;
+        generate(ctx, compile, renderPreviews);
     },
 });
 

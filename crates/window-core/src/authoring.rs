@@ -24,6 +24,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use self::project::ProjectDto;
 use crate::model::{Art, FontDef, Hud, Window};
 use crate::{Error, Result};
+pub(crate) use parse::sprite_key;
 
 /// Everything parsed from a TypeScript-authored Window project.
 #[derive(Clone, Debug, Default)]

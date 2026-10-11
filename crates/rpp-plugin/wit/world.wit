@@ -43,4 +43,11 @@ world window-compiler {
         files: list<source-file>,
         kotlin: option<kotlin-options>
     ) -> result<compile-output, string>;
+
+    /// Renders the previews `previews-json` lists from the project `compile` takes. The files are not pack output.
+    export render-previews: func(
+        project-json: string,
+        files: list<source-file>,
+        previews-json: string
+    ) -> result<list<output-file>, string>;
 }

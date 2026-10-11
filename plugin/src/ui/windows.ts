@@ -1,5 +1,6 @@
 import type { Var } from "./tokens.ts";
 import type { Hud, Window } from "./document.ts";
+import type { Preview } from "./previews.ts";
 import type { Art, TextFont } from "./types.ts";
 
 /**
@@ -23,6 +24,8 @@ export interface WindowsDefinition {
      * small-caps font.
      */
     fonts?: Readonly<Record<string, TextFont>>;
+    /** `preview()` images of listed windows and HUDs, written when the plugin's `previews.output` is set. */
+    previews?: readonly Preview[];
 }
 
 /**
@@ -35,6 +38,7 @@ type Entry<E, D> = {} extends E ? E : E extends readonly unknown[] ? Entries<E, 
 type Checked<T extends WindowsDefinition> = {
     sprites?: Readonly<Record<string, Art | Var<Art>>>;
     fonts?: Readonly<Record<string, TextFont>>;
+    previews?: readonly Preview[];
     windows?: Entries<T["windows"], Window | { windows: Window[] }>;
     huds?: Entries<T["huds"], Hud | { huds: Hud[] }>;
 };

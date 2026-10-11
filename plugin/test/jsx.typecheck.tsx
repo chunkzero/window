@@ -1,5 +1,17 @@
-import { containerLayout, defineWindows, shape, texture } from "../src/ui/index.ts";
-import { action, builtin, flag, input, items, selection, sprite, text, toggle, value } from "../src/bind/index.ts";
+import { containerLayout, defineWindows, preview, shape, texture } from "../src/ui/index.ts";
+import {
+    action,
+    builtin,
+    collection,
+    flag,
+    input,
+    items,
+    selection,
+    sprite,
+    text,
+    toggle,
+    value,
+} from "../src/bind/index.ts";
 import type { Indexed, TextHandle } from "../src/bind/index.ts";
 import * as raw from "../src/raw/index.ts";
 import { Prompt } from "../src/theme/industrial/index.ts";
@@ -176,3 +188,26 @@ void containerLayout("generic_9x3").input;
 // @ts-expect-error A prompt needs `onConfirm`.
 const unconfirmed = <Prompt name="prompt" bind={input("query")} />;
 void unconfirmed;
+
+const lamps = flag("lamps", { shape: [2, 3] });
+const badge = sprite("badge", { only: ["lamp_on", "lamp_off"] });
+const previewed = preview(handles, [
+    [category, "magic"],
+    [price, "1,250"],
+    [lamp.at(1, 2), true],
+    [lamps, [[true, false], [true]]],
+    [badge, "lamp_on"],
+    [collection("products"), { count: 4, selected: 0 }],
+    [input("query"), "amethyst"],
+]);
+// @ts-expect-error A selection takes one of its values.
+const unknownCase = preview(handles, [[category, "tools"]]);
+// @ts-expect-error Text takes a string.
+const numericText = preview(handles, [[price, 1250]]);
+// @ts-expect-error An indexed handle takes a list, or `.at()` names one member.
+const unindexed = preview(handles, [[lamps, true]]);
+// @ts-expect-error A narrowed sprite takes one of its `only` names.
+const unknownSprite = preview(handles, [[badge, "coin"]]);
+// @ts-expect-error An action has no state.
+const actionState = preview(handles, [[action("buy"), true]]);
+void [previewed, unknownCase, numericText, unindexed, unknownSprite, actionState];

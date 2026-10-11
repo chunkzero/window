@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { defineWindows, texture } from "../src/ui/index.ts";
+import { flag, selection, text } from "../src/bind/index.ts";
+import { defineWindows, preview, texture } from "../src/ui/index.ts";
 import * as raw from "../src/raw/index.ts";
 import type { WindowDocument } from "../src/ui/document.ts";
 import { buildProject, checkOptions, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
@@ -248,6 +249,91 @@ test("Kotlin files are emitted only when configured", () => {
     generate(withKotlin.ctx, compile);
     assert.deepEqual(withKotlin.outputs, [["kotlin", "A.kt"]]);
     assert.deepEqual(calls, [undefined, kotlin]);
+});
+
+test("previews are rendered into the previews output only when it is configured", (t) => {
+    const warn = t.mock.method(console, "warn", () => {});
+    const output: CompileOutput = { files: [], kotlinFiles: [], warnings: [] };
+    const label = text("label", { shape: [2] });
+    const entry = (previews: boolean) => ({
+        "window/index.ts": defineWindows({
+            windows: [shop],
+            huds: [status],
+            ...(previews
+                ? {
+                      previews: [
+                          preview(shop, [
+                              [selection("mode", ["buy", "sell"]), "sell"],
+                              [label, ["Buy", "Sell"]],
+                              [label.at(1), "Vend"],
+                          ]),
+                          preview(status, [[flag("lit"), true]], { name: "status-lit", scale: 3 }),
+                      ],
+                  }
+                : {}),
+        }),
+    });
+    const rendered: string[] = [];
+    const render = (_json: string, _files: SourceFile[], previews: string) => {
+        rendered.push(previews);
+        return [{ path: "shop.png", contents: { tag: "binary" as const, val: new Uint8Array([1]) } }];
+    };
+
+    const configured = fake(entry(true), {}, { previews: { output: "build/previews" } });
+    generate(configured.ctx, () => output, render);
+    assert.deepEqual(configured.outputs, [["previews", "shop.png"]]);
+    assert.deepEqual(configured.emitted.size, 0);
+    assert.deepEqual(JSON.parse(rendered[0]!), [
+        {
+            name: "shop",
+            target: { kind: "window", name: "shop" },
+            state: [
+                { handle: "mode", value: "sell" },
+                { handle: "label", at: [0], value: "Buy" },
+                { handle: "label", at: [1], value: "Sell" },
+                { handle: "label", at: [1], value: "Vend" },
+            ],
+        },
+        {
+            name: "status-lit",
+            target: { kind: "hud", name: "status" },
+            state: [{ handle: "lit", value: true }],
+            scale: 3,
+        },
+    ]);
+
+    const never = () => assert.fail("previews must not render");
+    generate(fake(entry(false), {}, { previews: { output: "build/previews" } }).ctx, () => output, never);
+    assert.equal(warn.mock.callCount(), 0);
+    const unconfigured = fake(entry(true));
+    generate(unconfigured.ctx, () => output, never);
+    assert.deepEqual(unconfigured.outputs, []);
+    assert.match(String(warn.mock.calls[0]?.arguments[0]), /2 previews are declared, but `previews.output` is not set/);
+
+    assert.throws(() => checkOptions({ previews: {} }), /`previews.output` is required/);
+    assert.throws(() => checkOptions({ previews: { output: "a", scale: 2 } }), /`previews.scale` is unknown/);
+    assert.throws(() => preview([shop, status]), /preview\(\) takes one window or HUD/);
+});
+
+test("previews of a target no document lists are rendered against an empty project", (t) => {
+    const warn = t.mock.method(console, "warn", () => {});
+    const entry = { "window/index.ts": defineWindows({ previews: [preview(shop)] }) };
+    const compile = () => assert.fail("nothing is compiled");
+    const calls: { project: { windows?: unknown[]; huds?: unknown[] }; previews: unknown }[] = [];
+    const render = (project: string, _files: SourceFile[], previews: string) => {
+        calls.push({ project: JSON.parse(project), previews: JSON.parse(previews) });
+        return [];
+    };
+
+    generate(fake(entry, {}, { previews: { output: "build/previews" } }).ctx, compile, render);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0]!.previews, [{ name: "shop", target: { kind: "window", name: "shop" }, state: [] }]);
+    assert.deepEqual(calls[0]!.project.windows ?? [], []);
+    assert.deepEqual(calls[0]!.project.huds ?? [], []);
+
+    generate(fake(entry).ctx, compile, render);
+    assert.equal(calls.length, 1);
+    assert.match(String(warn.mock.calls[0]?.arguments[0]), /1 previews are declared, but `previews.output` is not set/);
 });
 
 test("the size report is not printed when Kotlin output fails", (t) => {

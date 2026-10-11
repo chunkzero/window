@@ -1,6 +1,7 @@
 import { root } from "./ui/elements.ts";
 import { resolveTokens } from "./ui/tokens.ts";
 import type { Hud, Window, WindowDocument } from "./ui/document.ts";
+import type { Preview } from "./ui/previews.ts";
 import type { Art, TextFont } from "./ui/types.ts";
 
 /** Core shader overrides Window generates. Each is opt-in and client-version-sensitive. */
@@ -50,6 +51,11 @@ export interface SizeOptions {
     budget?: number;
 }
 
+export interface PreviewsOptions {
+    /** Directory the `defineWindows({ previews })` PNGs are written to, relative to the project root. */
+    output: string;
+}
+
 export interface WindowOptions {
     /** Namespace of the generated assets. Defaults to `window`. */
     namespace?: string;
@@ -59,6 +65,8 @@ export interface WindowOptions {
     experimental?: ExperimentalOptions;
     /** Output size report and budget; see docs/AUTHORING.md. */
     size?: SizeOptions;
+    /** Render `defineWindows({ previews })`; see docs/AUTHORING.md. */
+    previews?: PreviewsOptions;
     /** Generate Kotlin bindings. */
     kotlin?: KotlinOptions;
 }
@@ -79,6 +87,7 @@ const OPTION_TREE: OptionTree = {
     },
     experimental: { anvilUpdates: "boolean" },
     size: { report: "boolean", budget: "positive integer" },
+    previews: { output: "string" },
 };
 
 /** The `kotlin` keys of `window()`'s config. */
@@ -127,6 +136,10 @@ function checkTree(config: unknown, tree: OptionTree, path: string): void {
  */
 export function checkOptions(config: unknown, kotlin: "authored" | "plugin" = "authored"): void {
     checkTree(config, { ...OPTION_TREE, kotlin: kotlin === "authored" ? AUTHORED_KOTLIN : PLUGIN_KOTLIN }, "");
+    const previews = (config as WindowOptions).previews;
+    if (previews !== undefined && previews.output === undefined) {
+        throw new Error("Window option `previews.output` is required when `previews` is set");
+    }
 }
 
 /** Server API the generated Kotlin views and HUDs bind to. */
@@ -179,6 +192,9 @@ export type Compile = (
     files: SourceFile[],
     kotlin: KotlinOptions | undefined,
 ) => CompileOutput;
+
+/** Renders the JSON list of previews from the project `Compile` takes, as `<name>.png` files. */
+export type RenderPreviews = (projectJson: string, files: SourceFile[], previewsJson: string) => OutputFile[];
 
 export interface ProjectJson {
     fonts?: Record<string, TextFont>;
@@ -330,6 +346,18 @@ function listDocuments(path: string, list: keyof typeof LISTS, entries: unknown)
     });
 }
 
+/** The previews of a `defineWindows` definition. */
+function entryPreviews(path: string, value: unknown): Preview[] {
+    const previews = isFields(value) ? value["previews"] : undefined;
+    if (previews === undefined) {
+        return [];
+    }
+    if (!Array.isArray(previews) || !previews.every((entry) => isFields(entry) && isFields(entry["target"]))) {
+        throw new Error(`${path}: defineWindows \`previews\` must be a list of preview(...)`);
+    }
+    return previews as Preview[];
+}
+
 /** The documents of a `defineWindows` definition. */
 function entryDocuments(path: string, value: unknown): WindowDocument[] {
     if (!isFields(value)) {
@@ -381,10 +409,11 @@ function inlineTextures(value: unknown, out: string[]): string[] {
  *
  * A `window/index.ts(x)` entry's `defineWindows` default export lists every document, and the other modules are
  * ordinary modules. Without one, every module under `window/` default-exports documents, read in path order, and
- * `warnings` asks for an entry.
+ * `warnings` asks for an entry. Only an entry declares `previews`.
  */
 export function collectInputs(ctx: WindowContext): {
     documents: WindowDocument[];
+    previews: Preview[];
     files: SourceFile[];
     warnings: string[];
 } {
@@ -397,8 +426,10 @@ export function collectInputs(ctx: WindowContext): {
     }
     const warnings: string[] = [];
     let documents: WindowDocument[];
+    let previews: Preview[] = [];
     if (entries.length === 1) {
         documents = entryDocuments(entries[0]!.path, entries[0]!.module["default"]);
+        previews = entryPreviews(entries[0]!.path, entries[0]!.module["default"]);
     } else {
         documents = modules.flatMap(({ path, module }) => defaultExport(path, module));
         if (modules.length > 0) {
@@ -435,7 +466,7 @@ export function collectInputs(ctx: WindowContext): {
             addOnce(path);
         }
     }
-    return { documents, files, warnings };
+    return { documents, previews, files, warnings };
 }
 
 /** The newest format of the pack's range. rpp's version check ignores pre-release tags, so older hosts are rejected here. */
@@ -453,15 +484,22 @@ function replacesVanillaTextures(vanilla: VanillaOptions | undefined): boolean {
     return values.some((value) => value === false || typeof value === "string");
 }
 
-/** Compile the project's definitions and write the pack files, warnings, and Kotlin bindings. */
-export function generate(ctx: WindowContext, compile: Compile): void {
-    const { documents, files, warnings } = collectInputs(ctx);
+/**
+ * Compile the project's definitions and write the pack files, warnings, Kotlin bindings, and previews. Previews are
+ * rendered only with `previews.output` set; declared without it, they warn and write nothing.
+ */
+export function generate(ctx: WindowContext, compile: Compile, renderPreviews?: RenderPreviews): void {
+    const { documents, previews, files, warnings } = collectInputs(ctx);
     for (const warning of warnings) {
         console.warn(warning);
     }
     const { options } = ctx;
     checkOptions(options, "plugin");
     if (documents.length === 0 && !replacesVanillaTextures(options.vanilla)) {
+        if (previews.length > 0) {
+            const project = buildProject(documents, options, packFormat(ctx.pack.format));
+            emitPreviews(ctx, renderPreviews, JSON.stringify(project), files, previews);
+        }
         return;
     }
     const kotlin =
@@ -469,7 +507,8 @@ export function generate(ctx: WindowContext, compile: Compile): void {
             ? undefined
             : { packageName: options.kotlin.packageName, target: kotlinTarget(options.kotlin.target) };
     const project = buildProject(documents, options, packFormat(ctx.pack.format));
-    const output = compile(options.namespace ?? "window", JSON.stringify(project), files, kotlin);
+    const projectJson = JSON.stringify(project);
+    const output = compile(options.namespace ?? "window", projectJson, files, kotlin);
     for (const file of output.files) {
         ctx.emit(file.path, file.contents.val);
     }
@@ -483,5 +522,31 @@ export function generate(ctx: WindowContext, compile: Compile): void {
     }
     if (output.sizeReport !== undefined) {
         console.log(output.sizeReport);
+    }
+    emitPreviews(ctx, renderPreviews, projectJson, files, previews);
+}
+
+/** Render the declared previews, or warn that none is rendered when `previews.output` is unset. */
+function emitPreviews(
+    ctx: WindowContext,
+    renderPreviews: RenderPreviews | undefined,
+    projectJson: string,
+    files: SourceFile[],
+    previews: readonly unknown[],
+): void {
+    if (previews.length === 0) {
+        return;
+    }
+    if (ctx.options.previews === undefined) {
+        console.warn(
+            `Window: ${previews.length} previews are declared, but \`previews.output\` is not set; none is rendered.`,
+        );
+        return;
+    }
+    if (renderPreviews === undefined) {
+        throw new Error("Window: the compiler component cannot render previews; rebuild plugin/window.wasm");
+    }
+    for (const file of renderPreviews(projectJson, files, JSON.stringify(previews))) {
+        ctx.emitOutput("previews", file.path, file.contents.val);
     }
 }

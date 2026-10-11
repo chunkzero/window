@@ -36,7 +36,7 @@ pub(super) fn validate_name(name: &str, kind: &str) -> Result<()> {
 }
 
 /// The snake_case name of a runtime sprite authored as `snake_case` or `camelCase`, such as `lamp_on` for `lampOn`.
-pub(super) fn sprite_key(name: &str, kind: &str) -> Result<String> {
+pub(crate) fn sprite_key(name: &str, kind: &str) -> Result<String> {
     let mut bytes = name.bytes();
     let alphanumeric =
         bytes.next().is_some_and(|b| b.is_ascii_lowercase()) && bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_');
