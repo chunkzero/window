@@ -49,7 +49,8 @@ pub(super) enum Shadow {
     Vanilla,
     /// Window text: translucent black.
     Slot,
-    /// Text of a shader-placed HUD: the translucent quarter-brightness text color.
+    /// Text of a shader-placed HUD: the translucent quarter-brightness text color, which the shader scales without
+    /// truncating.
     ShaderHud,
 }
 
@@ -60,7 +61,10 @@ impl Shadow {
             Self::None => None,
             Self::Vanilla => Some(dark(255)),
             Self::Slot => Some([0, 0, 0, SHADOW_ALPHA]),
-            Self::ShaderHud => Some(dark(SHADOW_ALPHA)),
+            Self::ShaderHud => {
+                let quarter = |channel: u8| ((u16::from(channel) + 2) / 4) as u8;
+                Some([quarter(color.r), quarter(color.g), quarter(color.b), SHADOW_ALPHA])
+            }
         }
     }
 }
