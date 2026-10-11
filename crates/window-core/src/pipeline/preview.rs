@@ -151,7 +151,13 @@ pub fn render(project: &ParsedProject, input: &CompileInput, requests: &[Preview
     let windows = if wants(false) { crate::layout::solve(project, &texture_size, &text_fonts)? } else { Vec::new() };
     let huds = if wants(true) { crate::layout::solve_huds(project, &texture_size, &text_fonts)? } else { Vec::new() };
 
-    let scene = Scene { project, textures: &textures, painter: TextPainter::new(&text_fonts) };
+    let mut generated = BTreeMap::new();
+    for (name, sprite) in &project.art.sprites {
+        if let SpriteDef::Generated { size, style } = sprite {
+            generated.insert(name.as_str(), crate::raster::render(style, *size)?);
+        }
+    }
+    let scene = Scene { project, textures: &textures, generated, painter: TextPainter::new(&text_fonts) };
     let mut files = Vec::with_capacity(requests.len());
     for request in requests {
         let preview = &request.name;
@@ -540,6 +546,8 @@ impl Canvas {
 struct Scene<'a> {
     project: &'a ParsedProject,
     textures: &'a BTreeMap<String, Texture>,
+    /// Every generated sprite's pixels, by sprite name.
+    generated: BTreeMap<&'a str, Texture>,
     painter: TextPainter<'a>,
 }
 
@@ -572,7 +580,7 @@ impl Scene<'_> {
         if pane.container == Some(ContainerKind::Anvil)
             && let Replacement::Sprite(sprite) = &self.project.options.vanilla.anvil.field
         {
-            canvas.blit(&self.sprite(sprite)?.0, field.origin());
+            canvas.blit(self.sprite(sprite)?.0, field.origin());
         }
         blit_composite(&mut canvas, &layers.base);
 
@@ -657,28 +665,28 @@ impl Scene<'_> {
             _ => return Ok(None),
         };
         let (texture, size) = self.sprite(name)?;
-        let metrics = bitmap_metrics(&texture, size);
+        let metrics = bitmap_metrics(texture, size);
         let ink_x = text::origin(align, rect.x, rect.width, metrics.glyph_width);
         Ok(Some(Placement { texture, height: size.height, metrics, ink_x, y: i64::from(rect.y) }))
     }
 
     /// The pixels and rendered size of sprite `name`.
-    fn sprite(&self, name: &str) -> Result<(Cow<'_, Texture>, Size)> {
+    fn sprite(&self, name: &str) -> Result<(&Texture, Size)> {
         let unknown =
             || Error::Validation(format!("previews cannot draw sprite `{name}`: its texture is not provided"));
         match self.project.art.sprites.get(name).ok_or_else(unknown)? {
             SpriteDef::Texture { texture, size } => {
                 let texture = self.textures.get(&texture_source_path(texture)).ok_or_else(unknown)?;
-                Ok((Cow::Borrowed(texture), size.unwrap_or(Size::new(texture.width, texture.height))))
+                Ok((texture, size.unwrap_or(Size::new(texture.width, texture.height))))
             }
-            SpriteDef::Generated { size, style } => Ok((Cow::Owned(crate::raster::render(style, *size)?), *size)),
+            SpriteDef::Generated { size, .. } => Ok((self.generated.get(name).ok_or_else(unknown)?, *size)),
         }
     }
 }
 
 /// A runtime sprite placed in a rect: its ink aligned within the rect's width.
 struct Placement<'a> {
-    texture: Cow<'a, Texture>,
+    texture: &'a Texture,
     /// The height the sprite renders at.
     height: u32,
     metrics: GlyphMetrics,
@@ -697,7 +705,7 @@ impl Placement<'_> {
     /// Draws the ink columns, each from the last source column whose scaled start (`scale_boundary`) is at or
     /// before it, so the painted columns are exactly those `metrics` reports.
     fn draw(&self, canvas: &mut Canvas) {
-        let texture = &*self.texture;
+        let texture = self.texture;
         if texture.width == 0 || texture.height == 0 || self.height == 0 {
             return;
         }
