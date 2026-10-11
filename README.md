@@ -198,8 +198,9 @@ Minestom serves a single protocol version, so they accept only 26.2 clients. The
 targets 26.2.
 
 The compiler still emits packs for 26.1.x (pack format 84): its glyph metrics are shared with 26.2, and
-`coreShaders.hud` selects the core text shaders for the configured `pack.format`. Serving 26.1.x clients requires a
-server that speaks their protocol; the Minestom and Multistom hosts do not.
+`coreShaders.hud` selects the core text shaders for the configured `pack.format`; `coreShaders.hover` needs pack formats
+85 through 88. Serving 26.1.x clients requires a server that speaks their protocol; the Minestom and Multistom hosts do
+not.
 
 ## Documentation
 

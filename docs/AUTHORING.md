@@ -65,6 +65,8 @@ window({
 - `namespace`: namespace of the generated assets. Defaults to `window`.
 - `coreShaders.hud`: emit the core text shaders that place [`<Hud anchor>`](#roots) HUDs. Opt-in, and sensitive to the
   client version.
+- `coreShaders.hover`: emit the core text shaders that draw [hover outlines](#hover-outlines). Opt-in, and sensitive to
+  the client version.
 - `experimental.anvilUpdates`: lets [anvil input windows](#native-anvil-search) change their title at runtime.
 - `size.report`: print a breakdown of the compiler's output after a successful build; see
   [What things cost](#what-things-cost).
@@ -90,6 +92,10 @@ catalog sprite must be generated or bundled, not external, and match the size of
   - `food`, `armor`, `air`: their full, half, and empty sprites, and the hunger and bursting variants.
   - `experience`: the experience bar, plus the jump bar and locator bar that replace it.
   - `crosshair`: the crosshair and its attack indicator.
+
+- `vanilla.slotHighlight` covers the highlight vanilla draws on the hovered slot (24x24), in every container screen and
+  the player's inventory, and needs pack format 42 (Minecraft 1.21.2) or newer. A string replaces the part drawn over
+  the slot's item and blanks the part drawn under it.
 
 Blanking sprites cannot hide HUD text, such as the experience level number or the held item name.
 
@@ -380,6 +386,32 @@ A tab group built from primitives:
 ```
 
 A section cell spans its slots' 18x18 boxes, while a control's face covers their 16x16 interiors, hence the `padding`.
+
+### Hover outlines
+
+With the plugin option `coreShaders: { hover: true }`, the client draws a 1px white outline around a region's rectangle
+while the cursor is over one of its slots. Vanilla highlights only the single hovered slot, which
+`vanilla: { slotHighlight: false }` removes.
+
+```tsx
+<Button onClick={buy} span={6}>Buy</Button> // outlined: it takes clicks
+<Button onClick={sort} span={3} hover={false}>Sort</Button> // never outlined
+<Hotspot tooltip="Balance" span={3} hover /> // outlined although it takes no clicks
+```
+
+- A region is outlined by default when it has an `onClick`. `hover` overrides that either way, on `<Region>` and on the
+  industrial controls built on one (`Button`, `Toggle`, `Choice`, `Tabs`, `Repeater`, `Hotspot`); a control passes it
+  only to the states that take clicks. Setting `hover` while `coreShaders.hover` is off is a build error.
+- The outline is drawn with the region's hitbox item, so an outlined region without a tooltip still fills its slots; its
+  tooltip box is hidden. Slots where an `<Items>` or `<Collection>` shows a stack show that stack's tooltip and no
+  outline.
+- An outlined region is 4 to 256 px wide, at most 256 px tall, and starts within 128 px of the GUI's center; a region
+  outside those limits fails the build until its `hover` is `false`.
+- The outline's color and thickness are fixed, and [previews](#previews) do not draw it.
+- It needs pack format 85 through 88 (Minecraft 26.2 is 88), shares `core/text` with `coreShaders.hud`, and like it
+  depends on the client version. Where the outline crosses the region's own tooltip it is cut out, using the tooltip
+  size the server measures; advanced tooltips (F3+H) add lines the server cannot see, so the outline may show through
+  them.
 
 ### Inline art
 
