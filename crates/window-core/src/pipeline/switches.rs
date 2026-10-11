@@ -57,7 +57,8 @@ impl CompileContext<'_> {
     }
 
     /// Bakes every art layer of `art` net-zero from `origin`, where `comps` holds their composites in the same
-    /// order. `key_prefix` and `file_base` name the owning surface's glyph keys and textures.
+    /// order: one glyph each, or the clips of a bar's fill. `key_prefix` and `file_base` name the owning surface's
+    /// glyph keys and textures.
     pub(super) fn art_entries(
         &mut self,
         pane: Pane<'_>,
@@ -72,9 +73,17 @@ impl CompileContext<'_> {
             let ascent = origin.y + 7 - comp.bounds.y;
             let file = format!("{file_base}_{}", art.name);
             let key = art_key(key_prefix, &art.name);
-            let glyph = self.emit_static_glyph(comp, ascent, pane, &file, key, Part::art_layer(pane))?;
-            let static_text = bake::bake_static_with_advance(glyph.glyph, &comp.bounds, origin, glyph.advance);
-            let entry = ArtEntry { static_text, tint: art.tint.clone(), tint_markers: BTreeMap::new() };
+            let (static_text, bar) = match &art.bar {
+                Some(bar) => {
+                    let bar = self.bar_entry(bar, comp, pane, &key, &file, origin)?;
+                    (bar.compose(bar.width), Some(bar))
+                }
+                None => {
+                    let glyph = self.emit_static_glyph(comp, ascent, pane, &file, key, Part::art_layer(pane))?;
+                    (bake::bake_static_with_advance(glyph.glyph, &comp.bounds, origin, glyph.advance), None)
+                }
+            };
+            let entry = ArtEntry { static_text, bar, tint: art.tint.clone(), tint_markers: BTreeMap::new() };
             entries.insert(art.name.clone(), entry);
         }
         Ok(entries)

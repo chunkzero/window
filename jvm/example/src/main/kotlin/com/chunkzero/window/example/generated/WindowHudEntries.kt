@@ -3,6 +3,7 @@ package com.chunkzero.window.example.generated
 
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.ArtEntry
+import com.chunkzero.window.manifest.BarEntry
 import com.chunkzero.window.manifest.HudEntry
 import com.chunkzero.window.manifest.HudShaderEntry
 import com.chunkzero.window.manifest.HudSurfaceEntry
@@ -21,9 +22,9 @@ internal object WindowHudEntries {
                     kind = "hud",
                     channel = "actionbar",
                     width = 112,
-                    height = 16,
+                    height = 20,
                 ),
-                static = "",
+                static = "\uDB80\uDC0D\uDB80\uDC0C\uF744\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
                 slots = mapOf(
                     "hint" to SlotEntry(
                         x = 6,
@@ -282,6 +283,30 @@ internal object WindowHudEntries {
                             "warn" to "#1b002a",
                         ),
                     ),
+                    "art/1" to ArtEntry(
+                        static = "\uDB80\uDC0D\uDB80\uDC0C\uF06B\uDB80\uDC0A\uF4F7\uDB80\uDC0A\uEF7E\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
+                        bar = BarEntry(
+                            name = "wave_charge",
+                            x = 6,
+                            width = 100,
+                            levels = listOf("\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214\uE214", "\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068\uE068", "\uEF7E\uEF7E\uEF7E\uEF7E\uEF7E\uEF7E\uEF7E\uEF7E\uEF7E\uEF7E\uEF7E\uEF7E\uEF7E", "\uEAB9\uEAB9\uEAB9\uEAB9\uEAB9\uEAB9", "\uE4BA\uE4BA\uE4BA", "\uF4F7\uF4F7", "\uF06B"),
+                            advances = mapOf(
+                                "\uE068" to 3,
+                                "\uE214" to 2,
+                                "\uE4BA" to 17,
+                                "\uEAB9" to 9,
+                                "\uEF7E" to 5,
+                                "\uF06B" to 65,
+                                "\uF4F7" to 33,
+                            ),
+                        ),
+                        tint = "tone",
+                        tintMarkers = mapOf(
+                            "danger" to "#ff001e",
+                            "ok" to "#ba0044",
+                            "warn" to "#e100a0",
+                        ),
+                    ),
                 ),
                 tints = mapOf(
                     "tone" to mapOf(
@@ -293,6 +318,7 @@ internal object WindowHudEntries {
                 layers = listOf(
                     LayerEntry(LayerKind.ART, "art/0"),
                     LayerEntry(LayerKind.SLOT, "hint"),
+                    LayerEntry(LayerKind.ART, "art/1"),
                     LayerEntry(LayerKind.SWITCH, "wave_progress[0]"),
                     LayerEntry(LayerKind.SWITCH, "wave_progress[1]"),
                     LayerEntry(LayerKind.SWITCH, "wave_progress[2]"),

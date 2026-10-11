@@ -225,6 +225,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             | Element::Slot { .. }
             | Element::Sprite { .. }
             | Element::SpriteSlot { .. }
+            | Element::Bar(_)
             | Element::Region(_) => self.measure(el),
             other => Err(self.target.layout_err(format!(
                 "{} cannot be laid out inside a flex box; give it a slot source or place it in a section",
@@ -685,6 +686,7 @@ fn describe(el: &Element) -> String {
         Element::Slot { name, .. } => format!("slot `{name}`"),
         Element::SpriteSlot { name, .. } => format!("sprite slot `{name}`"),
         Element::Sprite { name, .. } => format!("image `{name}`"),
+        Element::Bar(bar) => format!("bar `{}`", bar.name),
         Element::Label { text, .. } => format!("label `{text}`"),
         Element::Section(section) => format!("{} section", section_name(section)),
         Element::Flex(_) => "flex box".into(),

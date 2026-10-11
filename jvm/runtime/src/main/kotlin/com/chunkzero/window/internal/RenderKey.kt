@@ -37,4 +37,9 @@ internal sealed interface RenderKey {
     data class Tint(
         val name: String,
     ) : RenderKey
+
+    /** A bar binding, returning how much of it is filled. */
+    data class Bar(
+        val name: String,
+    ) : RenderKey
 }

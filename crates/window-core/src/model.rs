@@ -191,6 +191,26 @@ impl Default for TextFit {
     }
 }
 
+/// A fill bar: `fill` art stretched over the bar, of which the runtime draws the columns up to a fraction, counted
+/// from the left edge.
+#[derive(Clone, Debug)]
+pub struct Bar {
+    /// Bar entry name.
+    pub name: String,
+    /// The size of the bar at a fraction of 1.
+    pub size: Size,
+    /// Explicit position relative to the parent content origin.
+    pub pos: Option<Point>,
+    /// Interned frame the fill is clipped from.
+    pub fill: String,
+    /// Interned frame drawn whole under the fill.
+    pub track: Option<String>,
+    /// The color the fill is multiplied by.
+    pub tint: Option<Tint>,
+    /// Authored name shown in errors and diagnostics.
+    pub debug_name: Option<String>,
+}
+
 /// An element of the authored tree.
 #[derive(Clone, Debug)]
 pub enum Element {
@@ -221,6 +241,8 @@ pub enum Element {
         /// Authored name shown in errors and diagnostics.
         debug_name: Option<String>,
     },
+    /// A fill bar.
+    Bar(Box<Bar>),
     /// A dynamic inventory item region with no click handler.
     Item {
         /// Item control name.

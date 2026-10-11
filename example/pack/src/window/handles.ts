@@ -1,4 +1,4 @@
-import { action, collection, flag, input, selection, text, tint, toggle } from "plugin:window/bind";
+import { action, collection, flag, fraction, input, selection, text, tint, toggle } from "plugin:window/bind";
 
 // Shared by the shop and the status HUD
 export const tone = tint("tone", { ok: "#3ddc84", warn: "#ffb020", danger: "#ff4d4d" });
@@ -24,6 +24,8 @@ export const page = text("page");
 export const selectedName = text("selected_name");
 export const price = text("price");
 export const hasPrice = flag("has_price");
+/** How much of the selected product's price the balance covers. */
+export const budget = fraction("budget");
 
 export const search = action("search");
 export const clearSearch = action("clear_search");

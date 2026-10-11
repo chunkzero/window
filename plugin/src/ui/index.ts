@@ -76,6 +76,7 @@ export type { WindowsDefinition } from "./windows.ts";
 export { preview } from "./previews.ts";
 export type { CollectionState, Preview, PreviewOptions, StateEntry, StateOf } from "./previews.ts";
 export {
+    Bar,
     Box,
     Case,
     Collection,
@@ -90,6 +91,7 @@ export {
     Window,
 } from "./components.ts";
 export type {
+    BarProps,
     BoxProps,
     CaseProps,
     Child,

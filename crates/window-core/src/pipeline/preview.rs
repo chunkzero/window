@@ -17,12 +17,13 @@ use crate::geometry::{Point, Rect, Size};
 use crate::inventory::InventorySlotRef;
 use crate::ir::{
     Align, AnvilInputIr, ArtIr, CollectionIr, Draw, Handle, HandleKind, HandleRole, HandleUse, ItemIr, LaidOutHud,
-    LaidOutWindow, Layer, RegionIr, Rgb, SlotIr, SpriteSlotIr, SwitchIr,
+    LaidOutWindow, Layer, RegionIr, Rgb, SlotIr, SpriteSlotIr, SwitchIr, bar_columns,
 };
 use crate::model::{GeneratedStyle, SpriteDef};
 use crate::surface::{ContainerKind, Surface};
 use crate::{Error, Result, text_font};
 
+use super::bars::columns;
 use super::glyphs::{Layers, compose_layers};
 use super::metrics::{GlyphMetrics, bitmap_metrics};
 use super::sprites::texture_source_path;
@@ -373,6 +374,8 @@ impl<'a> State<'a> {
                 {
                     None
                 }
+                (HandleKind::Fraction, value) if fraction(value).is_some() => None,
+                (HandleKind::Fraction, _) => Some("a number from 0 to 1".to_string()),
                 (HandleKind::Flag | HandleKind::Toggle | HandleKind::Items, _) => Some("true or false".to_string()),
                 (HandleKind::Text | HandleKind::Input, _) => Some("a string".to_string()),
                 (HandleKind::Value | HandleKind::Selection | HandleKind::Tint, _) => {
@@ -443,6 +446,11 @@ impl<'a> State<'a> {
         Rgb::parse_hex(handle.colors.get(entry)?)
     }
 
+    /// The fraction bar `name` is filled to: the one set, or 1.
+    fn fraction(&self, name: &str) -> f64 {
+        self.get(HandleRole::Bar, name).and_then(fraction).unwrap_or(1.0)
+    }
+
     /// The filled cell count and selected cell of `collection`.
     fn collection(&self, collection: &CollectionIr) -> Result<(usize, Option<usize>)> {
         let cells = collection.slots.len();
@@ -459,6 +467,12 @@ impl<'a> State<'a> {
         }
         Ok((count.map_or(cells, |n| n as usize), selected.map(|n| n as usize)))
     }
+}
+
+/// The fraction `value` states: a number from 0 to 1.
+fn fraction(value: &StateValue) -> Option<f64> {
+    let StateValue::Other(value) = value else { return None };
+    value.as_f64().filter(|fraction| (0.0..=1.0).contains(fraction))
 }
 
 /// What a name inside a switch case names. One handle can name both a switch and the region toggling it.
@@ -635,8 +649,12 @@ impl Scene<'_> {
                 }
                 Layer::Art(name) if hidden.shows(Member::Art, name) => {
                     if let Some(index) = pane.art.iter().position(|art| &art.name == name) {
-                        let tint = pane.art[index].tint.as_deref().and_then(|tint| state.tint(tint));
-                        canvas.blit_composite(&layers.art[index], tint);
+                        let (art, comp) = (&pane.art[index], &layers.art[index]);
+                        let tint = art.tint.as_deref().and_then(|tint| state.tint(tint));
+                        match &art.bar {
+                            Some(bar) => canvas.blit_composite(&filled(comp, state.fraction(bar)), tint),
+                            None => canvas.blit_composite(comp, tint),
+                        }
                     }
                 }
                 _ => {}
@@ -796,6 +814,13 @@ impl Placement<'_> {
             }
         }
     }
+}
+
+/// The columns of bar fill `comp` drawn at `fraction`.
+fn filled(comp: &Composite, fraction: f64) -> Composite {
+    let width = bar_columns(fraction, comp.texture.width);
+    let bounds = Rect::new(comp.bounds.x, comp.bounds.y, width, comp.bounds.height);
+    Composite { texture: columns(&comp.texture, 0, width), bounds, has_content: width > 0 }
 }
 
 fn find<'a, T>(items: &'a [T], name: &str, key: impl Fn(&T) -> &String) -> Result<&'a T> {

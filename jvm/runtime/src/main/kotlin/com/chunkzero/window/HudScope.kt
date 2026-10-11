@@ -5,8 +5,8 @@ import net.kyori.adventure.text.Component
 /**
  * The binding surface available inside [HudView.bind].
  *
- * Every dynamic slot, switch, and tint in the HUD manifest must be bound exactly once; static labels carrying `text`
- * render automatically and must not be bound.
+ * Every dynamic slot, switch, tint, and bar in the HUD manifest must be bound exactly once; static labels carrying
+ * `text` render automatically and must not be bound.
  *
  * Bindings are fixed once `bind()` returns: calling a binder on a retained scope afterwards throws
  * [IllegalStateException].
@@ -40,5 +40,14 @@ public interface HudScope {
     public fun tint(
         name: String,
         render: () -> String,
+    )
+
+    /**
+     * Binds a bar to a [render] lambda returning how much of its fill to draw, from 0 to 1. The fraction is
+     * clamped to that range and rounded to whole pixel columns of the bar's width.
+     */
+    public fun bar(
+        name: String,
+        render: () -> Float,
     )
 }

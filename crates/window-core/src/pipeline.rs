@@ -21,6 +21,7 @@ use crate::text_font::TextFonts;
 use crate::{Error, Result, text_font, vanilla};
 
 mod anvil;
+mod bars;
 mod fonts;
 mod glyphs;
 mod hud;

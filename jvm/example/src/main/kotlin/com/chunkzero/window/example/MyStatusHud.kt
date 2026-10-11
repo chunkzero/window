@@ -77,6 +77,9 @@ class MyStatusBottomCenterHud(
         }
     }
 
+    /** Fills as the wave nears, unless `/bar` pinned a fraction. */
+    override fun waveCharge(): Float = pinnedBar(player) ?: (1f - remaining().toFloat() / WAVE_MILLIS)
+
     private fun remaining(): Long = WAVE_MILLIS - (System.currentTimeMillis() - startedAt) % WAVE_MILLIS
 
     override fun waveProgress(index: Int): Boolean =

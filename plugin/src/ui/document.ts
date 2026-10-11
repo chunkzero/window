@@ -84,6 +84,21 @@ export interface SpriteSlotOptions extends FlexItemOptions, DebugName {
     style?: StyleValue<ItemStyle>;
 }
 
+export interface BarOptions extends FlexItemOptions, DebugName {
+    /** The bar's size in pixels, each from 1 to 256. */
+    width: number;
+    height: number;
+    /** Art stretched over the bar, of which the leftmost columns are drawn, up to the bound fraction. */
+    fill: ArtRef;
+    /** Art stretched over the bar and drawn whole, under the fill. */
+    track?: ArtRef;
+    /** Multiplies the fill's colors: a `tint` handle picks the color at runtime, a hex color is baked in. */
+    tint?: Token<Color> | Tint;
+    x?: number;
+    y?: number;
+    style?: StyleValue<ItemStyle>;
+}
+
 export interface ItemOptions extends FlexItemOptions, DebugName {
     /** Backing inventory slots populated by this item. Integers mean container slots. */
     slots?: SlotList;
@@ -148,6 +163,10 @@ export interface SpriteElement extends SpriteOptions {
 }
 export interface SpriteSlotElement extends SpriteSlotOptions {
     type: "sprite_slot";
+    handle: HandleJson;
+}
+export interface BarElement extends BarOptions {
+    type: "bar";
     handle: HandleJson;
 }
 export interface ItemElement extends ItemOptions {
@@ -316,6 +335,7 @@ export interface SwitchElement extends SwitchOptions {
 export type Element = (
     | SpriteElement
     | SpriteSlotElement
+    | BarElement
     | ItemElement
     | CollectionElement
     | AnvilInputElement

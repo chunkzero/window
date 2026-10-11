@@ -256,6 +256,8 @@ pub enum HandleKind {
     Builtin,
     /// One of `values`, computed by Kotlin, naming the palette color tinted art and text take.
     Tint,
+    /// A number from 0 to 1, computed by Kotlin: how much of a bar is filled.
+    Fraction,
 }
 
 impl HandleKind {
@@ -274,6 +276,7 @@ impl HandleKind {
             Self::Input => "input",
             Self::Builtin => "builtin",
             Self::Tint => "tint",
+            Self::Fraction => "fraction",
         }
     }
 }
@@ -298,6 +301,8 @@ pub enum HandleRole {
     Click,
     /// Colors tinted art and text.
     Tint,
+    /// Fills a bar.
+    Bar,
 }
 
 /// One element's use of a handle, bound to the manifest entry `entry`.
@@ -460,8 +465,8 @@ pub struct AnvilInputIr {
     pub item_model: Option<String>,
 }
 
-/// Art the runtime draws as its own glyph, at its place among the runtime layers: tinted art, and the untinted art
-/// authored over it.
+/// Art the runtime draws as its own glyphs, at its place among the runtime layers: tinted art, the untinted art
+/// authored over it, and the fill of a bar.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArtIr {
     /// Unique name within the surface, `art/N` in document order.
@@ -470,6 +475,15 @@ pub struct ArtIr {
     pub draws: Vec<Draw>,
     /// The tint handle whose current palette color the glyph is multiplied by; `None` draws it as authored.
     pub tint: Option<String>,
+    /// The entry whose fraction decides how many of the art's columns are drawn, counted from its left edge;
+    /// `None` draws them all.
+    pub bar: Option<String>,
+}
+
+/// The columns a bar of `width` columns draws at `fraction`: the nearest whole column, with `fraction` clamped to
+/// 0 through 1. Computed in single precision, as the runtime does.
+pub fn bar_columns(fraction: f64, width: u32) -> u32 {
+    ((fraction as f32).clamp(0.0, 1.0) * width as f32).round() as u32
 }
 
 /// A runtime-selected group of cases, of which at most one is active.
@@ -518,7 +532,7 @@ pub enum Layer {
     Switch(String),
     /// A collection's selected-cell sprite.
     Collection(String),
-    /// An art layer: tinted art, or untinted art authored over it.
+    /// An art layer: tinted art, untinted art authored over it, or the fill of a bar.
     Art(String),
 }
 
@@ -589,6 +603,14 @@ pub struct LaidOutHud {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bar_columns_round_in_single_precision() {
+        // 0.29 * 50 is 14.499… in double precision and 14.5 in single.
+        assert_eq!(bar_columns(0.29, 50), 15);
+        assert_eq!(bar_columns(1.5, 256), 256);
+        assert_eq!(bar_columns(-1.0, 256), 0);
+    }
 
     #[test]
     fn rgb_hex_round_trip() {

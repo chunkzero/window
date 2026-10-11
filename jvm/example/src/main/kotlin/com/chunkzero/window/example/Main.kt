@@ -48,6 +48,7 @@ fun main() {
     registerPlayerEvents(instance, createPackRequest(packServer, market))
     registerShopAccess(market)
     registerToneCommand()
+    registerBarCommand()
 
     server.start("0.0.0.0", serverPort)
     println("Window example server listening on $serverPort — pack served at $packUrl.")

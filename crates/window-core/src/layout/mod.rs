@@ -166,6 +166,7 @@ fn pos_of(el: &Element) -> Option<Point> {
         | Element::SpriteSlot { pos, .. }
         | Element::Label { pos, .. }
         | Element::Slot { pos, .. } => *pos,
+        Element::Bar(bar) => bar.pos,
         Element::Flex(node) => node.pos,
         Element::Switch(switch) => switch.pos,
         Element::Item { .. }
@@ -186,6 +187,7 @@ fn debug_name_of(el: &Element) -> Option<&str> {
         | Element::AnvilInput { debug_name, .. }
         | Element::Label { debug_name, .. }
         | Element::Slot { debug_name, .. } => debug_name.as_deref(),
+        Element::Bar(bar) => bar.debug_name.as_deref(),
         Element::Region(region) => region.debug_name.as_deref(),
         Element::Flex(node) => node.debug_name.as_deref(),
         Element::Section(section) => section.debug_name.as_deref(),
@@ -371,6 +373,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             Element::SpriteSlot { name, size, align, tint, .. } => {
                 self.place_sprite_slot(name, Rect::from_parts(origin, *size), *align, tint.clone())
             }
+            Element::Bar(bar) => self.place_bar(bar, Rect::from_parts(origin, bar.size)),
             Element::Label { text, width, style, .. } => self.place_label(text, *width, style, origin),
             Element::Slot { name, width, style, fit, .. } => self.place_slot(name, *width, style, *fit, origin),
             Element::Flex(node) => self.place_flex(node, origin, None),

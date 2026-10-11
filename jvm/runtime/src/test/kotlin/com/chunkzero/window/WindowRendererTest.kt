@@ -9,10 +9,12 @@ import com.chunkzero.window.internal.Switches
 import com.chunkzero.window.internal.WindowBindings
 import com.chunkzero.window.internal.WindowFrame
 import com.chunkzero.window.internal.WindowRenderer
+import com.chunkzero.window.internal.titleBars
 import com.chunkzero.window.internal.titleSlots
 import com.chunkzero.window.internal.titleTints
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.ArtEntry
+import com.chunkzero.window.manifest.BarEntry
 import com.chunkzero.window.manifest.HitboxEntry
 import com.chunkzero.window.manifest.ItemEntry
 import com.chunkzero.window.manifest.LayerEntry
@@ -48,6 +50,7 @@ private class RendererFixture(
             definition.titleSlots(reactivity, tints),
             Switches("window", "w", definition.entry.switches, reactivity),
             tints,
+            definition.titleBars(reactivity),
         )
     val renderer = WindowRenderer(definition, bindings, reactivity) { it }
 
@@ -132,6 +135,25 @@ class WindowRendererTest :
             colorOf(changed, "TINTED") shouldBe "#ffb020"
             colorOf(changed, "Hi") shouldBe "#ffb020"
             colorOf(changed, "PLAIN") shouldBe "#ffffff"
+        }
+
+        "a bar draws the columns of its fraction, and redraws when they change" {
+            val fill = BarEntry("hp", 0, 4, listOf("ab", "c", "d"), mapOf("a" to 2, "b" to 2, "c" to 3, "d" to 5))
+            val fixture = RendererFixture(TestManifests.manifest(art = mapOf("art/0" to ArtEntry("d", bar = fill))))
+            var hp by fixture.reactivity.state(0.5f)
+
+            plain(fixture.open { bar("hp") { hp } }) shouldContain "c"
+
+            hp = 0.51f
+            fixture.scheduler.runAll()
+            fixture.frames.single().title shouldBeSameInstanceAs fixture.renderer.title()
+
+            hp = 0.75f
+            fixture.scheduler.runAll()
+            val drawn = plain(fixture.frames.last().title)
+            drawn shouldContain "c"
+            drawn shouldContain "b"
+            drawn shouldNotContain "d"
         }
 
         "a nested switch draws only under its active outer case" {

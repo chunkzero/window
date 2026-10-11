@@ -29,13 +29,15 @@ internal class WindowRenderer<I : Any>(
 ) {
     private val switches = bindings.switches
     private val tints = bindings.tints
+    private val bars = bindings.bars
     private val title = WindowTitle(definition, bindings, reactivity)
     private val inventory = WindowInventory(definition, bindings, reactivity, buildItem)
 
-    /** Selects every switch's case, picks every tint's palette entry, and renders the initial title. */
+    /** Selects every switch's case, picks every tint's palette entry, fills every bar, and renders the initial title. */
     fun seedTitle(): ComposedRender {
         for (name in switches.names) switches.update(name)
         for (name in tints.names) tints.update(name)
+        for (name in bars.names) bars.update(name)
         title.seed()
         return title.compose()
     }
@@ -57,6 +59,7 @@ internal class WindowRenderer<I : Any>(
                 is RenderKey.CollectionSelection -> title.updateCollectionSelection(key.name)
                 is RenderKey.Switch -> if (switches.update(key.name)) updateCases()
                 is RenderKey.Tint -> if (tints.update(key.name)) title.updateTint(key.name)
+                is RenderKey.Bar -> if (bars.update(key.name)) title.updateBars()
             }
         }
         return frame()

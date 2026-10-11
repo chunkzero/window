@@ -55,15 +55,19 @@ internal class HudComposer(
         source: String?,
     ): HudLayer.Art = HudLayer.Art(semanticId, static, source, staticColor)
 
-    /** Art layer [art], multiplied by the color of its tint's palette entry [tint]. */
+    /**
+     * Art layer [art], multiplied by the color of its tint's palette entry [tint]. A bar's fill is drawn up to
+     * [columns].
+     */
     fun art(
         semanticId: String,
         art: ArtEntry,
         tint: String?,
+        columns: Int? = null,
     ): HudLayer.Art =
         HudLayer.Art(
             semanticId,
-            art.static,
+            art.bar?.let { it.compose(columns ?: it.width, spacers) } ?: art.static,
             null,
             segmentColor(art.tint, tint, art.tintMarkers) ?: staticColor,
         )

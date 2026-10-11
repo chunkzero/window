@@ -125,7 +125,12 @@ fn tree_layers(
             Layer::Art(name) => {
                 let art = entries.art.get(name);
                 let layer = art.and_then(|art| static_layer(manifest, &art.static_text, origin, glyphs, Some(0)));
-                if let Some(layer) = layer {
+                if let Some(mut layer) = layer {
+                    // A bar's first glyph is one clip of its fill; the layer covers the whole fill.
+                    if let Some(bar) = art.and_then(|art| art.bar.as_ref()) {
+                        layer.bounds[0] = origin[0] + bar.x;
+                        layer.bounds[2] = bar.width as i32;
+                    }
                     out.push(DebugLayer { id: format!("art:{name}"), kind: "art_chrome".into(), ..layer });
                 }
             }

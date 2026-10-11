@@ -4,6 +4,7 @@ import {
     builtin,
     collection,
     flag,
+    fraction,
     input,
     items,
     selection,
@@ -16,7 +17,7 @@ import {
 import type { Indexed, TextHandle } from "../src/bind/index.ts";
 import * as raw from "../src/raw/index.ts";
 import { Prompt } from "../src/theme/industrial/index.ts";
-import { Box, Case, Hud, Image, Items, Region, Section, Switch, Text, Window } from "../src/ui/components.ts";
+import { Bar, Box, Case, Hud, Image, Items, Region, Section, Switch, Text, Window } from "../src/ui/components.ts";
 
 const recess = shape({ kind: "slot", fill: "#102040" });
 const price = text("price");
@@ -143,6 +144,40 @@ const fixedSlotTint = <Image bind={sprite("lamp_icon")} size={8} tint="#ffaa00" 
 // @ts-expect-error A HUD's own frame is not tinted.
 const tintedHud = <Hud name="tinted" tint={tone} />;
 void [tinted, valueTint, flagColor, fixedSlotTint, tintedHud];
+
+const health = fraction("health");
+const charges = fraction("charge", { shape: [3] });
+const bars = (
+    <Box>
+        <Bar bind={health} width={80} height={6} fill={shape({ kind: "panel" })} tint={tone} grow />
+        <Bar
+            bind={charges.at(1)}
+            width={20}
+            height={4}
+            fill={texture("window/coin.png")}
+            track={recess}
+            tint="#ff5555"
+        />
+        {raw.bar(health, { width: 80, height: 6, fill: recess })}
+    </Box>
+);
+const barPreview = preview(handles, [
+    [health, 0.42],
+    [charges, [0, 0.5, 1]],
+]);
+// @ts-expect-error A bar binds a fraction handle.
+const flagBar = <Bar bind={favorites} width={80} height={6} fill={recess} />;
+// @ts-expect-error A bar needs its fill art.
+const emptyBar = <Bar bind={health} width={80} height={6} />;
+// @ts-expect-error A bar's size is given in pixels.
+const unsizedBar = <Bar bind={health} fill={recess} />;
+// @ts-expect-error A bar's tint is a color or a tint handle.
+const valueTintBar = <Bar bind={health} width={80} height={6} fill={recess} tint={mode} />;
+// @ts-expect-error An indexed fraction is read through `.at()`.
+const unindexedBar = <Bar bind={charges} width={80} height={6} fill={recess} />;
+// @ts-expect-error A fraction takes a number.
+const namedFraction = preview(handles, [[health, "half"]]);
+void [bars, barPreview, flagBar, emptyBar, unsizedBar, valueTintBar, unindexedBar, namedFraction];
 
 const coin = texture("window/coin.png");
 const bevel = shape({ kind: "button", fill: "#3a3a3a" }, { name: "industrial/button" });

@@ -22,18 +22,24 @@ internal class WindowTitle(
     private val composer = definition.composer
     private val switches = bindings.switches
     private val tints = bindings.tints
+    private val bars = bindings.bars
     private val segments = HashMap<String, RenderedSegment>()
     private var composed: ComposedRender? = null
 
     /**
-     * Composes the current segments; repeated calls return the same render until a segment is written or
-     * [updateCases] reports a case change.
+     * Composes the current segments; repeated calls return the same render until a segment is written, or
+     * [updateCases] or [updateBars] reports a change.
      */
     fun compose(): ComposedRender =
         composed ?: composer.compose(definition.name, entry.layers.mapNotNull(::layer)).also { composed = it }
 
     /** Marks the title for recomposition after the active switch cases changed. */
     fun updateCases() {
+        composed = null
+    }
+
+    /** Marks the title for recomposition after the columns a bar draws changed. */
+    fun updateBars() {
         composed = null
     }
 
@@ -110,7 +116,8 @@ internal class WindowTitle(
                 LayerKind.ART -> {
                     if (!switches.artActive(name)) return null
                     val art = entry.art.getValue(name)
-                    return composer.renderArt("window/${definition.name}/$name", art, tints.value(art.tint))
+                    val id = "window/${definition.name}/$name"
+                    return composer.renderArt(id, art, tints.value(art.tint), bars.columns(art.bar))
                 }
             }
         val source =
@@ -171,8 +178,11 @@ internal fun WindowDefinition.titleSlots(
 /** This window's tints. */
 internal fun WindowDefinition.titleTints(reactivity: Reactivity): Tints = Tints("window", name, entry.tints, reactivity)
 
+/** This window's bars. */
+internal fun WindowDefinition.titleBars(reactivity: Reactivity): Bars = Bars("window", name, entry.art, reactivity)
+
 /**
- * Whether the title never changes after open: no text slots, bound sprites, selections, or tints, and no
+ * Whether the title never changes after open: no text slots, bound sprites, selections, tints, or bars, and no
  * switch case with art, slots, or sprite slots. Switches that only swap regions keep the title.
  */
 internal val WindowEntry.hasStaticTitle: Boolean
@@ -181,6 +191,7 @@ internal val WindowEntry.hasStaticTitle: Boolean
             spriteSlots.values.all { it.sprite != null } &&
             collections.values.all { it.selection.isEmpty() } &&
             tints.isEmpty() &&
+            art.values.all { it.bar == null } &&
             switches.values.all { switch ->
                 switch.cases.all {
                     it.static.isEmpty() && it.slots.isEmpty() && it.spriteSlots.isEmpty() && it.art.isEmpty()

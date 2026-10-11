@@ -9,6 +9,7 @@ use crate::ir::{ArtIr, Draw, LaidOutHud, LaidOutWindow, SwitchIr};
 use crate::size::{Pane, Part};
 use crate::{Error, Result};
 
+use super::bars::clip_keys;
 use super::metrics::bitmap_metrics;
 use super::sprites::RuntimeSpriteAsset;
 use super::{CompileContext, OutputFile};
@@ -70,7 +71,7 @@ fn layers(
 }
 
 /// Allocate codepoints across the whole build: one key per static, case, or art layer composite
-/// with content, plus one per runtime sprite when any window uses sprites.
+/// with content, one per glyph of a bar's fill, plus one per runtime sprite when any window uses sprites.
 pub(super) fn allocate_codepoints(
     windows: &[&LaidOutWindow],
     huds: &[&LaidOutHud],
@@ -102,8 +103,11 @@ fn layer_keys(keys: &mut BTreeSet<String>, prefix: &str, switches: &[SwitchIr], 
         }
     }
     for (art, comp) in art.iter().zip(&layers.art) {
-        if comp.has_content {
-            keys.insert(art_key(prefix, &art.name));
+        let key = art_key(prefix, &art.name);
+        if art.bar.is_some() {
+            keys.extend(clip_keys(&key, &comp.texture));
+        } else if comp.has_content {
+            keys.insert(key);
         }
     }
 }

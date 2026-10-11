@@ -128,6 +128,18 @@ public interface WindowScope<I : Any> {
     )
 
     /**
+     * Binds a bar to a [render] lambda returning how much of its fill to draw, from 0 to 1; the lambda is
+     * re-invoked whenever a reactive state it reads changes. The fraction is clamped to that range and
+     * rounded to whole pixel columns of the bar's width.
+     *
+     * @throws IllegalArgumentException if [name] is not a bar of the window.
+     */
+    public fun bar(
+        name: String,
+        render: () -> Float,
+    )
+
+    /**
      * Binds a native anvil rename field. The handler receives each value the player types. With
      * experimental anvil updates, the text the client sends back after a reopen is not passed on.
      */

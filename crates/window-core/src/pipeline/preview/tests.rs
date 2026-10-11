@@ -375,3 +375,21 @@ fn tinted_art_outside_the_surface_grows_the_canvas_within_the_pixel_limit() {
     let error = preview_white(json!([far]), json!([])).unwrap_err().to_string();
     assert!(error.starts_with("preview `shot`: its ") && error.contains("exceeds the limit"), "{error}");
 }
+
+#[test]
+fn a_bar_draws_the_previewed_fraction_of_its_fill_and_defaults_to_full() {
+    let bar = json!({ "type": "bar", "handle": { "kind": "fraction", "id": "hp" }, "tint": tone(), "x": 10, "y": 10,
+        "width": 100, "height": 4,
+        "fill": { "art": "texture", "texture": "white.png" }, "track": { "art": "texture", "texture": "green.png" } });
+    let shot = |state: Value| preview_white(json!([bar.clone()]), state);
+
+    assert_eq!(columns(&shot(json!([])).unwrap(), RED), Some((10, 109)));
+    let partial = shot(json!([{ "handle": "hp", "value": 0.42 }, { "handle": "tone", "value": "cold" }])).unwrap();
+    assert_eq!(columns(&partial, BLUE), Some((10, 51)));
+    assert_eq!(columns(&partial, GREEN), Some((52, 109)), "the track shows past the fill");
+    assert_eq!(columns(&shot(json!([{ "handle": "hp", "value": 0 }])).unwrap(), RED), None);
+    assert_eq!(
+        shot(json!([{ "handle": "hp", "value": 1.5 }])).unwrap_err().to_string(),
+        "preview `shot`: handle `hp` is a fraction and takes a number from 0 to 1; got 1.5"
+    );
+}

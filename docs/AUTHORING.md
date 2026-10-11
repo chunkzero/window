@@ -117,8 +117,8 @@ Window output: 534.9 KB (compiler output, before pack optimization)
 - Each window and HUD line is its total, split into its static art and its switch cases. The count is every case; a case
   that draws art bakes its own texture, so a switch costs roughly the number of such cases times one case's art. Cut
   cases, or move art that every case repeats out of the switch.
-- A line also counts its art layers when it has any: the textures of art with a [`tint` handle](#tints) and of untinted
-  art drawn over it.
+- A line also counts its art layers when it has any: the textures of art with a [`tint` handle](#tints), of untinted art
+  drawn over it, and of the clips of each [bar](#bars)'s fill.
 - Each distinct vertical position that a text slot (or line of a multi-line slot) draws at adds one text-row font
   document, and a custom font adds one per position. Sprite slots add one sprite font per position, listing every
   catalog sprite. Aligning slots to fewer rows removes fonts. HUDs pinned with [`<Hud anchor>`](#roots) are aligned to
@@ -181,6 +181,7 @@ Each entry's value is typed by its handle, and a handle the entry omits takes it
 | `value`      | one of its values                    | its first value                            |
 | `selection`  | one of its values                    | its `initial`, else its first value        |
 | `tint`       | one of its palette entry names       | its first palette entry                    |
+| `fraction`   | a number from 0 to 1                 | `1`: the bar is full                       |
 | `sprite`     | a catalog sprite name, of its `only` | no sprite                                  |
 | `items`      | whether the slot holds an item       | `true`                                     |
 | `collection` | `{ count?, selected? }`              | every cell holds an item; none is selected |
@@ -343,6 +344,7 @@ Every window is built from a few primitives, which the [`industrial`](#industria
 | `<Box>`                                            | `box`                         | flexbox or grid; `frame` is [inline art](#inline-art), `tint` colors it |
 | `<Text>` / `<Text bind>`                           | `text`                        | static text, or dynamic text bound by a `text` handle                   |
 | `<Image art>` / `<Image bind size>`                | `image`                       | art drawn at its own size, or a runtime sprite slot bound by a handle   |
+| `<Bar bind width height fill>`                     | `bar`                         | a [bar](#bars) filled up to the fraction a `fraction` handle returns    |
 | `<Switch bind><Case value>…</Case></Switch>`       | `switchOn(on, cases)`, `case` | `bind` is a value, selection, flag, or toggle handle, or a condition    |
 | `<Region onClick? tooltip? itemModel?>`            | `region`                      | slots that take clicks and show a hitbox item                           |
 | `<Items bind>`, `<Collection bind>`                | `items`, `collection`         | real item stacks                                                        |
@@ -710,7 +712,8 @@ export const title = text("title");
 | `selection(id, values, { initial? })` | `<Switch on>`, `Tabs bind`, `Choice bind`, `.is`, `.set` | `enum class Category`, `protected var category` and `onCategoryChanged` |
 | `text(id)`                            | `<Text bind>`                                            | `protected abstract fun title(): Component`                             |
 | `sprite(id, { only? })`               | `<Image bind>`                                           | `protected abstract fun iconSprite(): WindowSprite?`                    |
-| `tint(id, palette)`                   | `tint` of a box, case, or image; text `color`            | `enum class Tone` and `protected abstract fun tone(): Tone`             |
+| `tint(id, palette)`                   | `tint` of a box, case, image, or bar; text `color`       | `enum class Tone` and `protected abstract fun tone(): Tone`             |
+| `fraction(id)`                        | `<Bar bind>`                                             | `protected abstract fun health(): Float`                                |
 | `items(id)`                           | `<Items bind>`                                           | `protected abstract fun stack(): ItemStack?`                            |
 | `collection(id, { selectable? })`     | `<Collection bind>`                                      | `protected abstract val products: WindowCollection<ItemStack>`          |
 | `action(id)`                          | `onClick` of a region or control                         | `protected abstract fun onBuy(click: Click)`                            |
@@ -737,10 +740,11 @@ export const title = text("title");
 
 ### Indexed handles and repeaters
 
-`flag`, `value`, `text`, `sprite`, `items`, and `action` take `shape: [n]` or `shape: [rows, columns]`. Read an entry
-with `.at(i)` or `.at(row, column)`; the Kotlin member takes `index: Int` or `row: Int, column: Int`, and an indexed
-action receives an `IndexedClick` whose `index` is the entry, row-major. The view exposes each shape as constants:
-`ShopView.ENTRY_STACK_SIZE`, or `_ROWS` and `_COLUMNS`. Entries are named `entry_stack[3]` or `strokes[1][4]`.
+`flag`, `value`, `text`, `sprite`, `fraction`, `items`, and `action` take `shape: [n]` or `shape: [rows, columns]`. Read
+an entry with `.at(i)` or `.at(row, column)`; the Kotlin member takes `index: Int` or `row: Int, column: Int`, and an
+indexed action receives an `IndexedClick` whose `index` is the entry, row-major. The view exposes each shape as
+constants: `ShopView.ENTRY_STACK_SIZE`, or `_ROWS` and `_COLUMNS`. Entries are named `entry_stack[3]` or
+`strokes[1][4]`.
 
 ```tsx
 export const pickEntry = action("pick_entry", { shape: [6] });
@@ -792,6 +796,43 @@ override fun tone(): Tone = if (remaining > 3) Tone.OK else Tone.DANGER
 - In a shader-placed HUD each tinted art layer and each tinted text adds one entry per palette entry to the generated
   shader's table, so a three-color tint on a frame and its text costs six. Menus and HUDs without a shader send the
   palette color itself and cost nothing more.
+
+### Bars
+
+`<Bar>` draws a progress bar: its `fill` art, revealed from the left up to the fraction a `fraction` handle returns.
+
+```tsx
+import { fraction, tint } from "plugin:window/bind";
+
+const health = fraction("health");
+const tone = tint("tone", { ok: "#3ddc84", low: "#ff4d4d" });
+
+<Bar bind={health} width={80} height={5} fill={art.barFill} track={art.barTrack} tint={tone} />;
+```
+
+```kotlin
+override fun health(): Float = player.health / player.maxHealth
+
+override fun tone(): Tone = if (health() > 0.25f) Tone.OK else Tone.LOW
+```
+
+- `width` and `height` are pixels, each from 1 to 256. `fill` and the optional `track` are [inline art](#inline-art),
+  stretched over the bar like a box's `frame`; the track is drawn whole, under the fill.
+- The fraction is clamped to 0 through 1 and rounded to the nearest whole column of `width`, so an 80 pixel bar has 81
+  states. The view redraws only when the column count changes.
+- The fill is revealed, not rescaled: a fraction draws the leftmost columns of the full-width art exactly as they look
+  in the full bar. Rounded ends, borders, gradients, and textures all work; the right end of the art shows only when the
+  bar is full, so give the fill square ends unless that is the look you want.
+- `tint` multiplies the fill like any other [tint](#tints): a hex color is baked in, and a `tint` handle picks the color
+  at runtime. Color thresholds are a tint handle whose entry Kotlin picks from the same value, as above; there is no
+  separate thresholds option.
+- A bar works in windows and HUDs, including shader-placed HUDs and switch cases. Its fill is an art layer, drawn at its
+  place in the [draw order](#draw-order). In an `anvil` window with an `<Input>`, a bar needs
+  `experimental.anvilUpdates`, like any other title change.
+- Cost: the fill is cut into clips of 1, 2, 4, … columns, and each column count is drawn from at most one clip per size.
+  Clips that look the same share a texture, so a fill that is uniform along its width costs one small texture per size,
+  7 for a 100 pixel bar. Art that differs from column to column costs up to one texture per column, so keep gradients
+  and textured fills narrow, or uniform in the middle.
 
 ## Raw API
 
@@ -883,6 +924,7 @@ is not enabled. Core shaders are intentionally opt-in; the fallback channel rema
 | `box(opts)`                 | none                                                                        | `x`, `y`, `frame`, `tint`, `style`, `theme`, `children`; see [Box layout](#box-layout)                                                                   |
 | `text(content, opts)`       | text, or a `text` handle                                                    | `x`, `y`, `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`; bound text also fits |
 | `image(art, opts)`          | inline art; or a `sprite` handle with `width` and `height`                  | `x`, `y`, `tint`; with a handle `align` (`"left"`, `"center"`, `"right"`)                                                                                |
+| `bar(handle, opts)`         | a `fraction` handle; `width`, `height`, and `fill`                          | `x`, `y`, `track`, `tint`; see [Bars](#bars)                                                                                                             |
 | `region(opts)`              | none; fills its box, or set `width` and `height`                            | `on_click` (a click handle), `tooltip`, `item_model`                                                                                                     |
 | `items(handle, opts)`       | an `items` handle; outside a section or box `slots`, `pattern`, `transform` | none                                                                                                                                                     |
 | `collection(handle, opts)`  | a `collection` handle; outside a section `slots`, `pattern`, `transform`    | `frame`, `selected_sprite`, `action: false` for display-only collections                                                                                 |
@@ -927,9 +969,10 @@ Window draws the static chrome first, then every runtime layer in authored tree 
 switch case art, art layers, and collection selections. Later elements draw above earlier ones, so anything authored
 after a switch draws above its case art. Elements in a box draw in authored order whether they flow or set `x`/`y`.
 
-Art with a [`tint` handle](#tints) is an art layer, so it draws above the static chrome and above the text and switches
-authored before it. Untinted art authored after it that overlaps it becomes an art layer too and draws above it; all
-other untinted art stays in the static chrome underneath. Inside a switch case the same holds within the case's art.
+Art with a [`tint` handle](#tints) and the fill of a [bar](#bars) are art layers, so they draw above the static chrome
+and above the text and switches authored before them. Untinted art authored after one that overlaps it becomes an art
+layer too and draws above it; all other untinted art stays in the static chrome underneath. Inside a switch case the
+same holds within the case's art.
 
 `WindowView.list(...)` creates a `WindowList` that pages or scrolls a reactive list through a fixed number of cells and
 keeps its selection by key; its `items(...)` adapts it to a `collection` handle, and `canPrevious()`/`canNext()` back

@@ -80,6 +80,7 @@ impl Collector<'_> {
         let role = match dto.kind.as_str() {
             "slot" => Some(HandleRole::Slot),
             "sprite_slot" => Some(HandleRole::SpriteSlot),
+            "bar" => Some(HandleRole::Bar),
             "item" => Some(HandleRole::Item),
             "collection" => Some(HandleRole::Collection),
             "anvil_input" => Some(HandleRole::Input),
@@ -103,7 +104,8 @@ impl Collector<'_> {
         Ok(())
     }
 
-    /// Names an element that binds one handle: a text, sprite, or item slot, a collection, an input, or a switch.
+    /// Names an element that binds one handle: a text, sprite, or item slot, a bar, a collection, an input, or a
+    /// switch.
     fn primary(&mut self, dto: &mut ElementDto, role: HandleRole, handle: &HandleRefDto) -> Result<()> {
         let kind = self.declare(handle, role)?;
         if role == HandleRole::Collection && dto.selected_sprite.is_some() && !handle.selectable {
@@ -216,11 +218,12 @@ impl Collector<'_> {
                 | HandleKind::Sprite
                 | HandleKind::Items
                 | HandleKind::Action
+                | HandleKind::Fraction
         );
         if !handle.shape.is_empty() && (!indexable || handle.shape.len() > 2 || handle.shape.contains(&0)) {
             return Err(self.err(format!(
-                "{} `{id}` has an invalid shape; flags, values, text, sprites, items, and actions take `[n]` or \
-                 `[rows, columns]` of positive sizes",
+                "{} `{id}` has an invalid shape; flags, values, text, sprites, items, actions, and fractions take \
+                 `[n]` or `[rows, columns]` of positive sizes",
                 kind.id()
             )));
         }
@@ -357,6 +360,7 @@ fn parse_kind(kind: &str) -> Option<HandleKind> {
         "input" => HandleKind::Input,
         "builtin" => HandleKind::Builtin,
         "tint" => HandleKind::Tint,
+        "fraction" => HandleKind::Fraction,
         _ => return None,
     })
 }
@@ -372,6 +376,7 @@ fn role_accepts(role: HandleRole, kind: HandleKind) -> bool {
         HandleRole::Switch => matches!(kind, K::Flag | K::Toggle | K::Value | K::Selection),
         HandleRole::Click => matches!(kind, K::Action | K::Builtin | K::Selection | K::Toggle),
         HandleRole::Tint => kind == K::Tint,
+        HandleRole::Bar => kind == K::Fraction,
     }
 }
 
@@ -385,5 +390,6 @@ fn role_noun(role: HandleRole) -> &'static str {
         HandleRole::Switch => "a switch or show condition",
         HandleRole::Click => "a click",
         HandleRole::Tint => "a tint",
+        HandleRole::Bar => "a bar's fill",
     }
 }

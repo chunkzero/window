@@ -21,6 +21,9 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
     /** Render the `balance` text. */
     protected abstract fun balance(): Component
 
+    /** How much of the `budget` bar is filled, from 0 to 1. */
+    protected abstract fun budget(): Float
+
     /** Handle a `buy` click. */
     protected abstract fun onBuy(click: Click)
 
@@ -136,6 +139,7 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
             onAffordableChanged(affordable)
         }
         slot("balance") { balance() }
+        bar("budget") { budget() }
         button("buy", ::onBuy)
         slot("buy_label") { buyLabel() }
         slot("buy_label~2") { buyLabel() }
