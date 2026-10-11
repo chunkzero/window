@@ -419,7 +419,7 @@ pub enum HoverIr {
     Outline,
     /// Authored art.
     Art {
-        /// The art's interned name.
+        /// The art's interned name under `frame/` or `image/`, the table it is interned in.
         name: String,
         /// The art at its place in GUI space, which may extend past the region.
         draw: Draw,

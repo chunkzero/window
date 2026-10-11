@@ -10,12 +10,12 @@ import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextDecoration
 
 /**
- * Builds the hitbox items of regions with a hover outline.
+ * Builds the hitbox items of regions that draw an outline or art while hovered.
  *
- * The outline glyph leads the tooltip title, so the client draws it exactly while the item is hovered, and the
+ * The hover glyph leads the tooltip title, so the client draws it exactly while the item is hovered, and the
  * pack's core text shader moves its shadow onto the region. The shadow color tells the shader where: red and green
- * are the region's offset from the GUI center plus 128, blue and the top 3 bits of alpha the width of the tooltip's
- * text, and the low 5 bits of alpha its line count plus 1. The shader keeps the outline out of the tooltip box those
+ * are the hover's offset from the GUI center plus 128, blue and the top 3 bits of alpha the width of the tooltip's
+ * text, and the low 5 bits of alpha its line count plus 1. The shader keeps the hover out of the tooltip box those
  * describe. A tooltip whose size the server cannot know exactly, or that is larger than those fields hold, is encoded
  * with size zero, which makes no cut-out.
  */
@@ -28,7 +28,7 @@ internal class HoverOutlines(
     /** The pack's tooltip style with transparent sprites. */
     private val hiddenStyle = Key.key(manifest.namespace, "hover")
 
-    /** The hitbox with [model] and [hover]'s outline; without a [tooltip] it shows no tooltip box. */
+    /** The hitbox with [model] and [hover]'s glyph; without a [tooltip] it shows no tooltip box. */
     fun hitbox(
         model: Key,
         hover: HoverEntry,

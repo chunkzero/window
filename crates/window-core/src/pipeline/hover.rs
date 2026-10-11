@@ -83,7 +83,7 @@ pub(super) fn check_disabled(windows: &[&LaidOutWindow]) -> Result<()> {
 struct Shown<'a> {
     /// Where it is drawn, in GUI space.
     rect: Rect,
-    /// The art's interned name and its draw over `rect`.
+    /// The art's name among hover art and its draw over `rect`.
     art: Option<(&'a str, &'a Draw)>,
 }
 

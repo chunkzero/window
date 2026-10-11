@@ -148,10 +148,16 @@ fn hover_art_keeps_its_colors_and_is_stretched_or_centered_on_its_region() {
     assert_eq!(hover("same").x, -46);
 
     let glyphs: Vec<&str> = paths(&output).into_iter().filter(|path| path.contains("/font/hover/")).collect();
-    let [outline, image, frame] = glyphs[..] else { panic!("expected three hover glyphs: {glyphs:?}") };
+    let [outline, frame, image] = glyphs[..] else { panic!("expected three hover glyphs: {glyphs:?}") };
     assert_eq!(outline, "assets/window/textures/font/hover/16x16.png");
-    assert!(image.starts_with("assets/window/textures/font/hover/art/") && image.ends_with("/19x19.png"), "{image}");
-    assert!(frame.starts_with("assets/window/textures/font/hover/art/") && frame.ends_with("/16x16.png"), "{frame}");
+    assert!(
+        image.starts_with("assets/window/textures/font/hover/image/art/") && image.ends_with("/19x19.png"),
+        "{image}"
+    );
+    assert!(
+        frame.starts_with("assets/window/textures/font/hover/frame/art/") && frame.ends_with("/16x16.png"),
+        "{frame}"
+    );
 
     let file = output.files.iter().find(|file| file.path == frame).unwrap();
     let texture = Texture::decode_png(file.contents.as_bytes()).unwrap();

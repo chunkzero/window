@@ -84,7 +84,10 @@ impl<T: LayoutTarget> Solver<'_, T> {
                     .frames
                     .get(name)
                     .ok_or_else(|| self.target.layout_err(format!("unknown frame `{name}`")))?;
-                HoverIr::Art { name: name.clone(), draw: self.frame_def_draw(name, def, rect, referenced_by)? }
+                HoverIr::Art {
+                    name: format!("frame/{name}"),
+                    draw: self.frame_def_draw(name, def, rect, referenced_by)?,
+                }
             }
             Hover::Image(name) => {
                 let def = self.sprite_def(name)?;
@@ -92,7 +95,10 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 // An odd difference in size leaves the art half a pixel off center, toward the top-left.
                 let x = rect.x + (rect.width as i32 - size.width as i32).div_euclid(2);
                 let y = rect.y + (rect.height as i32 - size.height as i32).div_euclid(2);
-                HoverIr::Art { name: name.clone(), draw: sprite_draw(def, Rect::new(x, y, size.width, size.height)) }
+                HoverIr::Art {
+                    name: format!("image/{name}"),
+                    draw: sprite_draw(def, Rect::new(x, y, size.width, size.height)),
+                }
             }
         })
     }
