@@ -112,9 +112,9 @@ Window output: 604.3 KB (compiler output, before pack optimization)
   main font                   11.4 KB
 ```
 
-- Each window and HUD line is its total, split into its static art and its switch cases. Every switch case bakes its own
-  texture, so a switch costs roughly its case count times one case's art; cut cases, or move art that every case repeats
-  out of the switch.
+- Each window and HUD line is its total, split into its static art and its switch cases. The count is every case; a case
+  that draws art bakes its own texture, so a switch costs roughly the number of such cases times one case's art. Cut
+  cases, or move art that every case repeats out of the switch.
 - Each distinct vertical position that a text slot (or line of a multi-line slot) draws at adds one text-row font
   document, and a custom font adds one per position. Sprite slots add one sprite font per position, listing every
   catalog sprite. Aligning slots to fewer rows removes fonts.
