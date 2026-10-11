@@ -83,6 +83,9 @@ internal class TitleComposer(
                 ?: throw IllegalArgumentException(
                     "Unknown Window sprite '$spriteName'; known sprites: ${sprites.keys.sorted()}",
                 )
+        require(slot.only.isEmpty() || spriteName in slot.only) {
+            "Window sprite slot '$semanticId' only accepts ${slot.only}, not '$spriteName'"
+        }
 
         val xStart = fonts.originFor(slot.align, slot.x, slot.width, sprite.glyphWidth)
         val glyphStart = xStart - sprite.xOffset

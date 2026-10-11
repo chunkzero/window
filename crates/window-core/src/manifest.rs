@@ -319,6 +319,9 @@ pub struct SpriteSlotEntry {
     /// Fixed sprite id: a collection's selected-cell sprite. Absent for sprite slots, which the runtime binds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sprite: Option<String>,
+    /// The catalog sprites the slot's font holds, which the runtime may bind. Empty for any catalog sprite.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub only: Vec<String>,
     /// The authored `debug_name` this sprite slot comes from, for diagnostics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,

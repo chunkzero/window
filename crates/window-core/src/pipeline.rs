@@ -247,7 +247,8 @@ struct CompileContext<'a> {
     bitmap_providers: Vec<serde_json::Value>,
     shift_offsets: BTreeSet<i32>,
     text_font_offsets: BTreeSet<(&'a str, i32)>,
-    sprite_offsets: BTreeSet<i32>,
+    /// The catalog sprites each sprite font, by vertical offset, can show.
+    sprite_fonts: BTreeMap<i32, BTreeSet<String>>,
 }
 
 impl<'a> CompileContext<'a> {
@@ -268,7 +269,7 @@ impl<'a> CompileContext<'a> {
             bitmap_providers: Vec::new(),
             shift_offsets: BTreeSet::new(),
             text_font_offsets: BTreeSet::new(),
-            sprite_offsets: BTreeSet::new(),
+            sprite_fonts: BTreeMap::new(),
         }
     }
 
@@ -292,9 +293,15 @@ impl<'a> CompileContext<'a> {
         Ok(format!("{}:{}", self.namespace, text_font_suffix(name, k)))
     }
 
-    /// Registers the sprite font drawn at vertical offset `k` and returns its id.
-    fn sprite_font(&mut self, k: i32) -> String {
-        self.sprite_offsets.insert(k);
+    /// Registers the sprite font drawn at vertical offset `k` for a slot that can show the `only` sprites (any catalog
+    /// sprite when empty) and returns its id.
+    fn sprite_font(&mut self, k: i32, only: &[String]) -> String {
+        let shown = self.sprite_fonts.entry(k).or_default();
+        if only.is_empty() {
+            shown.extend(self.runtime_sprites.keys().cloned());
+        } else {
+            shown.extend(only.iter().cloned());
+        }
         format!("{}:sprite_{}", self.namespace, shifted_suffix(k))
     }
 

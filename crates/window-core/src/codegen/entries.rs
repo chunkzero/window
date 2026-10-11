@@ -95,7 +95,7 @@ pub(super) fn sprite_entry_expr(sprite: &SpriteEntry, level: usize) -> String {
 }
 
 pub(super) fn sprite_slot_entry_expr(slot: &SpriteSlotEntry, level: usize) -> String {
-    let call = Call::new("SpriteSlotEntry", level)
+    let mut call = Call::new("SpriteSlotEntry", level)
         .arg("x", slot.x)
         .arg("y", slot.y)
         .arg("width", slot.width)
@@ -103,6 +103,9 @@ pub(super) fn sprite_slot_entry_expr(slot: &SpriteSlotEntry, level: usize) -> St
         .arg("align", align_expr(slot.align))
         .arg("font", kt_string(&slot.font))
         .arg("sprite", optional_string_expr(slot.sprite.as_ref()));
+    if !slot.only.is_empty() {
+        call = call.arg("only", string_list_expr(&slot.only));
+    }
     with_source(call, slot.source.as_ref()).finish()
 }
 

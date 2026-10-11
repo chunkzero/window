@@ -213,6 +213,8 @@ public data class SpriteSlotEntry(
     val font: String,
     /** Fixed sprite id: a collection's selected-cell sprite. `null` for sprite slots the view binds. */
     val sprite: String? = null,
+    /** Catalog sprites the view may bind to this slot, which its font holds. Empty for any catalog sprite. */
+    val only: List<String> = emptyList(),
     /** The authored `debug_name` this sprite slot comes from, for diagnostics. */
     val source: String? = null,
 )

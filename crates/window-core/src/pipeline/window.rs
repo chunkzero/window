@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::compose::Composite;
 use crate::geometry::{Point, Rect};
-use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr};
+use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr, sprite_slot_only};
 use crate::manifest::{SlotEntry, SlotLinesEntry, SpriteSlotEntry, SurfaceEntry, TextOverflow, WindowEntry};
 use crate::size::{Pane, Part};
 use crate::surface::Surface;
@@ -67,9 +67,11 @@ fn bake_static(
 fn sprite_slots(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, title_y: i32) -> BTreeMap<String, SpriteSlotEntry> {
     let mut entries = BTreeMap::new();
     for sprite_slot in &w.sprite_slots {
-        let font = ctx.sprite_font(sprite_slot.rect.y - title_y);
+        let only = sprite_slot_only(&w.handles, &sprite_slot.name);
+        let font = ctx.sprite_font(sprite_slot.rect.y - title_y, only);
         let entry = sprite_slot_entry(font, &sprite_slot.rect, sprite_slot.align, None);
-        entries.insert(sprite_slot.name.clone(), SpriteSlotEntry { source: sprite_slot.source.clone(), ..entry });
+        let slot = SpriteSlotEntry { only: only.to_vec(), source: sprite_slot.source.clone(), ..entry };
+        entries.insert(sprite_slot.name.clone(), slot);
     }
     entries
 }
@@ -114,7 +116,17 @@ pub(super) fn slot_entry(
 
 /// Build a [`SpriteSlotEntry`] covering `rect` drawn with `font`.
 pub(super) fn sprite_slot_entry(font: String, rect: &Rect, align: Align, sprite: Option<String>) -> SpriteSlotEntry {
-    SpriteSlotEntry { x: rect.x, y: rect.y, width: rect.width, height: rect.height, align, font, sprite, source: None }
+    SpriteSlotEntry {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        align,
+        font,
+        sprite,
+        only: Vec::new(),
+        source: None,
+    }
 }
 
 fn surface_entry(surface: &Surface) -> SurfaceEntry {

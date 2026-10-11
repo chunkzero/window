@@ -4,6 +4,7 @@ use serde_json::Value;
 
 use super::ValidationReport;
 use super::json::{extend_bitmap_glyphs, font_path, one_char, parse_json, providers};
+use crate::ir::sprite_slot_only;
 use crate::manifest::{Manifest, WindowEntry};
 
 pub(super) fn validate_sprite_fonts(manifest: &Manifest, files: &BTreeMap<&str, &[u8]>, report: &mut ValidationReport) {
@@ -29,7 +30,16 @@ impl WindowSprites<'_> {
         let Self { manifest, window_name, window, .. } = self;
         for (slot_name, slot) in &window.sprite_slots {
             let expected_ascent = i64::from(7 - (slot.y - window.surface.title_origin[1]));
-            self.validate_font(&slot.font, expected_ascent, &format!("{window_name}.{slot_name}"), report);
+            let names: Vec<&str> = match (&slot.sprite, sprite_slot_only(&window.handles, slot_name)) {
+                (Some(sprite), _) => vec![sprite.as_str()],
+                (None, []) => manifest.sprites.keys().map(String::as_str).collect(),
+                (None, only) => only.iter().map(String::as_str).collect(),
+            };
+            let shown: BTreeSet<char> = names
+                .into_iter()
+                .filter_map(|sprite| manifest.sprites.get(sprite).and_then(|entry| one_char(&entry.glyph)))
+                .collect();
+            self.validate_font(&slot.font, expected_ascent, &shown, &format!("{window_name}.{slot_name}"), report);
             if let Some(sprite) = &slot.sprite
                 && !manifest.sprites.contains_key(sprite)
             {
@@ -42,7 +52,14 @@ impl WindowSprites<'_> {
         }
     }
 
-    fn validate_font(&self, font: &str, expected_ascent: i64, owner: &str, report: &mut ValidationReport) {
+    fn validate_font(
+        &self,
+        font: &str,
+        expected_ascent: i64,
+        shown: &BTreeSet<char>,
+        owner: &str,
+        report: &mut ValidationReport,
+    ) {
         let path = font_path(font);
         let Some(bytes) = self.files.get(path.as_str()) else {
             return;
@@ -64,13 +81,14 @@ impl WindowSprites<'_> {
             }
             extend_bitmap_glyphs(provider, &mut glyphs);
         }
-        if glyphs != *self.expected_glyphs {
+        if !glyphs.is_subset(self.expected_glyphs) || !shown.is_subset(&glyphs) {
             report.push(
                 "font.sprite.catalog_mismatch",
                 &path,
                 format!(
-                    "font contains {} sprite glyph(s); manifest requires {}",
+                    "font contains {} sprite glyph(s); `{owner}` must show {} of the manifest's {}",
                     glyphs.len(),
+                    shown.len(),
                     self.expected_glyphs.len()
                 ),
             );

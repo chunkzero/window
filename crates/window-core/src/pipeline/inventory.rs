@@ -255,7 +255,7 @@ fn collection_selection(
     Ok(boxes
         .iter()
         .map(|rect| {
-            let font = ctx.sprite_font(rect.y - title_y);
+            let font = ctx.sprite_font(rect.y - title_y, std::slice::from_ref(sprite));
             sprite_slot_entry(font, rect, Align::Left, Some(sprite.clone()))
         })
         .collect())
