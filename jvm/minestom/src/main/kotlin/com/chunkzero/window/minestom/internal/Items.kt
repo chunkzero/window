@@ -22,6 +22,7 @@ internal fun itemStack(item: WindowItem): ItemStack =
             } else {
                 builder.set(DataComponents.CUSTOM_NAME, tooltip.title).set(DataComponents.LORE, tooltip.lines)
             }
+            item.tooltipStyle?.let { builder.set(DataComponents.TOOLTIP_STYLE, it.asString()) }
             builder.build()
         }
 

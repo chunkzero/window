@@ -70,10 +70,13 @@ class MinestomHostTest :
 
             val shown = host.item(WindowItem.Hitbox(model, tooltip))
             val hidden = host.item(WindowItem.Hitbox(model, null))
+            val styled = host.item(WindowItem.Hitbox(model, tooltip, Key.key("window", "hover")))
 
             shown.get(DataComponents.CUSTOM_NAME) shouldBe tooltip.title
             shown.get(DataComponents.LORE) shouldBe tooltip.lines
             shown.get(DataComponents.MAX_STACK_SIZE) shouldBe 1
+            shown.has(DataComponents.TOOLTIP_STYLE) shouldBe false
+            styled.get(DataComponents.TOOLTIP_STYLE) shouldBe "window:hover"
             hidden.get(DataComponents.TOOLTIP_DISPLAY) shouldBe TooltipDisplay(true, emptySet())
             hidden.get(DataComponents.MAX_STACK_SIZE) shouldBe 1
         }

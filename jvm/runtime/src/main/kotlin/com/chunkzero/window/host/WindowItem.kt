@@ -9,10 +9,12 @@ public sealed interface WindowItem {
      * Invisible click target (item model [model]) with an optional tooltip, max stack 1.
      *
      * [tooltip] is final: its title is the item name and its lines the lore, used as given. `null` hides the tooltip.
+     * [tooltipStyle] is the item's tooltip style, whose sprites draw the tooltip box; `null` keeps the client's.
      */
     public data class Hitbox(
         val model: Key,
         val tooltip: Tooltip?,
+        val tooltipStyle: Key? = null,
     ) : WindowItem
 
     /**
