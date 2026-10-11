@@ -1,0 +1,6 @@
+{
+  "packFormat": 88,
+  "window": { "coreShaders": { "hud": true } },
+  "kotlinPackage": "golden.tints",
+  "kotlinTarget": "minestom"
+}
