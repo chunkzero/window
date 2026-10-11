@@ -63,9 +63,6 @@ public abstract class UpgradesView(protected val player: Player) : WindowView<It
     /** Render the `upgrade_cost` text. */
     protected abstract fun upgradeCost(index: Int): Component
 
-    /** Render the `upgrade_icon` item. */
-    protected abstract fun upgradeIcon(index: Int): ItemStack?
-
     /** Render the `upgrade_level` text. */
     protected abstract fun upgradeLevel(index: Int): Component
 
@@ -131,10 +128,23 @@ public abstract class UpgradesView(protected val player: Player) : WindowView<It
         slot("rank_name") { rankName() }
         slot("status") { status() }
         tint("tone") { tone().value }
-        for (index in 0 until UPGRADE_SIZE) {
-            button("upgrade[$index]") { click ->
-                onUpgrade(IndexedClick(click.slot, index, click.shift, click.right))
-            }
+        button("upgrade[0]") { click ->
+            onUpgrade(IndexedClick(click.slot, 0, click.shift, click.right))
+        }
+        button("upgrade[0]~2") { click ->
+            onUpgrade(IndexedClick(click.slot, 0, click.shift, click.right))
+        }
+        button("upgrade[1]") { click ->
+            onUpgrade(IndexedClick(click.slot, 1, click.shift, click.right))
+        }
+        button("upgrade[1]~2") { click ->
+            onUpgrade(IndexedClick(click.slot, 1, click.shift, click.right))
+        }
+        button("upgrade[2]") { click ->
+            onUpgrade(IndexedClick(click.slot, 2, click.shift, click.right))
+        }
+        button("upgrade[2]~2") { click ->
+            onUpgrade(IndexedClick(click.slot, 2, click.shift, click.right))
         }
         slot("upgrade_cost[0]") { upgradeCost(0) }
         slot("upgrade_cost[0]~2") { upgradeCost(0) }
@@ -142,15 +152,24 @@ public abstract class UpgradesView(protected val player: Player) : WindowView<It
         slot("upgrade_cost[1]~2") { upgradeCost(1) }
         slot("upgrade_cost[2]") { upgradeCost(2) }
         slot("upgrade_cost[2]~2") { upgradeCost(2) }
-        for (index in 0 until UPGRADE_ICON_SIZE) {
-            item("upgrade_icon[$index]") { upgradeIcon(index) }
-        }
-        for (index in 0 until UPGRADE_LEVEL_SIZE) {
-            slot("upgrade_level[$index]") { upgradeLevel(index) }
-        }
-        for (index in 0 until UPGRADE_NAME_SIZE) {
-            slot("upgrade_name[$index]") { upgradeName(index) }
-        }
+        slot("upgrade_level[0]") { upgradeLevel(0) }
+        slot("upgrade_level[0]~2") { upgradeLevel(0) }
+        slot("upgrade_level[0]~3") { upgradeLevel(0) }
+        slot("upgrade_level[1]") { upgradeLevel(1) }
+        slot("upgrade_level[1]~2") { upgradeLevel(1) }
+        slot("upgrade_level[1]~3") { upgradeLevel(1) }
+        slot("upgrade_level[2]") { upgradeLevel(2) }
+        slot("upgrade_level[2]~2") { upgradeLevel(2) }
+        slot("upgrade_level[2]~3") { upgradeLevel(2) }
+        slot("upgrade_name[0]") { upgradeName(0) }
+        slot("upgrade_name[0]~2") { upgradeName(0) }
+        slot("upgrade_name[0]~3") { upgradeName(0) }
+        slot("upgrade_name[1]") { upgradeName(1) }
+        slot("upgrade_name[1]~2") { upgradeName(1) }
+        slot("upgrade_name[1]~3") { upgradeName(1) }
+        slot("upgrade_name[2]") { upgradeName(2) }
+        slot("upgrade_name[2]~2") { upgradeName(2) }
+        slot("upgrade_name[2]~3") { upgradeName(2) }
         for (index in 0 until UPGRADE_PROGRESS_SIZE) {
             bar("upgrade_progress[$index]") { upgradeProgress(index) }
         }
@@ -164,8 +183,6 @@ public abstract class UpgradesView(protected val player: Player) : WindowView<It
         public const val UPGRADE_SIZE: Int = 3
         /** A shape dimension of `upgrade_cost`. */
         public const val UPGRADE_COST_SIZE: Int = 3
-        /** A shape dimension of `upgrade_icon`. */
-        public const val UPGRADE_ICON_SIZE: Int = 3
         /** A shape dimension of `upgrade_level`. */
         public const val UPGRADE_LEVEL_SIZE: Int = 3
         /** A shape dimension of `upgrade_name`. */

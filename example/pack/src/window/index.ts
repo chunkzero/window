@@ -1,4 +1,5 @@
 import { defineWindows, preview } from "plugin:window/ui";
+import type { PreviewOptions } from "plugin:window/ui";
 import { art } from "plugin:window/theme/industrial";
 
 import { ranks } from "./art.ts";
@@ -8,6 +9,25 @@ import search from "./search.tsx";
 import shop from "./shop.tsx";
 import statusHuds, { bottomCenter, coins, hint, power, rate, topLeft, waveBar, waveCharge } from "./status_hud.tsx";
 import upgrades from "./upgrades.tsx";
+
+/** A preview of the workshop with one card in each stage. */
+const upgradesPreview = (options: PreviewOptions) =>
+    preview(
+        upgrades,
+        [
+            [handles.upgradeName, ["Drill", "Furnace", "Conveyor"]],
+            [handles.upgradeLevel, ["Lv 0/5", "Lv 3/5", "Lv 5/5"]],
+            [handles.upgradeCost, ["900", "810", ""]],
+            [handles.upgradeProgress, [0, 0.6, 1]],
+            [handles.upgradeStage, ["new", "open", "maxed"]],
+            [handles.amount, "five"],
+            [handles.balance, "2500"],
+            [handles.rank, "rank_2"],
+            [handles.rankName, "Journeyman"],
+            [handles.status, "8 of 15 levels"],
+        ],
+        options,
+    );
 
 export default defineWindows({
     sprites: { searchField: art.inputField, ...ranks },
@@ -32,24 +52,9 @@ export default defineWindows({
             [handles.canBuy, true],
             [handles.buyLabel, "Buy 210"],
         ]),
-        preview(
-            upgrades,
-            [
-                [handles.upgradeName, ["Drill", "Furnace", "Conveyor"]],
-                [handles.upgradeLevel, ["Lv 0/5", "Lv 3/5", "Lv 5/5"]],
-                [handles.upgradeCost, ["900", "810", ""]],
-                [handles.upgradeProgress, [0, 0.6, 1]],
-                [handles.upgradeStage, ["new", "open", "maxed"]],
-                [handles.amount, "five"],
-                [handles.balance, "2500"],
-                [handles.rank, "rank_2"],
-                [handles.rankName, "Journeyman"],
-                [handles.status, "8 of 15 levels"],
-            ],
-            { scale: 3 },
-        ),
+        upgradesPreview({ scale: 3 }),
         // The same window with its regions outlined.
-        preview(upgrades, [[handles.rank, "rank_3"]], { name: "upgrades_regions", outlines: true }),
+        upgradesPreview({ name: "upgrades_regions", outlines: true }),
         preview(
             topLeft,
             [

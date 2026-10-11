@@ -123,7 +123,7 @@ export default (
         </Container>
 
         <Player>
-            <Tabs bind={sort} span={3} tooltip={(value) => sortTooltips[value]} hover={false}>
+            <Tabs bind={sort} span={3} tooltip={(value) => sortTooltips[value]}>
                 {(_, i) => <Text bind={sortLabel.at(i)} />}
             </Tabs>
 

@@ -15,7 +15,7 @@ example/
 │   │       ├── art.ts          # inline art: icons, coin, vents, bars, and the rank sprites
 │   │       ├── shop.tsx        # paged catalog, selections, toggles, and buttons
 │   │       ├── search.tsx      # linked native-anvil catalog search
-│   │       ├── upgrades.tsx    # themed workshop: styles, vars, a repeater of cards, choices, and a hotspot
+│   │       ├── upgrades.tsx    # themed workshop: styles, vars, cards with a face per stage, choices, and a hotspot
 │   │       ├── status_hud.tsx  # the shader-relocated actionbar HUDs
 │   │       └── clock_hud.ts    # the clock HUD, written with the function-style raw API
 │   ├── build/previews/         # preview PNGs of the windows and HUDs, rewritten by every build
@@ -29,8 +29,8 @@ The Minestom server is the Gradle module `jvm/example`, which depends on `window
 `target: "minestom"`, so a window view takes the `Player` it is shown to: `Main.kt` opens the shop with
 `MyShop(player, market).open()`. Generated HUD views take no player; the handwritten ones that need it take it
 themselves. `Main.kt` joins the status HUDs into one action-bar `HudStack` and resends it with `player.sendHud(stack)`
-every second, which re-renders their clocks and stays ahead of the action bar fading out. The bindings live under
-`generated/`, produced by the rpp plugin — committed, do not hand-edit.
+every tick, which keeps the wave bar moving smoothly, re-renders the clocks, and stays ahead of the action bar fading
+out. The bindings live under `generated/`, produced by the rpp plugin — committed, do not hand-edit.
 
 ## Run it
 
@@ -48,7 +48,8 @@ catalog filtered by the query, which the catalog's clear button resets and reope
 
 The workshop, under its own theme, sells three upgrades for the same coins: a click on a card buys the chosen amount of
 levels, each card shows its level as text and is marked new, shows a bar, or is marked maxed, and the rank badge takes
-the shared tone. Its levels last until the server stops.
+the shared tone. A maxed card takes no clicks, so hovering it shows "Fully upgraded" and no outline. Its levels last
+until the server stops.
 
 The actionbar-backed HUD demo is disabled by default so the inventory examples stay visually focused. Enable it with
 `-Dwindow.hud.enabled=true`; use `-Dwindow.hud.spriteDebug=true` to print each HUD's static art to chat. The pack blanks

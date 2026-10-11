@@ -5,9 +5,7 @@ import com.chunkzero.window.IndexedClick
 import com.chunkzero.window.example.generated.UpgradesView
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
-import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.entity.Player
-import net.minestom.server.item.ItemStack
 
 /** The workshop: upgrade cards bought with the [market]'s coins, in the amount the player chose. */
 class MyUpgrades(
@@ -23,15 +21,6 @@ class MyUpgrades(
     }
 
     override fun balance(): Component = Component.text(coins)
-
-    override fun upgradeIcon(index: Int): ItemStack {
-        val upgrade = Upgrade.entries[index]
-        return ItemStack
-            .builder(upgrade.material)
-            .customName(Component.text(upgrade.title, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false))
-            .lore(Component.text("Click to upgrade", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false))
-            .build()
-    }
 
     override fun upgradeName(index: Int): Component = Component.text(Upgrade.entries[index].title)
 
@@ -60,11 +49,7 @@ class MyUpgrades(
 
     override fun onUpgrade(click: IndexedClick) {
         val upgrade = Upgrade.entries[click.index]
-        val offer = offer(click.index)
-        if (offer == null) {
-            feedback = "${upgrade.title} is maxed"
-            return
-        }
+        val offer = offer(click.index) ?: return
         val newBalance = market.purchase(player, offer.price)
         if (newBalance == null) {
             feedback = "Need ${offer.price - coins} more"

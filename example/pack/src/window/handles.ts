@@ -4,7 +4,6 @@ import {
     flag,
     fraction,
     input,
-    items,
     selection,
     sprite,
     text,
@@ -60,7 +59,6 @@ export const confirm = action("confirm");
 export const UPGRADES = 3;
 const cards = { shape: [UPGRADES] } as const;
 export const upgrade = action("upgrade", cards);
-export const upgradeIcon = items("upgrade_icon", cards);
 export const upgradeName = text("upgrade_name", cards);
 export const upgradeLevel = text("upgrade_level", cards);
 export const upgradeCost = text("upgrade_cost", cards);

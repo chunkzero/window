@@ -67,9 +67,6 @@ class MyStatusBottomCenterHud(
     override fun hint(): Component = Component.text("Next wave in ${(waveRemaining(startedAt) + 999) / 1000}s")
 
     override fun tone(): Tone = Tone.entries.first { it.value == waveTone(player, startedAt) }
-
-    override fun waveProgress(index: Int): Boolean =
-        (System.currentTimeMillis() - startedAt) % WAVE_MILLIS * 10 / WAVE_MILLIS >= index
 }
 
 /** Window's bar in place of vanilla's experience bar. */

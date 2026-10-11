@@ -1,19 +1,17 @@
 package com.chunkzero.window.example
 
 import net.minestom.server.entity.Player
-import net.minestom.server.item.Material
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /** A foundry upgrade; each level costs [baseCost] more than the one before. */
 enum class Upgrade(
     val title: String,
-    val material: Material,
     private val baseCost: Int,
 ) {
-    DRILL("Drill", Material.PISTON, 60),
-    FURNACE("Furnace", Material.BLAST_FURNACE, 90),
-    CONVEYOR("Conveyor", Material.POWERED_RAIL, 120),
+    DRILL("Drill", 60),
+    FURNACE("Furnace", 90),
+    CONVEYOR("Conveyor", 120),
     ;
 
     /** What the next [count] levels above [level] cost together. */

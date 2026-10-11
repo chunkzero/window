@@ -148,8 +148,8 @@ private fun openExampleUi(
     }
 }
 
-// The action bar fades after about 60 ticks, so the merged status line is resent every second; each send renders the
-// HUDs' current clock and player values.
+// The merged status line is rendered and resent every tick, so the wave bar advances smoothly and the action bar,
+// which fades after about 60 ticks, never does.
 private fun showHuds(
     player: Player,
     huds: List<HudView>,
@@ -159,7 +159,7 @@ private fun showHuds(
     player.scheduler().submitTask {
         if (!player.isOnline) return@submitTask TaskSchedule.stop()
         player.sendHud(stack)
-        TaskSchedule.seconds(1)
+        TaskSchedule.nextTick()
     }
 }
 

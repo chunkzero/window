@@ -1,4 +1,17 @@
-import { Bar, Box, Case, Image, Switch, Text, create, createTheme, defineVars, variants } from "plugin:window/ui";
+import {
+    Bar,
+    Box,
+    Case,
+    Image,
+    Region,
+    Switch,
+    Text,
+    create,
+    createTheme,
+    defineVars,
+    variants,
+} from "plugin:window/ui";
+import type { Child } from "plugin:window/ui";
 import {
     Button,
     Center,
@@ -9,7 +22,6 @@ import {
     Hotbar,
     Hotspot,
     Player,
-    Repeater,
     Row,
     Spacer,
     Window,
@@ -29,7 +41,6 @@ import {
     tone,
     upgrade,
     upgradeCost,
-    upgradeIcon,
     upgradeLevel,
     upgradeName,
     upgradeProgress,
@@ -51,23 +62,81 @@ const forge = createTheme(colors, {
 const ink = defineVars({ name: "#ffe2b8", muted: "#f2c9a0", gold: "#ffb20b", pad: 4 });
 
 const s = create({
-    card: variants({ cell: { frame: art.panel, gap: 2 } }),
+    card: { frame: art.panel, justify: "center", align: "center", gap: 3 },
     amount: variants({
         base: { text: { color: ink.name } },
         selected: { frame: art.buttonAccent, text: { color: "#2a1200", shadow: false } },
     }),
     strip: { frame: art.recess, padding: ink.pad, gap: 4 },
     name: { color: ink.name, align: "center" },
+    level: { color: ink.muted, align: "center" },
     muted: { color: ink.muted },
 });
 
 /** What the next purchase of upgrade `index` costs. */
 function Cost(props: { index: number }) {
     return (
-        <Row gap={2}>
+        <Row gap={2} width={46}>
             <Text bind={upgradeCost.at(props.index)} align="right" color={ink.gold} />
             <Image art={coin} />
         </Row>
+    );
+}
+
+/**
+ * One face of upgrade `index`'s card: its name and level above `children`. `buy` makes the face take clicks, which
+ * also outlines it on hover; a face without it only shows its tooltip.
+ */
+function Face(props: { index: number; tooltip: string; buy?: boolean; children: Child }) {
+    const i = props.index;
+    return [
+        <Text bind={upgradeName.at(i)} width={46} style={s.name} />,
+        <Text bind={upgradeLevel.at(i)} width={46} style={s.level} />,
+        <Column height={19} justify="between" align="center">
+            {props.children}
+        </Column>,
+        <Region onClick={props.buy === true ? upgrade.at(i) : undefined} tooltip={props.tooltip} />,
+    ];
+}
+
+/** An upgrade card over 3x3 slots. Each stage is its own face, so a maxed card takes no clicks. */
+function Card(props: { index: number }) {
+    const i = props.index;
+    return (
+        <Box span={[3, 3]} padding={1}>
+            <Switch bind={upgradeStage.at(i)} grow>
+                <Case value="new" style={s.card}>
+                    <Face index={i} tooltip="Click to upgrade" buy>
+                        <Text style={s.level}>New</Text>
+                        <Cost index={i} />
+                    </Face>
+                </Case>
+                <Case value="open" style={s.card}>
+                    <Face index={i} tooltip="Click to upgrade" buy>
+                        <Center height={8}>
+                            <Bar
+                                bind={upgradeProgress.at(i)}
+                                width={46}
+                                height={4}
+                                fill={toneFill}
+                                track={barTrack}
+                                tint={ink.gold}
+                            />
+                        </Center>
+                        <Cost index={i} />
+                    </Face>
+                </Case>
+                <Case value="maxed" style={s.card}>
+                    <Face index={i} tooltip="Fully upgraded">
+                        <Center frame={maxedPlate} width={46} height={12} margin={{ top: "auto", bottom: "auto" }}>
+                            <Text color="#2a1200" shadow={false}>
+                                Maxed
+                            </Text>
+                        </Center>
+                    </Face>
+                </Case>
+            </Switch>
+        </Box>
     );
 }
 
@@ -80,51 +149,9 @@ const amounts = {
 export default (
     <Window name="upgrades" container="generic_9x3" title="Foundry Workshop" theme={forge}>
         <Container>
-            <Repeater
-                cell={[3, 3]}
-                columns={UPGRADES}
-                rows={1}
-                onClick={upgrade}
-                item={upgradeIcon}
-                tooltip="Click to upgrade"
-                style={s.card}
-            >
-                {(i) => [
-                    <Box frame={art.slot} absolute left={0} top={0} width={16} height={16} />,
-                    <Column width={46} gap={2}>
-                        <Text bind={upgradeLevel.at(i)} align="right" style={s.muted} margin={{ top: 4, bottom: 4 }} />
-                        <Text bind={upgradeName.at(i)} style={s.name} />
-                        <Switch bind={upgradeStage.at(i)}>
-                            <Case value="new" gap={2}>
-                                <Text style={s.muted} align="center">
-                                    New
-                                </Text>
-                                <Cost index={i} />
-                            </Case>
-                            <Case value="open" gap={2}>
-                                <Center height={8}>
-                                    <Bar
-                                        bind={upgradeProgress.at(i)}
-                                        width={46}
-                                        height={4}
-                                        fill={toneFill}
-                                        track={barTrack}
-                                        tint={ink.gold}
-                                    />
-                                </Center>
-                                <Cost index={i} />
-                            </Case>
-                            <Case value="maxed" justify="center">
-                                <Center frame={maxedPlate} height={12}>
-                                    <Text color="#2a1200" shadow={false}>
-                                        Maxed
-                                    </Text>
-                                </Center>
-                            </Case>
-                        </Switch>
-                    </Column>,
-                ]}
-            </Repeater>
+            {Array.from({ length: UPGRADES }, (_, i) => (
+                <Card index={i} />
+            ))}
         </Container>
 
         <Player>
