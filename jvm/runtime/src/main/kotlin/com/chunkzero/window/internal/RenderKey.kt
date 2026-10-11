@@ -32,4 +32,9 @@ internal sealed interface RenderKey {
     data class Switch(
         val name: String,
     ) : RenderKey
+
+    /** A tint binding, picking its palette entry. */
+    data class Tint(
+        val name: String,
+    ) : RenderKey
 }

@@ -16,7 +16,11 @@ public data class HudEntry(
     val shader: HudShaderEntry? = null,
     /** Runtime-selected cases keyed by switch key; see [WindowEntry.switches]. */
     val switches: Map<String, SwitchEntry> = emptyMap(),
-    /** Every slot and switch in authored tree order; see [WindowEntry.layers]. */
+    /** Art layers keyed by name; see [WindowEntry.art]. */
+    val art: Map<String, ArtEntry> = emptyMap(),
+    /** Tint palettes keyed by tint id; see [WindowEntry.tints]. */
+    val tints: Map<String, Map<String, String>> = emptyMap(),
+    /** Every slot, switch, and art layer in authored tree order; see [WindowEntry.layers]. */
     val layers: List<LayerEntry> = emptyList(),
 )
 

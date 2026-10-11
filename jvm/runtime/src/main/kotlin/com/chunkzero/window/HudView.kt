@@ -13,6 +13,7 @@ import com.chunkzero.window.internal.HudLayer
 import com.chunkzero.window.internal.RenderedSegment
 import com.chunkzero.window.internal.SessionFrames
 import com.chunkzero.window.internal.Switches
+import com.chunkzero.window.internal.Tints
 import com.chunkzero.window.internal.dynamicSlot
 import com.chunkzero.window.internal.emptySegment
 import com.chunkzero.window.internal.sourced
@@ -21,7 +22,8 @@ import net.kyori.adventure.text.Component
 import org.slf4j.LoggerFactory
 
 /**
- * A user-defined view over a HUD: declares the providers of its slots and switches, and composes them on [render].
+ * A user-defined view over a HUD: declares the providers of its slots, switches, and tints, and composes them on
+ * [render].
  *
  * A view only produces content. The caller decides when to render, sends the result on [channel], and resends it as
  * needed. A view is not thread-safe; render it from one thread at a time.
@@ -31,8 +33,15 @@ public abstract class HudView(
 ) {
     private val entry = definition.entry
     private val switches = Switches("hud", definition.name, entry.switches, null)
+    private val tints = Tints("hud", definition.name, entry.tints, null)
     private val slots =
-        DynamicSlots("hud", definition.name, entry.slots, null, definition.composer::renderSlot) { id, slot ->
+        DynamicSlots(
+            "hud",
+            definition.name,
+            entry.slots,
+            null,
+            { id, slot, content -> definition.composer.renderSlot(id, slot, content, tints.value(slot.tint)) },
+        ) { id, slot ->
             emptySegment(
                 id,
                 RenderLayerKind.HUD_TEXT,
@@ -70,17 +79,26 @@ public abstract class HudView(
         get() = definition.channel
 
     /**
-     * Evaluates every slot and switch provider and returns the composed HUD.
+     * Evaluates every slot, switch, and tint provider and returns the composed HUD.
      *
-     * The first call runs [bind]. Slots whose provider returns an equal component, and switches that keep their case,
-     * reuse their previous layout.
+     * The first call runs [bind]. Slots whose provider returns an equal component, and switches and tints that keep
+     * their case or palette entry, reuse their previous layout.
      *
-     * @throws IllegalStateException on the first call if a dynamic slot or switch is unbound.
-     * @throws IllegalArgumentException for unknown names referenced in [bind], or an unknown switch case.
+     * @throws IllegalStateException on the first call if a dynamic slot, switch, or tint is unbound.
+     * @throws IllegalArgumentException for unknown names referenced in [bind], or an unknown switch case or palette
+     *   entry.
      */
     public fun render(): Component {
         val previous = current ?: return publish(composeInitialRender(), RenderFrameReason.OPEN)
         for (name in switches.names) unpublished = switches.update(name) || unpublished
+        for (name in tints.names) {
+            if (!tints.update(name)) continue
+            unpublished = true
+            for (slot in slots.tinted(name)) {
+                contents.remove(slot)
+                slots.label(slot)?.let { segments[slot] = it }
+            }
+        }
         for (name in slots.names) {
             val content = slots.content(name)
             if (contents[name] == content) continue
@@ -91,7 +109,7 @@ public abstract class HudView(
         return if (unpublished) publish(compose(), RenderFrameReason.REACTIVE_UPDATE) else previous
     }
 
-    /** Registers the providers of this HUD's slots and switches; runs once, on the first [render]. */
+    /** Registers the providers of this HUD's slots, switches, and tints; runs once, on the first [render]. */
     protected abstract fun HudScope.bind()
 
     /**
@@ -136,14 +154,24 @@ public abstract class HudView(
                         check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
                         switches.bind(name, render)
                     }
+
+                    override fun tint(
+                        name: String,
+                        render: () -> String,
+                    ) {
+                        check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
+                        tints.bind(name, render)
+                    }
                 }
             scope.bind()
             sealed = true
             slots.validate()
             switches.validate()
+            tints.validate()
             bound = true
         }
         for (name in switches.names) switches.update(name)
+        for (name in tints.names) tints.update(name)
         slots.seed(::seedSlot) { name, segment -> segments[name] = segment }
         return compose()
     }
@@ -182,7 +210,12 @@ public abstract class HudView(
 
                     LayerKind.SWITCH -> {
                         val art = switches.activeCase(name)?.static?.takeIf { it.isNotEmpty() }
-                        art?.let { HudLayer.Art(switches.semanticId(name), it, switches.source(name)) }
+                        art?.let { definition.composer.caseArt(switches.semanticId(name), it, switches.source(name)) }
+                    }
+
+                    LayerKind.ART -> {
+                        val art = entry.art.getValue(name).takeIf { switches.artActive(name) }
+                        art?.let { definition.composer.art("hud/${definition.name}/$name", it, tints.value(it.tint)) }
                     }
 
                     LayerKind.SPRITE_SLOT, LayerKind.COLLECTION -> {

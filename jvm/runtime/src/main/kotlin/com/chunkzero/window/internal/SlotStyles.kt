@@ -65,3 +65,6 @@ internal fun Component.appendAll(parts: List<Component>): Component {
     val added = parts.filter { it !== Component.empty() }
     return if (added.isEmpty()) this else children(children() + added)
 }
+
+/** This color as lowercase `#rrggbb`, the form manifest colors take. */
+internal fun TextColor.hex(): String = asHexString().lowercase()

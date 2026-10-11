@@ -9,7 +9,8 @@ import com.chunkzero.window.manifest.SwitchEntry
  *
  * A switch's selected case is the one its binding last returned. A case is
  * active while it is selected and its switch is active; a switch nested in a case is active only
- * while that case is, and so are the slots, sprite slots, regions, items, and collections a case lists.
+ * while that case is, and so are the slots, sprite slots, regions, items, collections, and art layers a case
+ * lists.
  */
 internal class Switches(
     /** The surface name used in semantic ids and messages, `window` or `hud`. */
@@ -28,6 +29,7 @@ internal class Switches(
     private val regionCases = HashMap<String, Case>()
     private val itemCases = HashMap<String, Case>()
     private val collectionCases = HashMap<String, Case>()
+    private val artCases = HashMap<String, Case>()
 
     /** The `debug_name` of the switch owning each slot and sprite slot of its cases. */
     private val sources = HashMap<String, String>()
@@ -45,6 +47,7 @@ internal class Switches(
                 for (name in case.regions) regionCases[name] = owner
                 for (name in case.items) itemCases[name] = owner
                 for (name in case.collections) collectionCases[name] = owner
+                for (name in case.art) artCases[name] = owner
                 val source = switch.source ?: continue
                 for (name in case.slots + case.spriteSlots) sources[name] = source
             }
@@ -105,6 +108,8 @@ internal class Switches(
     fun itemActive(name: String): Boolean = itemCases[name]?.let(::isActive) ?: true
 
     fun collectionActive(name: String): Boolean = collectionCases[name]?.let(::isActive) ?: true
+
+    fun artActive(name: String): Boolean = artCases[name]?.let(::isActive) ?: true
 
     /**
      * Reads the case each switch selects now rather than at its last render, for routing clicks: each binding is

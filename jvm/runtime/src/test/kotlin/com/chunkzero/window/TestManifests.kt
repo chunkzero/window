@@ -2,6 +2,7 @@ package com.chunkzero.window
 
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.AnvilInputEntry
+import com.chunkzero.window.manifest.ArtEntry
 import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.FontMetricsEntry
 import com.chunkzero.window.manifest.HitboxEntry
@@ -174,7 +175,7 @@ object TestManifests {
     /**
      * Builds a tiny in-memory manifest with a single window and the given entries, using the
      * canonical spacer/advance tables. Title origin defaults to (8, 6). [layers] defaults to
-     * switches, selectable collections, sprite slots, then slots, each in map order.
+     * switches, selectable collections, sprite slots, slots, then art layers, each in map order.
      */
     fun manifest(
         windowName: String = "w",
@@ -191,13 +192,16 @@ object TestManifests {
         sprites: Map<String, SpriteEntry> = emptyMap(),
         fontMetrics: Map<String, FontMetricsEntry> = fontMetricEntries(),
         switches: Map<String, SwitchEntry> = emptyMap(),
+        art: Map<String, ArtEntry> = emptyMap(),
+        tints: Map<String, Map<String, String>> = emptyMap(),
         layers: List<LayerEntry> =
             switches.keys.map { LayerEntry(LayerKind.SWITCH, it) } +
                 collections.filterValues { it.selection.isNotEmpty() }.keys.map {
                     LayerEntry(LayerKind.COLLECTION, it)
                 } +
                 spriteSlots.keys.map { LayerEntry(LayerKind.SPRITE_SLOT, it) } +
-                slots.keys.map { LayerEntry(LayerKind.SLOT, it) },
+                slots.keys.map { LayerEntry(LayerKind.SLOT, it) } +
+                art.keys.map { LayerEntry(LayerKind.ART, it) },
     ): WindowManifest =
         WindowManifest(
             version = 9,
@@ -227,6 +231,8 @@ object TestManifests {
                             collections = collections,
                             inputs = inputs,
                             switches = switches,
+                            art = art,
+                            tints = tints,
                             layers = layers,
                         ),
                 ),
@@ -243,8 +249,12 @@ object TestManifests {
         shader: HudShaderEntry? = null,
         fontMetrics: Map<String, FontMetricsEntry> = fontMetricEntries(),
         switches: Map<String, SwitchEntry> = emptyMap(),
+        art: Map<String, ArtEntry> = emptyMap(),
+        tints: Map<String, Map<String, String>> = emptyMap(),
         layers: List<LayerEntry> =
-            switches.keys.map { LayerEntry(LayerKind.SWITCH, it) } + slots.keys.map { LayerEntry(LayerKind.SLOT, it) },
+            switches.keys.map { LayerEntry(LayerKind.SWITCH, it) } +
+                slots.keys.map { LayerEntry(LayerKind.SLOT, it) } +
+                art.keys.map { LayerEntry(LayerKind.ART, it) },
     ): WindowManifest =
         WindowManifest(
             version = 9,
@@ -270,6 +280,8 @@ object TestManifests {
                             slots = slots,
                             shader = shader,
                             switches = switches,
+                            art = art,
+                            tints = tints,
                             layers = layers,
                         ),
                 ),

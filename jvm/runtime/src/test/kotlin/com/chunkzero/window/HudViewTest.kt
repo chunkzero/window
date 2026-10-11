@@ -1,6 +1,8 @@
 package com.chunkzero.window
 
 import com.chunkzero.window.manifest.Align
+import com.chunkzero.window.manifest.ArtEntry
+import com.chunkzero.window.manifest.HudShaderEntry
 import com.chunkzero.window.manifest.WindowManifest
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
@@ -70,6 +72,78 @@ class HudViewTest :
                 slot("first") { Component.text(first) }
                 slot("second") { Component.text(second()) }
             }
+        }
+
+        class Toned(
+            manifest: WindowManifest,
+            var tone: String,
+        ) : TestHud(manifest) {
+            override fun HudScope.bind() {
+                slot("text") { Component.text("A") }
+                tint("tone") { tone }
+            }
+        }
+
+        fun tonedManifest(shader: HudShaderEntry?) =
+            TestManifests.hudManifest(
+                shader = shader,
+                slots =
+                    mapOf(
+                        "text" to
+                            TestManifests
+                                .slot(0, 40, Align.LEFT, shaderMarker = shader?.let { "#030001" })
+                                .copy(
+                                    tint = "tone",
+                                    tintMarkers =
+                                        shader
+                                            ?.let {
+                                                mapOf(
+                                                    "ok" to "#040001",
+                                                    "warn" to "#040002",
+                                                )
+                                            }.orEmpty(),
+                                ),
+                    ),
+                art =
+                    mapOf(
+                        "art/0" to
+                            ArtEntry(
+                                "TINTED",
+                                tint = "tone",
+                                tintMarkers = shader?.let { mapOf("ok" to "#020003", "warn" to "#020004") }.orEmpty(),
+                            ),
+                        "art/1" to ArtEntry("PLAIN"),
+                    ),
+                tints = mapOf("tone" to mapOf("ok" to "#3ddc84", "warn" to "#ffb020")),
+            )
+
+        "a shader-placed HUD sends tinted art and text in the marker of the picked palette entry" {
+            val hud = Toned(tonedManifest(HudShaderEntry(staticMarker = "#010002", sourceBottom = 59)), "ok")
+
+            val first = hud.render()
+            colorOf(first, "TINTED") shouldBe "#020003"
+            colorOf(first, "A") shouldBe "#040001"
+            colorOf(first, "PLAIN") shouldBe "#010002"
+            hud.render() shouldBeSameInstanceAs first
+
+            hud.tone = "warn"
+            val changed = hud.render()
+            colorOf(changed, "TINTED") shouldBe "#020004"
+            colorOf(changed, "A") shouldBe "#040002"
+            colorOf(changed, "PLAIN") shouldBe "#010002"
+        }
+
+        "a HUD without a shader sends tinted art and text in the palette color" {
+            val hud = Toned(tonedManifest(null), "warn")
+
+            val rendered = hud.render()
+            colorOf(rendered, "TINTED") shouldBe "#ffb020"
+            colorOf(rendered, "A") shouldBe "#ffb020"
+            colorOf(rendered, "PLAIN") shouldBe "#ffffff"
+
+            hud.tone = "missing"
+            shouldThrow<IllegalArgumentException> { hud.render() }.message shouldBe
+                "Unknown palette entry 'missing' for tint 'tone' in hud 'h'; known entries: [ok, warn]"
         }
 
         "a render recovering from a provider failure publishes changes made before the failure" {
