@@ -80,6 +80,12 @@ export const ranks = {
     rank_3: texture("window/icons/rank_3.png"),
 };
 
+/** Hover art: a gold ring stretched over the control, and a red one drawn at its own size around a 3-slot button. */
+export const hovers = {
+    ring: texture("window/hover/hover_ring.png", { insets: 2 }),
+    exit: texture("window/hover/hover_exit.png"),
+};
+
 export const icons = {
     back: texture("window/icons/back.png"),
     clear: texture("window/icons/clear.png"),
