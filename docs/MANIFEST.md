@@ -280,10 +280,21 @@ switch on its handle with one region per state.
       },
 
       // Optional. Art drawn as a layer of its own: art tinted from a palette,
-      // and untinted art authored over it. `static` is net-zero like the window's.
+      // untinted art authored over it, and the fill of a bar. `static` is net-zero
+      // like the window's.
       "art": {
         "art/0": { "static": "󰀀…", "tint": "tone" },
         "art/1": { "static": "󰀀…" },
+        "art/2": {
+          "static": "󰀀…",
+          "bar": {
+            "name": "health",
+            "x": 8,
+            "width": 5,
+            "levels": ["\uE010\uE010\uE011", "\uE012", "\uE013"],
+            "advances": { "\uE010": 2, "\uE011": 2, "\uE012": 3, "\uE013": 5 },
+          },
+        },
       },
 
       // Optional. The palettes that `tint` fields name: entry name to color.
@@ -436,16 +447,16 @@ Notes:
 - `inputs` describes native inventory input metadata. It is currently valid only for `surface.container = "anvil"`;
   exactly one input owns container slot `0`, whose item name drives the vanilla edit field.
 - `handles` is optional metadata for codegen on windows and HUDs; runtimes ignore it. `kind` is `flag`, `toggle`,
-  `value`, `selection`, `text`, `sprite`, `tint`, `items`, `collection`, `action`, `input`, or `builtin`. `values` lists
-  a value or selection's values or a tint's entries, `colors` a tint's color per entry, `shape` an indexed handle's
-  extents, `initial` a toggle's (`"true"`/`"false"`) or selection's initial value, `selectable` whether a collection
-  marks a selected cell, and `only` the sprites a sprite handle returns, which codegen generates as an enum of those
-  `WindowSprite` constants. Each use names the entry it binds: a `slot`, `sprite_slot`, `item`, `collection`, `input`,
-  `switch`, a region's `click`, or the palette a `tint` handle picks from. `at` is the index read from an indexed
-  handle, and `value` the value a condition compares with or a click sets. A use is keyed `{id}`, then `[{i}]` per
-  index, `={value}` for a click that sets a value, or `?{value}` for a condition, with `~2`, `~3`, … appended to later
-  uses of the same key. Codegen generates members only from handles and binds every use to its handle's member; an entry
-  no handle uses gets no member.
+  `value`, `selection`, `text`, `sprite`, `tint`, `fraction`, `items`, `collection`, `action`, `input`, or `builtin`.
+  `values` lists a value or selection's values or a tint's entries, `colors` a tint's color per entry, `shape` an
+  indexed handle's extents, `initial` a toggle's (`"true"`/`"false"`) or selection's initial value, `selectable` whether
+  a collection marks a selected cell, and `only` the sprites a sprite handle returns, which codegen generates as an enum
+  of those `WindowSprite` constants. Each use names the entry it binds: a `slot`, `sprite_slot`, `item`, `collection`,
+  `input`, `switch`, a region's `click`, the palette a `tint` handle picks from, or the `bar` a `fraction` handle fills.
+  `at` is the index read from an indexed handle, and `value` the value a condition compares with or a click sets. A use
+  is keyed `{id}`, then `[{i}]` per index, `={value}` for a click that sets a value, or `?{value}` for a condition, with
+  `~2`, `~3`, … appended to later uses of the same key. Codegen generates members only from handles and binds every use
+  to its handle's member; an entry no handle uses gets no member.
 - `switches` is optional on windows and HUDs. At most one case of a switch is active: the case whose `value` the
   switch's binding returns, or none until it is bound. A switch named in a case's `switches` is nested: it and
   everything in its cases are active only while that case is. A case lists only the entries directly inside it. The
@@ -465,6 +476,13 @@ Notes:
   into art and sprites. Every palette must be bound. A tinted slot's `color` is its palette's first authored entry, and
   runtimes ignore it. Art and sprites without `tint` are sent in white. A case lists the art layers directly inside it
   in `art`, drawn only while the case is active.
+- `art.*.bar` marks the fill of a bar, which the runtime draws up to the fraction bound to `bar.name` instead of
+  `static` (the whole fill). The columns drawn are `round(clamp(fraction, 0, 1) * width)`. `levels[k]` holds one glyph
+  of `font` per clip of `2^k` columns: its character `i` draws the fill's columns from `i << (k + 1)`, and a space is a
+  clip with nothing to draw. To draw `n` columns, take the set bits of `n` from the highest: each draws the clip of that
+  size starting where the previous one ended, placed `x` plus that start right of where `static` starts, and advances
+  the cursor by its glyph's `advances` entry. The runtime returns the cursor to the start afterwards. Every bar must be
+  bound.
 - In a shader HUD, `art.*.tint_markers` and `slots.*.tint_markers` map each palette entry to the marker color the
   runtime sends in place of the palette color; the generated shader restores that entry's color. Untinted art layers use
   `shader.static_marker`. Outside shader HUDs `tint_markers` is absent and the runtime sends the palette color.
