@@ -18,7 +18,7 @@ const coords = text("coords");
 const altitude = text("altitude");
 const objective = text("objective");
 const stock = text("stock");
-const hint = text("hint");
+export const hint = text("hint");
 const waveProgress = flag("wave_progress", { shape: [10] });
 
 const white = "#ffffff";

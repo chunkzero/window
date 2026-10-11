@@ -180,6 +180,7 @@ Each entry's value is typed by its handle, and a handle the entry omits takes it
 | `toggle`     | a boolean                            | its `initial`, else `false`                |
 | `value`      | one of its values                    | its first value                            |
 | `selection`  | one of its values                    | its `initial`, else its first value        |
+| `tint`       | one of its palette entry names       | its first palette entry                    |
 | `sprite`     | a catalog sprite name, of its `only` | no sprite                                  |
 | `items`      | whether the slot holds an item       | `true`                                     |
 | `collection` | `{ count?, selected? }`              | every cell holds an item; none is selected |
@@ -194,10 +195,11 @@ that bleeds outside it, on a transparent background. What it shows:
 
 - **As the client draws it**: static art, the active case of every switch (nested ones too), runtime sprites in their
   slots, a collection's `selected` sprite, a `vanilla.anvil.field` sprite, and text in a [text font](#text-fonts),
-  including the bundled `small_caps`. Text is placed, wrapped, and ellipsized by the rules the runtime applies, with the
-  slot's width, alignment, color, shadow, and bold. Text state may carry legacy `§` codes, consumed as the runtime
-  consumes them: `§l` draws bold, `§0`-`§f` draw that color (and end bold), `§r` restores the slot's color and bold, and
-  any other code is consumed without effect. A trailing `§` is dropped.
+  including the bundled `small_caps`. Art and text with a [`tint` handle](#tints) take the color of the tint's previewed
+  palette entry, at their place in the [draw order](#draw-order). Text is placed, wrapped, and ellipsized by the rules
+  the runtime applies, with the slot's width, alignment, color, shadow, and bold. Text state may carry legacy `§` codes,
+  consumed as the runtime consumes them: `§l` draws bold, `§0`-`§f` draw that color (and end bold), `§r` restores the
+  slot's color and bold, and any other code is consumed without effect. A trailing `§` is dropped.
 - **Approximately**: text in Minecraft's default font. Window cannot bundle Mojang's glyph bitmaps, so each character is
   drawn as its `small_caps` glyph, centered in and clipped to the real glyph's width, or as a box when `small_caps` has
   no glyph for it. Advances are the real ones, so the text occupies exactly the box it does in game, but the lettering

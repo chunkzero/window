@@ -133,9 +133,16 @@ impl<'a> TextPainter<'a> {
         Self { fonts, stand_in: crate::text_font::small_caps() }
     }
 
-    /// Draws `content` in `slot` on the lines, and at the positions, the runtime gives it. `shadow` is the shadow of
-    /// a slot that has one.
-    pub(super) fn draw_slot(&self, canvas: &mut Canvas, slot: &SlotIr, content: &str, shadow: Shadow) -> Result<()> {
+    /// Draws `content` in `slot`, in `color`, on the lines and at the positions the runtime gives it. `shadow` is the
+    /// shadow of a slot that has one.
+    pub(super) fn draw_slot(
+        &self,
+        canvas: &mut Canvas,
+        slot: &SlotIr,
+        content: &str,
+        color: Rgb,
+        shadow: Shadow,
+    ) -> Result<()> {
         let font = match &slot.font {
             Some(name) => Some(
                 self.fonts
@@ -165,7 +172,7 @@ impl<'a> TextPainter<'a> {
                 origin(slot.align, slot.rect.x, slot.rect.width, visual) as i32,
                 slot.rect.y + step * fit.line_height as i32 / 2,
             );
-            self.draw_glyphs(canvas, font, line, at, slot.color, shadow);
+            self.draw_glyphs(canvas, font, line, at, color, shadow);
         }
         Ok(())
     }

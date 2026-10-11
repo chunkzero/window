@@ -217,6 +217,7 @@ const previewed = preview(handles, [
     [badge, "lamp_on"],
     [collection("products"), { count: 4, selected: 0 }],
     [input("query"), "amethyst"],
+    [tone, "warn"],
 ]);
 // @ts-expect-error A selection takes one of its values.
 const unknownCase = preview(handles, [[category, "tools"]]);
@@ -228,4 +229,6 @@ const unindexed = preview(handles, [[lamps, true]]);
 const unknownSprite = preview(handles, [[badge, "coin"]]);
 // @ts-expect-error An action has no state.
 const actionState = preview(handles, [[action("buy"), true]]);
-void [previewed, unknownCase, numericText, unindexed, unknownSprite, actionState];
+// @ts-expect-error A tint takes one of its palette entry names.
+const unknownEntry = preview(handles, [[tone, "danger"]]);
+void [previewed, unknownCase, numericText, unindexed, unknownSprite, actionState, unknownEntry];

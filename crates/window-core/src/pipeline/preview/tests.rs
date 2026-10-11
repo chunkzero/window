@@ -267,3 +267,79 @@ fn long_text_ellipsizes_to_the_longest_fitting_prefix() {
 
     assert_eq!(shot(&"Overflowing".repeat(2000)).rgba, short.rgba);
 }
+
+const TONE: [&str; 2] = ["#ff0000", "#0000ff"];
+
+fn tone() -> Value {
+    json!({ "kind": "tint", "id": "tone", "values": ["hot", "cold"], "colors": TONE })
+}
+
+/// A white 8x4 image at (`x`, 10) with `tint`.
+fn white(x: u32, tint: Value) -> Value {
+    json!({ "type": "sprite", "art": { "art": "texture", "texture": "white.png" }, "tint": tint, "x": x, "y": 10 })
+}
+
+fn preview_white(children: Value, state: Value) -> Result<Texture> {
+    let project = json!({ "windows": [{ "name": "shop", "container": "generic_9x1", "children": children }] });
+    let request = json!({ "name": "shot", "target": { "kind": "window", "name": "shop" }, "state": state });
+    let white = Texture { width: 8, height: 4, rgba: [255; 128].to_vec() };
+    render_with(project, request, vec![("white.png", white)])
+}
+
+#[test]
+fn tinted_art_and_text_take_the_previewed_palette_entry_and_default_to_the_first() {
+    let children = json!([
+        white(10, tone()),
+        white(20, json!("#00ff00")),
+        { "type": "label", "text": "Hi", "x": 40, "y": 10, "color": tone(), "shadow": false },
+    ]);
+    let shot = |state: Value| preview_white(children.clone(), state).unwrap();
+
+    let first = shot(json!([]));
+    assert_eq!(first.get(10, 10), RED);
+    assert_eq!(first.get(20, 10), GREEN, "a fixed tint is baked into the art");
+    assert!(columns(&first, RED).unwrap().1 >= 40, "tinted text takes the palette color");
+    assert_eq!(shot(json!([{ "handle": "tone", "value": "hot" }])).rgba, first.rgba);
+
+    let cold = shot(json!([{ "handle": "tone", "value": "cold" }]));
+    assert_eq!(cold.get(10, 10), BLUE);
+    assert_eq!(cold.get(20, 10), GREEN);
+    assert_eq!(columns(&cold, RED), None);
+    assert!(columns(&cold, BLUE).unwrap().1 >= 40);
+}
+
+#[test]
+fn an_unknown_palette_entry_names_the_preview_the_tint_and_its_entries() {
+    let error = preview_white(json!([white(10, tone())]), json!([{ "handle": "tone", "value": "warm" }]));
+
+    assert_eq!(
+        error.unwrap_err().to_string(),
+        "preview `shot`: handle `tone` is a tint and takes one of hot, cold; got \"warm\""
+    );
+}
+
+#[test]
+fn untinted_art_over_tinted_art_draws_above_it_unmultiplied() {
+    let green = json!({ "art": "texture", "texture": "green.png" });
+    let children = json!([
+        white(10, tone()),
+        { "type": "sprite", "art": green, "x": 12, "y": 10 },
+        white(14, tone()),
+    ]);
+    let shot = preview_white(children, json!([{ "handle": "tone", "value": "cold" }])).unwrap();
+
+    assert_eq!(columns(&shot, GREEN), Some((12, 13)), "the later tinted art covers the untinted art over the first");
+    assert_eq!(columns(&shot, BLUE), Some((10, 21)));
+}
+
+#[test]
+fn tinted_art_outside_the_surface_grows_the_canvas_within_the_pixel_limit() {
+    let shot = preview_white(json!([white(200, tone())]), json!([])).unwrap();
+    assert_eq!(shot.width, 208);
+    assert_eq!(columns(&shot, RED), Some((200, 207)));
+
+    let far = json!({ "type": "sprite", "art": { "art": "texture", "texture": "white.png" }, "tint": tone(),
+                      "x": i32::MIN, "y": 0 });
+    let error = preview_white(json!([far]), json!([])).unwrap_err().to_string();
+    assert!(error.starts_with("preview `shot`: its ") && error.contains("exceeds the limit"), "{error}");
+}

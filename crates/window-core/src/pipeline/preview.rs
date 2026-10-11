@@ -1,9 +1,9 @@
 //! Previews: a window or HUD rendered to a PNG from supplied handle state.
 //!
 //! A preview draws the laid-out surface the way the client composes it: the static composite, the active case of
-//! every switch, runtime sprites, and text fitted as the runtime fits it. Inventory items have no art in the
-//! compiler, so item slots draw as outlined placeholders. Text in Minecraft's default font is drawn with the bundled
-//! small-caps glyphs at the default font's advances.
+//! every switch, art layers and runtime sprites in the color their tint is at, and text fitted as the runtime fits
+//! it. Inventory items have no art in the compiler, so item slots draw as outlined placeholders. Text in Minecraft's
+//! default font is drawn with the bundled small-caps glyphs at the default font's advances.
 
 use std::borrow::Cow;
 use std::cell::{Cell, OnceCell};
@@ -12,11 +12,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::Deserialize;
 
 use crate::authoring::{ParsedProject, Replacement, sprite_key};
-use crate::compose::{Composite, Texture, blit_sprite};
+use crate::compose::{Composite, Texture, blit_sprite, multiply};
 use crate::geometry::{Point, Rect, Size};
 use crate::inventory::InventorySlotRef;
 use crate::ir::{
-    Align, AnvilInputIr, CollectionIr, Draw, Handle, HandleKind, HandleRole, HandleUse, ItemIr, LaidOutHud,
+    Align, AnvilInputIr, ArtIr, CollectionIr, Draw, Handle, HandleKind, HandleRole, HandleUse, ItemIr, LaidOutHud,
     LaidOutWindow, Layer, RegionIr, Rgb, SlotIr, SpriteSlotIr, SwitchIr,
 };
 use crate::model::{GeneratedStyle, SpriteDef};
@@ -88,7 +88,7 @@ pub struct StateEntry {
 pub enum StateValue {
     /// A flag or toggle, or whether an `items` handle holds an item.
     Bool(bool),
-    /// Text, a value or selection case, a catalog sprite name, or an input's contents.
+    /// Text, a value or selection case, a tint's palette entry, a catalog sprite name, or an input's contents.
     Text(String),
     /// A collection's filled cells and selected cell.
     #[serde(rename_all = "snake_case")]
@@ -241,6 +241,7 @@ struct Pane<'a> {
     slots: &'a [SlotIr],
     sprite_slots: &'a [SpriteSlotIr],
     switches: &'a [SwitchIr],
+    art: &'a [ArtIr],
     draws: &'a [Draw],
     layers: &'a [Layer],
     handles: &'a BTreeMap<String, Handle>,
@@ -261,6 +262,7 @@ impl<'a> Pane<'a> {
             slots: &w.slots,
             sprite_slots: &w.sprite_slots,
             switches: &w.switches,
+            art: &w.art,
             draws: &w.draws,
             layers: &w.layers,
             handles: &w.handles,
@@ -280,6 +282,7 @@ impl<'a> Pane<'a> {
             slots: &h.slots,
             sprite_slots: &[],
             switches: &h.switches,
+            art: &h.art,
             draws: &h.draws,
             layers: &h.layers,
             handles: &h.handles,
@@ -293,8 +296,9 @@ impl<'a> Pane<'a> {
     /// The surface and every static draw, before they are composed.
     fn bounds(&self) -> Bounds {
         let cases = self.switches.iter().flat_map(|switch| &switch.cases).flat_map(|case| &case.draws);
+        let art = self.art.iter().flat_map(|art| &art.draws);
         let mut bounds = Bounds::new(&self.rect);
-        for rect in self.draws.iter().chain(cases).map(Draw::dest) {
+        for rect in self.draws.iter().chain(cases).chain(art).map(Draw::dest) {
             bounds.include(i64::from(rect.x), i64::from(rect.y), rect.width, rect.height);
         }
         bounds
@@ -358,7 +362,7 @@ impl<'a> State<'a> {
                 (HandleKind::Flag | HandleKind::Toggle | HandleKind::Items, StateValue::Bool(_))
                 | (HandleKind::Text | HandleKind::Input, StateValue::Text(_))
                 | (HandleKind::Collection, StateValue::Collection { .. }) => None,
-                (HandleKind::Value | HandleKind::Selection, StateValue::Text(value))
+                (HandleKind::Value | HandleKind::Selection | HandleKind::Tint, StateValue::Text(value))
                     if handle.values.contains(value) =>
                 {
                     None
@@ -371,11 +375,13 @@ impl<'a> State<'a> {
                 }
                 (HandleKind::Flag | HandleKind::Toggle | HandleKind::Items, _) => Some("true or false".to_string()),
                 (HandleKind::Text | HandleKind::Input, _) => Some("a string".to_string()),
-                (HandleKind::Value | HandleKind::Selection, _) => Some(format!("one of {}", handle.values.join(", "))),
+                (HandleKind::Value | HandleKind::Selection | HandleKind::Tint, _) => {
+                    Some(format!("one of {}", handle.values.join(", ")))
+                }
                 (HandleKind::Sprite, _) if handle.only.is_empty() => Some("a catalog sprite name".to_string()),
                 (HandleKind::Sprite, _) => Some(format!("one of {}", handle.only.join(", "))),
                 (HandleKind::Collection, _) => Some("`{ count, selected }`".to_string()),
-                (HandleKind::Action | HandleKind::Builtin | HandleKind::Tint, _) => Some("no state".to_string()),
+                (HandleKind::Action | HandleKind::Builtin, _) => Some("no state".to_string()),
             };
             if let Some(expected) = expected {
                 let kind = handle.kind.id();
@@ -427,6 +433,16 @@ impl<'a> State<'a> {
         })
     }
 
+    /// The color tint `id` is at: that of its set palette entry, or of its first.
+    fn tint(&self, id: &str) -> Option<Rgb> {
+        let handle = self.uses.get(&(HandleRole::Tint, id))?.handle;
+        let entry = match self.text(HandleRole::Tint, id) {
+            Some(name) => handle.values.iter().position(|value| value == name)?,
+            None => 0,
+        };
+        Rgb::parse_hex(handle.colors.get(entry)?)
+    }
+
     /// The filled cell count and selected cell of `collection`.
     fn collection(&self, collection: &CollectionIr) -> Result<(usize, Option<usize>)> {
         let cells = collection.slots.len();
@@ -454,6 +470,7 @@ enum Member {
     Item,
     Collection,
     Switch,
+    Art,
 }
 
 /// Everything inside a switch case that is not showing.
@@ -484,6 +501,7 @@ impl<'a> Hidden<'a> {
             (Member::Item, &case.items),
             (Member::Collection, &case.collections),
             (Member::Switch, &case.switches),
+            (Member::Art, &case.art),
         ];
         for (member, names) in members {
             self.members.extend(names.iter().map(|name| (member, name.as_str())));
@@ -515,6 +533,20 @@ impl Canvas {
     fn blit(&mut self, texture: &Texture, at: Point) {
         let dest = Rect::new(at.x - self.origin.x, at.y - self.origin.y, texture.width, texture.height);
         blit_sprite(&mut self.texture, texture, &dest);
+    }
+
+    /// Draws `comp`, with its colors multiplied by `tint` when it has one.
+    fn blit_composite(&mut self, comp: &Composite, tint: Option<Rgb>) {
+        if !comp.has_content {
+            return;
+        }
+        let Some(tint) = tint else { return self.blit(&comp.texture, comp.bounds.origin()) };
+        for y in 0..comp.texture.height {
+            for x in 0..comp.texture.width {
+                let rgba = multiply(comp.texture.get(x, y), tint);
+                self.blend(comp.bounds.x + x as i32, comp.bounds.y + y as i32, rgba);
+            }
+        }
     }
 
     fn blend(&mut self, x: i32, y: i32, rgba: [u8; 4]) {
@@ -563,9 +595,8 @@ impl Scene<'_> {
             .iter()
             .map(|layer| self.placement(&rasters, layer, pane, &state, &hidden))
             .collect::<Result<Vec<_>>>()?;
-        let composites = std::iter::once(&layers.base).chain(layers.cases.iter().flatten());
         let mut bounds = Bounds::new(&pane.rect);
-        for comp in composites.filter(|comp| comp.has_content) {
+        for comp in layers.composites() {
             let b = &comp.bounds;
             bounds.include(i64::from(b.x), i64::from(b.y), b.width, b.height);
         }
@@ -579,14 +610,15 @@ impl Scene<'_> {
         {
             canvas.blit(self.sprite(&rasters, sprite)?.0, field.origin());
         }
-        blit_composite(&mut canvas, &layers.base);
+        canvas.blit_composite(&layers.base, None);
 
         for (layer, placement) in pane.layers.iter().zip(&placements) {
             match layer {
                 Layer::Slot(name) if hidden.shows(Member::Slot, name) => {
                     let slot = find(pane.slots, name, |slot| &slot.name)?;
                     let content = slot.text.as_deref().or_else(|| state.text(HandleRole::Slot, name));
-                    self.painter.draw_slot(&mut canvas, slot, content.unwrap_or_default(), pane.shadow)?;
+                    let color = slot.tint.as_deref().and_then(|tint| state.tint(tint)).unwrap_or(slot.color);
+                    self.painter.draw_slot(&mut canvas, slot, content.unwrap_or_default(), color, pane.shadow)?;
                 }
                 Layer::SpriteSlot(_) | Layer::Collection(_) => {
                     if let Some(placement) = placement {
@@ -598,7 +630,13 @@ impl Scene<'_> {
                     if let Some(index) = index
                         && let Some(case) = active[index]
                     {
-                        blit_composite(&mut canvas, &layers.cases[index][case]);
+                        canvas.blit_composite(&layers.cases[index][case], None);
+                    }
+                }
+                Layer::Art(name) if hidden.shows(Member::Art, name) => {
+                    if let Some(index) = pane.art.iter().position(|art| &art.name == name) {
+                        let tint = pane.art[index].tint.as_deref().and_then(|tint| state.tint(tint));
+                        canvas.blit_composite(&layers.art[index], tint);
                     }
                 }
                 _ => {}
@@ -645,11 +683,11 @@ impl Scene<'_> {
         state: &State<'_>,
         hidden: &Hidden<'_>,
     ) -> Result<Option<Placement<'s>>> {
-        let (name, rect, align) = match layer {
+        let (name, rect, align, tint) = match layer {
             Layer::SpriteSlot(name) if hidden.shows(Member::SpriteSlot, name) => {
                 let Some(sprite) = state.text(HandleRole::SpriteSlot, name) else { return Ok(None) };
                 let slot = find(pane.sprite_slots, name, |slot| &slot.name)?;
-                (sprite, slot.rect, slot.align)
+                (sprite, slot.rect, slot.align, slot.tint.as_deref().and_then(|tint| state.tint(tint)))
             }
             Layer::Collection(name) if hidden.shows(Member::Collection, name) => {
                 let collection = find(pane.collections, name, |collection| &collection.name)?;
@@ -658,14 +696,14 @@ impl Scene<'_> {
                     return Ok(None);
                 };
                 let Some(cell) = pane.slot_rect(collection.slots[selected]) else { return Ok(None) };
-                (sprite.as_str(), cell.slot_box(), Align::Left)
+                (sprite.as_str(), cell.slot_box(), Align::Left, None)
             }
             _ => return Ok(None),
         };
         let (texture, size) = self.sprite(rasters, name)?;
         let metrics = bitmap_metrics(texture, size);
         let ink_x = text::origin(align, rect.x, rect.width, metrics.glyph_width);
-        Ok(Some(Placement { texture, height: size.height, metrics, ink_x, y: i64::from(rect.y) }))
+        Ok(Some(Placement { texture, height: size.height, metrics, ink_x, y: i64::from(rect.y), tint }))
     }
 
     /// The pixels and rendered size of sprite `name`.
@@ -727,6 +765,8 @@ struct Placement<'a> {
     /// The GUI x of the first ink column.
     ink_x: i64,
     y: i64,
+    /// The color the sprite is multiplied by.
+    tint: Option<Rgb>,
 }
 
 impl Placement<'_> {
@@ -750,7 +790,9 @@ impl Placement<'_> {
             let x = (self.ink_x + i64::from(column - self.metrics.x_offset)) as i32;
             for row in 0..self.height {
                 let source_y = u64::from(row) * source / rendered;
-                canvas.blend(x, (self.y + i64::from(row)) as i32, texture.get(source_x as u32, source_y as u32));
+                let rgba = texture.get(source_x as u32, source_y as u32);
+                let rgba = self.tint.map_or(rgba, |tint| multiply(rgba, tint));
+                canvas.blend(x, (self.y + i64::from(row)) as i32, rgba);
             }
         }
     }
@@ -761,12 +803,6 @@ fn find<'a, T>(items: &'a [T], name: &str, key: impl Fn(&T) -> &String) -> Resul
         .iter()
         .find(|item| key(item) == name)
         .ok_or_else(|| Error::Validation(format!("layer `{name}` has no laid-out entry")))
-}
-
-fn blit_composite(canvas: &mut Canvas, comp: &Composite) {
-    if comp.has_content {
-        canvas.blit(&comp.texture, comp.bounds.origin());
-    }
 }
 
 /// `texture` resampled to `width` x `height` with nearest-neighbour sampling.
