@@ -61,6 +61,11 @@ test("a disabled button shows its disabled state and takes no clicks", () => {
     assert.deepEqual(region(on), { type: "region", on_click: { kind: "action", id: "buy" }, tooltip: "Buy" });
     assert.deepEqual(region(off), { type: "region", tooltip: "Buy unavailable" });
     assert.equal((off?.frame as { name: string }).name, "industrial/button-disabled");
+    const quiet = industrial.Button({ onClick: action("buy"), enabled: flag("can_buy"), hover: false });
+    assert.deepEqual(
+        ofType(quiet, "region").map((node) => node.hover),
+        [false, undefined],
+    );
     assert.throws(() => industrial.Button({ onClick: action("x"), disabled: {} }), /enabled/);
 });
 

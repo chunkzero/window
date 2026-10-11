@@ -1,0 +1,6 @@
+{
+  "packFormat": 88,
+  "window": { "coreShaders": { "hud": true, "hover": true }, "vanilla": { "slotHighlight": false } },
+  "kotlinPackage": "golden.hover",
+  "kotlinTarget": "minestom"
+}

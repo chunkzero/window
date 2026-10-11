@@ -8,6 +8,8 @@ import type { Art, TextFont } from "./ui/types.ts";
 export interface CoreShaderOptions {
     /** Relocate `<Hud anchor>` HUDs with generated core text shaders. */
     hud?: boolean;
+    /** Outline the hovered `<Region>` with generated core text shaders. Needs pack format 85 through 88. */
+    hover?: boolean;
 }
 
 /**
@@ -34,6 +36,8 @@ export type VanillaHudOptions = { [Group in (typeof hudGroups)[number]]?: boolea
 export interface VanillaOptions {
     anvil?: VanillaAnvilOptions;
     hud?: VanillaHudOptions;
+    /** A 24x24 catalog sprite or `false` for the highlight of the hovered slot. Needs pack format 42 or newer. */
+    slotHighlight?: VanillaTexture;
 }
 
 export interface ExperimentalOptions {
@@ -80,10 +84,11 @@ interface OptionTree {
 
 const OPTION_TREE: OptionTree = {
     namespace: "string",
-    coreShaders: { hud: "boolean" },
+    coreShaders: { hud: "boolean", hover: "boolean" },
     vanilla: {
         anvil: { field: "string or boolean", background: "string or boolean" },
         hud: Object.fromEntries(hudGroups.map((group) => [group, "boolean"])),
+        slotHighlight: "string or boolean",
     },
     experimental: { anvilUpdates: "boolean" },
     size: { report: "boolean", budget: "positive integer" },
@@ -202,7 +207,7 @@ export interface ProjectJson {
     windows: Window[];
     huds: Hud[];
     options: {
-        core_shaders: { hud: boolean };
+        core_shaders: { hud: boolean; hover?: true };
         vanilla?: VanillaOptions;
         experimental?: { anvil_updates: true };
         size?: { report: boolean; budget?: number };
@@ -284,7 +289,10 @@ export function buildProject(
         windows,
         huds,
         options: {
-            core_shaders: { hud: options.coreShaders?.hud === true },
+            core_shaders: {
+                hud: options.coreShaders?.hud === true,
+                ...(options.coreShaders?.hover === true ? { hover: true } : {}),
+            },
             ...(options.vanilla === undefined ? {} : { vanilla: options.vanilla }),
             ...(options.experimental?.anvilUpdates === true ? { experimental: { anvil_updates: true } } : {}),
             ...(options.size === undefined
@@ -480,7 +488,11 @@ function packFormat(format: unknown): number {
 
 /** Whether `vanilla` blanks or replaces some texture, which needs a build even without definitions. */
 function replacesVanillaTextures(vanilla: VanillaOptions | undefined): boolean {
-    const values = [...Object.values(vanilla?.anvil ?? {}), ...Object.values(vanilla?.hud ?? {})];
+    const values = [
+        ...Object.values(vanilla?.anvil ?? {}),
+        ...Object.values(vanilla?.hud ?? {}),
+        vanilla?.slotHighlight,
+    ];
     return values.some((value) => value === false || typeof value === "string");
 }
 

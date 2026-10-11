@@ -94,6 +94,21 @@ test("vanilla and experimental options reach the project JSON in snake_case", ()
     });
 });
 
+test("the hover shader option is sent only when on, and a blanked slot highlight alone needs a build", () => {
+    const { options } = buildProject([shop], { coreShaders: { hover: true }, vanilla: { slotHighlight: false } }, 88);
+    assert.deepEqual(options, { core_shaders: { hud: false, hover: true }, vanilla: { slotHighlight: false } });
+    assert.deepEqual(buildProject([shop], { coreShaders: { hover: false } }, 88).options, {
+        core_shaders: { hud: false },
+    });
+    assert.throws(() => checkOptions({ coreShaders: { hover: 1 } }), /`coreShaders\.hover` must be a boolean; got 1/);
+    let compiled = false;
+    generate(fake({}, {}, { vanilla: { slotHighlight: false } }).ctx, () => {
+        compiled = true;
+        return { files: [], kotlinFiles: [], warnings: [] };
+    });
+    assert.equal(compiled, true);
+});
+
 test("size options reach the project JSON, and a budget must be a positive integer", () => {
     assert.deepEqual(buildProject([shop], { size: { report: true, budget: 3_000_000 } }, 88).options.size, {
         report: true,
@@ -108,8 +123,8 @@ test("size options reach the project JSON, and a budget must be a positive integ
 test("unknown plugin option keys fail naming the key and the accepted keys", () => {
     checkOptions({
         namespace: "x",
-        coreShaders: { hud: true },
-        vanilla: { anvil: { field: false, background: "bg" }, hud: { hotbar: false } },
+        coreShaders: { hud: true, hover: true },
+        vanilla: { anvil: { field: false, background: "bg" }, hud: { hotbar: false }, slotHighlight: false },
         experimental: { anvilUpdates: true },
         size: { report: true, budget: 1 },
         kotlin: { package: "p", output: "o", target: "minestom" },
@@ -120,7 +135,7 @@ test("unknown plugin option keys fail naming the key and the accepted keys", () 
     );
     assert.throws(
         () => checkOptions({ coreShaders: { enableHud: true } }),
-        /`coreShaders\.enableHud`.*in `coreShaders`: hud$/,
+        /`coreShaders\.enableHud`.*in `coreShaders`: hud, hover$/,
     );
     assert.throws(
         () => checkOptions({ vanilla: { hud: { hearts: false } } }),

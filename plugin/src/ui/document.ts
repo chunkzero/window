@@ -198,6 +198,8 @@ export interface RegionOptions extends FlexItemOptions, DebugName {
     /** What a click does; omit for a hover-only region. */
     on_click?: ClickAction;
     tooltip?: string | Tooltip;
+    /** Whether hovering outlines the region; see `RegionProps.hover`. */
+    hover?: boolean;
     /** Item model of the hitbox item filling its slots. */
     item_model?: string;
     /** Fixed size, set together; omit both to fill the parent box. */
