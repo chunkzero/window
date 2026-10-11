@@ -113,6 +113,16 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
     /** Render the `status` text. */
     protected abstract fun status(): Component
 
+    /** The values of `tone`. */
+    public enum class Tone(public val value: String) {
+        OK("ok"),
+        WARN("warn"),
+        DANGER("danger"),
+    }
+
+    /** The palette entry the `tone` tint draws in. */
+    protected abstract fun tone(): Tone
+
     final override fun WindowScope<ItemStack>.bind() {
         switch("affordable") { affordable.toString() }
         switch("affordable~2") { affordable.toString() }
@@ -248,6 +258,7 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
         slot("sort_label[2]") { sortLabel(2) }
         slot("sort_label[2]~2") { sortLabel(2) }
         slot("status") { status() }
+        tint("tone") { tone().value }
     }
 
     public companion object {

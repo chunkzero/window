@@ -65,6 +65,14 @@ class MyShop(
 
     override fun canBuy(): Boolean = catalog.selected?.let { it.price <= coins } == true
 
+    /** Whether the selected product is affordable, unless `/tone` pinned a tone. */
+    override fun tone(): Tone {
+        val pinned = pinnedTone(player)
+        if (pinned != null) return Tone.entries.first { it.value == pinned }
+        val product = catalog.selected ?: return Tone.WARN
+        return if (product.price <= coins) Tone.OK else Tone.DANGER
+    }
+
     override fun buyLabel(): Component {
         val product = catalog.selected ?: return actionLabel("Buy", false)
         if (product.price > coins) return actionLabel("Need ${product.price - coins}", false)

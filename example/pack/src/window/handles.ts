@@ -1,4 +1,7 @@
-import { action, collection, flag, input, selection, text, toggle } from "plugin:window/bind";
+import { action, collection, flag, input, selection, text, tint, toggle } from "plugin:window/bind";
+
+// Shared by the shop and the status HUD
+export const tone = tint("tone", { ok: "#3ddc84", warn: "#ffb020", danger: "#ff4d4d" });
 
 // Shop
 export const category = selection("category", ["all", "gear", "magic"]);

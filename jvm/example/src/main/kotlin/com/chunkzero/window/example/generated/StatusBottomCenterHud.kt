@@ -10,11 +10,22 @@ public abstract class StatusBottomCenterHud : HudView(WindowHudDefinitions.statu
     /** Render the `hint` text. */
     protected abstract fun hint(): Component
 
+    /** The values of `tone`. */
+    public enum class Tone(public val value: String) {
+        OK("ok"),
+        WARN("warn"),
+        DANGER("danger"),
+    }
+
+    /** The palette entry the `tone` tint draws in. */
+    protected abstract fun tone(): Tone
+
     /** The `wave_progress` flag. */
     protected abstract fun waveProgress(index: Int): Boolean
 
     final override fun HudScope.bind() {
         slot("hint") { hint() }
+        tint("tone") { tone().value }
         for (index in 0 until WAVE_PROGRESS_SIZE) {
             switch("wave_progress[$index]") { waveProgress(index).toString() }
         }

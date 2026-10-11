@@ -1,10 +1,11 @@
-import { Hud, Image, Switch, Text } from "plugin:window/ui";
+import { Box, Hud, Image, Switch, Text } from "plugin:window/ui";
 import type { TextProps } from "plugin:window/ui";
 import { flag, text } from "plugin:window/bind";
 import type { TextHandle } from "plugin:window/bind";
 import { Row, art } from "plugin:window/theme/industrial";
 
-import { coin } from "./art.ts";
+import { coin, tonePill } from "./art.ts";
+import { tone } from "./handles.ts";
 
 export const coins = text("coins");
 export const rate = text("rate");
@@ -84,8 +85,10 @@ export default [
         <Text bind={stock} width={80} color={soft} />
     </Hud>,
 
-    <Hud name="status_bottom_center" anchor="bottom" offset={[0, -72]} gap={2} align="center" text={style}>
-        <Text bind={hint} width={160} align="center" color={soft} />
+    <Hud name="status_bottom_center" anchor="bottom" offset={[0, -72]} gap={1} align="center" text={style}>
+        <Box frame={tonePill} tint={tone} padding={{ top: 2, right: 6, bottom: 1, left: 6 }}>
+            <Text bind={hint} width={100} align="center" color={tone} />
+        </Box>
         <Row gap={1}>
             {Array.from({ length: 10 }, (_, i) => (
                 <Switch on={waveProgress.at(i)}>

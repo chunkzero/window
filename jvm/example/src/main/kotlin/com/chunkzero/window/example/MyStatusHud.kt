@@ -60,12 +60,24 @@ class MyStatusRightSideHud(
 }
 
 class MyStatusBottomCenterHud(
+    private val player: Player,
     private val startedAt: Long,
 ) : StatusBottomCenterHud() {
-    override fun hint(): Component {
-        val remaining = WAVE_MILLIS - (System.currentTimeMillis() - startedAt) % WAVE_MILLIS
-        return Component.text("Next wave in ${(remaining + 999) / 1000}s")
+    override fun hint(): Component = Component.text("Next wave in ${(remaining() + 999) / 1000}s")
+
+    /** Turns from ok to warn to danger as the wave nears, unless `/tone` pinned one. */
+    override fun tone(): Tone {
+        val pinned = pinnedTone(player)
+        if (pinned != null) return Tone.entries.first { it.value == pinned }
+        val remaining = remaining()
+        return when {
+            remaining > 6_000L -> Tone.OK
+            remaining > 3_000L -> Tone.WARN
+            else -> Tone.DANGER
+        }
     }
+
+    private fun remaining(): Long = WAVE_MILLIS - (System.currentTimeMillis() - startedAt) % WAVE_MILLIS
 
     override fun waveProgress(index: Int): Boolean =
         (System.currentTimeMillis() - startedAt) % WAVE_MILLIS * 10 / WAVE_MILLIS >= index
