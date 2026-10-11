@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { defineWindows, texture } from "../src/ui/index.ts";
 import * as raw from "../src/raw/index.ts";
 import type { WindowDocument } from "../src/ui/document.ts";
-import { buildProject, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
+import { buildProject, checkOptionKeys, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
 import type { CompileOutput, KotlinOptions, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
 
 const encoder = new TextEncoder();
@@ -63,24 +63,57 @@ test("project JSON omits empty fonts and sprites", () => {
     assert.deepEqual(JSON.parse(JSON.stringify(buildProject([shop], {}, 88))), {
         windows: shop.windows,
         huds: [],
-        options: { hud_shaders: false },
+        options: { core_shaders: { hud: false } },
         target: { pack_format: 88 },
     });
     const runes = { texture: "window/runes.png", chars: ["ab"] };
     const project = buildProject(
         [{ fonts: { runes } }, { ...status, window: shop.windows[0]! }],
-        { hudShaders: true },
+        { coreShaders: { hud: true } },
         84,
     );
     assert.deepEqual(project.fonts, { runes });
     assert.deepEqual(project.windows, shop.windows);
     assert.deepEqual(project.huds, status.huds);
-    assert.deepEqual(project.options, { hud_shaders: true });
+    assert.deepEqual(project.options, { core_shaders: { hud: true } });
     assert.deepEqual(project.target, { pack_format: 84 });
     assert.throws(
         () => buildProject([{ fonts: { runes } }, { fonts: { runes } }], {}, 84),
         /fonts declare `runes` twice/,
     );
+});
+
+test("vanilla and experimental options reach the project JSON in snake_case", () => {
+    const vanilla = { anvil: { field: "f", background: false }, hud: { hotbar: false } };
+    const { options } = buildProject([shop], { vanilla, experimental: { anvilUpdates: true } }, 88);
+    assert.deepEqual(options, {
+        core_shaders: { hud: false },
+        vanilla,
+        experimental: { anvil_updates: true },
+    });
+});
+
+test("unknown plugin option keys fail naming the key and the accepted keys", () => {
+    checkOptionKeys({
+        namespace: "x",
+        coreShaders: { hud: true },
+        vanilla: { anvil: { field: false, background: "bg" }, hud: { hotbar: false } },
+        experimental: { anvilUpdates: true },
+        kotlin: { package: "p", output: "o", target: "minestom" },
+    });
+    assert.throws(
+        () => checkOptionKeys({ hudShaders: true }),
+        /`hudShaders` is unknown; accepted keys: namespace, coreShaders/,
+    );
+    assert.throws(
+        () => checkOptionKeys({ coreShaders: { enableHud: true } }),
+        /`coreShaders\.enableHud`.*in `coreShaders`: hud$/,
+    );
+    assert.throws(
+        () => checkOptionKeys({ vanilla: { hud: { hearts: false } } }),
+        /`vanilla\.hud\.hearts`.*hotbar, health/,
+    );
+    assert.throws(() => checkOptionKeys({ vanilla: true }), /`vanilla` must be an object/);
 });
 
 test("referenced resource textures are added once", () => {

@@ -29,7 +29,7 @@ export const icons = {
     check: texture("window/icons/check.png"),
 };
 
-/** Runtime sprites Kotlin selects; `search_field` restyles the anvil's text field through `anvilFieldSprite`. */
+/** Runtime sprites Kotlin selects; `search_field` restyles the anvil's text field through `vanilla.anvil.field`. */
 export default {
     sprites: {
         coin,

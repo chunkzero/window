@@ -27,6 +27,7 @@ mod inventory;
 mod metrics;
 mod sprites;
 mod switches;
+mod vanilla_hud;
 mod window;
 
 #[cfg(test)]
@@ -162,12 +163,12 @@ fn compile_layouts(
     windows.sort_by(|a, b| a.name.cmp(&b.name));
     let mut huds: Vec<&LaidOutHud> = huds.iter().collect();
     huds.sort_by(|a, b| a.name.cmp(&b.name));
-    if !options.hud_shaders
+    if !options.core_shaders.hud
         && let Some(hud) = huds.iter().find(|h| h.shader.is_some())
     {
         return Err(Error::Validation(format!(
-            "HUD `{}` uses `shader` placement, but hudShaders is disabled; set `hudShaders: true` in the Window \
-             plugin options or remove the HUD `shader` placement",
+            "HUD `{}` uses `shader` placement, but `coreShaders.hud` is disabled; set `coreShaders: {{ hud: true }}` \
+             in the Window plugin options or remove the HUD `shader` placement",
             hud.name
         )));
     }
@@ -180,19 +181,16 @@ fn compile_layouts(
     let mut composites = glyphs::compose_layers(&windows, &huds, textures)?;
     let mut field_warnings = Vec::new();
     for (w, layers) in windows.iter().zip(&mut composites.windows) {
-        anvil::check_title(w, options.experimental_anvil_updates, &mut field_warnings)?;
+        anvil::check_title(w, options.experimental.anvil_updates, &mut field_warnings)?;
         anvil::open_field(w, layers, &mut field_warnings);
     }
     let used_sprites = uses_runtime_sprites.then_some(runtime_sprites);
     let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
     ctx.warnings.extend(field_warnings);
-    if windows.iter().any(|w| !w.inputs.is_empty()) {
-        ctx.files.extend(anvil::hidden_vanilla_art()?);
-    }
-    if let Some(sprite) = &options.anvil_field_sprite {
-        ctx.files.extend(anvil::field_sprites(runtime_sprites, sprite)?);
-    }
+    let has_anvil_input = windows.iter().any(|w| !w.inputs.is_empty());
+    ctx.files.extend(anvil::vanilla_files(runtime_sprites, &options.vanilla.anvil, has_anvil_input)?);
+    ctx.files.extend(vanilla_hud::blank_sprites(&options.vanilla.blank_hud, target.pack_format)?);
 
     let sprites = if uses_runtime_sprites { sprites::sprite_entries(&mut ctx) } else { BTreeMap::new() };
     let mut window_entries = BTreeMap::new();
@@ -206,7 +204,7 @@ fn compile_layouts(
     }
 
     fonts::emit_fonts(&mut ctx)?;
-    if options.hud_shaders {
+    if options.core_shaders.hud {
         hud::emit_shader_files(&mut ctx, target.pack_format, &huds)?;
     }
     let manifest = ctx.manifest(sprites, window_entries, hud_entries);

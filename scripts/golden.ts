@@ -9,8 +9,8 @@ import { fileURLToPath } from "node:url";
 
 interface Case {
     packFormat: number;
-    hudShaders?: boolean;
-    anvilFieldSprite?: string;
+    /** Plugin options other than `kotlin`, as written in `window({ ... })`. */
+    window?: Record<string, unknown>;
     kotlinPackage?: string;
     /** Required with `kotlinPackage`. */
     kotlinTarget?: "agnostic" | "minestom" | "multistom";
@@ -46,10 +46,7 @@ function tsProject(caseDir: string, dir: string, options: Case): void {
     copyTree(join(caseDir, "ts"), join(dir, "src"));
     write(join(dir, "rpp.json"), JSON.stringify({ dependencies: { window: `path:${pluginDir}` } }));
     const windowOptions = [
-        `hudShaders: ${options.hudShaders === true}`,
-        ...(options.anvilFieldSprite === undefined
-            ? []
-            : [`anvilFieldSprite: ${JSON.stringify(options.anvilFieldSprite)}`]),
+        ...Object.entries(options.window ?? {}).map(([key, value]) => `${key}: ${JSON.stringify(value)}`),
         ...(options.kotlinPackage === undefined
             ? []
             : [

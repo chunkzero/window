@@ -261,7 +261,7 @@ fn parses_generated_art() {
 #[test]
 fn parses_hud_project_json() {
     let json = br##"{
-      "options": { "hud_shaders": true },
+      "options": { "core_shaders": { "hud": true } },
       "target": { "pack_format": 84 },
       "huds": [{
         "name": "status",
@@ -283,7 +283,7 @@ fn parses_hud_project_json() {
     }"##;
 
     let project = project_from_json(json).unwrap();
-    assert!(project.options.hud_shaders);
+    assert!(project.options.core_shaders.hud);
     assert_eq!(project.target.pack_format, Some(84));
     assert_eq!(project.huds[0].name, "status");
     assert_eq!(project.huds[0].channel, HudChannel::ActionBar);

@@ -132,7 +132,7 @@ export interface IndustrialArt {
     lampOff: Var<ShapeArt>;
     /** 18x18, over a collection's selected cell. */
     slotSelected: Var<ShapeArt>;
-    /** 110x16, a sunken field for the `anvilFieldSprite` plugin option. */
+    /** 110x16, a sunken field for the `vanilla.anvil.field` plugin option. */
     inputField: Var<ShapeArt>;
 }
 

@@ -26,7 +26,7 @@ export const ventSlot = derive((get) => ({
     height: 2,
 }));
 
-/** The anvil's text field, restyled pack-wide through `anvilFieldSprite`. */
+/** The anvil's text field, restyled pack-wide through `vanilla.anvil.field`. */
 export const searchField = derive((get) => ({ ...get(art.recess), width: 110, height: 16 }));
 
 export const icons = {

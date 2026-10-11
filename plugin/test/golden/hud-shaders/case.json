@@ -1,1 +1,6 @@
-{ "packFormat": 84, "hudShaders": true, "kotlinPackage": "golden.hud", "kotlinTarget": "minestom" }
+{
+  "packFormat": 84,
+  "window": { "coreShaders": { "hud": true } },
+  "kotlinPackage": "golden.hud",
+  "kotlinTarget": "minestom"
+}

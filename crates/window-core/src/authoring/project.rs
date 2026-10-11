@@ -7,7 +7,9 @@ use super::element::{ElementDto, check_shared, collect_handles, convert_children
 use super::hud::HudDto;
 use super::insets::InsetsDto;
 use super::parse::{sprite_key, validate_name};
-use super::{BuildOptions, PackTarget, ParsedProject};
+use super::{
+    BuildOptions, CoreShaders, Experimental, HudGroup, PackTarget, ParsedProject, Replacement, Vanilla, VanillaAnvil,
+};
 use crate::ir::Handle;
 use crate::model::{Art, FontDef, Hud, Window};
 use crate::surface::ContainerKind;
@@ -36,11 +38,106 @@ pub(super) struct ProjectDto {
 #[serde(deny_unknown_fields)]
 struct OptionsDto {
     #[serde(default)]
-    hud_shaders: bool,
+    core_shaders: CoreShadersDto,
     #[serde(default)]
-    anvil_field_sprite: Option<String>,
+    vanilla: VanillaDto,
     #[serde(default)]
-    experimental_anvil_updates: bool,
+    experimental: ExperimentalDto,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CoreShadersDto {
+    #[serde(default)]
+    hud: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExperimentalDto {
+    #[serde(default)]
+    anvil_updates: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VanillaDto {
+    #[serde(default)]
+    anvil: VanillaAnvilDto,
+    #[serde(default)]
+    hud: VanillaHudDto,
+}
+
+/// A `vanilla` value: a catalog sprite name, `false` to blank, or `true` to keep.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum TextureDto {
+    Flag(bool),
+    Sprite(String),
+}
+
+impl TextureDto {
+    fn into_replacement(self, path: &str) -> Result<Replacement> {
+        Ok(match self {
+            Self::Flag(true) => Replacement::Keep,
+            Self::Flag(false) => Replacement::Blank,
+            Self::Sprite(name) => Replacement::Sprite(sprite_key(&name, path)?),
+        })
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VanillaAnvilDto {
+    field: Option<TextureDto>,
+    background: Option<TextureDto>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VanillaHudDto {
+    hotbar: Option<bool>,
+    health: Option<bool>,
+    food: Option<bool>,
+    armor: Option<bool>,
+    air: Option<bool>,
+    experience: Option<bool>,
+    crosshair: Option<bool>,
+}
+
+impl VanillaHudDto {
+    fn blanked(&self) -> BTreeSet<HudGroup> {
+        [
+            (self.hotbar, HudGroup::Hotbar),
+            (self.health, HudGroup::Health),
+            (self.food, HudGroup::Food),
+            (self.armor, HudGroup::Armor),
+            (self.air, HudGroup::Air),
+            (self.experience, HudGroup::Experience),
+            (self.crosshair, HudGroup::Crosshair),
+        ]
+        .into_iter()
+        .filter_map(|(keep, group)| (keep == Some(false)).then_some(group))
+        .collect()
+    }
+}
+
+impl VanillaDto {
+    fn into_options(self) -> Result<Vanilla> {
+        let VanillaAnvilDto { field, background } = self.anvil;
+        Ok(Vanilla {
+            anvil: VanillaAnvil {
+                field: field
+                    .map(|field| field.into_replacement("vanilla.anvil.field"))
+                    .transpose()?
+                    .unwrap_or_default(),
+                background: background
+                    .map(|background| background.into_replacement("vanilla.anvil.background"))
+                    .transpose()?,
+            },
+            blank_hud: self.hud.blanked(),
+        })
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,17 +194,15 @@ impl ProjectDto {
                 .iter()
                 .map(|(owner, handles)| (owner.as_str(), *handles)),
         )?;
-        let anvil_field_sprite =
-            self.options.anvil_field_sprite.map(|name| sprite_key(&name, "anvilFieldSprite")).transpose()?;
         Ok(ParsedProject {
             art,
             fonts,
             windows,
             huds,
             options: BuildOptions {
-                hud_shaders: self.options.hud_shaders,
-                anvil_field_sprite,
-                experimental_anvil_updates: self.options.experimental_anvil_updates,
+                core_shaders: CoreShaders { hud: self.options.core_shaders.hud },
+                vanilla: self.options.vanilla.into_options()?,
+                experimental: Experimental { anvil_updates: self.options.experimental.anvil_updates },
             },
             target: PackTarget { pack_format: self.target.pack_format },
         })

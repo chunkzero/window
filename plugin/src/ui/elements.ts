@@ -251,7 +251,7 @@ export function collection(bind: Collection, opts: CollectionOptions = {}): Coll
 
 /**
  * The vanilla anvil rename field of an `anvil` window, bound by an `input` handle. The window's title must stay
- * static: no text slots, runtime sprite slots, or collection selected sprites, unless `experimentalAnvilUpdates` is
+ * static: no text slots, runtime sprite slots, or collection selected sprites, unless `experimental.anvilUpdates` is
  * set.
  */
 export function input(bind: Input, opts?: AnvilInputOptions): AnvilInputElement {

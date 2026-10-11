@@ -30,5 +30,8 @@ fn shader_placed_hud_requires_hud_shaders() {
 
     let err = compile_layouts(&[], &[hud], &assets, "demo", &target, &BuildOptions::default()).unwrap_err();
 
-    assert!(err.to_string().contains("HUD `status` uses `shader` placement, but hudShaders is disabled"), "{err}");
+    assert!(
+        err.to_string().contains("HUD `status` uses `shader` placement, but `coreShaders.hud` is disabled"),
+        "{err}"
+    );
 }
