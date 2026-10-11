@@ -7,6 +7,7 @@ use crate::geometry::Point;
 use crate::hud::SegmentMarkers;
 use crate::ir::{HudShader, LaidOutHud, Rgb};
 use crate::manifest::{HudEntry, HudShaderEntry, HudSurfaceEntry};
+use crate::size::{Pane, Part};
 use crate::{Result, bake};
 
 use super::glyphs::{Layers, hud_key_prefix, hud_static_key};
@@ -23,7 +24,7 @@ pub(super) fn compile_hud(
     let static_text = bake_static(ctx, h, &layers.base)?;
     let file_base = format!("hud_{}", h.name);
     let switches = ctx.switch_entries(
-        &h.name,
+        pane(h),
         &hud_key_prefix(&h.name),
         &file_base,
         &h.switches,
@@ -54,6 +55,10 @@ pub(super) fn compile_hud(
     })
 }
 
+fn pane(h: &LaidOutHud) -> Pane<'_> {
+    Pane { hud: true, name: &h.name }
+}
+
 /// Shader HUDs bake at the origin; fallback HUDs pad to their fixed width.
 fn bake_static(ctx: &mut CompileContext<'_>, h: &LaidOutHud, comp: &Composite) -> Result<String> {
     if !comp.has_content {
@@ -61,7 +66,8 @@ fn bake_static(ctx: &mut CompileContext<'_>, h: &LaidOutHud, comp: &Composite) -
     }
     let ascent = 7 - comp.bounds.y;
     let file_stem = format!("hud_{}", h.name);
-    let glyph = ctx.emit_static_glyph(comp, ascent, &h.name, &file_stem, hud_static_key(&h.name))?;
+    let glyph =
+        ctx.emit_static_glyph(comp, ascent, &h.name, &file_stem, hud_static_key(&h.name), Part::static_art(pane(h)))?;
     Ok(if h.shader.is_some() {
         bake::bake_static_with_advance(glyph.glyph, &comp.bounds, Point::new(0, 0), glyph.advance)
     } else {
@@ -88,7 +94,9 @@ pub(super) fn emit_shader_files(
     huds: &[&LaidOutHud],
 ) -> Result<()> {
     let output = crate::hud::emit(pack_format, huds)?;
-    ctx.files.extend(output.files.into_iter().map(|file| OutputFile::text(file.path, file.contents)));
+    for file in output.files {
+        ctx.push(Part::Shader, OutputFile::text(file.path, file.contents));
+    }
     ctx.warnings.extend(output.warnings);
     Ok(())
 }

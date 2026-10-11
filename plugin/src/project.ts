@@ -43,6 +43,13 @@ export interface ExperimentalOptions {
     anvilUpdates?: boolean;
 }
 
+export interface SizeOptions {
+    /** Print a breakdown of the compiler's output after a successful build. */
+    report?: boolean;
+    /** Fail the build when the compiler's output exceeds this many bytes. A positive integer; omitted means no limit. */
+    budget?: number;
+}
+
 export interface WindowOptions {
     /** Namespace of the generated assets. Defaults to `window`. */
     namespace?: string;
@@ -50,11 +57,13 @@ export interface WindowOptions {
     /** Overrides for vanilla textures; see docs/AUTHORING.md. */
     vanilla?: VanillaOptions;
     experimental?: ExperimentalOptions;
+    /** Output size report and budget; see docs/AUTHORING.md. */
+    size?: SizeOptions;
     /** Generate Kotlin bindings. */
     kotlin?: KotlinOptions;
 }
 
-type LeafKind = "boolean" | "string" | "string or boolean";
+type LeafKind = "boolean" | "string" | "string or boolean" | "positive integer";
 
 /** An option object: each key maps to its leaf kind or, for a nested object, its own keys. */
 interface OptionTree {
@@ -69,6 +78,7 @@ const OPTION_TREE: OptionTree = {
         hud: Object.fromEntries(hudGroups.map((group) => [group, "boolean"])),
     },
     experimental: { anvilUpdates: "boolean" },
+    size: { report: "boolean", budget: "positive integer" },
 };
 
 /** The `kotlin` keys of `window()`'s config. */
@@ -78,6 +88,9 @@ const AUTHORED_KOTLIN: OptionTree = { package: "string", output: "string", targe
 const PLUGIN_KOTLIN: OptionTree = { packageName: "string", target: "string" };
 
 function hasKind(kind: LeafKind, value: unknown): boolean {
+    if (kind === "positive integer") {
+        return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+    }
     return (kind !== "string" && typeof value === "boolean") || (kind !== "boolean" && typeof value === "string");
 }
 
@@ -156,6 +169,8 @@ export interface CompileOutput {
     files: OutputFile[];
     kotlinFiles: OutputFile[];
     warnings: string[];
+    /** The size breakdown, present when `size.report` is set. */
+    sizeReport?: string;
 }
 
 export type Compile = (
@@ -174,6 +189,7 @@ export interface ProjectJson {
         core_shaders: { hud: boolean };
         vanilla?: VanillaOptions;
         experimental?: { anvil_updates: true };
+        size?: { report: boolean; budget?: number };
     };
     target: { pack_format: number };
 }
@@ -255,6 +271,14 @@ export function buildProject(
             core_shaders: { hud: options.coreShaders?.hud === true },
             ...(options.vanilla === undefined ? {} : { vanilla: options.vanilla }),
             ...(options.experimental?.anvilUpdates === true ? { experimental: { anvil_updates: true } } : {}),
+            ...(options.size === undefined
+                ? {}
+                : {
+                      size: {
+                          report: options.size.report === true,
+                          ...(options.size.budget === undefined ? {} : { budget: options.size.budget }),
+                      },
+                  }),
         },
         target: { pack_format: packFormat },
     };
@@ -456,5 +480,8 @@ export function generate(ctx: WindowContext, compile: Compile): void {
         for (const file of output.kotlinFiles) {
             ctx.emitOutput("kotlin", file.path, file.contents.val);
         }
+    }
+    if (output.sizeReport !== undefined) {
+        console.log(output.sizeReport);
     }
 }

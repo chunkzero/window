@@ -16,6 +16,7 @@ use crate::font::{shifted_suffix, spacer_table, text_font_suffix};
 use crate::geometry::Size;
 use crate::ir::{LaidOutHud, LaidOutWindow, SlotIr};
 use crate::manifest::{HudEntry, Manifest, SpriteEntry, VERSION, WindowEntry};
+use crate::size::{Part, SizeLedger};
 use crate::text_font::TextFonts;
 use crate::{Error, Result, text_font, vanilla};
 
@@ -98,6 +99,8 @@ pub struct CompileOutput {
     pub warnings: Vec<String>,
     /// The typed runtime/codegen contract built from the authored project.
     pub manifest: Manifest,
+    /// The size of each emitted file by part, for [`crate::size::SizeReport`].
+    pub sizes: SizeLedger,
 }
 
 /// Compile a TypeScript-authored Window project into pack artifacts.
@@ -189,8 +192,12 @@ fn compile_layouts(
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
     ctx.warnings.extend(field_warnings);
     let has_anvil_input = windows.iter().any(|w| !w.inputs.is_empty());
-    ctx.files.extend(anvil::vanilla_files(runtime_sprites, &options.vanilla.anvil, has_anvil_input)?);
-    ctx.files.extend(vanilla_hud::blank_sprites(&options.vanilla.blank_hud, target.pack_format)?);
+    for file in anvil::vanilla_files(runtime_sprites, &options.vanilla.anvil, has_anvil_input)? {
+        ctx.push(Part::Vanilla, file);
+    }
+    for file in vanilla_hud::blank_sprites(&options.vanilla.blank_hud, target.pack_format)? {
+        ctx.push(Part::Vanilla, file);
+    }
 
     let sprites = if uses_runtime_sprites { sprites::sprite_entries(&mut ctx) } else { BTreeMap::new() };
     let mut window_entries = BTreeMap::new();
@@ -235,6 +242,7 @@ struct CompileContext<'a> {
     text_fonts: &'a TextFonts,
     codepoints: BTreeMap<String, u32>,
     files: Vec<OutputFile>,
+    sizes: SizeLedger,
     warnings: Vec<String>,
     bitmap_providers: Vec<serde_json::Value>,
     shift_offsets: BTreeSet<i32>,
@@ -255,12 +263,19 @@ impl<'a> CompileContext<'a> {
             text_fonts,
             codepoints,
             files: Vec::new(),
+            sizes: SizeLedger::default(),
             warnings: Vec::new(),
             bitmap_providers: Vec::new(),
             shift_offsets: BTreeSet::new(),
             text_font_offsets: BTreeSet::new(),
             sprite_offsets: BTreeSet::new(),
         }
+    }
+
+    /// Adds `file` to the output, attributed to `part`.
+    fn push(&mut self, part: Part, file: OutputFile) {
+        self.sizes.record(part, &file);
+        self.files.push(file);
     }
 
     /// Registers the font `slot` draws with at vertical offset `k` and returns its id.
@@ -312,8 +327,11 @@ impl<'a> CompileContext<'a> {
         let mut files = self.files;
         files.sort_by(|a, b| a.path.cmp(&b.path));
         let debug_descriptor = crate::debug::DebugDescriptor::build(&manifest, &files)?;
-        files.push(OutputFile::text(crate::debug::output_path(self.namespace), debug_descriptor.to_json()?));
+        let debug = OutputFile::text(crate::debug::output_path(self.namespace), debug_descriptor.to_json()?);
+        let mut sizes = self.sizes;
+        sizes.record(Part::Debug, &debug);
+        files.push(debug);
         files.sort_by(|a, b| a.path.cmp(&b.path));
-        Ok(CompileOutput { files, warnings: self.warnings, manifest })
+        Ok(CompileOutput { files, warnings: self.warnings, manifest, sizes })
     }
 }

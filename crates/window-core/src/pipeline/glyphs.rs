@@ -6,6 +6,7 @@ use crate::compose::{Composite, RasterCache, Texture, compose_draws_cached};
 use crate::font::{allocate, bitmap_provider};
 use crate::geometry::Size;
 use crate::ir::{Draw, LaidOutHud, LaidOutWindow, SwitchIr};
+use crate::size::Part;
 use crate::{Error, Result};
 
 use super::metrics::bitmap_metrics;
@@ -132,16 +133,18 @@ impl CompileContext<'_> {
         name: &str,
         file_base: &str,
         key: String,
+        part: Part,
     ) -> Result<StaticGlyph> {
         let texture = provider_texture(comp, ascent, name)?;
         let advance = bitmap_metrics(&texture, Size::new(texture.width, texture.height)).advance;
         let glyph = char::from_u32(self.codepoints[&key]).expect("glyph codepoint is a valid char");
         let provider = bitmap_provider(self.namespace, file_base, texture.height, ascent, glyph)?;
         self.bitmap_providers.push(provider);
-        self.files.push(OutputFile::binary(
+        let file = OutputFile::binary(
             format!("assets/{}/textures/font/{file_base}.png", self.namespace),
             texture.encode_png()?,
-        ));
+        );
+        self.push(part, file);
         Ok(StaticGlyph { glyph, advance })
     }
 }

@@ -8,6 +8,7 @@ use crate::compose::Composite;
 use crate::geometry::Point;
 use crate::ir::SwitchIr;
 use crate::manifest::{SwitchCaseEntry, SwitchEntry};
+use crate::size::{Pane, Part};
 
 use super::CompileContext;
 use super::glyphs::case_key;
@@ -17,7 +18,7 @@ impl CompileContext<'_> {
     /// `[switch][case]`. `key_prefix` and `file_base` name the owning surface's glyph keys and textures.
     pub(super) fn switch_entries(
         &mut self,
-        owner: &str,
+        pane: Pane<'_>,
         key_prefix: &str,
         file_base: &str,
         switches: &[SwitchIr],
@@ -32,7 +33,7 @@ impl CompileContext<'_> {
                     let ascent = origin.y + 7 - comp.bounds.y;
                     let file = format!("{file_base}_switch/{}/{}", path_segment(&switch.name), case.value);
                     let key = case_key(key_prefix, &switch.name, &case.value);
-                    let glyph = self.emit_static_glyph(comp, ascent, owner, &file, key)?;
+                    let glyph = self.emit_static_glyph(comp, ascent, pane.name, &file, key, Part::switch_case(pane))?;
                     bake::bake_static_with_advance(glyph.glyph, &comp.bounds, origin, glyph.advance)
                 } else {
                     bake::bake_empty()

@@ -51,6 +51,17 @@ pub struct BuildOptions {
     pub vanilla: Vanilla,
     /// `experimental`: options that may change or break.
     pub experimental: Experimental,
+    /// `size`: the output size report and budget.
+    pub size: SizeOptions,
+}
+
+/// `size` options.
+#[derive(Clone, Debug, Default)]
+pub struct SizeOptions {
+    /// `size.report`: print the output size breakdown after a successful build.
+    pub report: bool,
+    /// `size.budget`: fail the build when the output exceeds this many bytes.
+    pub budget: Option<u64>,
 }
 
 /// `coreShaders` options.

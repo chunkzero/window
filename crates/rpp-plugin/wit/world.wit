@@ -33,6 +33,8 @@ world window-compiler {
         files: list<output-file>,
         kotlin-files: list<output-file>,
         warnings: list<string>,
+        /// The output size breakdown, present when `size.report` is set.
+        size-report: option<string>,
     }
 
     export compile: func(

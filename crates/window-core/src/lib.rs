@@ -24,6 +24,7 @@ pub mod manifest;
 pub mod model;
 pub mod pipeline;
 pub mod raster;
+pub mod size;
 pub mod surface;
 pub mod text_font;
 pub mod validation;

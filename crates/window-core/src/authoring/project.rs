@@ -8,7 +8,8 @@ use super::hud::HudDto;
 use super::insets::InsetsDto;
 use super::parse::{sprite_key, validate_name};
 use super::{
-    BuildOptions, CoreShaders, Experimental, HudGroup, PackTarget, ParsedProject, Replacement, Vanilla, VanillaAnvil,
+    BuildOptions, CoreShaders, Experimental, HudGroup, PackTarget, ParsedProject, Replacement, SizeOptions, Vanilla,
+    VanillaAnvil,
 };
 use crate::ir::Handle;
 use crate::model::{Art, FontDef, Hud, Window};
@@ -43,6 +44,16 @@ struct OptionsDto {
     vanilla: VanillaDto,
     #[serde(default)]
     experimental: ExperimentalDto,
+    #[serde(default)]
+    size: SizeDto,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SizeDto {
+    #[serde(default)]
+    report: bool,
+    budget: Option<u64>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -194,6 +205,9 @@ impl ProjectDto {
                 .iter()
                 .map(|(owner, handles)| (owner.as_str(), *handles)),
         )?;
+        if self.options.size.budget == Some(0) {
+            return Err(Error::Validation("`size.budget` must be a positive integer".into()));
+        }
         Ok(ParsedProject {
             art,
             fonts,
@@ -203,6 +217,7 @@ impl ProjectDto {
                 core_shaders: CoreShaders { hud: self.options.core_shaders.hud },
                 vanilla: self.options.vanilla.into_options()?,
                 experimental: Experimental { anvil_updates: self.options.experimental.anvil_updates },
+                size: SizeOptions { report: self.options.size.report, budget: self.options.size.budget },
             },
             target: PackTarget { pack_format: self.target.pack_format },
         })

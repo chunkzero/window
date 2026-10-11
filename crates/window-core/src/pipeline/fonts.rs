@@ -8,6 +8,7 @@ use crate::font::{
     text_font_suffix,
 };
 use crate::manifest::FontMetricsEntry;
+use crate::size::Part;
 use crate::{Error, Result, vanilla};
 
 use super::glyphs::sprite_glyph;
@@ -21,35 +22,45 @@ use super::{CompileContext, OutputFile};
 pub(super) fn emit_fonts(ctx: &mut CompileContext<'_>) -> Result<()> {
     let namespace = ctx.namespace;
     let main = main_font(space_provider(), std::mem::take(&mut ctx.bitmap_providers));
-    ctx.files.push(OutputFile::text(format!("assets/{namespace}/font/ui.json"), to_json(&main)?));
-    emit_hitbox_item(namespace, &mut ctx.files)?;
+    ctx.push(Part::MainFont, OutputFile::text(format!("assets/{namespace}/font/ui.json"), to_json(&main)?));
+    for file in hitbox_item(namespace)? {
+        ctx.push(Part::Hitbox, file);
+    }
 
+    let mut emitted = Vec::new();
     for k in &ctx.shift_offsets {
-        ctx.files.push(OutputFile::text(
-            format!("assets/{namespace}/font/{}.json", shifted_suffix(*k)),
-            to_json(&shifted_font(*k)?)?,
-        ));
+        let suffix = shifted_suffix(*k);
+        let file = OutputFile::text(format!("assets/{namespace}/font/{suffix}.json"), to_json(&shifted_font(*k)?)?);
+        emitted.push((Part::TextRowFont(suffix), file));
     }
     let mut sheets = BTreeSet::new();
     for &(name, k) in &ctx.text_font_offsets {
         let font = &ctx.text_fonts[name];
         let file = format!("{namespace}:font/text/{name}.png");
-        ctx.files.push(OutputFile::text(
-            format!("assets/{namespace}/font/{}.json", text_font_suffix(name, k)),
+        let suffix = text_font_suffix(name, k);
+        let document = OutputFile::text(
+            format!("assets/{namespace}/font/{suffix}.json"),
             to_json(&text_font(&file, &font.chars, k)?)?,
-        ));
+        );
+        emitted.push((Part::TextRowFont(suffix), document));
         if sheets.insert(name) {
-            ctx.files.push(OutputFile::binary(
+            let sheet = OutputFile::binary(
                 format!("assets/{namespace}/textures/font/text/{name}.png"),
                 font.texture.encode_png()?,
-            ));
+            );
+            emitted.push((Part::TextSheet, sheet));
         }
     }
     for k in &ctx.sprite_offsets {
-        ctx.files.push(OutputFile::text(
-            format!("assets/{namespace}/font/sprite_{}.json", shifted_suffix(*k)),
+        let suffix = format!("sprite_{}", shifted_suffix(*k));
+        let document = OutputFile::text(
+            format!("assets/{namespace}/font/{suffix}.json"),
             to_json(&sprite_font(*k, ctx.runtime_sprites, &ctx.codepoints)?)?,
-        ));
+        );
+        emitted.push((Part::SpriteFont(suffix), document));
+    }
+    for (part, file) in emitted {
+        ctx.push(part, file);
     }
     Ok(())
 }
@@ -95,35 +106,36 @@ pub(super) fn font_metrics(
     metrics
 }
 
-fn emit_hitbox_item(namespace: &str, files: &mut Vec<OutputFile>) -> Result<()> {
-    files.push(OutputFile::text(
-        format!("assets/{namespace}/items/gui/hitbox.json"),
-        to_json(&serde_json::json!({
-            "model": {
-                "type": "minecraft:model",
-                "model": format!("{namespace}:gui/hitbox"),
-            },
-        }))?,
-    ));
-    files.push(OutputFile::text(
-        format!("assets/{namespace}/models/gui/hitbox.json"),
-        to_json(&serde_json::json!({
-            "parent": "minecraft:item/generated",
-            "textures": {
-                "layer0": "minecraft:item/barrier",
-            },
-            "display": {
-                "gui": {
-                    "scale": [0, 0, 0],
+fn hitbox_item(namespace: &str) -> Result<[OutputFile; 3]> {
+    Ok([
+        OutputFile::text(
+            format!("assets/{namespace}/items/gui/hitbox.json"),
+            to_json(&serde_json::json!({
+                "model": {
+                    "type": "minecraft:model",
+                    "model": format!("{namespace}:gui/hitbox"),
                 },
-            },
-        }))?,
-    ));
-    files.push(OutputFile::binary(
-        format!("assets/{namespace}/textures/gui/hitbox.png"),
-        Texture { width: 1, height: 1, rgba: vec![0, 0, 0, 0] }.encode_png()?,
-    ));
-    Ok(())
+            }))?,
+        ),
+        OutputFile::text(
+            format!("assets/{namespace}/models/gui/hitbox.json"),
+            to_json(&serde_json::json!({
+                "parent": "minecraft:item/generated",
+                "textures": {
+                    "layer0": "minecraft:item/barrier",
+                },
+                "display": {
+                    "gui": {
+                        "scale": [0, 0, 0],
+                    },
+                },
+            }))?,
+        ),
+        OutputFile::binary(
+            format!("assets/{namespace}/textures/gui/hitbox.png"),
+            Texture { width: 1, height: 1, rgba: vec![0, 0, 0, 0] }.encode_png()?,
+        ),
+    ])
 }
 
 /// Serialize a JSON value deterministically (pretty, trailing newline).

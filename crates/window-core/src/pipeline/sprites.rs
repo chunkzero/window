@@ -7,6 +7,7 @@ use crate::compose::Texture;
 use crate::geometry::{Rect, Size};
 use crate::manifest::SpriteEntry;
 use crate::model::{GeneratedStyle, SpriteDef};
+use crate::size::Part;
 use crate::{Error, Result};
 
 use super::glyphs::sprite_glyph;
@@ -139,7 +140,7 @@ pub(super) fn sprite_entries(ctx: &mut CompileContext<'_>) -> BTreeMap<String, S
     let mut entries = BTreeMap::new();
     for (name, asset) in ctx.runtime_sprites {
         if let Some(output) = &asset.output {
-            ctx.files.push(output.clone());
+            ctx.push(Part::SpriteTexture, output.clone());
         }
         let glyph = sprite_glyph(name, &ctx.codepoints);
         entries.insert(
