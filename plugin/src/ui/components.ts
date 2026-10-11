@@ -137,6 +137,11 @@ export interface RegionProps extends ItemProps, DebugProps {
     /** What a click does; omit for a hover-only region. */
     onClick?: ClickAction;
     tooltip?: string | Tooltip;
+    /**
+     * Whether hovering outlines the region. Only for packs with `coreShaders.hover`, where it defaults to whether
+     * the region has an `onClick`.
+     */
+    hover?: boolean;
     /** Item model of the hitbox item filling its slots. */
     itemModel?: string;
     width?: number;
@@ -455,6 +460,7 @@ export function Region(input: RegionProps): Element {
         clean({
             on_click: props.onClick,
             tooltip: props.tooltip,
+            hover: props.hover,
             item_model: props.itemModel,
             width: props.width,
             height: props.height,

@@ -91,6 +91,7 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (any(&|w| !w.art.is_empty()), "ArtEntry"),
         (any(&|w| w.art.values().any(|art| art.bar.is_some())), "BarEntry"),
         (has_hitbox, "HitboxEntry"),
+        (any(&|w| w.regions.values().any(|r| r.hover.is_some())), "HoverEntry"),
         (any(&|w| !w.items.is_empty()), "ItemEntry"),
         (has_layers, "LayerEntry"),
         (has_layers, "LayerKind"),

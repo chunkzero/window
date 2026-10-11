@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 
 use crate::ir::{Hitbox, Layer, Tooltip};
 use crate::manifest::{
-    AnvilInputEntry, ArtEntry, BarEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry,
-    RegionEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry,
-    SwitchCaseEntry, SwitchEntry, TextOverflow,
+    AnvilInputEntry, ArtEntry, BarEntry, CollectionEntry, FontMetricsEntry, HoverEntry, HudShaderEntry,
+    HudSurfaceEntry, ItemEntry, RegionEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry,
+    SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry, SwitchEntry, TextOverflow,
 };
 
 use super::literals::{
@@ -179,7 +179,7 @@ pub(super) fn font_metrics_expr(
 pub(super) fn region_entry_expr(region: &RegionEntry, level: usize) -> String {
     let inner = level + 1;
     let fill_slots = region.fill_slots.as_ref().map_or_else(|| "null".into(), |slots| slot_ref_list_expr(slots, inner));
-    Call::new("RegionEntry", level)
+    let call = Call::new("RegionEntry", level)
         .arg("x", region.x)
         .arg("y", region.y)
         .arg("width", region.width)
@@ -189,8 +189,15 @@ pub(super) fn region_entry_expr(region: &RegionEntry, level: usize) -> String {
         .arg("action", optional_string_expr(region.action.as_ref()))
         .arg("defaultAction", optional_string_expr(region.default_action.as_ref()))
         .arg("hitbox", optional_hitbox_expr(region.hitbox.as_ref(), inner))
-        .arg("source", optional_string_expr(region.source.as_ref()))
-        .finish()
+        .arg("source", optional_string_expr(region.source.as_ref()));
+    match &region.hover {
+        Some(hover) => call.arg("hover", hover_entry_expr(hover, inner)).finish(),
+        None => call.finish(),
+    }
+}
+
+fn hover_entry_expr(hover: &HoverEntry, level: usize) -> String {
+    Call::new("HoverEntry", level).arg("text", kt_string(&hover.text)).arg("x", hover.x).arg("y", hover.y).finish()
 }
 
 fn optional_hitbox_expr(hitbox: Option<&Hitbox>, level: usize) -> String {

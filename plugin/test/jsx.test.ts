@@ -80,6 +80,8 @@ test("handle props serialize the handle in place of a name", () => {
         kind: "builtin",
         id: "window:close",
     });
+    assert.equal(fields(Region({ onClick: builtin("window:close"), hover: false }))["hover"], false);
+    assert.equal("hover" in fields(Region({ onClick: builtin("window:close") })), false);
 });
 
 test("selection helpers carry the compared or assigned value", () => {

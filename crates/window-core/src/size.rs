@@ -45,6 +45,7 @@ pub(crate) enum Part {
     Shader,
     Vanilla,
     Hitbox,
+    Hover,
     Debug,
     Kotlin,
 }
@@ -202,6 +203,7 @@ fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u
             Part::Shader => "shaders",
             Part::Vanilla => "vanilla overrides",
             Part::Hitbox => "hitbox item",
+            Part::Hover => "hover outlines",
             Part::Debug => "debug descriptor",
             Part::Kotlin => "kotlin",
         };

@@ -219,6 +219,7 @@ export function region(opts: RegionOptions = {}): RegionElement {
     const out = element("region", opts, [
         "on_click",
         "tooltip",
+        "hover",
         "item_model",
         "width",
         "height",

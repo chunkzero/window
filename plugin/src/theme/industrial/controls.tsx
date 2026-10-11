@@ -28,6 +28,7 @@ function region(props: FaceProps, current: StateProps, onClick: ClickAction | un
         <Region
             onClick={onClick}
             tooltip={current.tooltip ?? props.tooltip}
+            hover={onClick === undefined ? undefined : props.hover}
             itemModel={current.itemModel ?? props.itemModel}
         />
     );
@@ -227,6 +228,8 @@ export function Tabs<V extends string>(props: TabsProps<V>): Element[] {
 
 export interface HotspotProps extends ItemStyle, DebugProps {
     tooltip: string | Tooltip;
+    /** Whether hovering outlines its slots; see `<Region hover>`. */
+    hover?: boolean;
     itemModel?: string;
 }
 

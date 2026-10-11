@@ -105,6 +105,7 @@ fn sample_buy_region() -> RegionEntry {
         action: Some("buy".into()),
         default_action: None,
         hitbox: Some(Hitbox { item_model: Some("demo:gui/buy".into()), tooltip: None }),
+        hover: None,
         source: Some("region `buy`".into()),
     }
 }

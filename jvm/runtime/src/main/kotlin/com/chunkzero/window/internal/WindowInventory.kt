@@ -157,11 +157,14 @@ internal class WindowInventory<I : Any>(
     ): WindowItem.AnvilSeed =
         WindowItem.AnvilSeed(input.itemModel?.let(Key::key) ?: definition.hitboxModel, value, revision)
 
-    /** Region [name]'s hitbox item. */
+    /** Region [name]'s hitbox item, which a region with a hover outline has even without a hitbox entry. */
     private fun regionItem(name: String): I? {
-        val hitbox = entry.regions.getValue(name).hitbox ?: return null
-        val model = hitbox.itemModel?.let(Key::key) ?: definition.hitboxModel
-        return buildItem(WindowItem.Hitbox(model, hitbox.tooltip?.let(::tooltip)))
+        val region = entry.regions.getValue(name)
+        if (region.hitbox == null && region.hover == null) return null
+        val model = region.hitbox?.itemModel?.let(Key::key) ?: definition.hitboxModel
+        val tooltip = region.hitbox?.tooltip?.let(::tooltip)
+        val hover = region.hover ?: return buildItem(WindowItem.Hitbox(model, tooltip))
+        return buildItem(definition.hoverOutlines.hitbox(model, hover, tooltip))
     }
 
     private fun writeSlots(

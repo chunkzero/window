@@ -79,6 +79,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             unowned: false,
             default_action: region.default_action.clone(),
             hitbox,
+            hover: region.hover,
             source,
         });
         Ok(())
@@ -130,6 +131,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             action: None,
             default_action: None,
             hitbox: None,
+            hover: None,
             source: source.to_string(),
         });
         Ok(())

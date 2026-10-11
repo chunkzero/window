@@ -7,6 +7,7 @@ import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.ArtEntry
 import com.chunkzero.window.manifest.BarEntry
 import com.chunkzero.window.manifest.HitboxEntry
+import com.chunkzero.window.manifest.HoverEntry
 import com.chunkzero.window.manifest.LayerEntry
 import com.chunkzero.window.manifest.LayerKind
 import com.chunkzero.window.manifest.RegionEntry
@@ -87,6 +88,11 @@ internal object WindowEntries {
                             defaultAction = null,
                             hitbox = null,
                             source = "region `back`",
+                            hover = HoverEntry(
+                                text = "\uF0E7\uDB80\uDC06\uDB80\uDC0A",
+                                x = -61,
+                                y = -36,
+                            ),
                         ),
                         "confirm" to RegionEntry(
                             x = 134,
@@ -110,6 +116,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `confirm`",
+                            hover = HoverEntry(
+                                text = "\uF0E7\uDB80\uDC06\uDB80\uDC0A",
+                                x = 46,
+                                y = -36,
+                            ),
                         ),
                         "hotbar_section" to RegionEntry(
                             x = 8,
@@ -852,6 +863,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `affordable~3`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = -26,
+                                y = 46,
+                            ),
                         ),
                         "affordable~5" to RegionEntry(
                             x = 62,
@@ -883,6 +899,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `affordable~5`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = -26,
+                                y = 46,
+                            ),
                         ),
                         "buy" to RegionEntry(
                             x = 8,
@@ -926,6 +947,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `buy`",
+                            hover = HoverEntry(
+                                text = "\uF517\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
+                                x = -80,
+                                y = 86,
+                            ),
                         ),
                         "category=all" to RegionEntry(
                             x = 8,
@@ -957,6 +983,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `category=all`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = -80,
+                                y = -93,
+                            ),
                         ),
                         "category=all~2" to RegionEntry(
                             x = 8,
@@ -988,6 +1019,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `category=all~2`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = -80,
+                                y = -93,
+                            ),
                         ),
                         "category=gear" to RegionEntry(
                             x = 62,
@@ -1019,6 +1055,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `category=gear`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = -26,
+                                y = -93,
+                            ),
                         ),
                         "category=gear~2" to RegionEntry(
                             x = 62,
@@ -1050,6 +1091,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `category=gear~2`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = -26,
+                                y = -93,
+                            ),
                         ),
                         "category=magic" to RegionEntry(
                             x = 116,
@@ -1081,6 +1127,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `category=magic`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = 28,
+                                y = -93,
+                            ),
                         ),
                         "category=magic~2" to RegionEntry(
                             x = 116,
@@ -1112,6 +1163,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `category=magic~2`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = 28,
+                                y = -93,
+                            ),
                         ),
                         "clear_search" to RegionEntry(
                             x = 152,
@@ -1135,6 +1191,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `clear_search`",
+                            hover = HoverEntry(
+                                text = "\uF0E7\uDB80\uDC06\uDB80\uDC0A",
+                                x = 64,
+                                y = 46,
+                            ),
                         ),
                         "container_section" to RegionEntry(
                             x = 8,
@@ -1227,6 +1288,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `favorites~3`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = -80,
+                                y = 46,
+                            ),
                         ),
                         "favorites~5" to RegionEntry(
                             x = 8,
@@ -1258,6 +1324,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `favorites~5`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = -80,
+                                y = 46,
+                            ),
                         ),
                         "next" to RegionEntry(
                             x = 116,
@@ -1289,6 +1360,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `next`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = 28,
+                                y = -21,
+                            ),
                         ),
                         "player_section" to RegionEntry(
                             x = 8,
@@ -1369,6 +1445,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `previous`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = -80,
+                                y = -21,
+                            ),
                         ),
                         "region~0" to RegionEntry(
                             x = 8,
@@ -1524,6 +1605,11 @@ internal object WindowEntries {
                                 ),
                             ),
                             source = "region `search`",
+                            hover = HoverEntry(
+                                text = "\uE815\uDB80\uDC05\uDB80\uDC09\uDB80\uDC0A",
+                                x = 28,
+                                y = 46,
+                            ),
                         ),
                         "sort=featured" to RegionEntry(
                             x = 8,
@@ -1733,14 +1819,13 @@ internal object WindowEntries {
                             fillSlots = null,
                             action = "window:close",
                             defaultAction = "window:close",
-                            hitbox = HitboxEntry(
-                                itemModel = null,
-                                tooltip = TooltipEntry(
-                                    title = "Close market",
-                                    lines = emptyList(),
-                                ),
-                            ),
+                            hitbox = null,
                             source = "region `window:close`",
+                            hover = HoverEntry(
+                                text = "\uF3F1\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = 28,
+                                y = 86,
+                            ),
                         ),
                     ),
                     items = emptyMap(),

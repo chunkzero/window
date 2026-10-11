@@ -62,7 +62,9 @@ pub(super) fn compile_inventory(
     }
     for region in w.regions.iter().filter(|region| !region.unowned) {
         let path = paths.regions.get(&region.name).map(Vec::as_slice).unwrap_or_default();
-        entries.regions.insert(region.name.clone(), region_entry(&mut claims, region, path)?);
+        let hover = ctx.hover_entry(w, region)?;
+        let entry = RegionEntry { hover, ..region_entry(&mut claims, region, path)? };
+        entries.regions.insert(region.name.clone(), entry);
     }
     for region in w.regions.iter().filter(|region| region.unowned) {
         let path = paths.regions.get(&region.name).map(Vec::as_slice).unwrap_or_default();
@@ -194,6 +196,7 @@ fn base_entry(region: &RegionIr) -> RegionEntry {
         action: region.action.clone(),
         default_action: region.default_action.clone(),
         hitbox: region.hitbox.clone(),
+        hover: None,
         source: Some(region.source.clone()),
     }
 }

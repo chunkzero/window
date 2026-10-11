@@ -56,6 +56,8 @@ export interface RepeaterProps extends ItemStyle, DebugProps {
     /** An action indexed by cell; a click calls it with the clicked cell's index. */
     onClick?: Indexed<Action, readonly [number]>;
     tooltip?: string | Tooltip | ((i: number) => string | Tooltip);
+    /** Whether hovering outlines a cell; see `<Region hover>`. */
+    hover?: boolean;
     /** Items indexed by cell, shown in each cell's `itemSlot`; clicks on it still call `onClick`. */
     item?: Indexed<ItemsHandle, readonly [number]>;
     /** One-based slot of the cell `item` fills; defaults to 1. */
@@ -73,7 +75,8 @@ const SLOT = 18;
 
 /** A grid of `columns` x `rows` cells, each a face over `cell` slots whose content is centered in a column. */
 export function Repeater(props: RepeaterProps): Element {
-    const { cell, columns, rows, onClick, tooltip, item, itemSlot = 1, frame, padding, text, style, children } = props;
+    const { cell, columns, rows, onClick, tooltip, hover, item, itemSlot = 1, frame, padding, text, style } = props;
+    const { children } = props;
     const [width, height] = cell;
     if (item !== undefined && (itemSlot < 1 || itemSlot > width * height)) {
         throw new Error(`<Repeater itemSlot> must be between 1 and ${width * height}`);
@@ -84,6 +87,7 @@ export function Repeater(props: RepeaterProps): Element {
         "rows",
         "onClick",
         "tooltip",
+        "hover",
         "item",
         "itemSlot",
         "frame",
@@ -113,7 +117,11 @@ export function Repeater(props: RepeaterProps): Element {
                 <Box grow={1} style={layers as StyleValue<BoxStyle>} text={text}>
                     {typeof children === "function" ? children(i) : children}
                     {stack}
-                    <Region onClick={onClick?.at(i)} tooltip={typeof tooltip === "function" ? tooltip(i) : tooltip} />
+                    <Region
+                        onClick={onClick?.at(i)}
+                        tooltip={typeof tooltip === "function" ? tooltip(i) : tooltip}
+                        hover={hover}
+                    />
                 </Box>
             </Box>
         );

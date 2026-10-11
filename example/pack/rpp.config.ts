@@ -16,8 +16,8 @@ export default defineConfig({
     plugins: [
         window({
             namespace: "window",
-            coreShaders: { hud: true },
-            vanilla: { anvil: { field: "search_field" } },
+            coreShaders: { hud: true, hover: true },
+            vanilla: { anvil: { field: "search_field" }, slotHighlight: false },
             previews: { output: "build/previews" },
             kotlin: {
                 package: "com.chunkzero.window.example.generated",

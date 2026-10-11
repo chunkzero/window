@@ -6,6 +6,7 @@ import com.chunkzero.window.manifest.ArtEntry
 import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.FontMetricsEntry
 import com.chunkzero.window.manifest.HitboxEntry
+import com.chunkzero.window.manifest.HoverEntry
 import com.chunkzero.window.manifest.HudEntry
 import com.chunkzero.window.manifest.HudShaderEntry
 import com.chunkzero.window.manifest.HudSurfaceEntry
@@ -354,8 +355,9 @@ object TestManifests {
         defaultAction: String? = null,
         hitbox: HitboxEntry? = null,
         fillSlots: List<Int>? = null,
+        hover: HoverEntry? = null,
     ): RegionEntry =
-        regionRefs(slots.map(::containerSlot), action, defaultAction, hitbox, fillSlots?.map(::containerSlot))
+        regionRefs(slots.map(::containerSlot), action, defaultAction, hitbox, fillSlots?.map(::containerSlot), hover)
 
     fun regionRefs(
         slots: List<SlotRefEntry>,
@@ -363,6 +365,7 @@ object TestManifests {
         defaultAction: String? = null,
         hitbox: HitboxEntry? = null,
         fillSlots: List<SlotRefEntry>? = null,
+        hover: HoverEntry? = null,
     ): RegionEntry =
         RegionEntry(
             x = 0,
@@ -374,6 +377,7 @@ object TestManifests {
             action = action,
             defaultAction = defaultAction,
             hitbox = hitbox,
+            hover = hover,
         )
 
     fun containerSlot(index: Int): SlotRefEntry = SlotRefEntry(SlotAreaEntry.CONTAINER, index)

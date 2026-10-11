@@ -84,6 +84,7 @@ fn button(action: &str, x: i32, y: i32, width: u32, height: u32, slots: Vec<Slot
         action: Some(action.into()),
         default_action: None,
         hitbox: None,
+        hover: None,
         source: None,
     }
 }

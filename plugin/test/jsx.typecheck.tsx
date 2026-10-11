@@ -16,7 +16,7 @@ import {
 } from "../src/bind/index.ts";
 import type { Indexed, TextHandle } from "../src/bind/index.ts";
 import * as raw from "../src/raw/index.ts";
-import { Prompt } from "../src/theme/industrial/index.ts";
+import { Button, Prompt } from "../src/theme/industrial/index.ts";
 import { Bar, Box, Case, Hud, Image, Items, Region, Section, Switch, Text, Window } from "../src/ui/components.ts";
 
 const recess = shape({ kind: "slot", fill: "#102040" });
@@ -126,7 +126,11 @@ const comparedSwitch = <Switch on={mode.is("buy")}>{{ buy: null, sell: null }}</
 const setterCondition = Switch({ bind: category.set("all"), children: [] });
 // @ts-expect-error A comparison is not a click.
 const comparedClick = <Region onClick={category.is("all")} />;
-void [comparedSwitch, setterCondition, comparedClick];
+const quietRegion = <Region onClick={category.set("all")} hover={false} />;
+const quietButton = <Button onClick={action("buy")} hover={false} />;
+// @ts-expect-error `hover` is a boolean, not an outline style.
+const styledHover = <Region onClick={category.set("all")} hover="#ffffff" />;
+void [comparedSwitch, setterCondition, comparedClick, quietRegion, quietButton, styledHover];
 
 const tone = tint("tone", { ok: "#3ddc84", warn: "#ffb020" });
 const tinted = (

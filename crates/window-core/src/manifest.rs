@@ -436,12 +436,28 @@ pub struct RegionEntry {
     /// The runtime action, such as `window:close`, run when no handler is bound to [`Self::action`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_action: Option<String>,
-    /// The hitbox item filling [`Self::filled_slots`]; absent leaves them empty.
+    /// The hitbox item filling [`Self::filled_slots`]; absent leaves them empty unless [`Self::hover`] is present.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hitbox: Option<Hitbox>,
+    /// The outline drawn around the region while one of its filled slots is hovered. Present only with
+    /// `coreShaders.hover`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hover: Option<HoverEntry>,
     /// The authored element this region comes from, such as ``region `buy` ``, for diagnostics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+}
+
+/// A region's hover outline: what the runtime adds to its hitbox item's tooltip title, which the core text shader
+/// then moves onto the region.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoverEntry {
+    /// The outline glyph and the spacers returning the cursor to its start, in [`Manifest::font`].
+    pub text: String,
+    /// The region's left edge relative to the GUI center, in GUI pixels, within `-128..=127`.
+    pub x: i32,
+    /// The region's top edge relative to the GUI center, in GUI pixels, within `-128..=127`.
+    pub y: i32,
 }
 
 impl RegionEntry {

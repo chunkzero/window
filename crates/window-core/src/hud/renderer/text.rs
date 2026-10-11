@@ -4,6 +4,7 @@ use super::glsl::{
     DynamicFog, ScreenSizeSource, V150Fog, dynamic_fog, format_glsl_float, join_rule_values, render_gui_size_helper,
     rgb_vec3, segment_table, texture_mode, texture_mode_snippets, v150_fog,
 };
+use super::hover::{HOVER_VERTEX_APPLY, render_hover_vertex_helpers};
 use super::marker_id;
 
 // Minecraft's actionbar renderer (Gui.extractOverlayMessage in 26.1.2,
@@ -287,8 +288,14 @@ void main() {{
 
 /// Renders `core/text.vsh`, which vanilla compiles once per pipeline with `IS_GUI`,
 /// `IS_SEE_THROUGH`, and `IS_GRAYSCALE` defines; each variant keeps vanilla's inputs and bindings.
-pub(in crate::hud) fn render_v330_define_variant_text_shader(rules: &[HudShaderRule]) -> String {
-    let helpers = render_text_helpers(rules, ScreenSizeSource::Globals, true);
+pub(in crate::hud) fn render_v330_define_variant_text_shader(rules: &[HudShaderRule], hover: bool) -> String {
+    let helpers = if rules.is_empty() {
+        render_gui_size_helper(ScreenSizeSource::Globals).to_string() + NO_RULE_HELPERS
+    } else {
+        render_text_helpers(rules, ScreenSizeSource::Globals, true)
+    };
+    let (hover_helpers, hover_apply) =
+        if hover { (render_hover_vertex_helpers(), HOVER_VERTEX_APPLY) } else { (String::new(), "") };
 
     format!(
         r#"#version 330
@@ -319,7 +326,7 @@ out vec2 texCoord0;
 #ifdef IS_GRAYSCALE
 flat out int windowHudTextureMode;
 #endif
-{helpers}
+{helpers}{hover_helpers}
 void main() {{
     vec3 pos = Position;
     window_hud_apply(pos, Color);
@@ -335,8 +342,22 @@ void main() {{
     texCoord0 = UV0;
 #ifdef IS_GRAYSCALE
     windowHudTextureMode = window_hud_texture_mode(Color);
-#endif
+#endif{hover_apply}
 }}
 "#
     )
 }
+
+/// The HUD helpers of a shader with no HUD rule, since GLSL has no empty arrays for the rule tables.
+const NO_RULE_HELPERS: &str = r#"
+vec4 window_hud_vertex_color(vec4 color, vec4 lightColor, float y) {
+    return color * lightColor;
+}
+
+int window_hud_texture_mode(vec4 color) {
+    return 0;
+}
+
+void window_hud_apply(inout vec3 pos, vec4 color) {
+}
+"#;
