@@ -56,6 +56,14 @@ class MyShop(
 
     override fun hasPrice(): Boolean = catalog.selected != null
 
+    /** How much of the selected product's price the balance covers, unless `/bar` pinned a fraction. */
+    override fun budget(): Float {
+        val pinned = pinnedBar(player)
+        if (pinned != null) return pinned
+        val product = catalog.selected ?: return 0f
+        return coins.toFloat() / product.price
+    }
+
     override fun hasQuery(): Boolean = query.isNotEmpty()
 
     override fun status(): Component {

@@ -47,6 +47,22 @@ export const toneLamp = shape({
     inset_depth: 0,
 });
 
+/** The empty part of a bar. */
+export const barTrack = shape({ kind: "panel", fill: "#0a1433", border_width: 0, radius: 0, inset_depth: 0 });
+
+/** A white bar fill, which a tint colors exactly. */
+export const toneFill = shape({ kind: "panel", fill: "#ffffff", border_width: 0, radius: 0, inset_depth: 0 });
+
+/** A bar fill with a darker rim, so its right edge shows only once the bar is full. */
+export const budgetFill = shape({
+    kind: "panel",
+    fill: "#ffb20b",
+    border_color: "#8d3c03",
+    border_width: 1,
+    radius: 0,
+    inset_depth: 0,
+});
+
 export const icons = {
     back: texture("window/icons/back.png"),
     clear: texture("window/icons/clear.png"),

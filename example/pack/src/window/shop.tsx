@@ -1,4 +1,4 @@
-import { Image, Switch, Text, containerLayout } from "plugin:window/ui";
+import { Bar, Image, Switch, Text, containerLayout } from "plugin:window/ui";
 import type { ToggleHandle } from "plugin:window/bind";
 import {
     Button,
@@ -14,10 +14,11 @@ import {
     art,
 } from "plugin:window/theme/industrial";
 
-import { coin, icons, toneLamp, ventSlot } from "./art.ts";
+import { barTrack, budgetFill, coin, icons, toneLamp, ventSlot } from "./art.ts";
 import {
     affordable,
     balance,
+    budget,
     buy,
     buyLabel,
     canBuy,
@@ -107,6 +108,16 @@ export default (
                 <Show when={hasPrice}>
                     <Image art={coin} />
                 </Show>
+                <Bar
+                    bind={budget}
+                    width={152}
+                    height={3}
+                    fill={budgetFill}
+                    track={barTrack}
+                    absolute
+                    left={5}
+                    top={14}
+                />
             </Row>
         </Container>
 

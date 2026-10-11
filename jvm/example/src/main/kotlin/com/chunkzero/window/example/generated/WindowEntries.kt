@@ -5,6 +5,7 @@ import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.AnvilInputEntry
 import com.chunkzero.window.manifest.ArtEntry
+import com.chunkzero.window.manifest.BarEntry
 import com.chunkzero.window.manifest.HitboxEntry
 import com.chunkzero.window.manifest.LayerEntry
 import com.chunkzero.window.manifest.LayerKind
@@ -2465,7 +2466,33 @@ internal object WindowEntries {
                     ),
                     art = mapOf(
                         "art/0" to ArtEntry(
-                            static = "\uEFA1\uDB80\uDC09\uDB80\uDC0A",
+                            static = "\uDB80\uDC0D\uF2A7\uDB80\uDC0A\uE33C\uDB80\uDC0A\uF2B4\uDB80\uDC03\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC0A",
+                            bar = BarEntry(
+                                name = "budget",
+                                x = 4,
+                                width = 152,
+                                levels = listOf("\uEF04\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464\uE464", "\uE28F\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166\uE166", "\uF736\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A\uF02A", "\uEF49\uE6B5\uE6B5\uE6B5\uE6B5\uE6B5\uE6B5\uE6B5\uE6B5\uF2B4", "\uE408\uE33C\uE33C\uE33C\uE33C", "\uE557\uE807", "\uE35A", "\uF2A7"),
+                                advances = mapOf(
+                                    "\uE166" to 3,
+                                    "\uE28F" to 3,
+                                    "\uE33C" to 17,
+                                    "\uE35A" to 65,
+                                    "\uE408" to 17,
+                                    "\uE464" to 2,
+                                    "\uE557" to 33,
+                                    "\uE6B5" to 9,
+                                    "\uE807" to 33,
+                                    "\uEF04" to 2,
+                                    "\uEF49" to 9,
+                                    "\uF02A" to 5,
+                                    "\uF2A7" to 129,
+                                    "\uF2B4" to 9,
+                                    "\uF736" to 5,
+                                ),
+                            ),
+                        ),
+                        "art/1" to ArtEntry(
+                            static = "\uF609\uDB80\uDC09\uDB80\uDC0A",
                             tint = "tone",
                         ),
                     ),
@@ -2498,6 +2525,7 @@ internal object WindowEntries {
                         LayerEntry(LayerKind.SLOT, "selected_name"),
                         LayerEntry(LayerKind.SLOT, "price"),
                         LayerEntry(LayerKind.SWITCH, "has_price"),
+                        LayerEntry(LayerKind.ART, "art/0"),
                         LayerEntry(LayerKind.SWITCH, "sort?featured"),
                         LayerEntry(LayerKind.SLOT, "sort_label[0]"),
                         LayerEntry(LayerKind.SLOT, "sort_label[0]~2"),
@@ -2521,7 +2549,7 @@ internal object WindowEntries {
                         LayerEntry(LayerKind.SWITCH, "has_query"),
                         LayerEntry(LayerKind.SLOT, "status"),
                         LayerEntry(LayerKind.SLOT, "balance"),
-                        LayerEntry(LayerKind.ART, "art/0"),
+                        LayerEntry(LayerKind.ART, "art/1"),
                         LayerEntry(LayerKind.SWITCH, "can_buy"),
                         LayerEntry(LayerKind.SLOT, "buy_label"),
                         LayerEntry(LayerKind.SLOT, "buy_label~2"),

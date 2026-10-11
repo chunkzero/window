@@ -1,10 +1,10 @@
-import { Box, Hud, Image, Switch, Text } from "plugin:window/ui";
+import { Bar, Box, Hud, Image, Switch, Text } from "plugin:window/ui";
 import type { TextProps } from "plugin:window/ui";
-import { flag, text } from "plugin:window/bind";
+import { flag, fraction, text } from "plugin:window/bind";
 import type { TextHandle } from "plugin:window/bind";
 import { Row, art } from "plugin:window/theme/industrial";
 
-import { coin, tonePill } from "./art.ts";
+import { barTrack, coin, toneFill, tonePill } from "./art.ts";
 import { tone } from "./handles.ts";
 
 export const coins = text("coins");
@@ -20,6 +20,8 @@ const objective = text("objective");
 const stock = text("stock");
 export const hint = text("hint");
 const waveProgress = flag("wave_progress", { shape: [10] });
+/** How far the current wave's countdown has run. */
+export const waveCharge = fraction("wave_charge");
 
 const white = "#ffffff";
 const style: TextProps = { shadow: true, smallCaps: true, color: white };
@@ -89,6 +91,7 @@ export default [
         <Box frame={tonePill} tint={tone} padding={{ top: 2, right: 6, bottom: 1, left: 6 }}>
             <Text bind={hint} width={100} align="center" color={tone} />
         </Box>
+        <Bar bind={waveCharge} width={100} height={3} fill={toneFill} track={barTrack} tint={tone} />
         <Row gap={1}>
             {Array.from({ length: 10 }, (_, i) => (
                 <Switch on={waveProgress.at(i)}>

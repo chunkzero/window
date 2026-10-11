@@ -4,7 +4,7 @@ import { art } from "plugin:window/theme/industrial";
 import * as handles from "./handles.ts";
 import search from "./search.tsx";
 import shop from "./shop.tsx";
-import statusHuds, { coins, hint, power, rate } from "./status_hud.tsx";
+import statusHuds, { coins, hint, power, rate, waveCharge } from "./status_hud.tsx";
 
 export default defineWindows({
     sprites: { searchField: art.inputField },
@@ -23,6 +23,7 @@ export default defineWindows({
             [handles.selectedName, "Amethyst Song"],
             [handles.price, "210"],
             [handles.hasPrice, true],
+            [handles.budget, 0.42],
             [handles.status, "30 items"],
             [handles.balance, "2500"],
             [handles.canBuy, true],
@@ -37,13 +38,21 @@ export default defineWindows({
             ],
             { scale: 3 },
         ),
-        // The tinted hint in the tint's first palette entry, then in another.
-        preview(statusHuds[5], [[hint, "Next wave in 4s"]], { scale: 3 }),
+        // The tinted hint and wave bar in the tint's first palette entry, then in another.
+        preview(
+            statusHuds[5],
+            [
+                [hint, "Next wave in 4s"],
+                [waveCharge, 0.6],
+            ],
+            { scale: 3 },
+        ),
         preview(
             statusHuds[5],
             [
                 [hint, "Wave incoming"],
                 [handles.tone, "danger"],
+                [waveCharge, 0.97],
             ],
             { name: "status_bottom_center_danger", scale: 3 },
         ),
