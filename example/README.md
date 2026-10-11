@@ -47,8 +47,8 @@ Search opens a static anvil screen with the native rename field and back and sea
 catalog filtered by the query, which the catalog's clear button resets and reopening search restores.
 
 The workshop, under its own theme, sells three upgrades for the same coins: a click on a card buys the chosen amount of
-levels, each card shows its level as text and as a bar until it is maxed, and the rank badge takes the shared tone. Its
-levels last until the server stops.
+levels, each card shows its level as text and is marked new, shows a bar, or is marked maxed, and the rank badge takes
+the shared tone. Its levels last until the server stops.
 
 The actionbar-backed HUD demo is disabled by default so the inventory examples stay visually focused. Enable it with
 `-Dwindow.hud.enabled=true`; use `-Dwindow.hud.spriteDebug=true` to print each HUD's static art to chat. The pack blanks

@@ -3575,7 +3575,7 @@ internal object WindowEntries {
                                 itemModel = null,
                                 tooltip = TooltipEntry(
                                     title = "Balance",
-                                    lines = listOf("Coins earned in the shop"),
+                                    lines = listOf("Coins shared with the shop"),
                                 ),
                             ),
                             source = "region `region~0`",

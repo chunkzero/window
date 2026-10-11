@@ -137,7 +137,7 @@ export default (
                 <Text bind={balance} align="right" color={ink.gold} />
                 <Image art={coin} />
                 {/* It takes no clicks, so `hover` opts it into the hover outline. */}
-                <Hotspot tooltip={{ title: "Balance", lines: ["Coins earned in the shop"] }} hover />
+                <Hotspot tooltip={{ title: "Balance", lines: ["Coins shared with the shop"] }} hover />
             </Row>
 
             <Grid span={[9, 2]} columns={[16, "1fr"]} rows={[8, 8]} style={s.strip} alignContent="center">
