@@ -14,7 +14,7 @@ internal fun pinnedTone(player: Player): String? = player.getTag(TONE_TAG)
 
 /**
  * Registers `/tone <ok|warn|danger|auto>`, a debug command pinning the tone the caller's status HUD draws in
- * from its next send, and the shops the caller opens afterwards; `auto` unpins it.
+ * from its next send, and the windows the caller opens afterwards; `auto` unpins it.
  */
 internal fun registerToneCommand() {
     val tone = ArgumentType.Word("tone").from("ok", "warn", "danger", AUTO)

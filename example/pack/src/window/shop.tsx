@@ -32,6 +32,7 @@ import {
     hasQuery,
     next,
     nextLabel,
+    openUpgrades,
     page,
     previous,
     previousLabel,
@@ -122,7 +123,7 @@ export default (
         </Container>
 
         <Player>
-            <Tabs bind={sort} span={3} tooltip={(value) => sortTooltips[value]} hover={false}>
+            <Tabs bind={sort} span={3} tooltip={(value) => sortTooltips[value]}>
                 {(_, i) => <Text bind={sortLabel.at(i)} />}
             </Tabs>
 
@@ -152,14 +153,17 @@ export default (
             <Button
                 onClick={buy}
                 enabled={canBuy}
-                span={6}
+                span={4}
                 frame={art.buttonAccent}
                 tooltip="Buy selected item"
                 disabled={{ tooltip: "Buy selected item unavailable" }}
             >
                 <Text bind={buyLabel} color="#2a1200" shadow={false} />
             </Button>
-            <Button close span={3}>
+            <Button onClick={openUpgrades} span={3} tooltip="Upgrade the foundry">
+                Workshop
+            </Button>
+            <Button close span={2}>
                 Exit
             </Button>
         </Hotbar>

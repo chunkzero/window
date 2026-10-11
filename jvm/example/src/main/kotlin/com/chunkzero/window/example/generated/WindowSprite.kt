@@ -3,5 +3,8 @@ package com.chunkzero.window.example.generated
 
 /** Runtime sprites of this Window pack, returned by sprite slot members. */
 public enum class WindowSprite(public val id: String) {
+    RANK_1("rank_1"),
+    RANK_2("rank_2"),
+    RANK_3("rank_3"),
     SEARCH_FIELD("search_field"),
 }

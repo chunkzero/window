@@ -63,6 +63,23 @@ export const budgetFill = shape({
     inset_depth: 0,
 });
 
+/** The plate a maxed upgrade shows in place of its level bar. */
+export const maxedPlate = shape({
+    kind: "panel",
+    fill: "#ffb20b",
+    border_color: "#8d3c03",
+    border_width: 1,
+    radius: 2,
+    inset_depth: 0,
+});
+
+/** White art for the `rank` sprite slot, which a tint colors. */
+export const ranks = {
+    rank_1: texture("window/icons/rank_1.png"),
+    rank_2: texture("window/icons/rank_2.png"),
+    rank_3: texture("window/icons/rank_3.png"),
+};
+
 export const icons = {
     back: texture("window/icons/back.png"),
     clear: texture("window/icons/clear.png"),

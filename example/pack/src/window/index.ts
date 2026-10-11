@@ -1,14 +1,37 @@
 import { defineWindows, preview } from "plugin:window/ui";
+import type { PreviewOptions } from "plugin:window/ui";
 import { art } from "plugin:window/theme/industrial";
 
+import { ranks } from "./art.ts";
+import clock, { runtime } from "./clock_hud.ts";
 import * as handles from "./handles.ts";
 import search from "./search.tsx";
 import shop from "./shop.tsx";
-import statusHuds, { coins, hint, power, rate, waveCharge } from "./status_hud.tsx";
+import statusHuds, { bottomCenter, coins, hint, power, rate, topLeft, waveBar, waveCharge } from "./status_hud.tsx";
+import upgrades from "./upgrades.tsx";
+
+/** A preview of the workshop with one card in each stage. */
+const upgradesPreview = (options: PreviewOptions) =>
+    preview(
+        upgrades,
+        [
+            [handles.upgradeName, ["Drill", "Furnace", "Conveyor"]],
+            [handles.upgradeLevel, ["Lv 0/5", "Lv 3/5", "Lv 5/5"]],
+            [handles.upgradeCost, ["900", "810", ""]],
+            [handles.upgradeProgress, [0, 0.6, 1]],
+            [handles.upgradeStage, ["new", "open", "maxed"]],
+            [handles.amount, "five"],
+            [handles.balance, "2500"],
+            [handles.rank, "rank_2"],
+            [handles.rankName, "Journeyman"],
+            [handles.status, "8 of 15 levels"],
+        ],
+        options,
+    );
 
 export default defineWindows({
-    sprites: { searchField: art.inputField },
-    windows: [shop, search],
+    sprites: { searchField: art.inputField, ...ranks },
+    windows: [shop, search, upgrades],
     huds: statusHuds,
     // `rpp build` writes these to build/previews/, one PNG per preview.
     previews: [
@@ -29,8 +52,11 @@ export default defineWindows({
             [handles.canBuy, true],
             [handles.buyLabel, "Buy 210"],
         ]),
+        upgradesPreview({ scale: 3 }),
+        // The same window with its regions outlined.
+        upgradesPreview({ name: "upgrades_regions", outlines: true }),
         preview(
-            statusHuds[0],
+            topLeft,
             [
                 [coins, "2500"],
                 [rate, "+10"],
@@ -38,23 +64,17 @@ export default defineWindows({
             ],
             { scale: 3 },
         ),
-        // The tinted hint and wave bar in the tint's first palette entry, then in another.
+        preview(clock, [[runtime, "4:07"]], { scale: 3 }),
+        // The tinted hint in the tint's first palette entry, then in another.
+        preview(bottomCenter, [[hint, "Next wave in 4s"]], { scale: 3 }),
         preview(
-            statusHuds[5],
-            [
-                [hint, "Next wave in 4s"],
-                [waveCharge, 0.6],
-            ],
-            { scale: 3 },
-        ),
-        preview(
-            statusHuds[5],
+            bottomCenter,
             [
                 [hint, "Wave incoming"],
                 [handles.tone, "danger"],
-                [waveCharge, 0.97],
             ],
             { name: "status_bottom_center_danger", scale: 3 },
         ),
+        preview(waveBar, [[waveCharge, 0.6]], { scale: 3 }),
     ],
 });

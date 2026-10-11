@@ -296,8 +296,9 @@ export default (
 );
 ```
 
-The example pack's `window/` sources are a complete JSX project: `index.ts` lists the documents, `art.ts` declares its
-art, `handles.ts` declares the shop and search handles, and `shop.tsx`, `search.tsx`, and `status_hud.tsx` use them.
+The example pack's `window/` sources are a complete project: `index.ts` lists the documents, `art.ts` declares its art,
+`handles.ts` declares the windows' handles, `shop.tsx`, `search.tsx`, `upgrades.tsx`, and `status_hud.tsx` use them in
+JSX, and `clock_hud.ts` is a HUD written with the [`raw` API](#raw-api).
 
 ### Slot sections
 
