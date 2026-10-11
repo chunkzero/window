@@ -141,8 +141,8 @@ impl CompileContext<'_> {
         key: String,
         part: Part,
     ) -> Result<StaticGlyph> {
-        let texture = provider_texture(comp, ascent);
-        if texture.width > MAX_GLYPH_SIZE || texture.height > MAX_GLYPH_SIZE {
+        let (width, height) = (comp.texture.width, comp.texture.height.max(ascent.max(0) as u32));
+        if width > MAX_GLYPH_SIZE || height > MAX_GLYPH_SIZE {
             return Err(Error::Font(format!(
                 "{} `{}`: art `{file_base}` bakes into one {}x{} px font glyph, but the client's font atlas pages are \
                  {MAX_GLYPH_SIZE}x{MAX_GLYPH_SIZE} px, so a larger glyph is not drawn and misplaces everything after \
@@ -150,10 +150,11 @@ impl CompileContext<'_> {
                  panes",
                 if pane.hud { "HUD" } else { "window" },
                 pane.name,
-                texture.width,
-                texture.height,
+                width,
+                height,
             )));
         }
+        let texture = provider_texture(comp, ascent);
         let advance = bitmap_metrics(&texture, Size::new(texture.width, texture.height)).advance;
         let glyph = char::from_u32(self.codepoints[&key]).expect("glyph codepoint is a valid char");
         let provider = bitmap_provider(self.namespace, file_base, texture.height, ascent, glyph)?;
