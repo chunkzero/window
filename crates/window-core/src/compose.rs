@@ -41,7 +41,7 @@ impl Texture {
     }
 
     /// Read the RGBA pixel at `(x, y)`; out-of-bounds reads return transparent.
-    fn get(&self, x: u32, y: u32) -> [u8; 4] {
+    pub(crate) fn get(&self, x: u32, y: u32) -> [u8; 4] {
         if x >= self.width || y >= self.height {
             return [0, 0, 0, 0];
         }
@@ -50,7 +50,7 @@ impl Texture {
     }
 
     /// Alpha-over blend `src` onto the pixel at `(x, y)` (straight alpha).
-    fn blend(&mut self, x: u32, y: u32, src: [u8; 4]) {
+    pub(crate) fn blend(&mut self, x: u32, y: u32, src: [u8; 4]) {
         if x >= self.width || y >= self.height || src[3] == 0 {
             return;
         }
@@ -210,7 +210,7 @@ fn lookup<'a>(textures: &'a BTreeMap<String, Texture>, key: &TextureKey, window:
 /// 1:1 blit of `src` into `dest` (top-left aligned). Pixels of `src` beyond
 /// `dest`'s size are clipped; `dest` larger than `src` leaves the remainder
 /// untouched.
-fn blit_sprite(canvas: &mut Texture, src: &Texture, dest: &Rect) {
+pub(crate) fn blit_sprite(canvas: &mut Texture, src: &Texture, dest: &Rect) {
     let w = i64::from(dest.width.min(src.width));
     let h = i64::from(dest.height.min(src.height));
     let (dest_x, dest_y) = (i64::from(dest.x), i64::from(dest.y));

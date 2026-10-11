@@ -21,6 +21,10 @@ const configure: (options: WindowOptions, access?: Access) => PluginEntry = defi
 const window: (config?: WindowConfig, access?: Access) => PluginEntry = (config = {}, access) => {
     checkOptions(config);
     const { kotlin, ...rest } = config;
+    const outputs = {
+        ...(kotlin === undefined ? {} : { kotlin: kotlin.output }),
+        ...(rest.previews === undefined ? {} : { previews: rest.previews.output }),
+    };
     const options: WindowOptions = {
         ...rest,
         ...(kotlin === undefined
@@ -29,7 +33,7 @@ const window: (config?: WindowConfig, access?: Access) => PluginEntry = (config 
     };
     return configure(options, {
         ...access,
-        ...(kotlin === undefined ? {} : { outputs: { ...access?.outputs, kotlin: kotlin.output } }),
+        ...(Object.keys(outputs).length === 0 ? {} : { outputs: { ...access?.outputs, ...outputs } }),
     });
 };
 

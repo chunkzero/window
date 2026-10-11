@@ -73,6 +73,8 @@ export { containerLayout } from "./containers.ts";
 export type { ContainerLayout, Rect, SectionLayout } from "./containers.ts";
 export { defineWindows } from "./windows.ts";
 export type { WindowsDefinition } from "./windows.ts";
+export { preview } from "./previews.ts";
+export type { CollectionState, Preview, PreviewOptions, StateEntry, StateOf } from "./previews.ts";
 export {
     Box,
     Case,

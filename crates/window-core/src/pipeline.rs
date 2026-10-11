@@ -26,6 +26,7 @@ mod glyphs;
 mod hud;
 mod inventory;
 mod metrics;
+pub mod preview;
 mod sprites;
 mod switches;
 mod vanilla_hud;

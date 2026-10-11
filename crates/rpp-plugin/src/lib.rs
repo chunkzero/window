@@ -68,6 +68,26 @@ pub fn compile_project(
     Ok(PluginCompileOutput { core, kotlin_files, size_report })
 }
 
+/// Render the previews `previews_json` lists from a TypeScript-authored Window project, as `<name>.png` files.
+pub fn render_previews(
+    project_json: String,
+    files: Vec<SourceFileInput>,
+    previews_json: String,
+) -> Result<Vec<CoreOutputFile>, String> {
+    let input = CompileInput::new(files.into_iter().map(|file| (file.path, file.contents)).collect());
+    let render = || {
+        let project = window_core::authoring::project_from_json(project_json.as_bytes())?;
+        let requests = window_core::pipeline::preview::requests_from_json(previews_json.as_bytes())?;
+        window_core::pipeline::preview::render(&project, &input, &requests)
+    };
+    render().map_err(|error| error.to_string())
+}
+
+#[cfg(target_family = "wasm")]
+fn source_files(files: Vec<SourceFile>) -> Vec<SourceFileInput> {
+    files.into_iter().map(|file| SourceFileInput { path: file.path, contents: file.contents }).collect()
+}
+
 #[cfg(target_family = "wasm")]
 impl Guest for Component {
     fn compile(
@@ -76,8 +96,7 @@ impl Guest for Component {
         files: Vec<SourceFile>,
         kotlin: Option<KotlinOptions>,
     ) -> Result<CompileOutput, String> {
-        let files =
-            files.into_iter().map(|file| SourceFileInput { path: file.path, contents: file.contents }).collect();
+        let files = source_files(files);
         let kotlin = kotlin.map(|kotlin| KotlinBindings {
             package_name: kotlin.package_name,
             target: match kotlin.target {
@@ -87,6 +106,15 @@ impl Guest for Component {
             },
         });
         compile_project(namespace, project_json, files, kotlin).map(to_wit_compile_output)
+    }
+
+    fn render_previews(
+        project_json: String,
+        files: Vec<SourceFile>,
+        previews_json: String,
+    ) -> Result<Vec<OutputFile>, String> {
+        render_previews(project_json, source_files(files), previews_json)
+            .map(|files| files.into_iter().map(to_wit_output_file).collect())
     }
 }
 

@@ -6,9 +6,9 @@ import { Row, art } from "plugin:window/theme/industrial";
 
 import { coin } from "./art.ts";
 
-const coins = text("coins");
-const rate = text("rate");
-const power = text("power");
+export const coins = text("coins");
+export const rate = text("rate");
+export const power = text("power");
 const runtime = text("runtime");
 const wave = text("wave");
 const biome = text("biome");
