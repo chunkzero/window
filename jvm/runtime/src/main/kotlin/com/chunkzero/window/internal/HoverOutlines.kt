@@ -16,7 +16,8 @@ import net.kyori.adventure.text.format.TextDecoration
  * pack's core text shader moves its shadow onto the region. The shadow color tells the shader where: red and green
  * are the region's offset from the GUI center plus 128, blue and the top 3 bits of alpha the width of the tooltip's
  * text, and the low 5 bits of alpha its line count plus 1. The shader keeps the outline out of the tooltip box those
- * describe.
+ * describe. A tooltip whose size the server cannot know exactly, or that is larger than those fields hold, is encoded
+ * with size zero, which makes no cut-out.
  */
 internal class HoverOutlines(
     manifest: WindowManifest,
@@ -33,9 +34,9 @@ internal class HoverOutlines(
         hover: HoverEntry,
         tooltip: Tooltip?,
     ): WindowItem.Hitbox {
-        val lines = if (tooltip == null) 0 else 1 + tooltip.lines.size
-        val width = if (tooltip == null) 0 else textWidth(tooltip)
-        val alpha = (lines.coerceAtMost(MAX_LINES) + 1) or ((width shr 8) shl 5)
+        val size = tooltip?.let(::measure)
+        val width = size?.width ?: 0
+        val alpha = ((size?.lines ?: 0) + 1) or ((width shr 8) shl 5)
         val glyph =
             Component
                 .text(hover.text)
@@ -52,17 +53,27 @@ internal class HoverOutlines(
         return WindowItem.Hitbox(model, tooltip.copy(title = title))
     }
 
-    /** The widest line of [tooltip], or the most the shadow color holds when a line has text only the client knows. */
-    private fun textWidth(tooltip: Tooltip): Int =
-        try {
-            (tooltip.lines + tooltip.title).maxOf { fonts.measure(it, DEFAULT_FONT).advance }.coerceIn(0, MAX_WIDTH)
-        } catch (_: IllegalArgumentException) {
-            MAX_WIDTH
-        }
+    private class Size(
+        val width: Int,
+        val lines: Int,
+    )
+
+    /** The size of [tooltip]'s text box, or `null` when a line has text only the client can measure or it is too big. */
+    private fun measure(tooltip: Tooltip): Size? {
+        val lines = 1 + tooltip.lines.size
+        if (lines > MAX_LINES) return null
+        val width =
+            try {
+                (tooltip.lines + tooltip.title).maxOf { fonts.measure(it, DEFAULT_FONT).advance }
+            } catch (_: IllegalArgumentException) {
+                return null
+            }
+        return if (width > MAX_WIDTH) null else Size(width, lines)
+    }
 
     private companion object {
         const val DEFAULT_FONT = "minecraft:default"
         const val MAX_WIDTH = 2047
-        const val MAX_LINES = 29
+        const val MAX_LINES = 30
     }
 }

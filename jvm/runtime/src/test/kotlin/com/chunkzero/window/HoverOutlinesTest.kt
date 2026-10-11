@@ -14,6 +14,29 @@ class HoverOutlinesTest :
     StringSpec({
         val hover = HoverEntry(text = "󰀊", x = -80, y = -66)
 
+        fun shadowOf(tooltip: TooltipEntry): ShadowColor {
+            val manifest =
+                TestManifests.manifest(
+                    container = "generic_9x1",
+                    regions =
+                        mapOf(
+                            "r" to
+                                TestManifests.region(listOf(0), hitbox = HitboxEntry(tooltip = tooltip), hover = hover),
+                        ),
+                )
+            val host = FakeHost()
+            object : TestView(manifest, host) {
+                override fun WindowScope<Any>.bind() = Unit
+            }.open()
+            val item = host.container.items.getValue(SlotRef(SlotArea.CONTAINER, 0)) as WindowItem.Hitbox
+            return (
+                item.tooltip!!
+                    .title
+                    .children()
+                    .first() as TextComponent
+            ).shadowColor()!!
+        }
+
         fun hitboxes(): Map<SlotRef, Any> {
             val wide = TooltipEntry(title = "Buy", lines = listOf("a".repeat(50)))
             val manifest =
@@ -58,5 +81,14 @@ class HoverOutlinesTest :
             item.tooltip!!.lines shouldBe emptyList()
             item.tooltipStyle!!.asString() shouldBe "window:hover"
             items.containsKey(SlotRef(SlotArea.CONTAINER, 2)) shouldBe false
+        }
+
+        "a tooltip the server cannot measure or that overflows the encoding gets size zero, so nothing is cut out" {
+            val zero = ShadowColor.shadowColor(48, 62, 0, 1)
+
+            shadowOf(TooltipEntry(title = "<lang:item.minecraft.paper>")) shouldBe zero
+            shadowOf(TooltipEntry(title = "Loot", lines = List(30) { "line" })) shouldBe zero
+            shadowOf(TooltipEntry(title = "Loot", lines = List(29) { "line" })) shouldBe
+                ShadowColor.shadowColor(48, 62, 24, 31)
         }
     })
