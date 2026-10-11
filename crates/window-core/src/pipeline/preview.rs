@@ -6,6 +6,7 @@
 //! small-caps glyphs at the default font's advances.
 
 use std::borrow::Cow;
+use std::cell::{Cell, OnceCell};
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Deserialize;
@@ -18,7 +19,7 @@ use crate::ir::{
     Align, AnvilInputIr, CollectionIr, Draw, Handle, HandleKind, HandleRole, HandleUse, ItemIr, LaidOutHud,
     LaidOutWindow, Layer, RegionIr, Rgb, SlotIr, SpriteSlotIr, SwitchIr,
 };
-use crate::model::SpriteDef;
+use crate::model::{GeneratedStyle, SpriteDef};
 use crate::surface::{ContainerKind, Surface};
 use crate::{Error, Result, text_font};
 
@@ -151,13 +152,7 @@ pub fn render(project: &ParsedProject, input: &CompileInput, requests: &[Preview
     let windows = if wants(false) { crate::layout::solve(project, &texture_size, &text_fonts)? } else { Vec::new() };
     let huds = if wants(true) { crate::layout::solve_huds(project, &texture_size, &text_fonts)? } else { Vec::new() };
 
-    let mut generated = BTreeMap::new();
-    for (name, sprite) in &project.art.sprites {
-        if let SpriteDef::Generated { size, style } = sprite {
-            generated.insert(name.as_str(), crate::raster::render(style, *size)?);
-        }
-    }
-    let scene = Scene { project, textures: &textures, generated, painter: TextPainter::new(&text_fonts) };
+    let scene = Scene { project, textures: &textures, painter: TextPainter::new(&text_fonts) };
     let mut files = Vec::with_capacity(requests.len());
     for request in requests {
         let preview = &request.name;
@@ -546,8 +541,6 @@ impl Canvas {
 struct Scene<'a> {
     project: &'a ParsedProject,
     textures: &'a BTreeMap<String, Texture>,
-    /// Every generated sprite's pixels, by sprite name.
-    generated: BTreeMap<&'a str, Texture>,
     painter: TextPainter<'a>,
 }
 
@@ -564,8 +557,12 @@ impl Scene<'_> {
             .collect();
         let hidden = Hidden::new(pane.switches, &active);
 
-        let placements =
-            pane.layers.iter().map(|layer| self.placement(layer, pane, &state, &hidden)).collect::<Result<Vec<_>>>()?;
+        let rasters = Rasters::new(&request.name, self.project);
+        let placements = pane
+            .layers
+            .iter()
+            .map(|layer| self.placement(&rasters, layer, pane, &state, &hidden))
+            .collect::<Result<Vec<_>>>()?;
         let composites = std::iter::once(&layers.base).chain(layers.cases.iter().flatten());
         let mut bounds = Bounds::new(&pane.rect);
         for comp in composites.filter(|comp| comp.has_content) {
@@ -580,7 +577,7 @@ impl Scene<'_> {
         if pane.container == Some(ContainerKind::Anvil)
             && let Replacement::Sprite(sprite) = &self.project.options.vanilla.anvil.field
         {
-            canvas.blit(self.sprite(sprite)?.0, field.origin());
+            canvas.blit(self.sprite(&rasters, sprite)?.0, field.origin());
         }
         blit_composite(&mut canvas, &layers.base);
 
@@ -640,13 +637,14 @@ impl Scene<'_> {
     }
 
     /// Where a runtime sprite layer draws its sprite, if it shows one.
-    fn placement(
-        &self,
+    fn placement<'s>(
+        &'s self,
+        rasters: &'s Rasters<'_>,
         layer: &Layer,
         pane: &Pane<'_>,
         state: &State<'_>,
         hidden: &Hidden<'_>,
-    ) -> Result<Option<Placement<'_>>> {
+    ) -> Result<Option<Placement<'s>>> {
         let (name, rect, align) = match layer {
             Layer::SpriteSlot(name) if hidden.shows(Member::SpriteSlot, name) => {
                 let Some(sprite) = state.text(HandleRole::SpriteSlot, name) else { return Ok(None) };
@@ -664,14 +662,14 @@ impl Scene<'_> {
             }
             _ => return Ok(None),
         };
-        let (texture, size) = self.sprite(name)?;
+        let (texture, size) = self.sprite(rasters, name)?;
         let metrics = bitmap_metrics(texture, size);
         let ink_x = text::origin(align, rect.x, rect.width, metrics.glyph_width);
         Ok(Some(Placement { texture, height: size.height, metrics, ink_x, y: i64::from(rect.y) }))
     }
 
     /// The pixels and rendered size of sprite `name`.
-    fn sprite(&self, name: &str) -> Result<(&Texture, Size)> {
+    fn sprite<'s>(&'s self, rasters: &'s Rasters<'_>, name: &str) -> Result<(&'s Texture, Size)> {
         let unknown =
             || Error::Validation(format!("previews cannot draw sprite `{name}`: its texture is not provided"));
         match self.project.art.sprites.get(name).ok_or_else(unknown)? {
@@ -679,8 +677,44 @@ impl Scene<'_> {
                 let texture = self.textures.get(&texture_source_path(texture)).ok_or_else(unknown)?;
                 Ok((texture, size.unwrap_or(Size::new(texture.width, texture.height))))
             }
-            SpriteDef::Generated { size, .. } => Ok((self.generated.get(name).ok_or_else(unknown)?, *size)),
+            SpriteDef::Generated { size, style } => Ok((rasters.get(name, style, *size)?, *size)),
         }
+    }
+}
+
+/// The generated sprites one preview draws, each rendered once. Together they may hold [`MAX_PIXELS`].
+struct Rasters<'a> {
+    preview: &'a str,
+    rendered: BTreeMap<&'a str, OnceCell<Texture>>,
+    pixels: Cell<u64>,
+}
+
+impl<'a> Rasters<'a> {
+    fn new(preview: &'a str, project: &'a ParsedProject) -> Self {
+        let generated = project.art.sprites.iter().filter(|(_, sprite)| matches!(sprite, SpriteDef::Generated { .. }));
+        let rendered = generated.map(|(name, _)| (name.as_str(), OnceCell::new())).collect();
+        Self { preview, rendered, pixels: Cell::new(0) }
+    }
+
+    /// The pixels of generated sprite `name`, checking the limit before rendering it.
+    fn get(&self, name: &str, style: &GeneratedStyle, size: Size) -> Result<&Texture> {
+        let cell = self
+            .rendered
+            .get(name)
+            .ok_or_else(|| Error::Validation(format!("sprite `{name}` is not a generated sprite")))?;
+        if let Some(texture) = cell.get() {
+            return Ok(texture);
+        }
+        let pixels = self.pixels.get() + u64::from(size.width) * u64::from(size.height);
+        if pixels > MAX_PIXELS {
+            return Err(fail(
+                self.preview,
+                format!("its generated sprites exceed the limit of {MAX_PIXELS} pixels at sprite `{name}`"),
+            ));
+        }
+        self.pixels.set(pixels);
+        let texture = crate::raster::render(style, size)?;
+        Ok(cell.get_or_init(|| texture))
     }
 }
 

@@ -235,6 +235,14 @@ fn a_runtime_sprite_resampled_past_the_pixel_limit_fails_without_allocating() {
 }
 
 #[test]
+fn generated_runtime_sprites_past_the_pixel_limit_fail_before_they_are_rendered() {
+    let art = json!({ "art": "shape", "kind": "panel", "width": 8192, "height": 4096 });
+    let error = runtime_sprite(art, striped(1, 1, 0..1), 10, (16, 16)).unwrap_err().to_string();
+
+    assert_eq!(error, "preview `shot`: its generated sprites exceed the limit of 16777216 pixels at sprite `icon`");
+}
+
+#[test]
 fn a_sprite_at_an_extreme_position_fails_instead_of_overflowing() {
     let children = json!([{ "type": "sprite", "x": i32::MIN, "y": 0, "art": { "art": "texture", "texture": "red.png", "width": 1, "height": 1 } }]);
     let error = preview(children, json!([])).unwrap_err().to_string();
