@@ -63,14 +63,14 @@ fn maps_pack_formats_to_profiles() {
 fn rejects_shader_huds_without_a_shader_profile() {
     let hud = shader_hud("status", "coins");
 
-    assert!(emit(None, &[&hud], &[0]).is_err());
-    assert!(emit(Some(89), &[&hud], &[0]).is_err());
+    assert!(emit(None, &[&hud], &[0], false).is_err());
+    assert!(emit(Some(89), &[&hud], &[0], false).is_err());
 }
 
 #[test]
 fn define_variant_profile_overrides_core_text_programs() {
     let hud = shader_hud("status", "coins");
-    let output = emit(Some(88), &[&hud], &[0]).unwrap();
+    let output = emit(Some(88), &[&hud], &[0], false).unwrap();
     let paths = output.files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>();
 
     assert_eq!(
@@ -86,6 +86,32 @@ fn define_variant_profile_overrides_core_text_programs() {
     assert!(vertex.contains("window_hud_apply(pos, Color);"));
     assert!(vertex.contains("vertexColor = window_hud_vertex_color(Color, vec4(1.0), Position.y);"));
     assert!(output.files[1].contents.contains("if (windowHudTextureMode != 1) {\n        texColor = texColor.rrrr;"));
+}
+
+#[test]
+fn hover_outlines_join_the_define_variant_shaders_with_or_without_huds() {
+    let hud = shader_hud("status", "coins");
+    let names = |output: &super::ShaderOutput| {
+        output.files.iter().map(|file| file.path.rsplit('/').next().unwrap().to_string()).collect::<Vec<_>>()
+    };
+
+    let both = emit(Some(88), &[&hud], &[0], true).unwrap();
+    assert_eq!(names(&both), ["text.vsh", "text.fsh", "text_background.vsh"]);
+    assert!(both.files[0].contents.contains("const int WINDOW_HUD_RULES = 1;"));
+    assert!(both.files[0].contents.contains("#endif\n#ifdef IS_GUI\n    window_hover_apply();\n#endif\n}"));
+    assert!(both.files[1].contents.contains("if (windowHudTextureMode != 1) {"));
+    assert!(both.files[1].contents.contains("if (windowHover == 1) {"));
+
+    // Without a shader-placed HUD there are no rule tables and no text background to relocate.
+    let alone = emit(Some(88), &[], &[], true).unwrap();
+    assert_eq!(names(&alone), ["text.vsh", "text.fsh"]);
+    assert!(!alone.files[0].contents.contains("WINDOW_HUD_RULES"));
+    assert!(alone.files[0].contents.contains("window_hover_apply();"));
+    assert_eq!(alone.files[1].contents, both.files[1].contents);
+
+    assert!(emit(Some(88), &[], &[], false).unwrap().files.is_empty());
+    let err = emit(Some(84), &[&hud], &[0], true).unwrap_err().to_string();
+    assert!(err.contains("`coreShaders.hover` needs pack_format 85 through 88"), "{err}");
 }
 
 #[test]
@@ -156,7 +182,7 @@ fn generated_shader_matches_only_known_green_zero_ids() {
     let markers = segment_markers(&[&hud]).unwrap();
     let static_id = renderer::marker_id(markers.static_marker("status"));
     let slot_id = renderer::marker_id(markers.slot_marker("status", "coins"));
-    let output = emit(Some(84), &[&hud], &[0]).unwrap();
+    let output = emit(Some(84), &[&hud], &[0], false).unwrap();
     let shader =
         output.files.iter().find(|file| file.path.ends_with("rendertype_text.vsh")).expect("text shader is emitted");
 
@@ -173,7 +199,7 @@ fn generated_shader_matches_only_known_green_zero_ids() {
 #[test]
 fn generated_shader_uses_height_independent_actionbar_source_top() {
     let hud = shader_hud("status", "coins");
-    let output = emit(Some(84), &[&hud], &[0]).unwrap();
+    let output = emit(Some(84), &[&hud], &[0], false).unwrap();
     let shader =
         output.files.iter().find(|file| file.path.ends_with("rendertype_text.vsh")).expect("text shader is emitted");
 

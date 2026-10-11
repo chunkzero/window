@@ -6,7 +6,7 @@
 //! The public entry points decode textures and solve layout, then hand the
 //! laid-out IR to the backend, which runs in stages: compose static layers and
 //! allocate glyph codepoints, compile each window then each HUD, emit fonts and
-//! HUD shaders, and build the manifest and debug descriptor.
+//! core shaders, and build the manifest and debug descriptor.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -24,6 +24,7 @@ mod anvil;
 mod bars;
 mod fonts;
 mod glyphs;
+mod hover;
 mod hud;
 mod inventory;
 mod metrics;
@@ -190,8 +191,14 @@ fn compile_layouts(
         anvil::open_field(w, layers, &mut field_warnings);
     }
     let used_sprites = uses_runtime_sprites.then_some(runtime_sprites);
-    let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites)?;
+    let hover = options.core_shaders.hover;
+    if !hover {
+        hover::check_disabled(&windows)?;
+    }
+    let hover_keys = hover.then(|| hover::glyph_keys(&windows)).into_iter().flatten();
+    let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites, hover_keys)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
+    ctx.hover = hover;
     ctx.warnings.extend(field_warnings);
     let has_anvil_input = windows.iter().any(|w| !w.inputs.is_empty());
     for file in anvil::vanilla_files(runtime_sprites, &options.vanilla.anvil, has_anvil_input)? {
@@ -199,6 +206,12 @@ fn compile_layouts(
     }
     for file in vanilla_hud::blank_sprites(&options.vanilla.blank_hud, target.pack_format)? {
         ctx.push(Part::Vanilla, file);
+    }
+    for file in hover::slot_highlight_files(runtime_sprites, &options.vanilla.slot_highlight, target.pack_format)? {
+        ctx.push(Part::Vanilla, file);
+    }
+    if hover {
+        ctx.emit_hover_tooltip_style()?;
     }
 
     let sprites = if uses_runtime_sprites { sprites::sprite_entries(&mut ctx) } else { BTreeMap::new() };
@@ -217,7 +230,9 @@ fn compile_layouts(
 
     fonts::emit_fonts(&mut ctx)?;
     if options.core_shaders.hud {
-        hud::emit_shader_files(&mut ctx, target.pack_format, &huds, &row_offsets)?;
+        hud::emit_shader_files(&mut ctx, target.pack_format, &huds, &row_offsets, hover)?;
+    } else if hover {
+        hud::emit_shader_files(&mut ctx, target.pack_format, &[], &[], hover)?;
     }
     let manifest = ctx.manifest(sprites, window_entries, hud_entries);
     ctx.finish(manifest)
@@ -254,6 +269,10 @@ struct CompileContext<'a> {
     text_font_offsets: BTreeSet<(&'a str, i32)>,
     /// The catalog sprites each sprite font, by vertical offset, can show.
     sprite_fonts: BTreeMap<i32, BTreeSet<String>>,
+    /// `coreShaders.hover`: whether regions get hover outlines.
+    hover: bool,
+    /// The hover outline glyphs emitted so far.
+    hover_glyphs: BTreeSet<char>,
 }
 
 impl<'a> CompileContext<'a> {
@@ -275,6 +294,8 @@ impl<'a> CompileContext<'a> {
             shift_offsets: BTreeSet::new(),
             text_font_offsets: BTreeSet::new(),
             sprite_fonts: BTreeMap::new(),
+            hover: false,
+            hover_glyphs: BTreeSet::new(),
         }
     }
 

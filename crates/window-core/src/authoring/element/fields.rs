@@ -37,7 +37,7 @@ const FLEX_FIELDS: &[&str] = &["type", "x", "y", "frame", "tint", "style", "chil
 const SWITCH_FIELDS: &[&str] = &["type", "handle", "x", "y", "children", "debug_name"];
 const CASE_FIELDS: &[&str] = &["type", "value", "frame", "tint", "style", "children", "debug_name"];
 const SECTION_FIELDS: &[&str] = &["type", "section", "frame", "outset", "claim", "flow", "children", "debug_name"];
-const REGION_FIELDS: &[&str] = &["type", "on_click", "tooltip", "item_model", "width", "height", "debug_name"];
+const REGION_FIELDS: &[&str] = &["type", "on_click", "tooltip", "hover", "item_model", "width", "height", "debug_name"];
 const SLOT_FIELDS: &[&str] = &[
     "type",
     "handle",

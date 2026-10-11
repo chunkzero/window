@@ -70,6 +70,8 @@ pub struct SizeOptions {
 pub struct CoreShaders {
     /// `coreShaders.hud`: emit core shader overrides for HUD relocation.
     pub hud: bool,
+    /// `coreShaders.hover`: emit core shader overrides that outline the hovered region.
+    pub hover: bool,
 }
 
 /// `experimental` options.
@@ -98,6 +100,8 @@ pub struct Vanilla {
     pub anvil: VanillaAnvil,
     /// `vanilla.hud`: the HUD groups whose GUI sprites are blanked.
     pub blank_hud: BTreeSet<HudGroup>,
+    /// `vanilla.slotHighlight`: the 24x24 highlight drawn over the hovered slot of every container.
+    pub slot_highlight: Replacement,
 }
 
 /// `vanilla.anvil` options.

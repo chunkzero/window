@@ -46,6 +46,7 @@ pub(super) struct ElementDto {
     color: Option<ColorDto>,
     tint: Option<ColorDto>,
     tooltip: Option<TooltipDto>,
+    hover: Option<bool>,
     shadow: bool,
     bold: bool,
     italic: bool,
@@ -98,6 +99,7 @@ struct ElementShapeDto {
     color: Option<ColorDto>,
     tint: Option<ColorDto>,
     tooltip: Option<TooltipDto>,
+    hover: Option<bool>,
     #[serde(default)]
     shadow: bool,
     #[serde(default)]
@@ -168,6 +170,7 @@ impl ElementDto {
             color: shape.color,
             tint: shape.tint,
             tooltip: shape.tooltip,
+            hover: shape.hover,
             shadow: shape.shadow,
             bold: shape.bold,
             italic: shape.italic,

@@ -1,3 +1,5 @@
+use super::hover::{HOVER_FRAGMENT_DRAW, HOVER_FRAGMENT_INPUTS};
+
 const INTENSITY_SAMPLE_FUNCTION: &str = r#"
 vec4 window_hud_intensity_sample(sampler2D sampler, vec2 coord) {
     vec4 texel = texture(sampler, coord);
@@ -8,9 +10,12 @@ vec4 window_hud_intensity_sample(sampler2D sampler, vec2 coord) {
 }
 "#;
 
-/// Renders `core/text.fsh` for every define variant; only `IS_GRAYSCALE` departs from vanilla.
-pub(in crate::hud) fn render_v330_define_variant_text_fragment() -> String {
-    r#"#version 330
+/// Renders `core/text.fsh` for every define variant; `IS_GRAYSCALE` departs from vanilla, and with `hover` so does
+/// `IS_GUI`.
+pub(in crate::hud) fn render_v330_define_variant_text_fragment(hover: bool) -> String {
+    let (hover_inputs, hover_draw) = if hover { (HOVER_FRAGMENT_INPUTS, HOVER_FRAGMENT_DRAW) } else { ("", "") };
+    format!(
+        r#"#version 330
 
 #if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)
 #moj_import <minecraft:fog.glsl>
@@ -29,26 +34,26 @@ in vec4 vertexColor;
 in vec2 texCoord0;
 #ifdef IS_GRAYSCALE
 flat in int windowHudTextureMode;
-#endif
+#endif{hover_inputs}
 
 out vec4 fragColor;
 
-void main() {
+void main() {{
     vec4 texColor = texture(Sampler0, texCoord0);
 #ifdef IS_GRAYSCALE
-    if (windowHudTextureMode != 1) {
+    if (windowHudTextureMode != 1) {{
         texColor = texColor.rrrr;
-    }
-#endif
+    }}
+#endif{hover_draw}
 
 #ifdef IS_SEE_THROUGH
     vec4 color = texColor * vertexColor;
 #else
     vec4 color = texColor * vertexColor * ColorModulator;
 #endif
-    if (color.a < 0.1) {
+    if (color.a < 0.1) {{
         discard;
-    }
+    }}
 
 #ifdef IS_SEE_THROUGH
     fragColor = color * ColorModulator;
@@ -57,9 +62,9 @@ void main() {
 #else
     fragColor = apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
 #endif
-}
+}}
 "#
-    .to_string()
+    )
 }
 
 pub(in crate::hud) fn render_v150_text_intensity_fragment(

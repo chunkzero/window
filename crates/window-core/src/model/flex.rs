@@ -68,6 +68,8 @@ pub struct Region {
     /// Fixed size; `None` fills the parent box.
     pub size: Option<Size>,
     pub tooltip: Option<Tooltip>,
+    /// Whether it is outlined while hovered; `None` outlines a region that takes clicks. Needs `coreShaders.hover`.
+    pub hover: Option<bool>,
     /// Item model of the hitbox item filling its slots.
     pub item_model: Option<String>,
     /// Authored name shown in errors and as the region's diagnostic source.

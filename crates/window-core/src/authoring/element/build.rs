@@ -203,6 +203,7 @@ impl ElementDto {
         Ok(Element::Region(Box::new(Region {
             size: self.optional_size()?,
             tooltip: self.tooltip()?,
+            hover: self.hover,
             default_action: self.default_action,
             item_model: self.item_model,
             name: self.name,

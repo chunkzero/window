@@ -1,6 +1,7 @@
 mod background;
 mod fragment;
 mod glsl;
+mod hover;
 mod text;
 
 use crate::ir::Rgb;

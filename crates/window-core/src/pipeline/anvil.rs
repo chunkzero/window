@@ -69,12 +69,12 @@ pub(super) fn vanilla_files(
     Ok(files)
 }
 
-fn blank(path: &str, size: Size) -> Result<OutputFile> {
+pub(super) fn blank(path: &str, size: Size) -> Result<OutputFile> {
     Ok(OutputFile::binary(path, Texture::transparent(size.width, size.height).encode_png()?))
 }
 
 /// Emits catalog `sprite` at each of `paths`; `option` names the plugin option in errors.
-fn sprite_files(
+pub(super) fn sprite_files(
     option: &str,
     runtime_sprites: &BTreeMap<String, RuntimeSpriteAsset>,
     sprite: &str,

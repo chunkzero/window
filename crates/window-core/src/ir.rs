@@ -428,6 +428,8 @@ pub struct RegionIr {
     pub default_action: Option<String>,
     /// The hitbox item filling the region's slots; `None` leaves them empty.
     pub hitbox: Option<Hitbox>,
+    /// The authored `hover`: whether the region is outlined while hovered. `None` outlines a region with an action.
+    pub hover: Option<bool>,
     /// The authored element this region comes from, such as ``region `buy` ``.
     pub source: String,
 }

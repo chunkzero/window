@@ -61,6 +61,8 @@ struct SizeDto {
 struct CoreShadersDto {
     #[serde(default)]
     hud: bool,
+    #[serde(default)]
+    hover: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -77,6 +79,8 @@ struct VanillaDto {
     anvil: VanillaAnvilDto,
     #[serde(default)]
     hud: VanillaHudDto,
+    #[serde(rename = "slotHighlight")]
+    slot_highlight: Option<TextureDto>,
 }
 
 /// A `vanilla` value: a catalog sprite name, `false` to blank, or `true` to keep.
@@ -147,6 +151,11 @@ impl VanillaDto {
                     .transpose()?,
             },
             blank_hud: self.hud.blanked(),
+            slot_highlight: self
+                .slot_highlight
+                .map(|highlight| highlight.into_replacement("vanilla.slotHighlight"))
+                .transpose()?
+                .unwrap_or_default(),
         })
     }
 }
@@ -214,7 +223,10 @@ impl ProjectDto {
             windows,
             huds,
             options: BuildOptions {
-                core_shaders: CoreShaders { hud: self.options.core_shaders.hud },
+                core_shaders: CoreShaders {
+                    hud: self.options.core_shaders.hud,
+                    hover: self.options.core_shaders.hover,
+                },
                 vanilla: self.options.vanilla.into_options()?,
                 experimental: Experimental { anvil_updates: self.options.experimental.anvil_updates },
                 size: SizeOptions { report: self.options.size.report, budget: self.options.size.budget },

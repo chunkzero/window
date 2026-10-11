@@ -118,6 +118,7 @@ fn region(name: &str, rect: Rect, slots: Option<Vec<crate::inventory::InventoryS
         action: None,
         default_action: None,
         hitbox: None,
+        hover: None,
         source: format!("button `{name}`"),
     }
 }

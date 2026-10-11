@@ -48,7 +48,7 @@ fn compile_huds(huds: &[LaidOutHud], hud_shaders: bool) -> Result<CompileOutput>
     let fonts = text_font::resolve(&BTreeMap::new(), &BTreeMap::new()).unwrap();
     let assets = Assets { textures: &textures, runtime_sprites: &BTreeMap::new(), text_fonts: &fonts };
     let target = PackTarget { pack_format: Some(88) };
-    let options = BuildOptions { core_shaders: CoreShaders { hud: hud_shaders }, ..Default::default() };
+    let options = BuildOptions { core_shaders: CoreShaders { hud: hud_shaders, hover: false }, ..Default::default() };
     compile_layouts(&[], huds, &assets, "demo", &target, &options)
 }
 
