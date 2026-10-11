@@ -32,7 +32,8 @@ int window_hud_texture_mode(vec4 color) {
 
 fn render_helper_tables(rules: &[HudShaderRule], screen_size: ScreenSizeSource) -> String {
     let count = rules.len();
-    let bottoms = join_rule_values(rules, |r| r.source_bottom.to_string());
+    // A rule's glyphs are baked `row_offset` rows below the vanilla source, so that is where the shader finds them.
+    let bottoms = join_rule_values(rules, |r| (r.source_bottom - r.row_offset).to_string());
     let heights = join_rule_values(rules, |r| r.height.to_string());
     let widths = join_rule_values(rules, |r| r.width.to_string());
     let origins_x = join_rule_values(rules, |r| format_glsl_float(r.origin_x));

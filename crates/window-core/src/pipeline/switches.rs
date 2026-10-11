@@ -33,7 +33,7 @@ impl CompileContext<'_> {
                     let ascent = origin.y + 7 - comp.bounds.y;
                     let file = format!("{file_base}_switch/{}/{}", path_segment(&switch.name), case.value);
                     let key = case_key(key_prefix, &switch.name, &case.value);
-                    let glyph = self.emit_static_glyph(comp, ascent, pane.name, &file, key, Part::switch_case(pane))?;
+                    let glyph = self.emit_static_glyph(comp, ascent, pane, &file, key, Part::switch_case(pane))?;
                     bake::bake_static_with_advance(glyph.glyph, &comp.bounds, origin, glyph.advance)
                 } else {
                     bake::bake_empty()

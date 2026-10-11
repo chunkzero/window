@@ -33,7 +33,7 @@ pub(super) fn window_surface(
 }
 
 pub(super) fn hud_surface(manifest: &Manifest, hud: &HudEntry, glyphs: &BTreeMap<char, BitmapGlyph>) -> DebugSurface {
-    let origin = [0, 0];
+    let origin = [0, -hud.shader.as_ref().map_or(0, |shader| shader.row_offset)];
     let width = hud.surface.width as i32;
     let independent_layer_net_advance = hud.shader.as_ref().map(|_| 0);
     let mut layers: Vec<DebugLayer> =

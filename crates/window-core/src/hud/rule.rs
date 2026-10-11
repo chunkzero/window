@@ -6,6 +6,8 @@ use crate::ir::{LaidOutHud, Rgb};
 #[derive(Clone, Debug)]
 pub(super) struct HudShaderRule {
     pub(super) source_bottom: i32,
+    /// Rows the HUD's glyphs are baked below the vanilla source, which the text shader subtracts again.
+    pub(super) row_offset: i32,
     pub(super) width: u32,
     pub(super) height: u32,
     pub(super) origin_x: f32,
@@ -30,16 +32,18 @@ pub(super) enum HudShaderTexture {
     Rgba,
 }
 
-/// Builds one rule per distinct placement; HUDs sharing a placement share a rule's segments.
-pub(super) fn rules(huds: &[&LaidOutHud], markers: &SegmentMarkers) -> Vec<HudShaderRule> {
+/// Builds one rule per distinct placement; HUDs sharing a placement share a rule's segments. `row_offsets` holds
+/// each HUD's baked row offset in the order of `huds`.
+pub(super) fn rules(huds: &[&LaidOutHud], row_offsets: &[i32], markers: &SegmentMarkers) -> Vec<HudShaderRule> {
     let mut rules: Vec<HudShaderRule> = Vec::new();
 
-    for hud in huds {
+    for (hud, &row_offset) in huds.iter().zip(row_offsets) {
         let Some(shader) = hud.shader else {
             continue;
         };
         let rule = HudShaderRule {
             source_bottom: shader.source_bottom,
+            row_offset,
             width: hud.width,
             height: hud.height,
             origin_x: shader.origin_x,
@@ -66,6 +70,7 @@ pub(super) fn rules(huds: &[&LaidOutHud], markers: &SegmentMarkers) -> Vec<HudSh
 
 fn same_placement(a: &HudShaderRule, b: &HudShaderRule) -> bool {
     a.source_bottom == b.source_bottom
+        && a.row_offset == b.row_offset
         && a.width == b.width
         && a.height == b.height
         && a.origin_x == b.origin_x

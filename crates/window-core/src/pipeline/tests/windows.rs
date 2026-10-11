@@ -186,8 +186,7 @@ fn overlapping_buttons_error() {
 fn oversized_composite_height_errors() {
     let mut textures = BTreeMap::new();
     textures.insert("big.png".to_string(), solid(4, 4, [1, 1, 1, 255]));
-    // A nine-slice stretched to a 600px-tall composite exceeds the 512px
-    // provider limit.
+    // A nine-slice stretched to a 600px-tall composite exceeds one font atlas page.
     let draw = Draw::NineSlice {
         texture: TextureKey("big.png".into()),
         insets: Insets::uniform(1),

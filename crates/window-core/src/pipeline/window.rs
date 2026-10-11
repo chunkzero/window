@@ -60,7 +60,7 @@ fn bake_static(
     // Ascent places the composite's top edge: A = title_y + 7 - top_y.
     let ascent = title_origin.y + 7 - comp.bounds.y;
     let glyph =
-        ctx.emit_static_glyph(comp, ascent, &w.name, &w.name, static_key(&w.name), Part::static_art(pane(w)))?;
+        ctx.emit_static_glyph(comp, ascent, pane(w), &w.name, static_key(&w.name), Part::static_art(pane(w)))?;
     Ok(bake::bake_static_with_advance(glyph.glyph, &comp.bounds, title_origin, glyph.advance))
 }
 
@@ -76,6 +76,14 @@ fn sprite_slots(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, title_y: i32) -
     entries
 }
 
+/// The vertical offsets `slot` can draw at when its box top lies `k` pixels below the font baseline origin: `k`, then
+/// each half-line step of a multi-line slot.
+pub(super) fn slot_rows(slot: &SlotIr, k: i32) -> impl Iterator<Item = i32> {
+    let fit = slot.fit;
+    let steps = if fit.lines > 1 { 2 * fit.lines - 1 } else { 1 };
+    (0..steps as i32).map(move |step| k + step * fit.line_height as i32 / 2)
+}
+
 /// Build a [`SlotEntry`] for `slot`, whose box top lies `k` pixels below the font baseline origin, registering the
 /// shifted font of every position a line can take.
 pub(super) fn slot_entry(
@@ -86,8 +94,7 @@ pub(super) fn slot_entry(
 ) -> Result<SlotEntry> {
     let fit = slot.fit;
     let lines = if fit.lines > 1 {
-        let steps = 0..(2 * fit.lines - 1) as i32;
-        let fonts = steps.map(|s| ctx.text_font(slot, k + s * fit.line_height as i32 / 2)).collect::<Result<_>>()?;
+        let fonts = slot_rows(slot, k).map(|row| ctx.text_font(slot, row)).collect::<Result<_>>()?;
         Some(SlotLinesEntry { count: fit.lines, line_height: fit.line_height, fonts })
     } else {
         None

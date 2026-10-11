@@ -354,6 +354,8 @@ switch on its handle with one region per state.
       "shader": {
         "static_marker": "#010002",
         "source_bottom": 59,
+        // Omitted when 0.
+        "row_offset": -3,
         "origin_x": 0.5,
         "origin_y": 0.08,
         "anchor_x": 0.5,
@@ -375,7 +377,8 @@ Notes:
 - Shader HUDs render from the actionbar center: `huds.*.static` and every slot segment are net-zero, and the generated
   shader moves the local HUD coordinate system into place. Non-shader HUD fallbacks keep a fixed-width static segment so
   vanilla actionbar/bossbar/sidebar centering stays stable.
-- A slot's vertical placement is fully encoded in its `font`; `y` is informational (and used by codegen/tooling).
+- A slot's vertical placement is fully encoded in its `font`; `y` is informational (and used by codegen/tooling). A
+  shader HUD's slot fonts sit `shader.row_offset` rows below `y`.
 - Runtime sprite slot vertical placement is likewise encoded in `sprite_slots.*.font`. The sprite glyph comes from
   `sprites.<id>.glyph`, and the generated `sprite_y...` font repeats that glyph at the slot's vertical ascent.
 - A sprite font holds only the sprites its slots can show: a slot's `only` (its handle's `only` list), a collection
@@ -450,7 +453,9 @@ Notes:
 - `shader` is metadata for generated core-shader packs. `origin_*` is a normalized GUI target point, `anchor_*` is the
   normalized point inside the HUD surface placed on that target, and `offset_*` is a GUI-pixel nudge. `source_bottom` is
   the nominal bottom of the source text surface measured up from the GUI bottom; generated shaders apply Minecraft's
-  fixed actionbar source inset, independent of the authored HUD height. Runtime display still uses the HUD's fallback
+  fixed actionbar source inset, independent of the authored HUD height. `row_offset` is how many rows below that source
+  the compiler baked the HUD's art, switch cases, and slot fonts so that its text rows share fonts with other surfaces;
+  the generated shaders subtract it again, so it does not move the HUD. Runtime display still uses the HUD's fallback
   `channel`.
 - Shader HUDs include generated marker colors in the compiled definition: `shader.static_marker` for baked chrome and
   `slots.*.shader_marker` for slot text. These marker colors reserve green channel `00`; red+blue encode a generated
