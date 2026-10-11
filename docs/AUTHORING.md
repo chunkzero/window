@@ -56,6 +56,7 @@ window({
     hud: { hotbar: false, health: false, food: false, armor: false, air: false, experience: false, crosshair: false },
   },
   experimental: { anvilUpdates: true },
+  size: { report: true, budget: 3_000_000 },
   kotlin: { package: "com.example.generated", output: "src/main/kotlin/generated", target: "minestom" },
 });
 ```
@@ -64,6 +65,10 @@ window({
 - `coreShaders.hud`: emit the core text shaders that place [`<Hud anchor>`](#roots) HUDs. Opt-in, and sensitive to the
   client version.
 - `experimental.anvilUpdates`: lets [anvil input windows](#native-anvil-search) change their title at runtime.
+- `size.report`: print a breakdown of the compiler's output after a successful build; see
+  [What things cost](#what-things-cost).
+- `size.budget`: a positive byte count. A build whose output exceeds it fails, stating the budget, the total, the
+  overage, and the breakdown. Omitted means no limit.
 - `kotlin`: generate Kotlin bindings into `output`; `target` is `minestom`, `multistom`, or `agnostic`.
 
 ### Vanilla textures
@@ -91,6 +96,38 @@ Blanking sprites cannot hide HUD text, such as the experience level number or th
 rpp fails the build when a generated file would replace a file the pack's own source owns, for example under
 `assets/minecraft/shaders/core/` or a vanilla texture that a `vanilla` option overrides. Overrides that come from
 separately loaded packs or mods cannot be detected at build time, so the load order decides which one wins.
+
+### What things cost
+
+`size: { report: true }` prints where the compiler's output bytes go, largest first within each part:
+
+```
+Window output: 604.3 KB (compiler output, before pack optimization)
+  win shop                     9.8 KB   static 3.3 KB · 33 switch cases 6.5 KB
+  hud status_bottom_center     2.7 KB   static 0 B · 20 switch cases 2.7 KB
+  sprite fonts (3)             1.2 KB   largest sprite_y29 389 B
+  text-row fonts (15)        258.0 KB   largest small_caps/y137 17.2 KB
+  kotlin (17)                195.5 KB
+  debug descriptor           108.4 KB
+  main font                   11.4 KB
+```
+
+- Each window and HUD line is its total, split into its static art and its switch cases. Every switch case bakes its own
+  texture, so a switch costs roughly its case count times one case's art; cut cases, or move art that every case repeats
+  out of the switch.
+- Each distinct vertical position that a text slot (or line of a multi-line slot) draws at adds one text-row font
+  document, and a custom font adds one per position. Sprite slots add one sprite font per position, listing every
+  catalog sprite. Aligning slots to fewer rows removes fonts.
+- The remaining lines are shared: runtime sprite textures, text font sheets, the main font document, generated HUD
+  shaders, vanilla overrides, the debug descriptor, and generated Kotlin.
+
+Sizes are the bytes the compiler emits (pack files plus generated Kotlin), before rpp's later squash and optimize step,
+so the shipped pack is smaller. Each file counts whole toward one line. Documents that grow with every window, such as
+the main font and the debug descriptor, are reported as their own lines and are not split among windows.
+
+`size.budget` turns the same report into a build check. Older rpp builds failed large outputs with wasmtime's "fuel
+allocated for hostcalls has been exhausted"; this was a plugin host limit that newer rpp (the version `plugin/rpp.json`
+requires) no longer hits, but a budget keeps growth visible before it reaches a limit elsewhere.
 
 ## Text fonts
 

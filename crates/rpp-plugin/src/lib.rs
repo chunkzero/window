@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 
 use window_core::pipeline::{CompileInput, CompileOutput as CoreCompileOutput, OutputFile as CoreOutputFile};
+use window_core::size::SizeReport;
 
 #[cfg(target_family = "wasm")]
 wit_bindgen::generate!({
@@ -37,9 +38,11 @@ pub struct PluginCompileOutput {
     pub core: CoreCompileOutput,
     /// Kotlin bindings generated from that exact manifest.
     pub kotlin_files: Vec<CoreOutputFile>,
+    /// The size breakdown, when `size.report` is set.
+    pub size_report: Option<String>,
 }
 
-/// Compile a TypeScript-authored Window project.
+/// Compile a TypeScript-authored Window project. Fails when the output exceeds `size.budget`.
 pub fn compile_project(
     namespace: String,
     project_json: String,
@@ -48,14 +51,21 @@ pub fn compile_project(
 ) -> Result<PluginCompileOutput, String> {
     let files = files.into_iter().map(|file| (file.path, file.contents)).collect::<BTreeMap<_, _>>();
     let input = CompileInput { namespace, files };
-    let core = window_core::pipeline::compile_project_json(project_json.as_bytes(), &input)
-        .map_err(|error| error.to_string())?;
+    let project =
+        window_core::authoring::project_from_json(project_json.as_bytes()).map_err(|error| error.to_string())?;
+    let core = window_core::pipeline::compile_project(&project, &input).map_err(|error| error.to_string())?;
     let kotlin_files = kotlin
         .map(|kotlin| window_core::codegen::generate_kotlin(&core.manifest, &kotlin.package_name, kotlin.target))
         .transpose()
         .map_err(|error| error.to_string())?
         .unwrap_or_default();
-    Ok(PluginCompileOutput { core, kotlin_files })
+    let size = &project.options.size;
+    let report = SizeReport::new(&core, &kotlin_files, size.budget);
+    if let Some(error) = report.budget_error() {
+        return Err(error);
+    }
+    let size_report = size.report.then(|| report.text().to_string());
+    Ok(PluginCompileOutput { core, kotlin_files, size_report })
 }
 
 #[cfg(target_family = "wasm")]
@@ -86,6 +96,7 @@ fn to_wit_compile_output(output: PluginCompileOutput) -> CompileOutput {
         files: output.core.files.into_iter().map(to_wit_output_file).collect(),
         kotlin_files: output.kotlin_files.into_iter().map(to_wit_output_file).collect(),
         warnings: output.core.warnings,
+        size_report: output.size_report,
     }
 }
 

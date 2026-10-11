@@ -93,12 +93,24 @@ test("vanilla and experimental options reach the project JSON in snake_case", ()
     });
 });
 
+test("size options reach the project JSON, and a budget must be a positive integer", () => {
+    assert.deepEqual(buildProject([shop], { size: { report: true, budget: 3_000_000 } }, 88).options.size, {
+        report: true,
+        budget: 3_000_000,
+    });
+    assert.equal(buildProject([shop], {}, 88).options.size, undefined);
+    for (const budget of [0, -5, 1.5, Number.NaN]) {
+        assert.throws(() => checkOptions({ size: { budget } }), /`size\.budget` must be a positive integer; got /);
+    }
+});
+
 test("unknown plugin option keys fail naming the key and the accepted keys", () => {
     checkOptions({
         namespace: "x",
         coreShaders: { hud: true },
         vanilla: { anvil: { field: false, background: "bg" }, hud: { hotbar: false } },
         experimental: { anvilUpdates: true },
+        size: { report: true, budget: 1 },
         kotlin: { package: "p", output: "o", target: "minestom" },
     });
     assert.throws(

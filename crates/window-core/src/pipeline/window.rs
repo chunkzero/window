@@ -6,6 +6,7 @@ use crate::compose::Composite;
 use crate::geometry::{Point, Rect};
 use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr};
 use crate::manifest::{SlotEntry, SlotLinesEntry, SpriteSlotEntry, SurfaceEntry, TextOverflow, WindowEntry};
+use crate::size::{Pane, Part};
 use crate::surface::Surface;
 use crate::{Result, bake};
 
@@ -18,7 +19,7 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
     let title_origin = w.surface.title_origin();
     let static_text = bake_static(ctx, w, &layers.base, title_origin)?;
     let switches =
-        ctx.switch_entries(&w.name, &window_key_prefix(&w.name), &w.name, &w.switches, &layers.cases, title_origin)?;
+        ctx.switch_entries(pane(w), &window_key_prefix(&w.name), &w.name, &w.switches, &layers.cases, title_origin)?;
 
     let mut slots = BTreeMap::new();
     for slot in &w.slots {
@@ -43,6 +44,10 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
     })
 }
 
+fn pane(w: &LaidOutWindow) -> Pane<'_> {
+    Pane { hud: false, name: &w.name }
+}
+
 fn bake_static(
     ctx: &mut CompileContext<'_>,
     w: &LaidOutWindow,
@@ -54,7 +59,8 @@ fn bake_static(
     }
     // Ascent places the composite's top edge: A = title_y + 7 - top_y.
     let ascent = title_origin.y + 7 - comp.bounds.y;
-    let glyph = ctx.emit_static_glyph(comp, ascent, &w.name, &w.name, static_key(&w.name))?;
+    let glyph =
+        ctx.emit_static_glyph(comp, ascent, &w.name, &w.name, static_key(&w.name), Part::static_art(pane(w)))?;
     Ok(bake::bake_static_with_advance(glyph.glyph, &comp.bounds, title_origin, glyph.advance))
 }
 
