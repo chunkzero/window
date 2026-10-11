@@ -130,6 +130,7 @@ fn shop_window() -> WindowEntry {
         align: Align::Left,
         font: "window:sprite_y11".into(),
         sprite: Some("slot_selected".into()),
+        only: Vec::new(),
         source: None,
     };
     shop.collections = BTreeMap::from([(
@@ -319,6 +320,7 @@ fn sprite_slots_return_typed_runtime_sprites() {
             align: Align::Left,
             font: "window:sprite_y0".into(),
             sprite: None,
+            only: vec!["card_empty".into()],
             source: None,
         },
     )]);
@@ -332,6 +334,8 @@ fn sprite_slots_return_typed_runtime_sprites() {
     assert!(
         sprites.contains("public enum class WindowSprite(public val id: String) {\n    CARD_EMPTY(\"card_empty\"),")
     );
+    let pack = file_contents(&files, "WindowEntries.kt");
+    assert!(pack.contains("only = listOf(\"card_empty\")"), "{pack}");
     let view = file_contents(&files, "ShopView.kt");
     assert!(view.contains("protected abstract fun badgeSprite(): WindowSprite?"), "{view}");
     assert!(view.contains("sprite(\"badge\") { badgeSprite()?.id }"), "{view}");

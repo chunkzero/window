@@ -6,9 +6,11 @@ import com.chunkzero.window.internal.TitleComposer
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.SlotEntry
 import com.chunkzero.window.manifest.SpriteSlotEntry
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.TextComponent
@@ -269,6 +271,31 @@ class TitleComposerTest :
             decode(trail.content()) shouldBe -12
 
             (decode(lead.content()) + 13 + decode(trail.content())) shouldBe 0
+        }
+
+        "runtime sprite outside the slot's only list is rejected naming slot, sprite, and accepted sprites" {
+            val sprite = TestManifests.sprite(width = 12, glyphWidth = 12, advance = 13, glyph = "\uE124")
+            val manifest =
+                TestManifests.manifest(
+                    sprites = mapOf("pickaxe" to sprite, "shovel" to sprite.copy(glyph = "\uE125")),
+                    spriteSlots =
+                        mapOf(
+                            "lamp" to TestManifests.spriteSlot(x = 8, y = 6, width = 12).copy(only = listOf("pickaxe")),
+                            "icon" to TestManifests.spriteSlot(x = 8, y = 24, width = 12),
+                        ),
+                )
+            val window = manifest.windows.getValue("w")
+            val composer = TitleComposer(manifest, window)
+
+            val error =
+                shouldThrow<IllegalArgumentException> {
+                    composer.renderSprite("window/w/sprite/lamp", window.spriteSlots.getValue("lamp"), "shovel")
+                }
+            error.message shouldContain "window/w/sprite/lamp"
+            error.message shouldContain "shovel"
+            error.message shouldContain "[pickaxe]"
+            composer.renderSprite(window.spriteSlots.getValue("lamp"), "pickaxe").shouldNotBeNull()
+            composer.renderSprite(window.spriteSlots.getValue("icon"), "shovel").shouldNotBeNull()
         }
 
         "width is measured from effective component styling" {

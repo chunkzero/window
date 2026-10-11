@@ -64,19 +64,28 @@ fn empty_sprite_slot(name: &str, rect: Rect) -> SpriteSlotIr {
     SpriteSlotIr { name: name.into(), rect, align: Align::Center, source: None }
 }
 
-fn pickaxe_sprite() -> BTreeMap<String, RuntimeSpriteAsset> {
-    let asset = RuntimeSpriteAsset {
+fn sprite_asset(name: &str, rgba: [u8; 4]) -> RuntimeSpriteAsset {
+    RuntimeSpriteAsset {
         size: Size::new(16, 16),
         x_offset: 0,
         glyph_width: 16,
         advance: 17,
-        file: "window:font/sprites/pickaxe.png".into(),
+        file: format!("window:font/sprites/{name}.png"),
         output: Some(OutputFile::binary(
-            "assets/window/textures/font/sprites/pickaxe.png",
-            solid(16, 16, [255, 128, 0, 255]).encode_png().unwrap(),
+            format!("assets/window/textures/font/sprites/{name}.png"),
+            solid(16, 16, rgba).encode_png().unwrap(),
         )),
-    };
-    BTreeMap::from([("pickaxe".into(), asset)])
+    }
+}
+
+fn pickaxe_sprite() -> BTreeMap<String, RuntimeSpriteAsset> {
+    BTreeMap::from([("pickaxe".into(), sprite_asset("pickaxe", [255, 128, 0, 255]))])
+}
+
+fn tool_sprites() -> BTreeMap<String, RuntimeSpriteAsset> {
+    let mut sprites = pickaxe_sprite();
+    sprites.insert("shovel".into(), sprite_asset("shovel", [0, 128, 255, 255]));
+    sprites
 }
 
 #[test]
@@ -132,13 +141,8 @@ fn collection_selection_places_its_sprite_over_each_cell_box() {
     assert!(out.files.iter().any(|f| f.path == "assets/window/font/sprite_y29.json"));
 }
 
-/// Compiles a window whose sprite slots `lamp` (y0, narrowed to `only` when non-empty) and `icon` (y18, unrestricted)
-/// share a two-sprite catalog, and returns the texture files of the providers of `font`.
-fn sprite_font_files(only: &[&str], font: &str) -> Vec<String> {
-    let (mut w, textures) = sample_window();
-    w.sprite_slots =
-        vec![empty_sprite_slot("lamp", Rect::new(20, 6, 20, 16)), empty_sprite_slot("icon", Rect::new(80, 24, 20, 16))];
-    let handle = |only: &[&str], slot: &str| Handle {
+fn sprite_handle(slot: &str, only: &[&str]) -> (String, Handle) {
+    let handle = Handle {
         kind: HandleKind::Sprite,
         values: Vec::new(),
         shape: Vec::new(),
@@ -147,25 +151,60 @@ fn sprite_font_files(only: &[&str], font: &str) -> Vec<String> {
         only: only.iter().map(|sprite| sprite.to_string()).collect(),
         uses: vec![HandleUse { role: HandleRole::SpriteSlot, entry: slot.into(), at: Vec::new(), value: None }],
     };
-    w.handles = BTreeMap::from([("lamp".into(), handle(only, "lamp")), ("icon".into(), handle(&[], "icon"))]);
-    let mut runtime_sprites = pickaxe_sprite();
-    let mut shovel = runtime_sprites["pickaxe"].clone();
-    shovel.file = "window:font/sprites/shovel.png".into();
-    runtime_sprites.insert("shovel".into(), shovel);
+    (slot.into(), handle)
+}
 
+/// Compiles a two-sprite catalog shown by `lamp` and `lamp_b` (both at y0, narrowed to pickaxe and shovel), `solo`
+/// (y12, narrowed to pickaxe), and `icon` (y18, unrestricted).
+fn compile_tool_window() -> CompileOutput {
+    let (mut w, textures) = sample_window();
+    w.sprite_slots = vec![
+        empty_sprite_slot("lamp", Rect::new(20, 6, 20, 16)),
+        empty_sprite_slot("lamp_b", Rect::new(80, 6, 20, 16)),
+        empty_sprite_slot("solo", Rect::new(8, 18, 16, 16)),
+        empty_sprite_slot("icon", Rect::new(80, 24, 20, 16)),
+    ];
+    w.handles = BTreeMap::from([
+        sprite_handle("lamp", &["pickaxe"]),
+        sprite_handle("lamp_b", &["shovel"]),
+        sprite_handle("solo", &["pickaxe"]),
+        sprite_handle("icon", &[]),
+    ]);
+    let runtime_sprites = tool_sprites();
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &TextFonts::new() };
-    let out = compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
+    compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap()
+}
+
+fn font_files(out: &CompileOutput, font: &str) -> Vec<String> {
     let doc: serde_json::Value =
-        serde_json::from_slice(find(&out, &format!("assets/window/font/{font}.json")).contents.as_bytes()).unwrap();
+        serde_json::from_slice(find(out, &format!("assets/window/font/{font}.json")).contents.as_bytes()).unwrap();
     doc["providers"].as_array().unwrap().iter().map(|p| p["file"].as_str().unwrap().to_string()).collect()
 }
 
 #[test]
-fn narrowed_sprite_slot_font_holds_only_its_sprites() {
-    assert_eq!(sprite_font_files(&["pickaxe"], "sprite_y0"), ["window:font/sprites/pickaxe.png"]);
+fn sprite_fonts_hold_the_union_of_what_their_slots_show() {
+    let out = compile_tool_window();
+    let pickaxe = "window:font/sprites/pickaxe.png";
+    let shovel = "window:font/sprites/shovel.png";
+
+    assert_eq!(font_files(&out, "sprite_y12"), [pickaxe]);
+    assert_eq!(font_files(&out, "sprite_y0"), [pickaxe, shovel]);
+    assert_eq!(font_files(&out, "sprite_y18"), [pickaxe, shovel]);
+
+    let slots = &out.manifest.windows["shop"].sprite_slots;
+    assert_eq!(slots["lamp"].only, ["pickaxe"]);
+    assert!(slots["icon"].only.is_empty());
+    crate::validation::validate_compile_output(&out).assert_valid();
 }
 
 #[test]
-fn unrestricted_sprite_slot_font_holds_the_whole_catalog() {
-    assert_eq!(sprite_font_files(&["pickaxe"], "sprite_y18").len(), 2);
+fn validation_rejects_a_sprite_font_missing_a_reachable_glyph() {
+    let mut out = compile_tool_window();
+    let file = out.files.iter_mut().find(|f| f.path == "assets/window/font/sprite_y12.json").unwrap();
+    let mut doc: serde_json::Value = serde_json::from_slice(file.contents.as_bytes()).unwrap();
+    doc["providers"].as_array_mut().unwrap().clear();
+    file.contents = FileContents::Text(doc.to_string());
+
+    let report = crate::validation::validate_compile_output(&out);
+    assert!(report.issues.iter().any(|issue| issue.code == "font.sprite.catalog_mismatch"), "{report}");
 }

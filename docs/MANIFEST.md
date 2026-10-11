@@ -136,6 +136,7 @@ switch on its handle with one region per state.
           "height": 32,
           "align": "center",
           "font": "window:sprite_y39",
+          "only": ["pickaxe", "shovel"], // optional: the catalog sprites the slot's font holds; absent for any
           "source": "tool-icon", // optional: the nearest authored `debugName`, for diagnostics
         },
       },
@@ -377,6 +378,9 @@ Notes:
 - A slot's vertical placement is fully encoded in its `font`; `y` is informational (and used by codegen/tooling).
 - Runtime sprite slot vertical placement is likewise encoded in `sprite_slots.*.font`. The sprite glyph comes from
   `sprites.<id>.glyph`, and the generated `sprite_y...` font repeats that glyph at the slot's vertical ascent.
+- A sprite font holds only the sprites its slots can show: a slot's `only` (its handle's `only` list), a collection
+  selection's `sprite`, or the whole catalog for a slot without `only`. The runtime rejects binding a sprite outside a
+  slot's `only`, since its glyph is missing from the font.
 - `sprites` holds the `defineWindows` sprite catalog and inline art that the runtime draws (a collection's selected
   sprite). Inline art is keyed `art/{name}-{hash}`, or `art/{hash}` without a name, where `hash` is a hex prefix of the
   art's content hash; codegen gives these no `WindowSprite` constant.
