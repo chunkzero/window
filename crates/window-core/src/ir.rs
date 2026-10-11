@@ -341,6 +341,15 @@ pub fn indexed_entry(id: &str, at: &[u32]) -> String {
     at.iter().fold(id.to_string(), |name, i| format!("{name}[{i}]"))
 }
 
+/// The catalog sprites the dynamic sprite slot `slot` can show: its handle's `only`, or empty for any catalog sprite
+/// (also when no handle drives it).
+pub fn sprite_slot_only<'a>(handles: &'a BTreeMap<String, Handle>, slot: &str) -> &'a [String] {
+    handles
+        .values()
+        .find(|handle| handle.uses.iter().any(|u| u.role == HandleRole::SpriteSlot && u.entry == slot))
+        .map_or(&[], |handle| &handle.only)
+}
+
 /// A runtime-positioned sprite region.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SpriteSlotIr {

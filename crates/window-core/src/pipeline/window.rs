@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::compose::Composite;
 use crate::geometry::{Point, Rect};
-use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr};
+use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr, sprite_slot_only};
 use crate::manifest::{SlotEntry, SlotLinesEntry, SpriteSlotEntry, SurfaceEntry, TextOverflow, WindowEntry};
 use crate::size::{Pane, Part};
 use crate::surface::Surface;
@@ -67,7 +67,7 @@ fn bake_static(
 fn sprite_slots(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, title_y: i32) -> BTreeMap<String, SpriteSlotEntry> {
     let mut entries = BTreeMap::new();
     for sprite_slot in &w.sprite_slots {
-        let font = ctx.sprite_font(sprite_slot.rect.y - title_y);
+        let font = ctx.sprite_font(sprite_slot.rect.y - title_y, sprite_slot_only(&w.handles, &sprite_slot.name));
         let entry = sprite_slot_entry(font, &sprite_slot.rect, sprite_slot.align, None);
         entries.insert(sprite_slot.name.clone(), SpriteSlotEntry { source: sprite_slot.source.clone(), ..entry });
     }

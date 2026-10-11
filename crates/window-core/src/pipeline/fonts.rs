@@ -51,11 +51,11 @@ pub(super) fn emit_fonts(ctx: &mut CompileContext<'_>) -> Result<()> {
             emitted.push((Part::TextSheet, sheet));
         }
     }
-    for k in &ctx.sprite_offsets {
+    for (k, shown) in &ctx.sprite_fonts {
         let suffix = format!("sprite_{}", shifted_suffix(*k));
         let document = OutputFile::text(
             format!("assets/{namespace}/font/{suffix}.json"),
-            to_json(&sprite_font(*k, ctx.runtime_sprites, &ctx.codepoints)?)?,
+            to_json(&sprite_font(*k, shown, ctx.runtime_sprites, &ctx.codepoints)?)?,
         );
         emitted.push((Part::SpriteFont(suffix), document));
     }
@@ -67,12 +67,13 @@ pub(super) fn emit_fonts(ctx: &mut CompileContext<'_>) -> Result<()> {
 
 fn sprite_font(
     k: i32,
+    shown: &BTreeSet<String>,
     runtime_sprites: &BTreeMap<String, RuntimeSpriteAsset>,
     codepoints: &BTreeMap<String, u32>,
 ) -> Result<serde_json::Value> {
     let ascent = 7 - k;
-    let mut providers = Vec::with_capacity(runtime_sprites.len());
-    for (name, asset) in runtime_sprites {
+    let mut providers = Vec::with_capacity(shown.len());
+    for (name, asset) in runtime_sprites.iter().filter(|(name, _)| shown.contains(*name)) {
         providers.push(bitmap_provider_file(
             &asset.file,
             &format!("sprite `{name}` at y offset {k}"),

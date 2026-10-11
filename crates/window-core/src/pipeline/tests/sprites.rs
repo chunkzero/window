@@ -1,6 +1,6 @@
 use super::*;
 use crate::inventory::InventorySlotRef;
-use crate::ir::{CollectionIr, SpriteSlotIr};
+use crate::ir::{CollectionIr, Handle, HandleKind, HandleRole, HandleUse, SpriteSlotIr};
 use crate::model::SpriteDef;
 use crate::pipeline::metrics::{GlyphMetrics, bitmap_metrics};
 use crate::pipeline::sprites::runtime_sprite_assets;
@@ -130,4 +130,42 @@ fn collection_selection_places_its_sprite_over_each_cell_box() {
     assert_eq!(boxes, [(7, 35, 18, 18), (25, 35, 18, 18)]);
     assert!(cells.iter().all(|cell| cell.font == "window:sprite_y29" && cell.sprite.as_deref() == Some("pickaxe")));
     assert!(out.files.iter().any(|f| f.path == "assets/window/font/sprite_y29.json"));
+}
+
+/// Compiles a window whose sprite slots `lamp` (y0, narrowed to `only` when non-empty) and `icon` (y18, unrestricted)
+/// share a two-sprite catalog, and returns the texture files of the providers of `font`.
+fn sprite_font_files(only: &[&str], font: &str) -> Vec<String> {
+    let (mut w, textures) = sample_window();
+    w.sprite_slots =
+        vec![empty_sprite_slot("lamp", Rect::new(20, 6, 20, 16)), empty_sprite_slot("icon", Rect::new(80, 24, 20, 16))];
+    let handle = |only: &[&str], slot: &str| Handle {
+        kind: HandleKind::Sprite,
+        values: Vec::new(),
+        shape: Vec::new(),
+        initial: None,
+        selectable: false,
+        only: only.iter().map(|sprite| sprite.to_string()).collect(),
+        uses: vec![HandleUse { role: HandleRole::SpriteSlot, entry: slot.into(), at: Vec::new(), value: None }],
+    };
+    w.handles = BTreeMap::from([("lamp".into(), handle(only, "lamp")), ("icon".into(), handle(&[], "icon"))]);
+    let mut runtime_sprites = pickaxe_sprite();
+    let mut shovel = runtime_sprites["pickaxe"].clone();
+    shovel.file = "window:font/sprites/shovel.png".into();
+    runtime_sprites.insert("shovel".into(), shovel);
+
+    let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &TextFonts::new() };
+    let out = compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
+    let doc: serde_json::Value =
+        serde_json::from_slice(find(&out, &format!("assets/window/font/{font}.json")).contents.as_bytes()).unwrap();
+    doc["providers"].as_array().unwrap().iter().map(|p| p["file"].as_str().unwrap().to_string()).collect()
+}
+
+#[test]
+fn narrowed_sprite_slot_font_holds_only_its_sprites() {
+    assert_eq!(sprite_font_files(&["pickaxe"], "sprite_y0"), ["window:font/sprites/pickaxe.png"]);
+}
+
+#[test]
+fn unrestricted_sprite_slot_font_holds_the_whole_catalog() {
+    assert_eq!(sprite_font_files(&["pickaxe"], "sprite_y18").len(), 2);
 }
