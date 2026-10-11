@@ -57,16 +57,18 @@ internal class DynamicSlots(
         put: (name: String, segment: RenderedSegment) -> Unit,
     ) {
         for ((name, slot) in slots) {
-            val text = slot.text
-            val segment =
-                if (text == null) {
-                    dynamic(name)
-                } else {
-                    renderSlot(semanticId(name), slot, Component.text(text)) ?: continue
-                }
-            put(name, segment)
+            put(name, if (slot.text == null) dynamic(name) else label(name) ?: continue)
         }
     }
+
+    /** Renders static label [name]; `null` for a dynamic slot or a label that draws nothing. */
+    fun label(name: String): RenderedSegment? {
+        val slot = slots.getValue(name)
+        return slot.text?.let { renderSlot(semanticId(name), slot, Component.text(it)) }
+    }
+
+    /** The slots, static labels included, that take their color from [tint]. */
+    fun tinted(tint: String): Set<String> = slots.filterValues { it.tint == tint }.keys
 
     /** Renders one bound dynamic slot under dependency capture. */
     fun render(name: String): RenderedSegment = segment(name, content(name))

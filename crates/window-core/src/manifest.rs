@@ -94,14 +94,35 @@ pub struct WindowEntry {
     /// Runtime-selected cases by key. Switches named by a case's `switches` are active only while that case is.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub switches: BTreeMap<String, SwitchEntry>,
-    /// Every slot, sprite slot, switch, and selectable collection, once each, in authored tree order: the order the
-    /// runtime composes them above the static chrome.
+    /// Art layers by name: art the runtime draws as its own glyph at its place in [`Self::layers`].
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub art: BTreeMap<String, ArtEntry>,
+    /// Tint palettes by tint id: each palette entry's name and its lowercase `#rrggbb` color.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tints: BTreeMap<String, BTreeMap<String, String>>,
+    /// Every slot, sprite slot, switch, selectable collection, and art layer, once each, in authored tree order: the
+    /// order the runtime composes them above the static chrome.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub layers: Vec<Layer>,
     /// Typed handles by id, each with the entries that use it. Kotlin codegen declares one member per handle and
     /// binds every use; the runtime ignores this table.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub handles: BTreeMap<String, Handle>,
+}
+
+/// Art the runtime draws as its own glyph: tinted art, or the untinted art authored over it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtEntry {
+    /// Net-zero baked art in [`Manifest::font`], starting and ending where a switch case's does.
+    #[serde(rename = "static")]
+    pub static_text: String,
+    /// The tint whose current palette color the art is multiplied by: the runtime sends the glyph in that color.
+    /// Absent art is sent white.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tint: Option<String>,
+    /// In a shader-placed HUD, the marker color to send per palette entry instead of the entry's color.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tint_markers: BTreeMap<String, String>,
 }
 
 /// Cases of which the runtime draws and claims only the one its binding names.
@@ -142,6 +163,9 @@ pub struct SwitchCaseEntry {
     /// Collections filled, and clicked, only while this case is active.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub collections: Vec<String>,
+    /// Art layers drawn only while this case is active.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub art: Vec<String>,
 }
 
 /// Surface description.
@@ -212,6 +236,13 @@ pub struct SlotEntry {
     /// Deprecated optional near-identical marker color used by older generated HUD shaders.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shader_color: Option<String>,
+    /// The tint whose current palette color replaces [`Self::color`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tint: Option<String>,
+    /// In a shader-placed HUD, the marker color to send per palette entry of [`Self::tint`], instead of
+    /// [`Self::shader_marker`].
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tint_markers: BTreeMap<String, String>,
     /// Whether the text renders with a shadow.
     pub shadow: bool,
     /// Whether bold is enabled by default.
@@ -322,6 +353,9 @@ pub struct SpriteSlotEntry {
     /// The catalog sprites the slot's font holds, which the runtime may bind. Empty for any catalog sprite.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub only: Vec<String>,
+    /// The tint whose current palette color the sprite is multiplied by. Absent sprites are sent white.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tint: Option<String>,
     /// The authored `debug_name` this sprite slot comes from, for diagnostics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,

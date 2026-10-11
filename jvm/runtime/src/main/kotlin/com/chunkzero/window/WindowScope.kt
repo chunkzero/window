@@ -116,6 +116,18 @@ public interface WindowScope<I : Any> {
     )
 
     /**
+     * Binds a tint to a [render] lambda returning the name of the palette entry whose color its art and
+     * text take; the lambda is re-invoked whenever a reactive state it reads changes.
+     *
+     * @throws IllegalArgumentException if [name] is not a tint of the window, or when rendering returns a
+     *   name that is not one of its palette entries.
+     */
+    public fun tint(
+        name: String,
+        render: () -> String,
+    )
+
+    /**
      * Binds a native anvil rename field. The handler receives each value the player types. With
      * experimental anvil updates, the text the client sends back after a reopen is not passed on.
      */

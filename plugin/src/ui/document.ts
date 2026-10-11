@@ -1,5 +1,5 @@
 /** The compiled document's element and definition types, as the compiler reads them. */
-import type { ClickAction, HandleKind } from "../bind/handles.ts";
+import type { ClickAction, HandleKind, Tint } from "../bind/handles.ts";
 import type {
     BoxStyle,
     CaseStyle,
@@ -10,7 +10,7 @@ import type {
     SwitchStyle,
     TextStyle,
 } from "./styles.ts";
-import type { Color, Var, VarTheme } from "./tokens.ts";
+import type { Color, Token, Var, VarTheme } from "./tokens.ts";
 import type {
     Art,
     ArtRef,
@@ -45,8 +45,8 @@ export interface DebugName {
 /** Text styling shared by labels and dynamic text slots. */
 export interface TextStyleOptions {
     align?: TextAlign;
-    /** Hex color, e.g. "#ffffff". */
-    color?: string | Var<Color>;
+    /** Hex color, e.g. "#ffffff", or a `tint` handle whose current palette color the text takes. */
+    color?: string | Var<Color> | Tint;
     shadow?: boolean;
     bold?: boolean;
     italic?: boolean;
@@ -66,12 +66,16 @@ export interface FlexItemOptions {
 }
 
 export interface SpriteOptions extends FlexItemOptions, DebugName {
+    /** Multiplies the art's colors: a `tint` handle picks the color at runtime, a hex color is baked in. */
+    tint?: Token<Color> | Tint;
     x?: number;
     y?: number;
     style?: StyleValue<ItemStyle>;
 }
 
 export interface SpriteSlotOptions extends FlexItemOptions, DebugName {
+    /** A `tint` handle whose current palette color multiplies the sprite's colors. */
+    tint?: Tint;
     x?: number;
     y?: number;
     width: number;
@@ -239,6 +243,8 @@ export interface FlexOptions extends FlexItemOptions, DebugName {
     y?: number;
     /** Frame stretched over the box's laid-out size. */
     frame?: ArtRef;
+    /** Multiplies the frame's colors: a `tint` handle picks the color at runtime, a hex color is baked in. */
+    tint?: Token<Color> | Tint;
     style?: FlexStyle;
     /** Overrides vars for this box and everything inside it. */
     theme?: VarTheme;
@@ -273,6 +279,8 @@ export interface SectionElement extends SectionOptions {
 /** A case of `switchOn`, or the shown case of `show`: a flex box that stretches to the switch unless sized. */
 export interface CaseOptions extends DebugName {
     frame?: ArtRef;
+    /** Multiplies the frame's colors: a `tint` handle picks the color at runtime, a hex color is baked in. */
+    tint?: Token<Color> | Tint;
     /** Styles from `create`; `direction` defaults to `"column"`. */
     style?: StyleValue<CaseStyle>;
     /** Overrides vars for this case and everything inside it. */
@@ -292,6 +300,7 @@ export interface CaseElement extends DebugName {
     /** Value the switch binding returns to draw this case. */
     value: string;
     frame?: ArtRef;
+    tint?: Token<Color> | Tint;
     style?: FlexStyle;
     theme?: VarTheme;
     children?: Element[];

@@ -4,13 +4,13 @@ import { art } from "plugin:window/theme/industrial";
 import * as handles from "./handles.ts";
 import search from "./search.tsx";
 import shop from "./shop.tsx";
-import statusHuds, { coins, power, rate } from "./status_hud.tsx";
+import statusHuds, { coins, hint, power, rate } from "./status_hud.tsx";
 
 export default defineWindows({
     sprites: { searchField: art.inputField },
     windows: [shop, search],
     huds: statusHuds,
-    // `rpp build` writes these to build/previews/shop.png and build/previews/status_top_left.png.
+    // `rpp build` writes these to build/previews/, one PNG per preview.
     previews: [
         preview(shop, [
             [handles.categoryLabel, ["All", "Gear", "Magic"]],
@@ -36,6 +36,16 @@ export default defineWindows({
                 [power, "x1"],
             ],
             { scale: 3 },
+        ),
+        // The tinted hint in the tint's first palette entry, then in another.
+        preview(statusHuds[5], [[hint, "Next wave in 4s"]], { scale: 3 }),
+        preview(
+            statusHuds[5],
+            [
+                [hint, "Wave incoming"],
+                [handles.tone, "danger"],
+            ],
+            { name: "status_bottom_center_danger", scale: 3 },
         ),
     ],
 });

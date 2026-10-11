@@ -2,17 +2,23 @@ use super::Solver;
 use super::target::LayoutTarget;
 use crate::Result;
 use crate::geometry::{Point, Rect, Size};
-use crate::ir::{Align, Draw, Layer, SlotIr, SpriteSlotIr, TextureKey};
-use crate::model::{Frame, SpriteDef, TextFit, TextStyle};
+use crate::ir::{Align, ArtIr, Draw, Layer, SlotIr, SpriteSlotIr, TextureKey};
+use crate::model::{Frame, SpriteDef, TextFit, TextStyle, Tint};
 use crate::pipeline::texture_source_path;
 
 impl<T: LayoutTarget> Solver<'_, T> {
-    pub(super) fn place_sprite_slot(&mut self, name: &str, rect: Rect, align: Align) -> Result<Size> {
+    pub(super) fn place_sprite_slot(
+        &mut self,
+        name: &str,
+        rect: Rect,
+        align: Align,
+        tint: Option<String>,
+    ) -> Result<Size> {
         self.require_sprite_slots(name)?;
         self.register_name(name)?;
         self.check_inside_bounds(rect, &format!("sprite slot `{name}`"))?;
         self.layers.push(Layer::SpriteSlot(name.to_string()));
-        self.sprite_slots.push(SpriteSlotIr { name: name.to_string(), rect, align, source: None });
+        self.sprite_slots.push(SpriteSlotIr { name: name.to_string(), rect, align, tint, source: None });
         Ok(rect.size())
     }
 
@@ -57,21 +63,65 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(rect.size())
     }
 
-    pub(super) fn emit_sprite(&mut self, name: &str, origin: Point) -> Result<Rect> {
+    pub(super) fn emit_sprite(&mut self, name: &str, origin: Point, tint: Option<&Tint>) -> Result<Rect> {
         let def = self.sprite_def(name)?;
         let rect = Rect::from_parts(origin, self.sprite_size(name, def)?);
         self.warn_if_overflow(rect, &format!("image `{name}`"));
-        self.draws.push(match def {
+        let draw = match def {
             SpriteDef::Texture { texture, .. } => {
                 Draw::Sprite { texture: TextureKey(texture_source_path(texture)), dest: rect }
             }
             SpriteDef::Generated { style, .. } => Draw::Generated { style: style.clone(), dest: rect },
-        });
+        };
+        self.emit_draw(draw, tint);
         Ok(rect)
     }
 
+    /// Adds `draw` to the pane or switch case being emitted.
+    ///
+    /// Art tinted from a palette becomes an art layer, drawn at its authored place among the runtime layers. Untinted
+    /// art authored after it that covers an art layer cannot join the composite underneath, so it collects in an art
+    /// layer of its own, placed where its first draw was authored.
+    fn emit_draw(&mut self, draw: Draw, tint: Option<&Tint>) {
+        let (draw, palette) = match tint {
+            Some(Tint::Color(color)) => (Draw::Tinted { draw: Box::new(draw), color: *color }, None),
+            Some(Tint::Palette(id)) => (draw, Some(id.clone())),
+            None => (draw, None),
+        };
+        let dest = *draw.dest();
+        if palette.is_none() && !self.art_run.covered.iter().any(|rect| rect.intersects(&dest)) {
+            self.draws.push(draw);
+            return;
+        }
+        let open = if palette.is_some() { self.art_run.tinted } else { self.art_run.untinted }.filter(|&index| {
+            let art = &self.art[index];
+            art.tint == palette && self.layers.last() == Some(&Layer::Art(art.name.clone()))
+        });
+        let index = open.unwrap_or_else(|| {
+            let name = format!("art/{}", self.art.len());
+            self.layers.push(Layer::Art(name.clone()));
+            self.art.push(ArtIr { name, draws: Vec::new(), tint: palette.clone() });
+            self.art.len() - 1
+        });
+        self.art[index].draws.push(draw);
+        self.art_run.covered.push(dest);
+        match palette {
+            Some(_) => {
+                self.art_run.tinted = Some(index);
+                self.art_run.untinted = None;
+            }
+            None => self.art_run.untinted = Some(index),
+        }
+    }
+
     /// Draws `frame` stretched over `dest`, after checking the frame and warning about overflow.
-    pub(super) fn emit_frame(&mut self, frame: &str, dest: Rect, referenced_by: &str) -> Result<()> {
+    pub(super) fn emit_frame(
+        &mut self,
+        frame: &str,
+        dest: Rect,
+        tint: Option<&Tint>,
+        referenced_by: &str,
+    ) -> Result<()> {
         let project = self.project;
         let def =
             project.art.frames.get(frame).ok_or_else(|| self.target.layout_err(format!("unknown frame `{frame}`")))?;
@@ -88,7 +138,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             }
             Frame::Generated(style) => Draw::Generated { style: style.clone(), dest },
         };
-        self.draws.push(draw);
+        self.emit_draw(draw, tint);
         Ok(())
     }
 }
@@ -108,6 +158,7 @@ fn text_slot_ir(name: String, text: Option<String>, rect: Rect, style: &TextStyl
         obfuscated: style.obfuscated,
         font: style.font.clone(),
         fit,
+        tint: style.tint.clone(),
         source: None,
     }
 }

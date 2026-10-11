@@ -30,6 +30,11 @@ pub(crate) enum Part {
         hud: bool,
         pane: String,
     },
+    /// One art layer of a pane.
+    ArtLayer {
+        hud: bool,
+        pane: String,
+    },
     /// A sprite font document, labelled by its font name such as `sprite_y12`.
     SpriteFont(String),
     /// A text-row font document (a shifted label font or a text font's offset document), labelled by its name.
@@ -51,6 +56,10 @@ impl Part {
 
     pub(crate) fn switch_case(pane: Pane<'_>) -> Self {
         Self::SwitchCase { hud: pane.hud, pane: pane.name.into() }
+    }
+
+    pub(crate) fn art_layer(pane: Pane<'_>) -> Self {
+        Self::ArtLayer { hud: pane.hud, pane: pane.name.into() }
     }
 }
 
@@ -109,6 +118,14 @@ struct PaneSizes {
     static_bytes: u64,
     cases: usize,
     case_bytes: u64,
+    art: usize,
+    art_bytes: u64,
+}
+
+impl PaneSizes {
+    fn bytes(&self) -> u64 {
+        self.static_bytes + self.case_bytes + self.art_bytes
+    }
 }
 
 #[derive(Default)]
@@ -144,10 +161,12 @@ fn case_count(switches: &BTreeMap<String, SwitchEntry>) -> usize {
 fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u64>) -> String {
     let mut panes: BTreeMap<(bool, &str), PaneSizes> = BTreeMap::new();
     for (name, window) in &manifest.windows {
-        panes.insert((false, name), PaneSizes { cases: case_count(&window.switches), ..Default::default() });
+        let sizes = PaneSizes { cases: case_count(&window.switches), art: window.art.len(), ..Default::default() };
+        panes.insert((false, name), sizes);
     }
     for (name, hud) in &manifest.huds {
-        panes.insert((true, name), PaneSizes { cases: case_count(&hud.switches), ..Default::default() });
+        let sizes = PaneSizes { cases: case_count(&hud.switches), art: hud.art.len(), ..Default::default() };
+        panes.insert((true, name), sizes);
     }
     let mut sprite_fonts = Group::default();
     let mut text_row_fonts = Group::default();
@@ -163,6 +182,10 @@ fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u
             }
             Part::SwitchCase { hud, pane } => {
                 panes.entry((*hud, pane)).or_default().case_bytes += bytes;
+                continue;
+            }
+            Part::ArtLayer { hud, pane } => {
+                panes.entry((*hud, pane)).or_default().art_bytes += bytes;
                 continue;
             }
             Part::SpriteFont(label) => {
@@ -186,19 +209,22 @@ fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u
     }
 
     let mut pane_rows: Vec<_> = panes.into_iter().collect();
-    pane_rows.sort_by_key(|(_, sizes)| std::cmp::Reverse(sizes.static_bytes + sizes.case_bytes));
+    pane_rows.sort_by_key(|(_, sizes)| std::cmp::Reverse(sizes.bytes()));
     let mut rows: Vec<Row> = pane_rows
         .into_iter()
-        .map(|((hud, name), sizes)| Row {
-            label: format!("{} {name}", if hud { "hud" } else { "win" }),
-            bytes: sizes.static_bytes + sizes.case_bytes,
-            detail: format!(
+        .map(|((hud, name), sizes)| {
+            let plural = |count: usize| if count == 1 { "" } else { "s" };
+            let mut detail = format!(
                 "static {} · {} switch case{} {}",
                 size(sizes.static_bytes),
                 sizes.cases,
-                if sizes.cases == 1 { "" } else { "s" },
+                plural(sizes.cases),
                 size(sizes.case_bytes)
-            ),
+            );
+            if sizes.art > 0 {
+                let _ = write!(detail, " · {} art layer{} {}", sizes.art, plural(sizes.art), size(sizes.art_bytes));
+            }
+            Row { label: format!("{} {name}", if hud { "hud" } else { "win" }), bytes: sizes.bytes(), detail }
         })
         .collect();
     for (label, group) in [("sprite fonts", sprite_fonts), ("text-row fonts", text_row_fonts)] {

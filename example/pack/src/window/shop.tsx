@@ -14,7 +14,7 @@ import {
     art,
 } from "plugin:window/theme/industrial";
 
-import { coin, icons, ventSlot } from "./art.ts";
+import { coin, icons, toneLamp, ventSlot } from "./art.ts";
 import {
     affordable,
     balance,
@@ -41,6 +41,7 @@ import {
     sort,
     sortLabel,
     status,
+    tone,
 } from "./handles.ts";
 
 const categoryTooltips = { all: "All items", gear: "Gear", magic: "Magic" };
@@ -132,6 +133,7 @@ export default (
                 <Text bind={status} color="#bceeff" />
                 <Text bind={balance} width={48} align="right" color="#ffb20b" />
                 <Image art={coin} />
+                <Image art={toneLamp} tint={tone} absolute left={1} top={4} />
             </Row>
         </Player>
 

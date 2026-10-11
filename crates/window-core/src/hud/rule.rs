@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::SegmentMarkers;
+use super::markers::{TintedSegment, tinted_segments};
 use crate::ir::{LaidOutHud, Rgb};
 
 #[derive(Clone, Debug)]
@@ -94,6 +95,16 @@ fn shader_segments(hud: &LaidOutHud, markers: &SegmentMarkers) -> Vec<HudShaderS
             display: slot.color,
             texture: HudShaderTexture::Intensity,
         });
+    }
+    for (segment, palette) in tinted_segments(hud) {
+        let texture = match segment {
+            TintedSegment::Art(_) => HudShaderTexture::Rgba,
+            TintedSegment::Slot(_) => HudShaderTexture::Intensity,
+        };
+        for (value, display) in palette {
+            let marker = markers.tint_marker(&hud.name, &segment, &value);
+            segments.insert(HudShaderSegment { marker, display, texture });
+        }
     }
     segments.into_iter().collect()
 }

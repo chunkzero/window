@@ -2,7 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::ir::{LaidOutHud, Rgb};
+use crate::ir::{LaidOutHud, Rgb, tint_palette};
+use crate::{Error, Result};
 
 const MARKER_SPAN: u16 = u16::MAX;
 
@@ -19,9 +20,35 @@ impl SegmentMarkers {
     pub fn slot_marker(&self, hud: &str, slot: &str) -> Rgb {
         self.markers[&slot_key(hud, slot)]
     }
+
+    /// The marker `segment` of `hud` is sent in while its tint is at palette entry `value`.
+    pub fn tint_marker(&self, hud: &str, segment: &TintedSegment<'_>, value: &str) -> Rgb {
+        self.markers[&tint_key(hud, segment, value)]
+    }
 }
 
-pub fn segment_markers(huds: &[&LaidOutHud]) -> SegmentMarkers {
+/// A HUD segment colored by a tint.
+#[derive(Clone, Copy, Debug)]
+pub enum TintedSegment<'a> {
+    /// The art layer with this name.
+    Art(&'a str),
+    /// The text slot with this name.
+    Slot(&'a str),
+}
+
+/// Every tinted segment of `hud` with the palette of its tint.
+pub fn tinted_segments(hud: &LaidOutHud) -> Vec<(TintedSegment<'_>, Vec<(String, Rgb)>)> {
+    let art = hud.art.iter().map(|art| (TintedSegment::Art(&art.name), &art.tint));
+    let slots = hud.slots.iter().map(|slot| (TintedSegment::Slot(&slot.name), &slot.tint));
+    art.chain(slots)
+        .filter_map(|(segment, tint)| Some((segment, tint_palette(&hud.handles, tint.as_deref()?))))
+        .collect()
+}
+
+/// Assigns every shader-placed HUD segment a distinct marker color.
+///
+/// Fails when the segments outnumber the available marker IDs.
+pub fn segment_markers(huds: &[&LaidOutHud]) -> Result<SegmentMarkers> {
     let mut keys = BTreeSet::new();
     for hud in huds {
         if hud.shader.is_none() {
@@ -31,8 +58,13 @@ pub fn segment_markers(huds: &[&LaidOutHud]) -> SegmentMarkers {
         for slot in &hud.slots {
             keys.insert(slot_key(&hud.name, &slot.name));
         }
+        for (segment, palette) in tinted_segments(hud) {
+            for (value, _) in palette {
+                keys.insert(tint_key(&hud.name, &segment, &value));
+            }
+        }
     }
-    SegmentMarkers { markers: allocate_marker_colors(&keys) }
+    Ok(SegmentMarkers { markers: allocate_marker_colors(&keys)? })
 }
 
 fn static_key(hud: &str) -> String {
@@ -43,7 +75,21 @@ fn slot_key(hud: &str, slot: &str) -> String {
     format!("hud/{hud}/slot/{slot}")
 }
 
-fn allocate_marker_colors(keys: &BTreeSet<String>) -> BTreeMap<String, Rgb> {
+fn tint_key(hud: &str, segment: &TintedSegment<'_>, value: &str) -> String {
+    match segment {
+        TintedSegment::Art(art) => format!("hud/{hud}/{art}/tint/{value}"),
+        TintedSegment::Slot(slot) => format!("{}/tint/{value}", slot_key(hud, slot)),
+    }
+}
+
+fn allocate_marker_colors(keys: &BTreeSet<String>) -> Result<BTreeMap<String, Rgb>> {
+    if keys.len() > MARKER_SPAN as usize {
+        return Err(Error::Validation(format!(
+            "shader-placed HUDs need {} segment marker colors, but only {MARKER_SPAN} exist; use fewer tinted \
+             segments or fewer palette entries",
+            keys.len()
+        )));
+    }
     let mut used = BTreeSet::new();
     let mut out = BTreeMap::new();
     for key in keys {
@@ -54,7 +100,7 @@ fn allocate_marker_colors(keys: &BTreeSet<String>) -> BTreeMap<String, Rgb> {
         used.insert(id);
         out.insert(key.clone(), marker_color(id));
     }
-    out
+    Ok(out)
 }
 
 fn marker_start_id(key: &str) -> u16 {
@@ -63,4 +109,16 @@ fn marker_start_id(key: &str) -> u16 {
 
 pub(super) fn marker_color(id: u16) -> Rgb {
     Rgb { r: (id >> 8) as u8, g: 0, b: id as u8 }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn more_segments_than_marker_ids_is_an_error_naming_the_count() {
+        let keys = (0..=MARKER_SPAN as usize).map(|i| format!("key{i}")).collect();
+        let err = allocate_marker_colors(&keys).unwrap_err().to_string();
+        assert!(err.contains("65536") && err.contains("65535"), "{err}");
+    }
 }

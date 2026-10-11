@@ -4,6 +4,7 @@ import com.chunkzero.window.diagnostics.RenderBounds
 import com.chunkzero.window.diagnostics.RenderLayerKind
 import com.chunkzero.window.diagnostics.RenderLayerTrace
 import com.chunkzero.window.diagnostics.RenderStyleTrace
+import com.chunkzero.window.manifest.ArtEntry
 import com.chunkzero.window.manifest.HudEntry
 import com.chunkzero.window.manifest.SlotEntry
 import com.chunkzero.window.manifest.WindowManifest
@@ -12,7 +13,7 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.ShadowColor
 import net.kyori.adventure.text.format.TextColor
 
-/** One HUD layer to compose: a rendered slot, or a switch case's net-zero art from the HUD's left edge. */
+/** One HUD layer to compose: a rendered slot, or net-zero art from the HUD's left edge sent in a color. */
 internal sealed interface HudLayer {
     class Slot(
         val segment: RenderedSegment,
@@ -22,6 +23,7 @@ internal sealed interface HudLayer {
         val semanticId: String,
         val static: String,
         val source: String?,
+        val color: TextColor,
     ) : HudLayer
 }
 
@@ -46,13 +48,54 @@ internal class HudComposer(
     /** The baked static HUD component, with no slot segments. */
     val staticComponent: Component = Component.text(hud.static).style(spacerStyle)
 
-    /** Renders one styled slot text segment, or `null` if [content] is empty. */
+    /** A switch case's [static] art. */
+    fun caseArt(
+        semanticId: String,
+        static: String,
+        source: String?,
+    ): HudLayer.Art = HudLayer.Art(semanticId, static, source, staticColor)
+
+    /** Art layer [art], multiplied by the color of its tint's palette entry [tint]. */
+    fun art(
+        semanticId: String,
+        art: ArtEntry,
+        tint: String?,
+    ): HudLayer.Art =
+        HudLayer.Art(
+            semanticId,
+            art.static,
+            null,
+            segmentColor(art.tint, tint, art.tintMarkers) ?: staticColor,
+        )
+
+    /**
+     * The color drawing palette entry [value] of [tint]: the entry's color, or in a shader-placed HUD the
+     * marker of [markers] its shader draws in that color. `null` without a tint.
+     */
+    private fun segmentColor(
+        tint: String?,
+        value: String?,
+        markers: Map<String, String>,
+    ): TextColor? =
+        when {
+            tint == null || value == null -> null
+            shaderHud -> requireColor(markers.getValue(value))
+            else -> hud.tints.tintColor(tint, value)
+        }
+
+    /**
+     * Renders one styled slot text segment, or `null` if [content] is empty. A slot with a tint takes the
+     * color of its palette entry [tint].
+     */
     fun renderSlot(
         semanticId: String,
         slot: SlotEntry,
         content: Component,
+        tint: String? = null,
     ): RenderedSegment? {
-        val color = requireColor(slot.shaderMarker ?: slot.shaderColor ?: slot.color)
+        val color =
+            segmentColor(slot.tint, tint, slot.tintMarkers)
+                ?: requireColor(slot.shaderMarker ?: slot.shaderColor ?: slot.color)
         val shadowColor = slotShadowColor(color)
         val lines =
             fonts.slotLines(slot, content, slotStyle(slot, color, shadowColor)).map { line ->
@@ -98,16 +141,16 @@ internal class HudComposer(
         layers: List<HudLayer>,
     ): ComposedRender {
         val base = if (shaderHud) 0 else originX
-        val traces = arrayListOf(staticTrace("hud/$hudName/static", hud.static, originX))
+        val traces = arrayListOf(staticTrace("hud/$hudName/static", hud.static, originX, staticColor))
         val parts = ArrayList<Component>()
         var cursor = base
         for (layer in layers) {
             when (layer) {
                 is HudLayer.Art -> {
                     parts.addSpacer(-cursor)
-                    parts += Component.text(layer.static).style(spacerStyle)
+                    parts += Component.text(layer.static).style(baseStyle(font, layer.color))
                     cursor = 0
-                    traces += staticTrace(layer.semanticId, layer.static, 0).copy(source = layer.source)
+                    traces += staticTrace(layer.semanticId, layer.static, 0, layer.color).copy(source = layer.source)
                 }
 
                 is HudLayer.Slot -> {
@@ -128,18 +171,19 @@ internal class HudComposer(
         return ComposedRender(staticComponent.appendAll(parts), traces)
     }
 
-    /** A static layer starting at the HUD's left edge whose cursor ends at [end]. */
+    /** A static layer sent in [color], starting at the HUD's left edge, whose cursor ends at [end]. */
     private fun staticTrace(
         semanticId: String,
         content: String,
         end: Int,
+        color: TextColor,
     ): RenderLayerTrace =
         RenderLayerTrace(
             semanticId = semanticId,
             kind = RenderLayerKind.HUD_STATIC,
             content = content,
             font = font,
-            style = RenderStyleTrace(color = staticColor.asHexString(), shadow = false),
+            style = RenderStyleTrace(color = color.asHexString(), shadow = false),
             expectedBounds = RenderBounds(0, 0, hud.surface.width, hud.surface.height),
             cursorStart = 0,
             contentCursorStart = 0,

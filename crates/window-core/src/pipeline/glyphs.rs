@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::compose::{Composite, RasterCache, Texture, compose_draws_cached};
 use crate::font::{allocate, bitmap_provider};
 use crate::geometry::Size;
-use crate::ir::{Draw, LaidOutHud, LaidOutWindow, SwitchIr};
+use crate::ir::{ArtIr, Draw, LaidOutHud, LaidOutWindow, SwitchIr};
 use crate::size::{Pane, Part};
 use crate::{Error, Result};
 
@@ -13,10 +13,19 @@ use super::metrics::bitmap_metrics;
 use super::sprites::RuntimeSpriteAsset;
 use super::{CompileContext, OutputFile};
 
-/// A surface's static composite plus one composite per switch case, indexed `[switch][case]`.
+/// A surface's static composite, one composite per switch case, indexed `[switch][case]`, and one per art layer.
 pub(super) struct Layers {
     pub(super) base: Composite,
     pub(super) cases: Vec<Vec<Composite>>,
+    pub(super) art: Vec<Composite>,
+}
+
+impl Layers {
+    /// Every composite with content.
+    pub(super) fn composites(&self) -> impl Iterator<Item = &Composite> {
+        let all = std::iter::once(&self.base).chain(self.cases.iter().flatten()).chain(&self.art);
+        all.filter(|comp| comp.has_content)
+    }
 }
 
 /// Static layer composites, index-aligned with the name-sorted windows and HUDs.
@@ -31,10 +40,14 @@ pub(super) fn compose_layers(
     textures: &BTreeMap<String, Texture>,
 ) -> Result<Composites> {
     let mut cache = RasterCache::default();
-    let windows =
-        windows.iter().map(|w| layers(&w.name, &w.draws, &w.switches, textures, &mut cache)).collect::<Result<_>>()?;
-    let huds =
-        huds.iter().map(|h| layers(&h.name, &h.draws, &h.switches, textures, &mut cache)).collect::<Result<_>>()?;
+    let windows = windows
+        .iter()
+        .map(|w| layers(&w.name, &w.draws, &w.switches, &w.art, textures, &mut cache))
+        .collect::<Result<_>>()?;
+    let huds = huds
+        .iter()
+        .map(|h| layers(&h.name, &h.draws, &h.switches, &h.art, textures, &mut cache))
+        .collect::<Result<_>>()?;
     Ok(Composites { windows, huds })
 }
 
@@ -42,6 +55,7 @@ fn layers(
     name: &str,
     draws: &[Draw],
     switches: &[SwitchIr],
+    art: &[ArtIr],
     textures: &BTreeMap<String, Texture>,
     cache: &mut RasterCache,
 ) -> Result<Layers> {
@@ -51,10 +65,11 @@ fn layers(
             switch.cases.iter().map(|case| compose_draws_cached(&case.draws, name, textures, cache)).collect()
         })
         .collect::<Result<_>>()?;
-    Ok(Layers { base: compose_draws_cached(draws, name, textures, cache)?, cases })
+    let art = art.iter().map(|art| compose_draws_cached(&art.draws, name, textures, cache)).collect::<Result<_>>()?;
+    Ok(Layers { base: compose_draws_cached(draws, name, textures, cache)?, cases, art })
 }
 
-/// Allocate codepoints across the whole build: one key per static or case composite
+/// Allocate codepoints across the whole build: one key per static, case, or art layer composite
 /// with content, plus one per runtime sprite when any window uses sprites.
 pub(super) fn allocate_codepoints(
     windows: &[&LaidOutWindow],
@@ -64,10 +79,10 @@ pub(super) fn allocate_codepoints(
 ) -> Result<BTreeMap<String, u32>> {
     let mut keys: BTreeSet<String> = BTreeSet::new();
     for (w, layers) in windows.iter().zip(&composites.windows) {
-        layer_keys(&mut keys, &window_key_prefix(&w.name), &w.switches, layers);
+        layer_keys(&mut keys, &window_key_prefix(&w.name), &w.switches, &w.art, layers);
     }
     for (h, layers) in huds.iter().zip(&composites.huds) {
-        layer_keys(&mut keys, &hud_key_prefix(&h.name), &h.switches, layers);
+        layer_keys(&mut keys, &hud_key_prefix(&h.name), &h.switches, &h.art, layers);
     }
     for sprite in runtime_sprites.into_iter().flat_map(BTreeMap::keys) {
         keys.insert(sprite_key(sprite));
@@ -75,7 +90,7 @@ pub(super) fn allocate_codepoints(
     allocate(&keys)
 }
 
-fn layer_keys(keys: &mut BTreeSet<String>, prefix: &str, switches: &[SwitchIr], layers: &Layers) {
+fn layer_keys(keys: &mut BTreeSet<String>, prefix: &str, switches: &[SwitchIr], art: &[ArtIr], layers: &Layers) {
     if layers.base.has_content {
         keys.insert(format!("{prefix}/static"));
     }
@@ -84,6 +99,11 @@ fn layer_keys(keys: &mut BTreeSet<String>, prefix: &str, switches: &[SwitchIr], 
             if comp.has_content {
                 keys.insert(case_key(prefix, &switch.name, &case.value));
             }
+        }
+    }
+    for (art, comp) in art.iter().zip(&layers.art) {
+        if comp.has_content {
+            keys.insert(art_key(prefix, &art.name));
         }
     }
 }
@@ -99,6 +119,11 @@ pub(super) fn hud_key_prefix(hud: &str) -> String {
 /// The codepoint allocation key for one switch case's composite under a surface key prefix.
 pub(super) fn case_key(prefix: &str, switch: &str, case: &str) -> String {
     format!("{prefix}/switch/{switch}/{case}")
+}
+
+/// The codepoint allocation key for the composite of art layer `art` under a surface key prefix.
+pub(super) fn art_key(prefix: &str, art: &str) -> String {
+    format!("{prefix}/{art}")
 }
 
 /// The codepoint allocation key for a window's static composite.

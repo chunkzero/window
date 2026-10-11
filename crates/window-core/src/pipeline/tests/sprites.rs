@@ -61,7 +61,7 @@ fn resource_runtime_sprite_uses_decoded_pack_texture_metrics_when_available() {
 }
 
 fn empty_sprite_slot(name: &str, rect: Rect) -> SpriteSlotIr {
-    SpriteSlotIr { name: name.into(), rect, align: Align::Center, source: None }
+    SpriteSlotIr { name: name.into(), rect, align: Align::Center, tint: None, source: None }
 }
 
 fn sprite_asset(name: &str, rgba: [u8; 4]) -> RuntimeSpriteAsset {
@@ -145,6 +145,7 @@ fn sprite_handle(slot: &str, only: &[&str]) -> (String, Handle) {
     let handle = Handle {
         kind: HandleKind::Sprite,
         values: Vec::new(),
+        colors: Vec::new(),
         shape: Vec::new(),
         initial: None,
         selectable: false,

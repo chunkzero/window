@@ -10,7 +10,9 @@ import com.chunkzero.window.internal.WindowBindings
 import com.chunkzero.window.internal.WindowFrame
 import com.chunkzero.window.internal.WindowRenderer
 import com.chunkzero.window.internal.titleSlots
+import com.chunkzero.window.internal.titleTints
 import com.chunkzero.window.manifest.Align
+import com.chunkzero.window.manifest.ArtEntry
 import com.chunkzero.window.manifest.HitboxEntry
 import com.chunkzero.window.manifest.ItemEntry
 import com.chunkzero.window.manifest.LayerEntry
@@ -39,11 +41,13 @@ private class RendererFixture(
     val frames = mutableListOf<WindowFrame<Any>>()
     val reactivity: Reactivity = Reactivity(scheduler) { frames += renderer.render(it) }
     private val definition = WindowDefinition(manifest, "w")
+    private val tints = definition.titleTints(reactivity)
     private val bindings =
         WindowBindings<Any>(
             definition,
-            definition.titleSlots(reactivity),
+            definition.titleSlots(reactivity, tints),
             Switches("window", "w", definition.entry.switches, reactivity),
+            tints,
         )
     val renderer = WindowRenderer(definition, bindings, reactivity) { it }
 
@@ -102,6 +106,32 @@ class WindowRendererTest :
             swapped shouldContain "Sell"
             swapped shouldNotContain "BUYART"
             swapped shouldNotContain "Ten"
+        }
+
+        "a tint colors its art and text, and re-colors them when it picks another palette entry" {
+            val manifest =
+                TestManifests.manifest(
+                    slots = mapOf("label" to TestManifests.slot(8, 40, Align.LEFT, text = "Hi").copy(tint = "tone")),
+                    art = mapOf("art/0" to ArtEntry("TINTED", tint = "tone"), "art/1" to ArtEntry("PLAIN")),
+                    tints = mapOf("tone" to mapOf("ok" to "#3ddc84", "warn" to "#ffb020")),
+                )
+            val fixture = RendererFixture(manifest)
+            var tone by fixture.reactivity.state("ok")
+
+            val opened = fixture.open { tint("tone") { tone } }.component
+            colorOf(opened, "TINTED") shouldBe "#3ddc84"
+            colorOf(opened, "Hi") shouldBe "#3ddc84"
+            colorOf(opened, "PLAIN") shouldBe "#ffffff"
+
+            tone = "warn"
+            fixture.scheduler.runAll()
+            val changed =
+                fixture.frames
+                    .single()
+                    .title.component
+            colorOf(changed, "TINTED") shouldBe "#ffb020"
+            colorOf(changed, "Hi") shouldBe "#ffb020"
+            colorOf(changed, "PLAIN") shouldBe "#ffffff"
         }
 
         "a nested switch draws only under its active outer case" {

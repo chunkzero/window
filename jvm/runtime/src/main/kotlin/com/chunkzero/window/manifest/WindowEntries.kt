@@ -29,11 +29,26 @@ public data class WindowEntry(
     val inputs: Map<String, AnvilInputEntry> = emptyMap(),
     /** Runtime-selected cases keyed by switch key. */
     val switches: Map<String, SwitchEntry> = emptyMap(),
+    /** Art layers keyed by name: art drawn as its own glyph at its place in [layers]. */
+    val art: Map<String, ArtEntry> = emptyMap(),
+    /** Tint palettes keyed by tint id: each palette entry's name and `#rrggbb` color. */
+    val tints: Map<String, Map<String, String>> = emptyMap(),
     /**
-     * Every slot, sprite slot, switch, and collection with a selected sprite, once each, in authored
-     * tree order: the order runtime layers compose above [static].
+     * Every slot, sprite slot, switch, collection with a selected sprite, and art layer, once each, in
+     * authored tree order: the order runtime layers compose above [static].
      */
     val layers: List<LayerEntry> = emptyList(),
+)
+
+/** Art drawn as its own glyph: tinted art, or the untinted art authored over it. */
+@Serializable
+public data class ArtEntry(
+    /** Net-zero baked art in [WindowManifest.font], starting and ending where a switch case's does. */
+    @SerialName("static") val static: String,
+    /** The tint whose current palette color the art is sent in; `null` art is sent white. */
+    val tint: String? = null,
+    /** In a shader-placed HUD, the marker color to send per palette entry instead of the entry's color. */
+    @SerialName("tint_markers") val tintMarkers: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -70,6 +85,8 @@ public data class SwitchCaseEntry(
     val collections: List<String> = emptyList(),
     /** Nested switches, active only while this case is active. */
     val switches: List<String> = emptyList(),
+    /** Art layers drawn only while this case is active. */
+    val art: List<String> = emptyList(),
 )
 
 /** One runtime layer: an entry composed above the static chrome, in authored tree order. */
@@ -99,6 +116,10 @@ public enum class LayerKind {
     /** A collection's selected-cell sprite. */
     @SerialName("collection")
     COLLECTION,
+
+    /** An art layer. */
+    @SerialName("art")
+    ART,
 }
 
 /** Surface metadata: the container kind, GUI size, and title cursor origin. */
@@ -149,6 +170,10 @@ public data class SlotEntry(
     @SerialName("shader_marker") val shaderMarker: String? = null,
     /** Optional legacy near-identical marker color used by older generated HUD shaders. */
     @SerialName("shader_color") val shaderColor: String? = null,
+    /** The tint whose current palette color replaces [color]. */
+    val tint: String? = null,
+    /** In a shader-placed HUD, the marker color to send per palette entry of [tint] instead of [shaderMarker]. */
+    @SerialName("tint_markers") val tintMarkers: Map<String, String> = emptyMap(),
     /** How content wider than [width] is shortened; `null` leaves it untouched. */
     val overflow: TextOverflow? = null,
     /** The lines content wraps onto; `null` for a single line. */
@@ -215,6 +240,8 @@ public data class SpriteSlotEntry(
     val sprite: String? = null,
     /** Catalog sprites the view may bind to this slot, which its font holds. Empty for any catalog sprite. */
     val only: List<String> = emptyList(),
+    /** The tint whose current palette color the sprite is sent in; `null` sprites are sent white. */
+    val tint: String? = null,
     /** The authored `debug_name` this sprite slot comes from, for diagnostics. */
     val source: String? = null,
 )

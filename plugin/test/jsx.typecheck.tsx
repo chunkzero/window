@@ -9,6 +9,7 @@ import {
     selection,
     sprite,
     text,
+    tint,
     toggle,
     value,
 } from "../src/bind/index.ts";
@@ -126,6 +127,23 @@ const setterCondition = Switch({ bind: category.set("all"), children: [] });
 const comparedClick = <Region onClick={category.is("all")} />;
 void [comparedSwitch, setterCondition, comparedClick];
 
+const tone = tint("tone", { ok: "#3ddc84", warn: "#ffb020" });
+const tinted = (
+    <Box frame={shape({ kind: "panel" })} tint={tone}>
+        <Text color={tone}>Wave</Text>
+        <Image art={texture("window/coin.png")} tint="#ffaa00" />
+    </Box>
+);
+// @ts-expect-error A tint is a tint handle or a color, not another handle.
+const valueTint = <Box tint={mode} />;
+// @ts-expect-error A text color is a color or a tint handle.
+const flagColor = <Text color={favorites}>Wave</Text>;
+// @ts-expect-error A bound image takes a tint handle, not a fixed color.
+const fixedSlotTint = <Image bind={sprite("lamp_icon")} size={8} tint="#ffaa00" />;
+// @ts-expect-error A HUD's own frame is not tinted.
+const tintedHud = <Hud name="tinted" tint={tone} />;
+void [tinted, valueTint, flagColor, fixedSlotTint, tintedHud];
+
 const coin = texture("window/coin.png");
 const bevel = shape({ kind: "button", fill: "#3a3a3a" }, { name: "industrial/button" });
 const icon = sprite("icon", { only: ["lamp_on", "lamp_off"] });
@@ -199,6 +217,7 @@ const previewed = preview(handles, [
     [badge, "lamp_on"],
     [collection("products"), { count: 4, selected: 0 }],
     [input("query"), "amethyst"],
+    [tone, "warn"],
 ]);
 // @ts-expect-error A selection takes one of its values.
 const unknownCase = preview(handles, [[category, "tools"]]);
@@ -210,4 +229,6 @@ const unindexed = preview(handles, [[lamps, true]]);
 const unknownSprite = preview(handles, [[badge, "coin"]]);
 // @ts-expect-error An action has no state.
 const actionState = preview(handles, [[action("buy"), true]]);
-void [previewed, unknownCase, numericText, unindexed, unknownSprite, actionState];
+// @ts-expect-error A tint takes one of its palette entry names.
+const unknownEntry = preview(handles, [[tone, "danger"]]);
+void [previewed, unknownCase, numericText, unindexed, unknownSprite, actionState, unknownEntry];

@@ -49,7 +49,8 @@ pub(super) enum Shadow {
     Vanilla,
     /// Window text: translucent black.
     Slot,
-    /// Text of a shader-placed HUD: the translucent quarter-brightness text color.
+    /// Text of a shader-placed HUD: the translucent quarter-brightness text color, which the shader scales without
+    /// truncating.
     ShaderHud,
 }
 
@@ -60,7 +61,10 @@ impl Shadow {
             Self::None => None,
             Self::Vanilla => Some(dark(255)),
             Self::Slot => Some([0, 0, 0, SHADOW_ALPHA]),
-            Self::ShaderHud => Some(dark(SHADOW_ALPHA)),
+            Self::ShaderHud => {
+                let quarter = |channel: u8| ((u16::from(channel) + 2) / 4) as u8;
+                Some([quarter(color.r), quarter(color.g), quarter(color.b), SHADOW_ALPHA])
+            }
         }
     }
 }
@@ -133,9 +137,16 @@ impl<'a> TextPainter<'a> {
         Self { fonts, stand_in: crate::text_font::small_caps() }
     }
 
-    /// Draws `content` in `slot` on the lines, and at the positions, the runtime gives it. `shadow` is the shadow of
-    /// a slot that has one.
-    pub(super) fn draw_slot(&self, canvas: &mut Canvas, slot: &SlotIr, content: &str, shadow: Shadow) -> Result<()> {
+    /// Draws `content` in `slot`, in `color`, on the lines and at the positions the runtime gives it. `shadow` is the
+    /// shadow of a slot that has one.
+    pub(super) fn draw_slot(
+        &self,
+        canvas: &mut Canvas,
+        slot: &SlotIr,
+        content: &str,
+        color: Rgb,
+        shadow: Shadow,
+    ) -> Result<()> {
         let font = match &slot.font {
             Some(name) => Some(
                 self.fonts
@@ -165,7 +176,7 @@ impl<'a> TextPainter<'a> {
                 origin(slot.align, slot.rect.x, slot.rect.width, visual) as i32,
                 slot.rect.y + step * fit.line_height as i32 / 2,
             );
-            self.draw_glyphs(canvas, font, line, at, slot.color, shadow);
+            self.draw_glyphs(canvas, font, line, at, color, shadow);
         }
         Ok(())
     }

@@ -42,6 +42,8 @@ fn sample_window() -> WindowEntry {
             ("mode".into(), switch(&[("shop", &[], &["open"])])),
             ("open".into(), switch(&[("true", &["buy"], &[]), ("false", &["buy~2"], &[])])),
         ]),
+        art: BTreeMap::new(),
+        tints: BTreeMap::new(),
         layers: vec![Layer::Switch("mode".into()), Layer::Switch("open".into()), Layer::Slot("title".into())],
         handles: BTreeMap::new(),
     }
@@ -57,6 +59,8 @@ fn sample_title_slot() -> SlotEntry {
         color: "#404040".into(),
         shader_marker: None,
         shader_color: None,
+        tint: None,
+        tint_markers: BTreeMap::new(),
         shadow: false,
         bold: false,
         italic: false,

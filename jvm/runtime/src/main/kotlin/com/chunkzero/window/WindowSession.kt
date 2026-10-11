@@ -23,6 +23,7 @@ import com.chunkzero.window.internal.WindowRenderer
 import com.chunkzero.window.internal.hasStaticTitle
 import com.chunkzero.window.internal.requireEntry
 import com.chunkzero.window.internal.titleSlots
+import com.chunkzero.window.internal.titleTints
 import net.kyori.adventure.text.Component
 import org.slf4j.LoggerFactory
 
@@ -65,11 +66,13 @@ internal open class ContainerWindowSession<I : Any>(
     protected val scheduler = RenderScheduler(host::scheduleNextTick)
     private val reactivity = Reactivity(scheduler) { dirty -> flush(dirty) }
 
+    private val tints = definition.titleTints(reactivity)
     protected val bindings =
         WindowBindings<I>(
             definition,
-            definition.titleSlots(reactivity),
+            definition.titleSlots(reactivity, tints),
             Switches("window", definition.name, entry.switches, reactivity),
+            tints,
         )
     protected val renderer = WindowRenderer(definition, bindings, reactivity, host::item)
 

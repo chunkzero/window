@@ -4,12 +4,14 @@ import com.chunkzero.window.diagnostics.RenderBounds
 import com.chunkzero.window.diagnostics.RenderLayerKind
 import com.chunkzero.window.diagnostics.RenderLayerTrace
 import com.chunkzero.window.diagnostics.RenderStyleTrace
+import com.chunkzero.window.manifest.ArtEntry
 import com.chunkzero.window.manifest.SlotEntry
 import com.chunkzero.window.manifest.SpriteSlotEntry
 import com.chunkzero.window.manifest.WindowEntry
 import com.chunkzero.window.manifest.WindowManifest
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextColor
 
 /**
  * Composes a window title [Component] from the baked static chrome plus per-slot net-zero segments.
@@ -39,14 +41,17 @@ internal class TitleComposer(
      *
      * The segment is `spacer(xStart − originX)` + styled text + `spacer(−(dx + advanceWidth))`,
      * where `xStart` depends on the slot's alignment and the visible plain-text width of [content].
-     * A multi-line slot chains its lines with spacers between them.
+     * A multi-line slot chains its lines with spacers between them. A slot with a tint takes the color of
+     * its palette entry [tint].
      */
     fun renderSlot(
         semanticId: String,
         slot: SlotEntry,
         content: Component,
+        tint: String? = null,
     ): RenderedSegment? {
-        val lines = fonts.slotLines(slot, content, slotStyle(slot, requireColor(slot.color)))
+        val color = window.tints.tintColor(slot.tint, tint) ?: requireColor(slot.color)
+        val lines = fonts.slotLines(slot, content, slotStyle(slot, color))
         val placed = fonts.placeLines(slot, lines, ::spacer) ?: return null
         val dx = placed.start - originX
         return RenderedSegment(
@@ -57,7 +62,7 @@ internal class TitleComposer(
                     kind = RenderLayerKind.TEXT_SLOT,
                     slot = slot,
                     styled = lines.first().component,
-                    colorHex = slot.color,
+                    colorHex = color.hex(),
                     placed = placed,
                     cursor = originX,
                 ),
@@ -71,11 +76,15 @@ internal class TitleComposer(
         suffix: Component,
     ): Component = fonts.fitText(value, suffix, slotStyle(slot, requireColor(slot.color)), slot.width)
 
-    /** Renders a runtime sprite's net-zero segment, or `null` when [spriteName] is null. */
+    /**
+     * Renders a runtime sprite's net-zero segment, or `null` when [spriteName] is null. A slot with a tint
+     * multiplies the sprite by the color of its palette entry [tint].
+     */
     fun renderSprite(
         semanticId: String,
         slot: SpriteSlotEntry,
         spriteName: String?,
+        tint: String? = null,
     ): RenderedSegment? {
         if (spriteName == null) return null
         val sprite =
@@ -89,7 +98,8 @@ internal class TitleComposer(
 
         val xStart = fonts.originFor(slot.align, slot.x, slot.width, sprite.glyphWidth)
         val glyphStart = xStart - sprite.xOffset
-        val glyph = Component.text(sprite.glyph).style(baseStyle(slot.font, NamedTextColor.WHITE))
+        val color = window.tints.tintColor(slot.tint, tint) ?: NamedTextColor.WHITE
+        val glyph = Component.text(sprite.glyph).style(baseStyle(slot.font, color))
         return RenderedSegment(
             component = netZeroSegment(glyphStart - originX, sprite.advance, glyph),
             trace =
@@ -98,7 +108,7 @@ internal class TitleComposer(
                     kind = RenderLayerKind.SPRITE_SLOT,
                     content = sprite.glyph,
                     font = slot.font,
-                    style = RenderStyleTrace(color = "#ffffff", shadow = false),
+                    style = RenderStyleTrace(color = color.hex(), shadow = false),
                     expectedBounds = RenderBounds(xStart, slot.y, sprite.glyphWidth, sprite.height),
                     cursorStart = originX,
                     contentCursorStart = glyphStart,
@@ -119,6 +129,19 @@ internal class TitleComposer(
         static: String,
     ): RenderedSegment = RenderedSegment(Component.text(static).style(spacerStyle), staticTrace(semanticId, static))
 
+    /** Renders art layer [art], multiplied by the color of its tint's palette entry [tint]. */
+    fun renderArt(
+        semanticId: String,
+        art: ArtEntry,
+        tint: String?,
+    ): RenderedSegment {
+        val color = window.tints.tintColor(art.tint, tint) ?: NamedTextColor.WHITE
+        return RenderedSegment(
+            Component.text(art.static).style(baseStyle(font, color)),
+            staticTrace(semanticId, art.static, color),
+        )
+    }
+
     /** Composes the full title: the static component followed by each net-zero [segments] entry in order. */
     fun compose(
         windowName: String,
@@ -132,6 +155,7 @@ internal class TitleComposer(
     private fun staticTrace(
         semanticId: String,
         content: String,
+        color: TextColor = NamedTextColor.WHITE,
     ): RenderLayerTrace {
         val surfaceSize = window.surface.size
         return RenderLayerTrace(
@@ -139,7 +163,7 @@ internal class TitleComposer(
             kind = RenderLayerKind.STATIC_CHROME,
             content = content,
             font = font,
-            style = RenderStyleTrace(color = "#ffffff", shadow = false),
+            style = RenderStyleTrace(color = color.hex(), shadow = false),
             expectedBounds = RenderBounds(0, 0, surfaceSize[0], surfaceSize[1]),
             cursorStart = originX,
             contentCursorStart = originX,

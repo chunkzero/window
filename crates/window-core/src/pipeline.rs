@@ -205,7 +205,7 @@ fn compile_layouts(
     for (w, comp) in windows.iter().zip(&composites.windows) {
         window_entries.insert(w.name.clone(), window::compile_window(&mut ctx, w, comp)?);
     }
-    let markers = crate::hud::segment_markers(&huds);
+    let markers = crate::hud::segment_markers(&huds)?;
     let mut hud_entries = BTreeMap::new();
     let mut row_offsets = Vec::with_capacity(huds.len());
     for (h, comp) in huds.iter().zip(&composites.huds) {

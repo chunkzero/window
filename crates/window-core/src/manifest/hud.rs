@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{SlotEntry, SwitchEntry};
+use super::{ArtEntry, SlotEntry, SwitchEntry};
 use crate::ir::{Handle, Layer};
 
 /// One compiled HUD.
@@ -22,7 +22,13 @@ pub struct HudEntry {
     /// Runtime-selected cases by key; see [`super::WindowEntry::switches`].
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub switches: BTreeMap<String, SwitchEntry>,
-    /// Every slot and switch in authored tree order; see [`super::WindowEntry::layers`].
+    /// Art layers by name; see [`super::WindowEntry::art`].
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub art: BTreeMap<String, ArtEntry>,
+    /// Tint palettes by tint id; see [`super::WindowEntry::tints`].
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tints: BTreeMap<String, BTreeMap<String, String>>,
+    /// Every slot, switch, and art layer in authored tree order; see [`super::WindowEntry::layers`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub layers: Vec<Layer>,
     /// Typed handles by id, each with the entries that use it; see [`super::WindowEntry::handles`].

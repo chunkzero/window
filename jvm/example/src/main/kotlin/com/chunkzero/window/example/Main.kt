@@ -47,6 +47,7 @@ fun main() {
 
     registerPlayerEvents(instance, createPackRequest(packServer, market))
     registerShopAccess(market)
+    registerToneCommand()
 
     server.start("0.0.0.0", serverPort)
     println("Window example server listening on $serverPort — pack served at $packUrl.")
@@ -173,7 +174,7 @@ private fun createStatusHuds(
         MyStatusTopRightHud(player, startedAt),
         MyStatusLeftSideHud(player),
         MyStatusRightSideHud(market),
-        MyStatusBottomCenterHud(startedAt),
+        MyStatusBottomCenterHud(player, startedAt),
     )
 
 /** Locate the built resource-pack zip, or use `-Dwindow.pack=/path/to/window-example.zip`. */

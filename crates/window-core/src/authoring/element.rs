@@ -15,7 +15,7 @@ use super::tooltip::TooltipDto;
 use crate::model::{Art, Element, LayoutChild};
 use crate::{Error, Result};
 
-use handles::HandleRefDto;
+use handles::{ColorDto, HandleRefDto};
 pub(super) use handles::{check_shared, collect_handles};
 
 #[derive(Debug)]
@@ -41,7 +41,8 @@ pub(super) struct ElementDto {
     width: Option<u32>,
     height: Option<u32>,
     align: String,
-    color: Option<String>,
+    color: Option<ColorDto>,
+    tint: Option<ColorDto>,
     tooltip: Option<TooltipDto>,
     shadow: bool,
     bold: bool,
@@ -90,7 +91,8 @@ struct ElementShapeDto {
     height: Option<u32>,
     #[serde(default)]
     align: String,
-    color: Option<String>,
+    color: Option<ColorDto>,
+    tint: Option<ColorDto>,
     tooltip: Option<TooltipDto>,
     #[serde(default)]
     shadow: bool,
@@ -158,6 +160,7 @@ impl ElementDto {
             height: shape.height,
             align: shape.align,
             color: shape.color,
+            tint: shape.tint,
             tooltip: shape.tooltip,
             shadow: shape.shadow,
             bold: shape.bold,

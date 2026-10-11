@@ -8,6 +8,7 @@ import com.chunkzero.window.host.WindowItem
 import com.chunkzero.window.internal.RenderScheduler
 import com.chunkzero.window.manifest.WindowManifest
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.TextComponent
 
 /** A scheduler that records tasks and runs them on demand, for deterministic flush testing. */
 internal class ManualScheduler : RenderScheduler {
@@ -165,3 +166,14 @@ internal abstract class TestHud(
     manifest: WindowManifest,
     name: String = "h",
 ) : HudView(HudDefinition(manifest, name))
+
+/** The hex color of the first text in [component] whose content is [text], or `null` when it has none. */
+internal fun colorOf(
+    component: Component,
+    text: String,
+): String? =
+    if (component is TextComponent && component.content() == text) {
+        component.color()?.asHexString()?.lowercase()
+    } else {
+        component.children().firstNotNullOfOrNull { colorOf(it, text) }
+    }

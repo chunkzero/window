@@ -2,19 +2,33 @@ use std::collections::BTreeMap;
 
 use super::ValidationReport;
 use super::main_font::FontAdvances;
-use crate::manifest::{Manifest, SwitchEntry};
+use crate::manifest::{ArtEntry, Manifest, SwitchEntry};
 
 pub(super) fn validate_static_segments(manifest: &Manifest, metrics: &FontAdvances, report: &mut ValidationReport) {
     for (name, window) in &manifest.windows {
         let location = format!("manifest.windows.{name}");
         validate_segment(&window.static_text, 0, metrics, report, format!("{location}.static"));
         validate_cases(&window.switches, metrics, report, &location);
+        validate_art(&window.art, metrics, report, &location);
     }
     for (name, hud) in &manifest.huds {
         let location = format!("manifest.huds.{name}");
         let expected = if hud.shader.is_some() { 0 } else { hud.surface.width as i32 };
         validate_segment(&hud.static_text, expected, metrics, report, format!("{location}.static"));
         validate_cases(&hud.switches, metrics, report, &location);
+        validate_art(&hud.art, metrics, report, &location);
+    }
+}
+
+/// Art layer segments are net-zero.
+fn validate_art(
+    art: &BTreeMap<String, ArtEntry>,
+    metrics: &FontAdvances,
+    report: &mut ValidationReport,
+    location: &str,
+) {
+    for (name, art) in art {
+        validate_segment(&art.static_text, 0, metrics, report, format!("{location}.art.{name}.static"));
     }
 }
 

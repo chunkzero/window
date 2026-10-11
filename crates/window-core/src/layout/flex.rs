@@ -240,7 +240,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
     fn emit_box_contents(&mut self, tree: &Tree, id: NodeId, node: &FlexBox, parent: Point) -> Result<Rect> {
         let rect = self.node_rect(tree, id, parent)?;
         if let Some(frame) = &node.frame {
-            self.emit_frame(frame, rect, &format!("flex frame `{frame}`"))?;
+            self.emit_frame(frame, rect, node.tint.as_ref(), &format!("flex frame `{frame}`"))?;
         }
         let ids = tree.children(id).map_err(|e| self.taffy_err(e))?;
         for (child, child_id) in node.children.iter().zip(ids) {
@@ -286,10 +286,12 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(rect)
     }
 
-    /// Runs `emit` as switch case `value`: its draws, and the slots, sprite slots, regions, items, collections, and
-    /// switches it emits outside any nested switch, become the case.
+    /// Runs `emit` as switch case `value`: its draws, and the slots, sprite slots, regions, items, collections,
+    /// switches, and art layers it emits outside any nested switch, become the case.
     fn emit_case(&mut self, value: &str, emit: impl FnOnce(&mut Self) -> Result<()>) -> Result<SwitchCaseIr> {
         let outer_draws = std::mem::take(&mut self.draws);
+        let outer_run = std::mem::take(&mut self.art_run);
+        let art_start = self.art.len();
         let starts = (
             self.slots.len(),
             self.sprite_slots.len(),
@@ -300,6 +302,8 @@ impl<T: LayoutTarget> Solver<'_, T> {
         );
         let emitted = emit(self);
         let draws = std::mem::replace(&mut self.draws, outer_draws);
+        let case_run = std::mem::replace(&mut self.art_run, outer_run);
+        self.art_run.covered.extend(case_run.covered);
         emitted?;
         let nested = &self.switches[starts.3..];
         let inner = |pick: fn(&SwitchCaseIr) -> &Vec<String>| -> BTreeSet<&String> {
@@ -326,6 +330,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 self.collections[starts.5..].iter().map(|collection| &collection.name).collect(),
                 inner(|c| &c.collections),
             ),
+            art: direct(self.art[art_start..].iter().map(|art| &art.name).collect(), inner(|c| &c.art)),
         })
     }
 
@@ -397,7 +402,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 bounds.width + 2 + o.left + o.right,
                 bounds.height + 2 + o.top + o.bottom,
             );
-            self.emit_frame(frame, rect, &format!("{label} section frame `{frame}`"))?;
+            self.emit_frame(frame, rect, None, &format!("{label} section frame `{frame}`"))?;
         }
 
         let mut tree = Tree::new();

@@ -47,6 +47,7 @@ fn bare_window(name: &str, kind: ContainerKind, draws: Vec<Draw>) -> LaidOutWind
         collections: vec![],
         inputs: vec![],
         switches: vec![],
+        art: Vec::new(),
         layers: vec![],
         handles: BTreeMap::new(),
         warnings: vec![],
@@ -69,6 +70,7 @@ fn text_slot(name: &str, text: Option<&str>, rect: Rect, align: Align, color: Rg
         obfuscated: false,
         font: None,
         fit: Default::default(),
+        tint: None,
         source: None,
     }
 }

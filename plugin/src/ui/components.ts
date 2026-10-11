@@ -15,10 +15,10 @@ import type {
     TextProps,
     TextStyle,
 } from "./styles.ts";
-import type { VarTheme } from "./tokens.ts";
+import type { Color, Token, VarTheme } from "./tokens.ts";
 import type { ClickAction, Collection, Condition, Flag, Ref } from "../bind/handles.ts";
 import type { Input as InputHandle, Items as ItemsHandle } from "../bind/handles.ts";
-import type { Sprite as SpriteHandle, Text as TextHandle, Toggle as ToggleHandle } from "../bind/handles.ts";
+import type { Sprite as SpriteHandle, Text as TextHandle, Tint, Toggle as ToggleHandle } from "../bind/handles.ts";
 import type { CaseElement, Element, Hud as HudDef, Window as WindowDef } from "./document.ts";
 import type {
     ArtRef,
@@ -94,6 +94,8 @@ interface ImagePlacement extends ItemProps, DebugProps {
 /** Static art drawn at its own size. */
 export interface ImageArtProps extends ImagePlacement {
     art: ArtRef;
+    /** Multiplies the art's colors: a `tint` handle picks the color at runtime, a hex color is baked in. */
+    tint?: Token<Color> | Tint;
     bind?: never;
     size?: never;
     align?: never;
@@ -102,6 +104,8 @@ export interface ImageArtProps extends ImagePlacement {
 /** A runtime sprite slot the `sprite` handle `bind` fills. */
 export interface ImageBindProps extends ImagePlacement {
     bind: SpriteHandle;
+    /** A `tint` handle whose current palette color multiplies the sprite's colors. */
+    tint?: Tint;
     art?: never;
     /** Slot size in pixels; a number is square. */
     size: number | [number, number];
@@ -240,7 +244,10 @@ export type HudAnchor =
     | "bottom"
     | "bottom-right";
 
-export interface HudProps extends Omit<BoxProps, keyof ItemProps | "x" | "y" | "frame" | "width" | "height" | "style"> {
+export interface HudProps extends Omit<
+    BoxProps,
+    keyof ItemProps | "x" | "y" | "frame" | "tint" | "width" | "height" | "style"
+> {
     style?: StyleValue<HudStyle>;
     width?: number;
     height?: number;
@@ -340,6 +347,7 @@ export function Box(input: BoxProps): Element {
     const node = clean({
         type: "flex",
         frame: props.frame,
+        tint: props.tint,
         x: props.x,
         y: props.y,
         style: flexStyle(props as Fields),
@@ -388,13 +396,14 @@ export function Image(input: ImageProps): Element {
             width,
             height,
             align: props.align,
+            tint: props.tint,
             ...placement,
         }) as Element;
     }
     if (typeof props.art !== "object" || props.art === null) {
         throw new Error("<Image> requires `art`, such as texture(...) or shape(...), or a `sprite` handle `bind`");
     }
-    return clean({ type: "sprite", art: props.art, ...placement }) as Element;
+    return clean({ type: "sprite", art: props.art, tint: props.tint, ...placement }) as Element;
 }
 
 /**
@@ -453,6 +462,7 @@ export function Case(props: CaseProps): CaseElement {
         type: "case",
         value,
         frame: node.frame,
+        tint: node.tint,
         style: node.style,
         theme: node.theme,
         children: node.children ?? [],

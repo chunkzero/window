@@ -21,6 +21,7 @@ internal class WindowTitle(
     private val entry = definition.entry
     private val composer = definition.composer
     private val switches = bindings.switches
+    private val tints = bindings.tints
     private val segments = HashMap<String, RenderedSegment>()
     private var composed: ComposedRender? = null
 
@@ -49,6 +50,21 @@ internal class WindowTitle(
     fun updateSlot(name: String) {
         if (!bindings.slots.isBound(name)) return
         put(bindings.slots.semanticId(name), bindings.slots.render(name))
+    }
+
+    /** Re-renders the slots and sprite slots [tint] colors, and recomposes the art it colors. */
+    fun updateTint(tint: String) {
+        for (name in bindings.slots.tinted(tint)) {
+            if (bindings.slots.isBound(name)) {
+                updateSlot(name)
+            } else {
+                bindings.slots.label(name)?.let { put(bindings.slots.semanticId(name), it) }
+            }
+        }
+        for ((name, slot) in entry.spriteSlots) {
+            if (slot.tint == tint) updateSprite(name)
+        }
+        composed = null
     }
 
     /** Re-renders a runtime sprite slot under dependency capture. */
@@ -90,6 +106,12 @@ internal class WindowTitle(
                     val art = switches.activeCase(name)?.static?.takeIf { it.isNotEmpty() } ?: return null
                     return composer.renderStatic(switches.semanticId(name), art).sourced(switches.source(name))
                 }
+
+                LayerKind.ART -> {
+                    if (!switches.artActive(name)) return null
+                    val art = entry.art.getValue(name)
+                    return composer.renderArt("window/${definition.name}/$name", art, tints.value(art.tint))
+                }
             }
         val source =
             when (layer.kind) {
@@ -112,7 +134,7 @@ internal class WindowTitle(
         slot: SpriteSlotEntry,
         sprite: String?,
     ): RenderedSegment =
-        composer.renderSprite(id, slot, sprite)
+        composer.renderSprite(id, slot, sprite, tints.value(slot.tint))
             ?: definition.emptyTitleSegment(id, RenderLayerKind.SPRITE_SLOT, slot.x, slot.y, slot.font)
 
     private fun spriteId(name: String): String = "window/${definition.name}/sprite/$name"
@@ -131,14 +153,26 @@ internal fun WindowDefinition.emptyTitleSegment(
     font: String,
 ): RenderedSegment = emptySegment(semanticId, kind, x, y, font, EMPTY_STYLE, entry.surface.titleOrigin[0])
 
-/** This window's text slots, rendered as title segments. */
-internal fun WindowDefinition.titleSlots(reactivity: Reactivity): DynamicSlots =
-    DynamicSlots("window", name, entry.slots, reactivity, composer::renderSlot) { id, slot ->
+/** This window's text slots, rendered as title segments in the colors [tints] picks. */
+internal fun WindowDefinition.titleSlots(
+    reactivity: Reactivity,
+    tints: Tints,
+): DynamicSlots =
+    DynamicSlots(
+        "window",
+        name,
+        entry.slots,
+        reactivity,
+        { id, slot, content -> composer.renderSlot(id, slot, content, tints.value(slot.tint)) },
+    ) { id, slot ->
         emptyTitleSegment(id, RenderLayerKind.TEXT_SLOT, slot.x, slot.y, slot.font)
     }
 
+/** This window's tints. */
+internal fun WindowDefinition.titleTints(reactivity: Reactivity): Tints = Tints("window", name, entry.tints, reactivity)
+
 /**
- * Whether the title never changes after open: no text slots, bound sprites, or selections, and no
+ * Whether the title never changes after open: no text slots, bound sprites, selections, or tints, and no
  * switch case with art, slots, or sprite slots. Switches that only swap regions keep the title.
  */
 internal val WindowEntry.hasStaticTitle: Boolean
@@ -146,6 +180,9 @@ internal val WindowEntry.hasStaticTitle: Boolean
         slots.values.all { it.text != null } &&
             spriteSlots.values.all { it.sprite != null } &&
             collections.values.all { it.selection.isEmpty() } &&
+            tints.isEmpty() &&
             switches.values.all { switch ->
-                switch.cases.all { it.static.isEmpty() && it.slots.isEmpty() && it.spriteSlots.isEmpty() }
+                switch.cases.all {
+                    it.static.isEmpty() && it.slots.isEmpty() && it.spriteSlots.isEmpty() && it.art.isEmpty()
+                }
             }

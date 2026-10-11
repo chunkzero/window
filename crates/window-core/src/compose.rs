@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, HashMap};
 use image::ImageEncoder;
 
 use crate::geometry::{Insets, Rect, Size};
-use crate::ir::{Draw, LaidOutWindow, TextureKey};
+use crate::ir::{Draw, LaidOutWindow, Rgb, TextureKey};
 use crate::model::GeneratedStyle;
 use crate::{Error, Result};
 
@@ -186,10 +186,25 @@ pub(crate) fn compose_draws_cached(
             Draw::Generated { style, .. } => {
                 blit_sprite(&mut canvas, cache.render(style, dest.size())?, &local);
             }
+            Draw::Tinted { draw, color } => {
+                let mut tinted = compose_draws_cached(std::slice::from_ref(draw), window_name, textures, cache)?;
+                for pixel in tinted.texture.rgba.as_chunks_mut::<4>().0 {
+                    *pixel = multiply(*pixel, *color);
+                }
+                blit_sprite(&mut canvas, &tinted.texture, &local);
+            }
         }
     }
 
     Ok(Composite { texture: canvas, bounds, has_content: true })
+}
+
+/// `rgba` with its color multiplied by `color`, rounding to nearest; alpha is unchanged.
+pub(crate) fn multiply(mut rgba: [u8; 4], color: Rgb) -> [u8; 4] {
+    for (channel, factor) in rgba.iter_mut().zip([color.r, color.g, color.b]) {
+        *channel = ((u32::from(*channel) * u32::from(factor) + 127) / 255) as u8;
+    }
+    rgba
 }
 
 /// The union of every draw's destination rect, or `None` if there are no draws.

@@ -4,6 +4,7 @@ package com.chunkzero.window.example.generated
 import com.chunkzero.window.manifest.Align
 import com.chunkzero.window.manifest.CollectionEntry
 import com.chunkzero.window.manifest.AnvilInputEntry
+import com.chunkzero.window.manifest.ArtEntry
 import com.chunkzero.window.manifest.HitboxEntry
 import com.chunkzero.window.manifest.LayerEntry
 import com.chunkzero.window.manifest.LayerKind
@@ -2462,6 +2463,19 @@ internal object WindowEntries {
                             source = null,
                         ),
                     ),
+                    art = mapOf(
+                        "art/0" to ArtEntry(
+                            static = "\uEFA1\uDB80\uDC09\uDB80\uDC0A",
+                            tint = "tone",
+                        ),
+                    ),
+                    tints = mapOf(
+                        "tone" to mapOf(
+                            "danger" to "#ff4d4d",
+                            "ok" to "#3ddc84",
+                            "warn" to "#ffb020",
+                        ),
+                    ),
                     layers = listOf(
                         LayerEntry(LayerKind.SLOT, "label_0"),
                         LayerEntry(LayerKind.SWITCH, "category?all"),
@@ -2507,6 +2521,7 @@ internal object WindowEntries {
                         LayerEntry(LayerKind.SWITCH, "has_query"),
                         LayerEntry(LayerKind.SLOT, "status"),
                         LayerEntry(LayerKind.SLOT, "balance"),
+                        LayerEntry(LayerKind.ART, "art/0"),
                         LayerEntry(LayerKind.SWITCH, "can_buy"),
                         LayerEntry(LayerKind.SLOT, "buy_label"),
                         LayerEntry(LayerKind.SLOT, "buy_label~2"),

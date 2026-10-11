@@ -163,6 +163,13 @@ pub enum Draw {
         /// Destination rect in GUI space.
         dest: Rect,
     },
+    /// Render `draw` with every pixel's color multiplied by `color`.
+    Tinted {
+        /// The draw to tint.
+        draw: Box<Draw>,
+        /// The color its pixels are multiplied by.
+        color: Rgb,
+    },
 }
 
 impl Draw {
@@ -170,6 +177,7 @@ impl Draw {
     pub fn dest(&self) -> &Rect {
         match self {
             Draw::NineSlice { dest, .. } | Draw::Sprite { dest, .. } | Draw::Generated { dest, .. } => dest,
+            Draw::Tinted { draw, .. } => draw.dest(),
         }
     }
 
@@ -178,6 +186,7 @@ impl Draw {
         match self {
             Draw::NineSlice { texture, .. } | Draw::Sprite { texture, .. } => Some(texture),
             Draw::Generated { .. } => None,
+            Draw::Tinted { draw, .. } => draw.texture(),
         }
     }
 }
@@ -213,6 +222,8 @@ pub struct SlotIr {
     pub font: Option<String>,
     /// Runtime fitting of overflowing content; the default for static labels.
     pub fit: TextFit,
+    /// The tint handle whose current palette color replaces `color`.
+    pub tint: Option<String>,
     /// The `debug_name` of the nearest authored element this slot comes from.
     pub source: Option<String>,
 }
@@ -243,6 +254,8 @@ pub enum HandleKind {
     Input,
     /// A runtime action such as `window:close`; it has no Kotlin member.
     Builtin,
+    /// One of `values`, computed by Kotlin, naming the palette color tinted art and text take.
+    Tint,
 }
 
 impl HandleKind {
@@ -260,6 +273,7 @@ impl HandleKind {
             Self::Action => "action",
             Self::Input => "input",
             Self::Builtin => "builtin",
+            Self::Tint => "tint",
         }
     }
 }
@@ -282,6 +296,8 @@ pub enum HandleRole {
     Switch,
     /// Handles a region's clicks.
     Click,
+    /// Colors tinted art and text.
+    Tint,
 }
 
 /// One element's use of a handle, bound to the manifest entry `entry`.
@@ -304,9 +320,12 @@ pub struct HandleUse {
 pub struct Handle {
     /// What the handle declares.
     pub kind: HandleKind,
-    /// The values of a value or selection handle, in declaration order.
+    /// The values of a value or selection handle, or the names of a tint's palette, in declaration order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub values: Vec<String>,
+    /// The `#rrggbb` color of each of a tint's `values`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub colors: Vec<String>,
     /// Extent of each index dimension of an indexed handle: empty, one, or two values.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub shape: Vec<u32>,
@@ -328,6 +347,7 @@ impl Handle {
     pub fn same_declaration(&self, other: &Handle) -> bool {
         self.kind == other.kind
             && self.values == other.values
+            && self.colors == other.colors
             && self.shape == other.shape
             && self.initial == other.initial
             && self.selectable == other.selectable
@@ -350,6 +370,27 @@ pub fn sprite_slot_only<'a>(handles: &'a BTreeMap<String, Handle>, slot: &str) -
         .map_or(&[], |handle| &handle.only)
 }
 
+/// The palette of tint handle `id`: each name with its color, in declaration order. Empty when `handles` declares
+/// no such tint.
+pub fn tint_palette(handles: &BTreeMap<String, Handle>, id: &str) -> Vec<(String, Rgb)> {
+    let Some(handle) = handles.get(id).filter(|handle| handle.kind == HandleKind::Tint) else {
+        return Vec::new();
+    };
+    let entries = handle.values.iter().zip(&handle.colors);
+    entries.filter_map(|(name, color)| Some((name.clone(), Rgb::parse_hex(color)?))).collect()
+}
+
+/// Every tint palette `handles` declares, as `tint id -> name -> #rrggbb`.
+pub fn tint_palettes(handles: &BTreeMap<String, Handle>) -> BTreeMap<String, BTreeMap<String, String>> {
+    let tints = handles.iter().filter(|(_, handle)| handle.kind == HandleKind::Tint);
+    tints
+        .map(|(id, _)| {
+            let palette = tint_palette(handles, id);
+            (id.clone(), palette.into_iter().map(|(name, color)| (name, color.to_hex())).collect())
+        })
+        .collect()
+}
+
 /// A runtime-positioned sprite region.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SpriteSlotIr {
@@ -359,6 +400,8 @@ pub struct SpriteSlotIr {
     pub rect: Rect,
     /// Horizontal alignment within `rect`.
     pub align: Align,
+    /// The tint handle whose current palette color the sprite is multiplied by.
+    pub tint: Option<String>,
     /// The `debug_name` of the nearest authored element this sprite slot comes from.
     pub source: Option<String>,
 }
@@ -417,6 +460,18 @@ pub struct AnvilInputIr {
     pub item_model: Option<String>,
 }
 
+/// Art the runtime draws as its own glyph, at its place among the runtime layers: tinted art, and the untinted art
+/// authored over it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ArtIr {
+    /// Unique name within the surface, `art/N` in document order.
+    pub name: String,
+    /// Draws in paint order.
+    pub draws: Vec<Draw>,
+    /// The tint handle whose current palette color the glyph is multiplied by; `None` draws it as authored.
+    pub tint: Option<String>,
+}
+
 /// A runtime-selected group of cases, of which at most one is active.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SwitchIr {
@@ -447,6 +502,8 @@ pub struct SwitchCaseIr {
     pub items: Vec<String>,
     /// Names of the collections directly inside this case.
     pub collections: Vec<String>,
+    /// Names of the art layers directly inside this case.
+    pub art: Vec<String>,
 }
 
 /// One runtime-drawn layer; a surface's layers compose in authored tree order above its static chrome.
@@ -461,6 +518,8 @@ pub enum Layer {
     Switch(String),
     /// A collection's selected-cell sprite.
     Collection(String),
+    /// An art layer: tinted art, or untinted art authored over it.
+    Art(String),
 }
 
 /// A fully laid-out window, ready for the backend.
@@ -486,6 +545,8 @@ pub struct LaidOutWindow {
     pub inputs: Vec<AnvilInputIr>,
     /// Runtime-selected cases, document order.
     pub switches: Vec<SwitchIr>,
+    /// Art layers, document order.
+    pub art: Vec<ArtIr>,
     /// Runtime layers in authored tree order.
     pub layers: Vec<Layer>,
     /// Typed handles by id.
@@ -515,6 +576,8 @@ pub struct LaidOutHud {
     pub slots: Vec<SlotIr>,
     /// Runtime-selected cases, document order.
     pub switches: Vec<SwitchIr>,
+    /// Art layers, document order.
+    pub art: Vec<ArtIr>,
     /// Runtime layers in authored tree order.
     pub layers: Vec<Layer>,
     /// Typed handles by id.

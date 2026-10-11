@@ -1,6 +1,7 @@
 /** Build-time styles: `create`, `variants`, and the style properties each primitive accepts. See docs/AUTHORING.md. */
 import type { FlexStyle, ItemLayout } from "./document.ts";
-import type { Color, Var } from "./tokens.ts";
+import type { Tint } from "../bind/handles.ts";
+import type { Color, Token, Var } from "./tokens.ts";
 import type {
     ArtRef,
     AutoLength,
@@ -18,7 +19,8 @@ type Fields = Record<string, unknown>;
 
 /** Text styling. Containers pass it down through `text`; the nearest setting wins. */
 export interface TextProps {
-    color?: string | Var<Color>;
+    /** A hex color, or a `tint` handle whose current palette color the text takes. */
+    color?: string | Var<Color> | Tint;
     shadow?: boolean;
     bold?: boolean;
     italic?: boolean;
@@ -60,6 +62,8 @@ export interface ItemStyle {
 export interface ContainerStyle {
     /** A theme frame name or inline art, stretched over the box's laid-out size. */
     frame?: ArtRef;
+    /** Multiplies the frame's colors: a `tint` handle picks the color at runtime, a hex color is baked in. */
+    tint?: Token<Color> | Tint;
     display?: "flex" | "grid";
     direction?: "row" | "column" | "row-reverse" | "column-reverse";
     wrap?: boolean;
@@ -103,7 +107,7 @@ export interface SectionStyle {
 /** Style properties of `<Case>`. */
 export type CaseStyle = ContainerStyle;
 /** Style properties of `<Hud>`, whose children lay out in its root box. */
-export type HudStyle = Omit<ContainerStyle, "width" | "height">;
+export type HudStyle = Omit<ContainerStyle, "width" | "height" | "tint">;
 
 /** Every style property; `create` accepts these. `align` aligns box children, or text within its width. */
 export interface Style extends ItemStyle, Omit<ContainerStyle, "align">, Omit<TextProps, "align"> {
@@ -186,7 +190,7 @@ const FLEX_KEYS = [
     ["flow", "auto_flow"],
 ] as const satisfies readonly [keyof ContainerStyle, keyof FlexStyle][];
 
-const CONTAINER_KEYS: readonly string[] = ["frame", "text", ...FLEX_KEYS.map(([key]) => key)];
+const CONTAINER_KEYS: readonly string[] = ["frame", "tint", "text", ...FLEX_KEYS.map(([key]) => key)];
 
 /** The style properties each primitive accepts at runtime. */
 export const STYLE_KEYS: Readonly<Record<string, readonly string[]>> = {
@@ -197,7 +201,7 @@ export const STYLE_KEYS: Readonly<Record<string, readonly string[]>> = {
     collection: [...ITEM_KEYS, "frame"],
     section: ["frame", "text"],
     case: CONTAINER_KEYS,
-    hud: CONTAINER_KEYS.filter((key) => key !== "width" && key !== "height"),
+    hud: CONTAINER_KEYS.filter((key) => key !== "width" && key !== "height" && key !== "tint"),
 };
 
 const ALL_KEYS: ReadonlySet<string> = new Set(Object.values(STYLE_KEYS).flat());
@@ -410,8 +414,10 @@ export function applyStyle(out: Fields, kind: string, label: string): Fields {
     const box = kind === "box" || kind === "case";
     const merged = mergeStyle(style, STYLE_KEYS[kind]!, label);
     const result: Fields = { ...rest };
-    if (merged.frame !== undefined && result.frame === undefined) {
-        result.frame = merged.frame;
+    for (const key of ["frame", "tint"]) {
+        if (merged[key] !== undefined && result[key] === undefined) {
+            result[key] = merged[key];
+        }
     }
     if (box) {
         const flex = flexStyle(merged);

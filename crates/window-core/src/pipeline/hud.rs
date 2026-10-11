@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::compose::Composite;
 use crate::font::{MAX_TEXT_ROW, MIN_ASCENT, MIN_TEXT_ROW};
 use crate::geometry::Point;
-use crate::hud::SegmentMarkers;
-use crate::ir::{HudShader, LaidOutHud, Rgb};
+use crate::hud::{SegmentMarkers, TintedSegment, tinted_segments};
+use crate::ir::{HudShader, LaidOutHud, Rgb, tint_palettes};
 use crate::manifest::{HudEntry, HudShaderEntry, HudSurfaceEntry};
 use crate::size::{Pane, Part};
 use crate::{Result, bake};
@@ -27,14 +27,28 @@ pub(super) fn compile_hud(
     let origin = Point::new(0, -row_offset);
     let static_text = bake_static(ctx, h, &layers.base, origin)?;
     let file_base = format!("hud_{}", h.name);
-    let switches =
-        ctx.switch_entries(pane(h), &hud_key_prefix(&h.name), &file_base, &h.switches, &layers.cases, origin)?;
+    let prefix = hud_key_prefix(&h.name);
+    let switches = ctx.switch_entries(pane(h), &prefix, &file_base, &h.switches, &layers.cases, origin)?;
+    let mut art = ctx.art_entries(pane(h), &prefix, &file_base, &h.art, &layers.art, origin)?;
 
     let mut slots = BTreeMap::new();
     for slot in &h.slots {
         let marker = h.shader.map(|_| markers.slot_marker(&h.name, &slot.name));
         let entry = slot_entry(ctx, slot, slot.rect.y - origin.y, marker)?;
         slots.insert(slot.name.clone(), entry);
+    }
+    if h.shader.is_some() {
+        for (segment, palette) in tinted_segments(h) {
+            let tint_markers = match segment {
+                TintedSegment::Art(name) => art.get_mut(name).map(|entry| &mut entry.tint_markers),
+                TintedSegment::Slot(name) => slots.get_mut(name).map(|entry| &mut entry.tint_markers),
+            };
+            let tint_markers = tint_markers.expect("a tinted segment has an entry");
+            for (value, _) in palette {
+                let marker = markers.tint_marker(&h.name, &segment, &value);
+                tint_markers.insert(value, marker.to_hex());
+            }
+        }
     }
 
     Ok(HudEntry {
@@ -48,6 +62,8 @@ pub(super) fn compile_hud(
         slots,
         shader: h.shader.map(|shader| shader_entry(shader, markers.static_marker(&h.name), row_offset)),
         switches,
+        art,
+        tints: tint_palettes(&h.handles),
         layers: h.layers.clone(),
         handles: h.handles.clone(),
     })
@@ -83,8 +99,7 @@ fn row_offset(ctx: &CompileContext<'_>, h: &LaidOutHud, layers: &Layers) -> i32 
 
     // Text rows and art ascents must stay within what fonts and 256 px glyph pages accept.
     let (mut lowest, mut highest) = (MIN_TEXT_ROW - top, MAX_TEXT_ROW - bottom);
-    let art = std::iter::once(&layers.base).chain(layers.cases.iter().flatten()).filter(|comp| comp.has_content);
-    for comp in art {
+    for comp in layers.composites() {
         lowest = lowest.max(7 - comp.bounds.y - MAX_GLYPH_SIZE as i32);
         highest = highest.min(7 - comp.bounds.y - MIN_ASCENT);
     }

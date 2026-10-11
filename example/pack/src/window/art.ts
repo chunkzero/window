@@ -26,6 +26,27 @@ export const ventSlot = derive((get) => ({
     height: 2,
 }));
 
+/** Grey art for a tint to color: the dark fill takes a dim shade of the tint, the lighter rim a brighter one. */
+export const tonePill = shape({
+    kind: "panel",
+    fill: "#404040",
+    border_color: "#b0b0b0",
+    border_width: 1,
+    radius: 4,
+    inset_depth: 0,
+});
+
+/** A white bar, which a tint colors exactly. */
+export const toneLamp = shape({
+    kind: "button",
+    width: 2,
+    height: 10,
+    fill: "#ffffff",
+    border_width: 0,
+    radius: 0,
+    inset_depth: 0,
+});
+
 export const icons = {
     back: texture("window/icons/back.png"),
     clear: texture("window/icons/clear.png"),

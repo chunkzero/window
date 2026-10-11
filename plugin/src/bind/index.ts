@@ -1,5 +1,18 @@
 /** Handles: the named values and events a window exchanges with its generated Kotlin view. */
-export { action, builtin, collection, flag, input, items, selection, sprite, text, toggle, value } from "./handles.ts";
+export {
+    action,
+    builtin,
+    collection,
+    flag,
+    input,
+    items,
+    selection,
+    sprite,
+    text,
+    tint,
+    toggle,
+    value,
+} from "./handles.ts";
 export type {
     Action as ActionHandle,
     Builtin as BuiltinHandle,
@@ -19,6 +32,7 @@ export type {
     Shape,
     Sprite as SpriteHandle,
     Text as TextHandle,
+    Tint as TintHandle,
     Toggle as ToggleHandle,
     Value as ValueHandle,
 } from "./handles.ts";

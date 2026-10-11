@@ -10,7 +10,8 @@ export type HandleKind =
     | "collection"
     | "action"
     | "input"
-    | "builtin";
+    | "builtin"
+    | "tint";
 
 /** The extent of an indexed handle: `[n]` or `[rows, columns]`. */
 export type Shape = readonly [number] | readonly [number, number];
@@ -77,6 +78,15 @@ export interface Selection<V extends string = string> extends Ref<"selection", V
     is(value: V): Is;
     /** A click that selects `value`. */
     set(value: V): Set;
+}
+
+/**
+ * A color Kotlin picks from a fixed palette. A `tint` prop multiplies art by it; a text `color` takes it. `values`
+ * names the palette entries and `colors` holds the `#rrggbb` color of each.
+ */
+export interface Tint<V extends string = string> extends Ref<"tint", V> {
+    readonly values: readonly V[];
+    readonly colors: readonly string[];
 }
 
 /** Runtime actions the runtime resolves without a Kotlin member. */
@@ -211,6 +221,25 @@ export function selection<const V extends string>(
             return Object.freeze({ ...refJson(ref), set: value }) as unknown as Set;
         },
     }));
+}
+
+/**
+ * A color from `palette`, which maps each entry's name to its `#rrggbb` color. Kotlin picks the entry as a generated
+ * enum: `protected abstract fun tone(): Tone`. The palette is fixed when the pack is built.
+ */
+export function tint<const V extends string>(id: string, palette: Readonly<Record<V, string>>): Tint<V> {
+    if (typeof palette !== "object" || palette === null) {
+        throw new Error(`tint \`${id}\` requires a palette of named colors`);
+    }
+    const values = enumerated("tint", id, Object.keys(palette) as V[]);
+    const colors = values.map((name) => {
+        const color = palette[name];
+        if (typeof color !== "string" || !/^#[0-9a-fA-F]{6}$/.test(color)) {
+            throw new Error(`tint \`${id}\` entry \`${name}\` must be a "#rrggbb" color; got ${JSON.stringify(color)}`);
+        }
+        return color.toLowerCase();
+    });
+    return make({ kind: "tint", id, values, colors: Object.freeze(colors) } as Tint<V>, none);
 }
 
 /** Dynamic text: `protected abstract fun title(): Component`. */

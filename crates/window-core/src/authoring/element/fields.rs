@@ -1,15 +1,15 @@
-use super::ElementDto;
+use super::{ColorDto, ElementDto};
 use crate::authoring::parse::reject_unexpected_fields;
 use crate::authoring::patterns::parse_slot_refs;
 use crate::authoring::tooltip::TooltipDto;
 use crate::geometry::{Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern, SlotRectClaim};
 use crate::ir::{Align, Rgb, Tooltip};
-use crate::model::{TextFit, TextStyle};
+use crate::model::{TextFit, TextStyle, Tint};
 use crate::{Error, Result, text_font};
 
-const SPRITE_FIELDS: &[&str] = &["type", "art", "x", "y", "debug_name"];
-const SPRITE_SLOT_FIELDS: &[&str] = &["type", "handle", "x", "y", "width", "height", "align", "debug_name"];
+const SPRITE_FIELDS: &[&str] = &["type", "art", "tint", "x", "y", "debug_name"];
+const SPRITE_SLOT_FIELDS: &[&str] = &["type", "handle", "tint", "x", "y", "width", "height", "align", "debug_name"];
 const ITEM_FIELDS: &[&str] = &["type", "handle", "slots", "pattern", "transform", "debug_name"];
 const COLLECTION_FIELDS: &[&str] =
     &["type", "handle", "frame", "selected_sprite", "slots", "pattern", "transform", "action", "debug_name"];
@@ -32,9 +32,9 @@ const LABEL_FIELDS: &[&str] = &[
     "small_caps",
     "debug_name",
 ];
-const FLEX_FIELDS: &[&str] = &["type", "x", "y", "frame", "style", "children", "debug_name"];
+const FLEX_FIELDS: &[&str] = &["type", "x", "y", "frame", "tint", "style", "children", "debug_name"];
 const SWITCH_FIELDS: &[&str] = &["type", "handle", "x", "y", "children", "debug_name"];
-const CASE_FIELDS: &[&str] = &["type", "value", "frame", "style", "children", "debug_name"];
+const CASE_FIELDS: &[&str] = &["type", "value", "frame", "tint", "style", "children", "debug_name"];
 const SECTION_FIELDS: &[&str] = &["type", "section", "frame", "outset", "claim", "flow", "children", "debug_name"];
 const REGION_FIELDS: &[&str] = &["type", "on_click", "tooltip", "item_model", "width", "height", "debug_name"];
 const SLOT_FIELDS: &[&str] = &[
@@ -146,11 +146,12 @@ impl ElementDto {
 
     pub(super) fn text_style(&self) -> Result<TextStyle> {
         let align = self.text_align()?;
-        let color = match &self.color {
-            Some(color) => Rgb::parse_hex(color).ok_or_else(|| {
-                Error::Validation(format!("{} element has invalid color `{color}`; expected #rrggbb", self.kind))
-            })?,
-            None => Rgb::DEFAULT_TEXT,
+        let (color, tint) = match &self.color {
+            Some(ColorDto::Hex(color)) => (self.hex(color, "color")?, None),
+            Some(ColorDto::Tint(tint)) => {
+                (tint.first_color().unwrap_or(Rgb::DEFAULT_TEXT), Some(tint.id().to_string()))
+            }
+            None => (Rgb::DEFAULT_TEXT, None),
         };
         let font = match (&self.font, self.small_caps) {
             (Some(_), true) => {
@@ -169,6 +170,42 @@ impl ElementDto {
             strikethrough: self.strikethrough,
             obfuscated: self.obfuscated,
             font,
+            tint,
+        })
+    }
+
+    /// The color the element's art is multiplied by.
+    pub(super) fn tint(&self) -> Result<Option<Tint>> {
+        Ok(match &self.tint {
+            Some(ColorDto::Hex(color)) => Some(Tint::Color(self.hex(color, "tint")?)),
+            Some(ColorDto::Tint(tint)) => Some(Tint::Palette(tint.id().to_string())),
+            None => None,
+        })
+    }
+
+    /// The tint of a box's frame.
+    pub(super) fn frame_tint(&self) -> Result<Option<Tint>> {
+        if self.tint.is_some() && self.frame.is_none() {
+            return Err(Error::Validation(format!("{} element sets `tint` without a `frame` to tint", self.kind)));
+        }
+        self.tint()
+    }
+
+    /// The tint handle coloring a sprite the runtime chooses.
+    pub(super) fn palette_tint(&self) -> Result<Option<String>> {
+        match self.tint()? {
+            Some(Tint::Color(_)) => Err(Error::Validation(format!(
+                "{} element takes a `tint(...)` handle; a fixed color is not supported on a bound image",
+                self.kind
+            ))),
+            Some(Tint::Palette(tint)) => Ok(Some(tint)),
+            None => Ok(None),
+        }
+    }
+
+    fn hex(&self, color: &str, field: &str) -> Result<Rgb> {
+        Rgb::parse_hex(color).ok_or_else(|| {
+            Error::Validation(format!("{} element has invalid {field} `{color}`; expected #rrggbb", self.kind))
         })
     }
 
