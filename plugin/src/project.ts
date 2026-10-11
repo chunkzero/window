@@ -54,23 +54,34 @@ export interface WindowOptions {
     kotlin?: KotlinOptions;
 }
 
-interface KeyTree {
-    readonly [key: string]: KeyTree | null;
+type LeafKind = "boolean" | "string" | "string or boolean";
+
+/** An option object: each key maps to its leaf kind or, for a nested object, its own keys. */
+interface OptionTree {
+    readonly [key: string]: LeafKind | OptionTree;
 }
 
-const OPTION_KEYS: KeyTree = {
-    namespace: null,
-    coreShaders: { hud: null },
+const OPTION_TREE: OptionTree = {
+    namespace: "string",
+    coreShaders: { hud: "boolean" },
     vanilla: {
-        anvil: { field: null, background: null },
-        hud: Object.fromEntries(hudGroups.map((group) => [group, null])),
+        anvil: { field: "string or boolean", background: "string or boolean" },
+        hud: Object.fromEntries(hudGroups.map((group) => [group, "boolean"])),
     },
-    experimental: { anvilUpdates: null },
-    kotlin: { package: null, output: null, target: null },
+    experimental: { anvilUpdates: "boolean" },
 };
 
-/** Throws naming the first key of the plugin `config` that no option uses, and the keys accepted beside it. */
-export function checkOptionKeys(config: unknown, tree: KeyTree = OPTION_KEYS, path = ""): void {
+/** The `kotlin` keys of `window()`'s config. */
+const AUTHORED_KOTLIN: OptionTree = { package: "string", output: "string", target: "string" };
+
+/** The `kotlin` keys of the plugin options `window()` hands to the generator. */
+const PLUGIN_KOTLIN: OptionTree = { packageName: "string", target: "string" };
+
+function hasKind(kind: LeafKind, value: unknown): boolean {
+    return (kind !== "string" && typeof value === "boolean") || (kind !== "boolean" && typeof value === "string");
+}
+
+function checkTree(config: unknown, tree: OptionTree, path: string): void {
     if (typeof config !== "object" || config === null || Array.isArray(config)) {
         throw new Error(`Window option \`${path}\` must be an object`);
     }
@@ -83,10 +94,26 @@ export function checkOptionKeys(config: unknown, tree: KeyTree = OPTION_KEYS, pa
                 `Window option \`${prefix}${key}\` is unknown; accepted keys${scope}: ${Object.keys(tree).join(", ")}`,
             );
         }
-        if (child !== null && value !== undefined) {
-            checkOptionKeys(value, child, `${prefix}${key}`);
+        if (value === undefined) {
+            continue;
+        }
+        if (typeof child === "string") {
+            if (!hasKind(child, value)) {
+                const got = JSON.stringify(value);
+                throw new Error(`Window option \`${prefix}${key}\` must be a ${child}; got ${got}`);
+            }
+        } else {
+            checkTree(value, child, `${prefix}${key}`);
         }
     }
+}
+
+/**
+ * Throws naming the first plugin option in `config` that is unknown or has the wrong type. `config` is either
+ * `window()`'s authored config or, with `kotlin: "plugin"`, the options the generator receives.
+ */
+export function checkOptions(config: unknown, kotlin: "authored" | "plugin" = "authored"): void {
+    checkTree(config, { ...OPTION_TREE, kotlin: kotlin === "authored" ? AUTHORED_KOTLIN : PLUGIN_KOTLIN }, "");
 }
 
 /** Server API the generated Kotlin views and HUDs bind to. */
@@ -396,16 +423,23 @@ function packFormat(format: unknown): number {
     return max;
 }
 
+/** Whether `vanilla` blanks or replaces some texture, which needs a build even without definitions. */
+function replacesVanillaTextures(vanilla: VanillaOptions | undefined): boolean {
+    const values = [...Object.values(vanilla?.anvil ?? {}), ...Object.values(vanilla?.hud ?? {})];
+    return values.some((value) => value === false || typeof value === "string");
+}
+
 /** Compile the project's definitions and write the pack files, warnings, and Kotlin bindings. */
 export function generate(ctx: WindowContext, compile: Compile): void {
     const { documents, files, warnings } = collectInputs(ctx);
     for (const warning of warnings) {
         console.warn(warning);
     }
-    if (documents.length === 0) {
+    const { options } = ctx;
+    checkOptions(options, "plugin");
+    if (documents.length === 0 && !replacesVanillaTextures(options.vanilla)) {
         return;
     }
-    const { options } = ctx;
     const kotlin =
         options.kotlin === undefined
             ? undefined

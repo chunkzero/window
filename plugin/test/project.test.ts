@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { defineWindows, texture } from "../src/ui/index.ts";
 import * as raw from "../src/raw/index.ts";
 import type { WindowDocument } from "../src/ui/document.ts";
-import { buildProject, checkOptionKeys, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
+import { buildProject, checkOptions, collectInputs, generate, resourceTexturePath } from "../src/project.ts";
 import type { CompileOutput, KotlinOptions, SourceFile, WindowContext, WindowOptions } from "../src/project.ts";
 
 const encoder = new TextEncoder();
@@ -94,7 +94,7 @@ test("vanilla and experimental options reach the project JSON in snake_case", ()
 });
 
 test("unknown plugin option keys fail naming the key and the accepted keys", () => {
-    checkOptionKeys({
+    checkOptions({
         namespace: "x",
         coreShaders: { hud: true },
         vanilla: { anvil: { field: false, background: "bg" }, hud: { hotbar: false } },
@@ -102,18 +102,62 @@ test("unknown plugin option keys fail naming the key and the accepted keys", () 
         kotlin: { package: "p", output: "o", target: "minestom" },
     });
     assert.throws(
-        () => checkOptionKeys({ hudShaders: true }),
+        () => checkOptions({ hudShaders: true }),
         /`hudShaders` is unknown; accepted keys: namespace, coreShaders/,
     );
     assert.throws(
-        () => checkOptionKeys({ coreShaders: { enableHud: true } }),
+        () => checkOptions({ coreShaders: { enableHud: true } }),
         /`coreShaders\.enableHud`.*in `coreShaders`: hud$/,
     );
     assert.throws(
-        () => checkOptionKeys({ vanilla: { hud: { hearts: false } } }),
+        () => checkOptions({ vanilla: { hud: { hearts: false } } }),
         /`vanilla\.hud\.hearts`.*hotbar, health/,
     );
-    assert.throws(() => checkOptionKeys({ vanilla: true }), /`vanilla` must be an object/);
+    assert.throws(() => checkOptions({ vanilla: true }), /`vanilla` must be an object/);
+});
+
+test("plugin option leaves must have the right type", () => {
+    assert.throws(
+        () => checkOptions({ coreShaders: { hud: "true" } }),
+        /Window option `coreShaders\.hud` must be a boolean; got "true"/,
+    );
+    assert.throws(
+        () => checkOptions({ vanilla: { anvil: { field: 12 } } }),
+        /`vanilla\.anvil\.field` must be a string or boolean; got 12/,
+    );
+    assert.throws(
+        () => checkOptions({ vanilla: { hud: { hotbar: null } } }),
+        /`vanilla\.hud\.hotbar` must be a boolean; got null/,
+    );
+    checkOptions({ coreShaders: { hud: undefined }, namespace: undefined });
+});
+
+test("options listed directly in the config are checked when generating", () => {
+    const fail = () => assert.fail("compile must not run");
+    const typo = fake({ "window/a.ts": shop }, {}, { coreShaders: { hud: true, typo: true } } as WindowOptions);
+    assert.throws(() => generate(typo.ctx, fail), /`coreShaders\.typo` is unknown/);
+    const kotlin = fake({ "window/a.ts": shop }, {}, { kotlin: { package: "p", target: "minestom" } } as never);
+    assert.throws(
+        () => generate(kotlin.ctx, fail),
+        /`kotlin\.package` is unknown; accepted keys in `kotlin`: packageName, target/,
+    );
+});
+
+test("a pack with only vanilla replacements still compiles", () => {
+    const { ctx } = fake({}, {}, { vanilla: { hud: { hotbar: false } } });
+    let compiled: unknown;
+    generate(ctx, (_namespace, json) => {
+        compiled = JSON.parse(json);
+        return { files: [], kotlinFiles: [], warnings: [] };
+    });
+    assert.deepEqual(compiled, {
+        windows: [],
+        huds: [],
+        options: { core_shaders: { hud: false }, vanilla: { hud: { hotbar: false } } },
+        target: { pack_format: 84 },
+    });
+    const kept = fake({}, {}, { vanilla: { hud: { hotbar: true }, anvil: { field: true } } });
+    generate(kept.ctx, () => assert.fail("compile must not run"));
 });
 
 test("referenced resource textures are added once", () => {

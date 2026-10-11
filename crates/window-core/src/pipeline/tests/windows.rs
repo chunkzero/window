@@ -321,6 +321,9 @@ fn vanilla_hud_groups_blank_their_sprites_on_pack_formats_with_gui_sprites() {
     assert!(selection.rgba.chunks(4).all(|pixel| pixel[3] == 0));
     assert!(out.files.iter().all(|f| !f.path.contains("hud/food")));
 
+    assert!(out.manifest.windows.is_empty() && out.manifest.huds.is_empty());
+    assert!(out.files.iter().any(|f| f.path == "assets/window/font/ui.json"));
+
     let err = compile(15).unwrap_err();
     assert!(err.to_string().contains("`vanilla.hud` blanks GUI sprites, which need pack format 18"), "{err}");
 }
