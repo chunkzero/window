@@ -119,7 +119,7 @@ fn segment_markers_are_green_zero_unique_and_stable() {
 fn tinted_segments_get_a_marker_per_palette_entry_drawn_in_its_color() {
     let mut hud = shader_hud("status", "coins");
     hud.slots[0].tint = Some("tone".into());
-    hud.art.push(ArtIr { name: "art/0".into(), draws: Vec::new(), tint: Some("tone".into()) });
+    hud.art.push(ArtIr { name: "art/0".into(), draws: Vec::new(), tint: Some("tone".into()), bar: None });
     let tone = Handle {
         kind: HandleKind::Tint,
         values: vec!["ok".into(), "warn".into()],

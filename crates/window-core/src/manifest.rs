@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::font::spacers_for;
 use crate::inventory::{InventorySlotArea, InventorySlotRef};
 use crate::ir::{Align, Handle, Hitbox, Layer};
 use crate::{Error, Result};
@@ -110,12 +111,17 @@ pub struct WindowEntry {
     pub handles: BTreeMap<String, Handle>,
 }
 
-/// Art the runtime draws as its own glyph: tinted art, or the untinted art authored over it.
+/// Art the runtime draws as its own glyphs: tinted art, the untinted art authored over it, or the fill of a bar.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtEntry {
-    /// Net-zero baked art in [`Manifest::font`], starting and ending where a switch case's does.
+    /// Net-zero baked art in [`Manifest::font`], starting and ending where a switch case's does. A bar's is its
+    /// whole fill.
     #[serde(rename = "static")]
     pub static_text: String,
+    /// Set when the art is the fill of a bar, which the runtime draws up to a fraction instead of
+    /// [`Self::static_text`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bar: Option<BarEntry>,
     /// The tint whose current palette color the art is multiplied by: the runtime sends the glyph in that color.
     /// Absent art is sent white.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -123,6 +129,50 @@ pub struct ArtEntry {
     /// In a shader-placed HUD, the marker color to send per palette entry instead of the entry's color.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tint_markers: BTreeMap<String, String>,
+}
+
+/// The fill of a bar: art of which the runtime draws the leftmost columns, up to a fraction of [`Self::width`].
+///
+/// The fill is cut into clips of 1, 2, 4, … columns, a clip of `2^k` columns starting at each multiple of
+/// `2^(k + 1)`. Any column count is then one clip per set bit of the count, laid left to right from the largest,
+/// and each clip draws the columns of the art at its own place.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BarEntry {
+    /// The entry the runtime binds the fraction to.
+    pub name: String,
+    /// The fill's left edge, in pixels right of the cursor origin that art segments start and end at.
+    pub x: i32,
+    /// The fill's width in columns: what a fraction of 1 draws.
+    pub width: u32,
+    /// `levels[k]` holds one glyph of [`Manifest::font`] per clip of `2^k` columns: its character `i` draws the
+    /// columns from `i << (k + 1)`, and a space stands for a clip with nothing to draw.
+    pub levels: Vec<String>,
+    /// The cursor advance of each glyph in [`Self::levels`].
+    pub advances: BTreeMap<char, u32>,
+}
+
+impl BarEntry {
+    /// The net-zero text that draws the leftmost `columns` columns of the fill.
+    pub fn compose(&self, columns: u32) -> String {
+        let columns = columns.min(self.width);
+        let (mut text, mut cursor, mut start) = (String::new(), 0, 0);
+        for (level, glyphs) in self.levels.iter().enumerate().rev() {
+            let size = 1 << level;
+            if columns & size == 0 {
+                continue;
+            }
+            let glyph = glyphs.chars().nth((start >> (level + 1)) as usize).filter(|glyph| *glyph != ' ');
+            if let Some(glyph) = glyph {
+                let at = self.x + start as i32;
+                text.push_str(&spacers_for(at - cursor));
+                text.push(glyph);
+                cursor = at + self.advances[&glyph] as i32;
+            }
+            start += size;
+        }
+        text.push_str(&spacers_for(-cursor));
+        text
+    }
 }
 
 /// Cases of which the runtime draws and claims only the one its binding names.

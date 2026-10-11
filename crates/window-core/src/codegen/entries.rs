@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::ir::{Hitbox, Layer, Tooltip};
 use crate::manifest::{
-    AnvilInputEntry, ArtEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry,
+    AnvilInputEntry, ArtEntry, BarEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry,
     RegionEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry,
     SwitchCaseEntry, SwitchEntry, TextOverflow,
 };
@@ -113,7 +113,21 @@ pub(super) fn sprite_slot_entry_expr(slot: &SpriteSlotEntry, level: usize) -> St
 
 pub(super) fn art_entry_expr(art: &ArtEntry, level: usize) -> String {
     let call = Call::new("ArtEntry", level).arg("static", kt_string(&art.static_text));
+    let call = match &art.bar {
+        Some(bar) => call.arg("bar", bar_entry_expr(bar, level + 1)),
+        None => call,
+    };
     with_tint(call, art.tint.as_ref(), &art.tint_markers, level).finish()
+}
+
+fn bar_entry_expr(bar: &BarEntry, level: usize) -> String {
+    Call::new("BarEntry", level)
+        .arg("name", kt_string(&bar.name))
+        .arg("x", bar.x)
+        .arg("width", bar.width)
+        .arg("levels", string_list_expr(&bar.levels))
+        .arg("advances", char_map(&bar.advances, level + 1))
+        .finish()
 }
 
 /// A `mapOf` of strings.

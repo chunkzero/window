@@ -147,7 +147,7 @@ fn an_art_layer_bounds_the_row_offset_like_static_art() {
         insets: Insets::uniform(1),
         dest: Rect::new(0, 0, 80, 20),
     };
-    tinted.art = vec![ArtIr { name: "art/0".into(), draws: vec![frame], tint: None }];
+    tinted.art = vec![ArtIr { name: "art/0".into(), draws: vec![frame], tint: None, bar: None }];
     tinted.layers = vec![Layer::Art("art/0".into())];
     let out = compile_huds(&[hud("a", Some(SHADER), &[0, 10], 0), tinted], true).expect("the art layer fits a page");
 

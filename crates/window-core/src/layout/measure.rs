@@ -18,6 +18,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
                 self.require_sprite_slots(name)?;
                 Ok(*size)
             }
+            Element::Bar(bar) => Ok(bar.size),
             Element::Label { text, width, style, .. } => {
                 let w = match width {
                     Some(width) => *width,

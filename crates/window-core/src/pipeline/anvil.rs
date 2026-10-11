@@ -120,7 +120,8 @@ pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut 
         .chain(sprites)
         .chain(collections.map(|collection| &collection.name))
         .chain(drawing.map(|switch| &switch.name))
-        .chain(tints);
+        .chain(tints)
+        .chain(w.art.iter().filter_map(|art| art.bar.as_ref()));
     for name in updates {
         if !experimental {
             return Err(Error::Validation(format!(

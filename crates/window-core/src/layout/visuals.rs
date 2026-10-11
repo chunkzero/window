@@ -3,7 +3,7 @@ use super::target::LayoutTarget;
 use crate::Result;
 use crate::geometry::{Point, Rect, Size};
 use crate::ir::{Align, ArtIr, Draw, Layer, SlotIr, SpriteSlotIr, TextureKey};
-use crate::model::{Frame, SpriteDef, TextFit, TextStyle, Tint};
+use crate::model::{Bar, Frame, SpriteDef, TextFit, TextStyle, Tint};
 use crate::pipeline::texture_source_path;
 
 impl<T: LayoutTarget> Solver<'_, T> {
@@ -100,7 +100,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         let index = open.unwrap_or_else(|| {
             let name = format!("art/{}", self.art.len());
             self.layers.push(Layer::Art(name.clone()));
-            self.art.push(ArtIr { name, draws: Vec::new(), tint: palette.clone() });
+            self.art.push(ArtIr { name, draws: Vec::new(), tint: palette.clone(), bar: None });
             self.art.len() - 1
         });
         self.art[index].draws.push(draw);
@@ -114,6 +114,28 @@ impl<T: LayoutTarget> Solver<'_, T> {
         }
     }
 
+    /// Places bar `name` over `rect`: its track in the art underneath, and its fill as an art layer of its own
+    /// that the runtime draws up to the bar's fraction.
+    pub(super) fn place_bar(&mut self, bar: &Bar, rect: Rect) -> Result<Size> {
+        let name = &bar.name;
+        self.register_name(name)?;
+        if let Some(track) = &bar.track {
+            self.emit_frame(track, rect, None, &format!("bar `{name}` track"))?;
+        }
+        let draw = self.frame_draw(&bar.fill, rect, &format!("bar `{name}` fill"))?;
+        let (draw, tint) = match &bar.tint {
+            Some(Tint::Color(color)) => (Draw::Tinted { draw: Box::new(draw), color: *color }, None),
+            Some(Tint::Palette(id)) => (draw, Some(id.clone())),
+            None => (draw, None),
+        };
+        let art = format!("art/{}", self.art.len());
+        self.layers.push(Layer::Art(art.clone()));
+        self.art.push(ArtIr { name: art, draws: vec![draw], tint, bar: Some(name.clone()) });
+        self.art_run.covered.push(rect);
+        self.art_run.untinted = None;
+        Ok(rect.size())
+    }
+
     /// Draws `frame` stretched over `dest`, after checking the frame and warning about overflow.
     pub(super) fn emit_frame(
         &mut self,
@@ -122,11 +144,18 @@ impl<T: LayoutTarget> Solver<'_, T> {
         tint: Option<&Tint>,
         referenced_by: &str,
     ) -> Result<()> {
+        let draw = self.frame_draw(frame, dest, referenced_by)?;
+        self.emit_draw(draw, tint);
+        Ok(())
+    }
+
+    /// `frame` stretched over `dest`, after checking the frame and warning about overflow.
+    fn frame_draw(&mut self, frame: &str, dest: Rect, referenced_by: &str) -> Result<Draw> {
         let project = self.project;
         let def =
             project.art.frames.get(frame).ok_or_else(|| self.target.layout_err(format!("unknown frame `{frame}`")))?;
         self.warn_if_overflow(dest, referenced_by);
-        let draw = match def {
+        Ok(match def {
             Frame::Texture { texture, insets } => {
                 let tex_size = self.intrinsic_texture_size(texture, referenced_by)?;
                 let min_w = insets.left + insets.right + 1;
@@ -137,9 +166,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 Draw::NineSlice { texture: TextureKey(texture_source_path(texture)), insets: *insets, dest }
             }
             Frame::Generated(style) => Draw::Generated { style: style.clone(), dest },
-        };
-        self.emit_draw(draw, tint);
-        Ok(())
+        })
     }
 }
 

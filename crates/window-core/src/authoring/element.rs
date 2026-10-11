@@ -26,6 +26,8 @@ pub(super) struct ElementDto {
     name: Option<String>,
     frame: Option<ArtRefDto>,
     art: Option<ArtRefDto>,
+    fill: Option<ArtRefDto>,
+    track: Option<ArtRefDto>,
     text: Option<String>,
     value: Option<String>,
     initial: Option<String>,
@@ -74,6 +76,8 @@ struct ElementShapeDto {
     kind: String,
     frame: Option<ArtRefDto>,
     art: Option<ArtRefDto>,
+    fill: Option<ArtRefDto>,
+    track: Option<ArtRefDto>,
     text: Option<String>,
     value: Option<String>,
     initial: Option<String>,
@@ -144,6 +148,8 @@ impl ElementDto {
             name: None,
             frame: shape.frame,
             art: shape.art,
+            fill: shape.fill,
+            track: shape.track,
             text: shape.text,
             value: shape.value,
             initial: shape.initial,
@@ -191,6 +197,8 @@ impl ElementDto {
 pub(super) fn intern_art(children: &mut [ElementDto], table: &mut Art) -> Result<()> {
     for child in children {
         intern(table, &mut child.frame, ArtUse::Frame)?;
+        intern(table, &mut child.fill, ArtUse::Frame)?;
+        intern(table, &mut child.track, ArtUse::Frame)?;
         intern(table, &mut child.art, ArtUse::Image)?;
         intern(table, &mut child.selected_sprite, ArtUse::Sprite)?;
         intern_art(&mut child.children, table)?;

@@ -10,6 +10,7 @@ use crate::{Error, Result, text_font};
 
 const SPRITE_FIELDS: &[&str] = &["type", "art", "tint", "x", "y", "debug_name"];
 const SPRITE_SLOT_FIELDS: &[&str] = &["type", "handle", "tint", "x", "y", "width", "height", "align", "debug_name"];
+const BAR_FIELDS: &[&str] = &["type", "handle", "fill", "track", "tint", "x", "y", "width", "height", "debug_name"];
 const ITEM_FIELDS: &[&str] = &["type", "handle", "slots", "pattern", "transform", "debug_name"];
 const COLLECTION_FIELDS: &[&str] =
     &["type", "handle", "frame", "selected_sprite", "slots", "pattern", "transform", "action", "debug_name"];
@@ -66,6 +67,7 @@ fn allowed_fields(kind: &str) -> Option<&'static [&'static str]> {
     Some(match kind {
         "sprite" => SPRITE_FIELDS,
         "sprite_slot" => SPRITE_SLOT_FIELDS,
+        "bar" => BAR_FIELDS,
         "item" => ITEM_FIELDS,
         "collection" => COLLECTION_FIELDS,
         "anvil_input" => ANVIL_INPUT_FIELDS,

@@ -210,6 +210,11 @@ impl HandleMember {
                 format!("The palette entry the `{id}` tint draws in."),
                 format!("{member}(): {enum_name}"),
             ),
+            HandleKind::Fraction => abstract_fun(
+                w,
+                format!("How much of the `{id}` bar is filled, from 0 to 1."),
+                format!("{member}({params}): Float"),
+            ),
             HandleKind::Builtin => {}
         }
     }
@@ -331,6 +336,7 @@ fn bind_use(w: &mut KotlinWriter, handle: &HandleMember, use_: &HandleUse, args:
             w.line(format_args!("switch({entry}) {{ {value} }}"));
         }
         HandleRole::Tint => w.line(format_args!("tint({entry}) {{ {member}().value }}")),
+        HandleRole::Bar => w.line(format_args!("bar({entry}) {{ {member}({args}) }}")),
         // A runtime action cannot be bound; the runtime runs it.
         HandleRole::Click if handle.handle.kind == HandleKind::Builtin => {}
         HandleRole::Click => Handler::of(handle, use_, args).call(w, &format!("button({entry}")),

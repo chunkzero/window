@@ -89,6 +89,7 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (any(&|w| !w.collections.is_empty()), "CollectionEntry"),
         (any(&|w| !w.inputs.is_empty()), "AnvilInputEntry"),
         (any(&|w| !w.art.is_empty()), "ArtEntry"),
+        (any(&|w| w.art.values().any(|art| art.bar.is_some())), "BarEntry"),
         (has_hitbox, "HitboxEntry"),
         (any(&|w| !w.items.is_empty()), "ItemEntry"),
         (has_layers, "LayerEntry"),
@@ -149,6 +150,7 @@ pub(super) fn generate_hud_entries(manifest: &Manifest, package_name: &str) -> O
     let imports = [
         (true, "Align"),
         (manifest.huds.values().any(|hud| !hud.art.is_empty()), "ArtEntry"),
+        (manifest.huds.values().any(|hud| hud.art.values().any(|art| art.bar.is_some())), "BarEntry"),
         (true, "HudEntry"),
         (true, "HudShaderEntry"),
         (true, "HudSurfaceEntry"),

@@ -3,8 +3,11 @@ use crate::authoring::art::ArtRefDto;
 use crate::authoring::flex::parse_auto_flow;
 use crate::authoring::parse::validate_name;
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
-use crate::model::{Element, FlexBox, Region, SlotSection, Switch, SwitchCase};
+use crate::model::{Bar, Element, FlexBox, Region, SlotSection, Switch, SwitchCase};
 use crate::{Error, Result};
+
+/// The widest and tallest a bar may be: one font atlas page, which its largest fill glyph must fit.
+const MAX_BAR_SIZE: u32 = 256;
 
 impl ElementDto {
     pub(in crate::authoring) fn into_element(self) -> Result<Element> {
@@ -17,6 +20,7 @@ impl ElementDto {
         match self.kind.as_str() {
             "sprite" => self.build_sprite(),
             "sprite_slot" => self.build_sprite_slot(),
+            "bar" => self.build_bar(),
             "item" => self.build_item(),
             "collection" => self.build_collection(),
             "anvil_input" => self.build_anvil_input(),
@@ -49,6 +53,26 @@ impl ElementDto {
             tint: self.palette_tint()?,
             debug_name: self.debug_name,
         })
+    }
+
+    fn build_bar(self) -> Result<Element> {
+        let size = self.size()?;
+        if !(1..=MAX_BAR_SIZE).contains(&size.width) || !(1..=MAX_BAR_SIZE).contains(&size.height) {
+            return Err(Error::Validation(format!(
+                "bar element is {}x{} px; its `width` and `height` must each be from 1 to {MAX_BAR_SIZE}",
+                size.width, size.height
+            )));
+        }
+        let fill = art_name(&self.fill)?.ok_or_else(|| Error::Validation("bar element requires `fill`".into()))?;
+        Ok(Element::Bar(Box::new(Bar {
+            name: self.entry()?,
+            size,
+            pos: self.pos()?,
+            fill,
+            track: art_name(&self.track)?,
+            tint: self.tint()?,
+            debug_name: self.debug_name,
+        })))
     }
 
     fn build_item(self) -> Result<Element> {
