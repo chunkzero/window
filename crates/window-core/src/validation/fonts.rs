@@ -35,9 +35,10 @@ fn shifted_font_offsets(manifest: &Manifest) -> BTreeMap<&str, i32> {
         }
     }
     for hud in manifest.huds.values() {
+        let row_offset = hud.shader.as_ref().map_or(0, |shader| shader.row_offset);
         for slot in hud.slots.values() {
             for (font, dy) in slot.fonts() {
-                expected.insert(font, slot.y + dy);
+                expected.insert(font, slot.y + dy + row_offset);
             }
         }
     }

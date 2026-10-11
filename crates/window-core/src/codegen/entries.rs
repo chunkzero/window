@@ -34,7 +34,7 @@ pub(super) fn optional_hud_shader_entry_expr(shader: Option<&HudShaderEntry>, le
     let Some(shader) = shader else {
         return "null".into();
     };
-    Call::new("HudShaderEntry", level)
+    let call = Call::new("HudShaderEntry", level)
         .arg("staticMarker", kt_string(&shader.static_marker))
         .arg("sourceBottom", shader.source_bottom)
         .arg("originX", float_expr(shader.origin_x))
@@ -42,8 +42,8 @@ pub(super) fn optional_hud_shader_entry_expr(shader: Option<&HudShaderEntry>, le
         .arg("anchorX", float_expr(shader.anchor_x))
         .arg("anchorY", float_expr(shader.anchor_y))
         .arg("offsetX", shader.offset_x)
-        .arg("offsetY", shader.offset_y)
-        .finish()
+        .arg("offsetY", shader.offset_y);
+    if shader.row_offset == 0 { call } else { call.arg("rowOffset", shader.row_offset) }.finish()
 }
 
 pub(super) fn slot_entry_expr(slot: &SlotEntry, level: usize) -> String {

@@ -102,11 +102,11 @@ separately loaded packs or mods cannot be detected at build time, so the load or
 `size: { report: true }` prints where the compiler's output bytes go, largest first within each part:
 
 ```
-Window output: 604.3 KB (compiler output, before pack optimization)
+Window output: 534.9 KB (compiler output, before pack optimization)
   win shop                     9.8 KB   static 3.3 KB · 33 switch cases 6.5 KB
   hud status_bottom_center     2.7 KB   static 0 B · 20 switch cases 2.7 KB
   sprite fonts (3)             1.2 KB   largest sprite_y29 389 B
-  text-row fonts (15)        258.0 KB   largest small_caps/y137 17.2 KB
+  text-row fonts (11)        189.2 KB   largest small_caps/y137 17.2 KB
   kotlin (17)                195.5 KB
   debug descriptor           108.4 KB
   main font                   11.4 KB
@@ -117,7 +117,8 @@ Window output: 604.3 KB (compiler output, before pack optimization)
   cases, or move art that every case repeats out of the switch.
 - Each distinct vertical position that a text slot (or line of a multi-line slot) draws at adds one text-row font
   document, and a custom font adds one per position. Sprite slots add one sprite font per position, listing every
-  catalog sprite. Aligning slots to fewer rows removes fonts.
+  catalog sprite. Aligning slots to fewer rows removes fonts. HUDs pinned with [`<Hud anchor>`](#roots) are aligned to
+  each other and to windows automatically.
 - The remaining lines are shared: runtime sprite textures, text font sheets, the main font document, generated HUD
   shaders, vanilla overrides, the debug descriptor, and generated Kotlin.
 
@@ -463,6 +464,27 @@ const { player } = containerLayout("generic_9x6").sections;
 `"top-right"`, `"left"`, `"center"`, `"right"`, `"bottom-left"`, `"bottom"`, `"bottom-right"`, or a normalized
 `{ x, y }`. The same point of the HUD is placed on that screen point, and `offset={[x, y]}` nudges it in GUI pixels.
 
+Pinned HUDs share text-row fonts without any authoring. The shader decides where a pinned HUD lands, so the compiler is
+free to bake the whole HUD (art, switch cases, and text) some rows higher or lower in the actionbar and have the HUD's
+shader rule subtract the same rows; nothing moves on screen. HUD by HUD in name order, it picks the shift whose text
+rows reuse the most [text-row fonts](#what-things-cost) that windows and earlier HUDs already need, and the smallest
+such shift. Rows can only coincide where their spacing matches, so pinned HUDs that use the same line pitch share every
+font, whatever `y` their first row is on. HUDs without `anchor` are not shifted, and neither are HUDs with authored
+`underlined`, `strikethrough` or `italic` text (static labels, dynamic slots, and text inside switch cases), because
+Minecraft draws those decorations from the unshifted baseline and shears italics by the glyph ascent. The compiler
+cannot see styling a server applies inside a bound text value, such as an Adventure component; on a pinned HUD, such an
+underline or strikethrough is positioned from the text baseline rather than the row, and italics may drift sideways, so
+set the style on the element when you need it.
+
+The size limit of a pane is the size of its art. A pane's static art, and each switch case's art, bakes into one font
+glyph, and the client keeps glyphs on 256x256 px font atlas pages. A glyph larger than that in either direction is never
+placed on a page: the client does not draw it, and it misplaces everything sent after it. Such art is therefore a build
+error that names the pane, the art, and its size; keep each piece of art within 256 px each way, or split the pane. This
+applies to windows and every HUD. Text is not limited this way and may continue below the art. In particular a pinned
+HUD is not limited by where the actionbar sits: with the default `sourceBottom` of 59, row 0 is baked 72 px above the
+bottom of the GUI (59 plus Minecraft's 13 px actionbar inset), and rows from 72 on are baked below the screen edge,
+which the client still draws once the shader has moved them.
+
 ## Industrial
 
 `plugin:window/theme/industrial` is Window's default look as plain components built from the [primitives](#primitives)
@@ -722,12 +744,12 @@ If the plugin option `coreShaders: { hud: true }` is set, a HUD may also include
 point (`0.0` is left/top, `1.0` is right/bottom); `anchor` is the normalized point inside the HUD surface placed on that
 origin. Optional `x`/`y` values add a GUI-pixel nudge from the normalized origin. `source_bottom` is the GUI-pixel
 distance from the bottom of the GUI to the nominal bottom of the vanilla text source. Window applies Minecraft's fixed
-actionbar source inset when deriving its top edge; the source position does not change with the authored HUD height.
-Window then emits generated text core shaders for the pack's `pack.format` (the `max` of a range), including the
-matching text-background pass so vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles
-cover pack formats 9 through 88 (Minecraft 26.2); compilation fails when a shader-placed HUD targets an unsupported pack
-format or `coreShaders.hud` is not enabled. Core shaders are intentionally opt-in; the fallback channel remains the
-runtime contract.
+actionbar source inset when deriving its top edge; the source position does not change with the authored HUD height. See
+[Roots](#roots) for how shader-placed HUDs share text rows and how large a pane's art may be. Window then emits
+generated text core shaders for the pack's `pack.format` (the `max` of a range), including the matching text-background
+pass so vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles cover pack formats 9 through
+88 (Minecraft 26.2); compilation fails when a shader-placed HUD targets an unsupported pack format or `coreShaders.hud`
+is not enabled. Core shaders are intentionally opt-in; the fallback channel remains the runtime contract.
 
 ### Elements
 

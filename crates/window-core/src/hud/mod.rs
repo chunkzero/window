@@ -30,13 +30,14 @@ pub struct ShaderOutput {
     pub warnings: Vec<String>,
 }
 
-/// Emits core text shaders that relocate shader-placed HUDs.
+/// Emits core text shaders that relocate shader-placed HUDs, where `row_offsets` holds the rows each of `huds` is
+/// baked below its source origin.
 ///
 /// Fails when shader-placed HUDs exist but `pack_format` is unknown or has no shader profile,
 /// since their baked marker colors and placement only render correctly through these shaders.
-pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud]) -> Result<ShaderOutput> {
+pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud], row_offsets: &[i32]) -> Result<ShaderOutput> {
     let markers = segment_markers(huds);
-    let rules = rules(huds, &markers);
+    let rules = rules(huds, row_offsets, &markers);
     if rules.is_empty() {
         return Ok(ShaderOutput::default());
     }

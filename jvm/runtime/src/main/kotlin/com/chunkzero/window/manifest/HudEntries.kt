@@ -52,4 +52,6 @@ public data class HudShaderEntry(
     @SerialName("offset_x") val offsetX: Int = 0,
     /** Vertical target-origin nudge in GUI pixels. */
     @SerialName("offset_y") val offsetY: Int = -sourceBottom,
+    /** Rows the HUD's glyphs are baked below the source surface top; the generated shaders subtract it again. */
+    @SerialName("row_offset") val rowOffset: Int = 0,
 )

@@ -50,6 +50,10 @@ pub struct HudShaderEntry {
     pub static_marker: String,
     /// Source surface top y-offset from the bottom of the GUI, in GUI pixels.
     pub source_bottom: i32,
+    /// Rows the HUD's static art, switch cases, and slot fonts are baked below the source surface top. The generated
+    /// shaders subtract it again, so it moves nothing on screen; the compiler picks it so HUDs share text-row fonts.
+    #[serde(default, skip_serializing_if = "no_row_offset")]
+    pub row_offset: i32,
     /// Normalized target origin in GUI space: 0.0 = left, 1.0 = right.
     pub origin_x: f32,
     /// Normalized target origin in GUI space: 0.0 = top, 1.0 = bottom.
@@ -62,4 +66,8 @@ pub struct HudShaderEntry {
     pub offset_x: i32,
     /// Y nudge from the normalized target origin, in GUI pixels.
     pub offset_y: i32,
+}
+
+fn no_row_offset(row_offset: &i32) -> bool {
+    *row_offset == 0
 }

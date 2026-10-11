@@ -32,6 +32,15 @@ pub const GLYPH_END: u32 = 0xF900;
 /// Size of the glyph allocation range (BMP private-use codepoints).
 pub const GLYPH_SPAN: u32 = GLYPH_END - GLYPH_BASE;
 
+/// The lowest ascent a font provider accepts.
+pub const MIN_ASCENT: i32 = -32767;
+
+/// The smallest text row a shifted font draws at: its ascent `7 - row` may not exceed the 8 px glyph height.
+pub const MIN_TEXT_ROW: i32 = -1;
+
+/// The largest text row a shifted font draws at: its ascent `7 - row` may not fall below [`MIN_ASCENT`].
+pub const MAX_TEXT_ROW: i32 = 7 - MIN_ASCENT;
+
 /// The spacer advance magnitudes, ascending: `1, 2, 4, … 1024`.
 const SPACER_MAGNITUDES: [i32; 11] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
 
@@ -192,7 +201,7 @@ pub fn bitmap_provider_file(file: &str, debug_name: &str, height: u32, ascent: i
     if ascent > height as i32 {
         return Err(Error::Font(format!("`{debug_name}`: ascent {ascent} exceeds height {height}")));
     }
-    if ascent <= -32768 {
+    if ascent < MIN_ASCENT {
         return Err(Error::Font(format!(
             "`{debug_name}`: ascent {ascent} is outside the valid range (-32768, height]"
         )));
@@ -263,11 +272,11 @@ pub fn text_font(file: &str, chars: &[String], k: i32) -> Result<Value> {
 /// The space provider and the vanilla sheets shifted to vertical offset `k`.
 fn shifted_providers(k: i32) -> Result<Vec<Value>> {
     let ascent = 7 - k;
-    if ascent > 8 || ascent <= -32768 {
+    if !(MIN_ASCENT..=8).contains(&ascent) {
         return Err(Error::Font(format!("shifted font y{k}: ascent {ascent} is outside the valid range (-32768, 8]")));
     }
     let accented_ascent = 10 - k;
-    if accented_ascent > 12 || accented_ascent <= -32768 {
+    if !(MIN_ASCENT..=12).contains(&accented_ascent) {
         return Err(Error::Font(format!(
             "shifted font y{k}: accented ascent {accented_ascent} is outside the valid range (-32768, 12]"
         )));

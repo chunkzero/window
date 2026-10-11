@@ -6,7 +6,7 @@ use crate::compose::{Composite, RasterCache, Texture, compose_draws_cached};
 use crate::font::{allocate, bitmap_provider};
 use crate::geometry::Size;
 use crate::ir::{Draw, LaidOutHud, LaidOutWindow, SwitchIr};
-use crate::size::Part;
+use crate::size::{Pane, Part};
 use crate::{Error, Result};
 
 use super::metrics::bitmap_metrics;
@@ -124,18 +124,37 @@ pub(super) struct StaticGlyph {
     pub(super) advance: u32,
 }
 
+/// The side of the client's font atlas pages. A larger bitmap glyph is never placed on one, so the client does not
+/// draw it and advances the cursor by an amount the baked segment does not compensate for.
+pub(super) const MAX_GLYPH_SIZE: u32 = 256;
+
 impl CompileContext<'_> {
     /// Emit `comp` as a bitmap glyph texture and main-font provider at `ascent`.
+    ///
+    /// Fails when the glyph exceeds [`MAX_GLYPH_SIZE`] in either direction.
     pub(super) fn emit_static_glyph(
         &mut self,
         comp: &Composite,
         ascent: i32,
-        name: &str,
+        pane: Pane<'_>,
         file_base: &str,
         key: String,
         part: Part,
     ) -> Result<StaticGlyph> {
-        let texture = provider_texture(comp, ascent, name)?;
+        let (width, height) = (comp.texture.width, comp.texture.height.max(ascent.max(0) as u32));
+        if width > MAX_GLYPH_SIZE || height > MAX_GLYPH_SIZE {
+            return Err(Error::Font(format!(
+                "{} `{}`: art `{file_base}` bakes into one {}x{} px font glyph, but the client's font atlas pages are \
+                 {MAX_GLYPH_SIZE}x{MAX_GLYPH_SIZE} px, so a larger glyph is not drawn and misplaces everything after \
+                 it; keep the art within {MAX_GLYPH_SIZE} px each way (text may extend past it) or split it across \
+                 panes",
+                if pane.hud { "HUD" } else { "window" },
+                pane.name,
+                width,
+                height,
+            )));
+        }
+        let texture = provider_texture(comp, ascent);
         let advance = bitmap_metrics(&texture, Size::new(texture.width, texture.height)).advance;
         let glyph = char::from_u32(self.codepoints[&key]).expect("glyph codepoint is a valid char");
         let provider = bitmap_provider(self.namespace, file_base, texture.height, ascent, glyph)?;
@@ -150,23 +169,16 @@ impl CompileContext<'_> {
 }
 
 /// Pad the composite downward so its height covers `ascent`.
-fn provider_texture(comp: &Composite, ascent: i32, name: &str) -> Result<Texture> {
+fn provider_texture(comp: &Composite, ascent: i32) -> Texture {
     if ascent <= comp.texture.height as i32 {
-        return Ok(comp.texture.clone());
+        return comp.texture.clone();
     }
     let height = ascent as u32;
-    if height > 512 {
-        return Err(Error::Font(format!(
-            "window `{name}`: generated visual bleed requires bitmap height {height}, \
-             exceeding the 512px provider limit"
-        )));
-    }
-
     let mut texture = Texture::transparent(comp.texture.width, height);
     let row_len = (comp.texture.width * 4) as usize;
     for y in 0..comp.texture.height as usize {
         let start = y * row_len;
         texture.rgba[start..start + row_len].copy_from_slice(&comp.texture.rgba[start..start + row_len]);
     }
-    Ok(texture)
+    texture
 }

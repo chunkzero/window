@@ -206,13 +206,16 @@ fn compile_layouts(
     }
     let markers = crate::hud::segment_markers(&huds);
     let mut hud_entries = BTreeMap::new();
+    let mut row_offsets = Vec::with_capacity(huds.len());
     for (h, comp) in huds.iter().zip(&composites.huds) {
-        hud_entries.insert(h.name.clone(), hud::compile_hud(&mut ctx, h, comp, &markers)?);
+        let entry = hud::compile_hud(&mut ctx, h, comp, &markers)?;
+        row_offsets.push(entry.shader.as_ref().map_or(0, |shader| shader.row_offset));
+        hud_entries.insert(h.name.clone(), entry);
     }
 
     fonts::emit_fonts(&mut ctx)?;
     if options.core_shaders.hud {
-        hud::emit_shader_files(&mut ctx, target.pack_format, &huds)?;
+        hud::emit_shader_files(&mut ctx, target.pack_format, &huds, &row_offsets)?;
     }
     let manifest = ctx.manifest(sprites, window_entries, hud_entries);
     ctx.finish(manifest)
