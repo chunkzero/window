@@ -129,16 +129,21 @@ internal class TitleComposer(
         static: String,
     ): RenderedSegment = RenderedSegment(Component.text(static).style(spacerStyle), staticTrace(semanticId, static))
 
-    /** Renders art layer [art], multiplied by the color of its tint's palette entry [tint]. */
+    /**
+     * Renders art layer [art], multiplied by the color of its tint's palette entry [tint]. A bar's fill is drawn up
+     * to [columns].
+     */
     fun renderArt(
         semanticId: String,
         art: ArtEntry,
         tint: String?,
+        columns: Int? = null,
     ): RenderedSegment {
         val color = window.tints.tintColor(art.tint, tint) ?: NamedTextColor.WHITE
+        val static = art.bar?.let { it.compose(columns ?: it.width, spacers) } ?: art.static
         return RenderedSegment(
-            Component.text(art.static).style(baseStyle(font, color)),
-            staticTrace(semanticId, art.static, color),
+            Component.text(static).style(baseStyle(font, color)),
+            staticTrace(semanticId, static, color),
         )
     }
 

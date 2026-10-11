@@ -6,6 +6,7 @@ import com.chunkzero.window.diagnostics.RenderFrameReason
 import com.chunkzero.window.diagnostics.RenderLayerKind
 import com.chunkzero.window.diagnostics.RenderStyleTrace
 import com.chunkzero.window.diagnostics.RenderSurfaceKind
+import com.chunkzero.window.internal.Bars
 import com.chunkzero.window.internal.ComposedRender
 import com.chunkzero.window.internal.DynamicSlots
 import com.chunkzero.window.internal.FrameCursor
@@ -22,8 +23,8 @@ import net.kyori.adventure.text.Component
 import org.slf4j.LoggerFactory
 
 /**
- * A user-defined view over a HUD: declares the providers of its slots, switches, and tints, and composes them on
- * [render].
+ * A user-defined view over a HUD: declares the providers of its slots, switches, tints, and bars, and composes them
+ * on [render].
  *
  * A view only produces content. The caller decides when to render, sends the result on [channel], and resends it as
  * needed. A view is not thread-safe; render it from one thread at a time.
@@ -34,6 +35,7 @@ public abstract class HudView(
     private val entry = definition.entry
     private val switches = Switches("hud", definition.name, entry.switches, null)
     private val tints = Tints("hud", definition.name, entry.tints, null)
+    private val bars = Bars("hud", definition.name, entry.art, null)
     private val slots =
         DynamicSlots(
             "hud",
@@ -79,12 +81,12 @@ public abstract class HudView(
         get() = definition.channel
 
     /**
-     * Evaluates every slot, switch, and tint provider and returns the composed HUD.
+     * Evaluates every slot, switch, tint, and bar provider and returns the composed HUD.
      *
-     * The first call runs [bind]. Slots whose provider returns an equal component, and switches and tints that keep
-     * their case or palette entry, reuse their previous layout.
+     * The first call runs [bind]. Slots whose provider returns an equal component, switches and tints that keep
+     * their case or palette entry, and bars that keep their columns reuse their previous layout.
      *
-     * @throws IllegalStateException on the first call if a dynamic slot, switch, or tint is unbound.
+     * @throws IllegalStateException on the first call if a dynamic slot, switch, tint, or bar is unbound.
      * @throws IllegalArgumentException for unknown names referenced in [bind], or an unknown switch case or palette
      *   entry.
      */
@@ -99,6 +101,7 @@ public abstract class HudView(
                 slots.label(slot)?.let { segments[slot] = it }
             }
         }
+        for (name in bars.names) unpublished = bars.update(name) || unpublished
         for (name in slots.names) {
             val content = slots.content(name)
             if (contents[name] == content) continue
@@ -109,7 +112,7 @@ public abstract class HudView(
         return if (unpublished) publish(compose(), RenderFrameReason.REACTIVE_UPDATE) else previous
     }
 
-    /** Registers the providers of this HUD's slots, switches, and tints; runs once, on the first [render]. */
+    /** Registers the providers of this HUD's slots, switches, tints, and bars; runs once, on the first [render]. */
     protected abstract fun HudScope.bind()
 
     /**
@@ -162,16 +165,26 @@ public abstract class HudView(
                         check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
                         tints.bind(name, render)
                     }
+
+                    override fun bar(
+                        name: String,
+                        render: () -> Float,
+                    ) {
+                        check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
+                        bars.bind(name, render)
+                    }
                 }
             scope.bind()
             sealed = true
             slots.validate()
             switches.validate()
             tints.validate()
+            bars.validate()
             bound = true
         }
         for (name in switches.names) switches.update(name)
         for (name in tints.names) tints.update(name)
+        for (name in bars.names) bars.update(name)
         slots.seed(::seedSlot) { name, segment -> segments[name] = segment }
         return compose()
     }
@@ -215,7 +228,10 @@ public abstract class HudView(
 
                     LayerKind.ART -> {
                         val art = entry.art.getValue(name).takeIf { switches.artActive(name) }
-                        art?.let { definition.composer.art("hud/${definition.name}/$name", it, tints.value(it.tint)) }
+                        art?.let {
+                            val id = "hud/${definition.name}/$name"
+                            definition.composer.art(id, it, tints.value(it.tint), bars.columns(it.bar))
+                        }
                     }
 
                     LayerKind.SPRITE_SLOT, LayerKind.COLLECTION -> {

@@ -40,15 +40,43 @@ public data class WindowEntry(
     val layers: List<LayerEntry> = emptyList(),
 )
 
-/** Art drawn as its own glyph: tinted art, or the untinted art authored over it. */
+/** Art drawn as its own glyphs: tinted art, the untinted art authored over it, or the fill of a bar. */
 @Serializable
 public data class ArtEntry(
-    /** Net-zero baked art in [WindowManifest.font], starting and ending where a switch case's does. */
+    /**
+     * Net-zero baked art in [WindowManifest.font], starting and ending where a switch case's does. A bar's is its
+     * whole fill.
+     */
     @SerialName("static") val static: String,
+    /** Set when the art is the fill of a bar, drawn up to the fraction its binding returns instead of [static]. */
+    val bar: BarEntry? = null,
     /** The tint whose current palette color the art is sent in; `null` art is sent white. */
     val tint: String? = null,
     /** In a shader-placed HUD, the marker color to send per palette entry instead of the entry's color. */
     @SerialName("tint_markers") val tintMarkers: Map<String, String> = emptyMap(),
+)
+
+/**
+ * The fill of a bar: art of which the leftmost columns are drawn, up to a fraction of [width].
+ *
+ * The fill is cut into clips of 1, 2, 4, … columns, a clip of `2^k` columns starting at each multiple of
+ * `2^(k + 1)`. Any column count is one clip per set bit of the count, laid left to right from the largest.
+ */
+@Serializable
+public data class BarEntry(
+    /** The name the fraction is bound to. */
+    val name: String,
+    /** The fill's left edge, in pixels right of the cursor origin that art segments start and end at. */
+    val x: Int,
+    /** The fill's width in columns: what a fraction of 1 draws. */
+    val width: Int,
+    /**
+     * `levels[k]` holds one glyph of [WindowManifest.font] per clip of `2^k` columns: its character `i` draws the
+     * columns from `i shl (k + 1)`, and a space stands for a clip with nothing to draw.
+     */
+    val levels: List<String>,
+    /** The cursor advance of each glyph in [levels]. */
+    val advances: Map<String, Int>,
 )
 
 /**

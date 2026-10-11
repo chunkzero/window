@@ -22,6 +22,7 @@ import com.chunkzero.window.internal.WindowFrame
 import com.chunkzero.window.internal.WindowRenderer
 import com.chunkzero.window.internal.hasStaticTitle
 import com.chunkzero.window.internal.requireEntry
+import com.chunkzero.window.internal.titleBars
 import com.chunkzero.window.internal.titleSlots
 import com.chunkzero.window.internal.titleTints
 import net.kyori.adventure.text.Component
@@ -73,6 +74,7 @@ internal open class ContainerWindowSession<I : Any>(
             definition.titleSlots(reactivity, tints),
             Switches("window", definition.name, entry.switches, reactivity),
             tints,
+            definition.titleBars(reactivity),
         )
     protected val renderer = WindowRenderer(definition, bindings, reactivity, host::item)
 

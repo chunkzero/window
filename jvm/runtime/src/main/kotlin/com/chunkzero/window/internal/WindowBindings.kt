@@ -16,6 +16,7 @@ internal class WindowBindings<I : Any>(
     val slots: DynamicSlots,
     val switches: Switches,
     val tints: Tints,
+    val bars: Bars,
 ) : WindowScope<I> {
     private val entry = definition.entry
 
@@ -139,6 +140,14 @@ internal class WindowBindings<I : Any>(
         tints.bind(name, render)
     }
 
+    override fun bar(
+        name: String,
+        render: () -> Float,
+    ) {
+        requireBindable(name)
+        bars.bind(name, render)
+    }
+
     override fun anvilInput(
         name: String,
         handler: (String) -> Unit,
@@ -167,6 +176,7 @@ internal class WindowBindings<I : Any>(
         slots.validate()
         switches.validate()
         tints.validate()
+        bars.validate()
         val unboundSprites = entry.spriteSlots.filter { (key, slot) -> slot.sprite == null && key !in sprites }.keys
         checkNone(unboundSprites) { "Unbound dynamic sprite slots in window '$it'" }
         val defaults = entry.regions.values.mapNotNull { it.defaultAction }
@@ -195,6 +205,7 @@ internal class WindowBindings<I : Any>(
             collectionSelections.keys.mapTo(this, RenderKey::CollectionSelection)
             switches.names.mapTo(this, RenderKey::Switch)
             tints.names.mapTo(this, RenderKey::Tint)
+            bars.names.mapTo(this, RenderKey::Bar)
             for ((name, collection) in entry.collections) {
                 if (name !in collectionItems) continue
                 collection.slots.indices.mapTo(this) { RenderKey.CollectionCell(name, it) }
