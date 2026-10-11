@@ -254,7 +254,7 @@ fn search_art_alpha(out: &CompileOutput, x: u32, y: u32) -> u8 {
 #[test]
 fn anvil_inputs_open_the_art_over_the_native_field_and_can_restyle_it() {
     let label = r#"{"type":"label","text":"Query","x":62,"y":24,"width":103}"#;
-    let out = compile_anvil_search(label, r#"{"anvil_field_sprite":"field"}"#).unwrap();
+    let out = compile_anvil_search(label, r#"{"vanilla":{"anvil":{"field":"field"}}}"#).unwrap();
     for path in [
         "assets/minecraft/textures/gui/sprites/container/anvil/text_field.png",
         "assets/minecraft/textures/gui/sprites/container/anvil/text_field_disabled.png",
@@ -285,12 +285,56 @@ fn anvil_inputs_hide_vanilla_anvil_art_and_share_their_slot_with_a_button() {
 }
 
 #[test]
+fn vanilla_anvil_options_override_the_default_blanking() {
+    let label = r#"{"type":"label","text":"Query","x":62,"y":24,"width":103}"#;
+    const BACKGROUND: &str = "assets/minecraft/textures/gui/container/anvil.png";
+    const ERROR: &str = "assets/minecraft/textures/gui/sprites/container/anvil/error.png";
+
+    let out = compile_anvil_search(label, r#"{"vanilla":{"anvil":{"background":true}}}"#).unwrap();
+    assert!(out.files.iter().all(|f| f.path != BACKGROUND && f.path != ERROR));
+
+    let out = compile_anvil_search(label, r#"{"vanilla":{"anvil":{"field":false}}}"#).unwrap();
+    let field = find(&out, "assets/minecraft/textures/gui/sprites/container/anvil/text_field_disabled.png");
+    let field = Texture::decode_png(field.contents.as_bytes()).unwrap();
+    assert_eq!((field.width, field.height), (110, 16));
+    assert!(field.rgba.chunks(4).all(|pixel| pixel[3] == 0));
+
+    let err = compile_anvil_search(label, r#"{"vanilla":{"anvil":{"background":"field"}}}"#).unwrap_err();
+    assert!(err.to_string().contains("`vanilla.anvil.background` sprite `field` must be 256x256"), "{err}");
+}
+
+#[test]
+fn vanilla_hud_groups_blank_their_sprites_on_pack_formats_with_gui_sprites() {
+    let project = |pack_format: u32| {
+        format!(
+            r#"{{"options":{{"vanilla":{{"hud":{{"hotbar":false,"food":true}}}}}},"target":{{"pack_format":{pack_format}}}}}"#
+        )
+    };
+    let compile = |pack_format| {
+        crate::pipeline::compile_project_json(project(pack_format).as_bytes(), &CompileInput::new(BTreeMap::new()))
+    };
+
+    let out = compile(88).unwrap();
+    let selection = find(&out, "assets/minecraft/textures/gui/sprites/hud/hotbar_selection.png");
+    let selection = Texture::decode_png(selection.contents.as_bytes()).unwrap();
+    assert_eq!((selection.width, selection.height), (24, 23));
+    assert!(selection.rgba.chunks(4).all(|pixel| pixel[3] == 0));
+    assert!(out.files.iter().all(|f| !f.path.contains("hud/food")));
+
+    assert!(out.manifest.windows.is_empty() && out.manifest.huds.is_empty());
+    assert!(out.files.iter().any(|f| f.path == "assets/window/font/ui.json"));
+
+    let err = compile(15).unwrap_err();
+    assert!(err.to_string().contains("`vanilla.hud` blanks GUI sprites, which need pack format 18"), "{err}");
+}
+
+#[test]
 fn anvil_title_updates_require_the_experimental_option() {
     let slot = r#"{"type":"slot","handle":{"kind":"text","id":"count"},"x":8,"y":70,"width":60}"#;
     let err = compile_anvil_search(slot, "{}").unwrap_err();
     assert!(err.to_string().contains("`count` changes the title of an anvil input window"), "{err}");
 
-    let out = compile_anvil_search(slot, r#"{"experimental_anvil_updates":true}"#).unwrap();
+    let out = compile_anvil_search(slot, r#"{"experimental":{"anvil_updates":true}}"#).unwrap();
     assert!(out.warnings.iter().any(|w| w.contains("`count` reopens the anvil")));
 }
 

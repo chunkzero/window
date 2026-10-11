@@ -582,7 +582,7 @@ const ANCHORS: Record<HudAnchor, [number, number]> = {
 
 /**
  * A HUD whose children lay out as a column by default. Without `width`/`height` it sizes to its content.
- * `anchor` pins it to a screen point with the generated core shaders (requires `hudShaders`).
+ * `anchor` pins it to a screen point with the generated core shaders (requires `coreShaders.hud`).
  */
 export function Hud(input: HudProps): { huds: HudDef[] } {
     const props = withStyle(input, STYLE_KEYS.hud!, "Hud");

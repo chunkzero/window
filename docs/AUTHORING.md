@@ -43,6 +43,55 @@ The authoring API is split into modules:
 The authoring API is typed. Run `rpp codegen` in the pack project to generate the SDK typings these modules resolve
 against for autocomplete and type checking.
 
+## Plugin options
+
+`window()` in `rpp.config.ts` takes these options. An unknown key fails the build, naming the key and the accepted keys.
+
+```ts
+window({
+  namespace: "miningsim",
+  coreShaders: { hud: true },
+  vanilla: {
+    anvil: { field: "search_field", background: false },
+    hud: { hotbar: false, health: false, food: false, armor: false, air: false, experience: false, crosshair: false },
+  },
+  experimental: { anvilUpdates: true },
+  kotlin: { package: "com.example.generated", output: "src/main/kotlin/generated", target: "minestom" },
+});
+```
+
+- `namespace`: namespace of the generated assets. Defaults to `window`.
+- `coreShaders.hud`: emit the core text shaders that place [`<Hud anchor>`](#roots) HUDs. Opt-in, and sensitive to the
+  client version.
+- `experimental.anvilUpdates`: lets [anvil input windows](#native-anvil-search) change their title at runtime.
+- `kotlin`: generate Kotlin bindings into `output`; `target` is `minestom`, `multistom`, or `agnostic`.
+
+### Vanilla textures
+
+Every `vanilla` value follows one rule: a string names a [catalog sprite](#sprite-catalog) that replaces the vanilla
+texture, `false` replaces it with a transparent texture of the same size, and `true` or omitted leaves vanilla alone. A
+catalog sprite must be generated or bundled, not external, and match the size of the texture it replaces.
+
+- `vanilla.anvil.field` covers the two anvil text-field sprites (110x16).
+- `vanilla.anvil.background` covers the anvil background (256x256) and the missing-result error icon. Omitted, both are
+  blanked exactly when some window has an anvil `<Input>`; `false` always blanks them; `true` keeps vanilla's even with
+  an input. A string replaces the background and blanks the error icon.
+- `vanilla.hud.<group>` takes only booleans. `false` blanks every vanilla GUI sprite of the group under
+  `assets/minecraft/textures/gui/sprites/hud/`, and needs pack format 18 (Minecraft 1.20.2) or newer:
+  - `hotbar`: the hotbar, its selection, offhand, and attack-indicator sprites.
+  - `health`: every heart, including hardcore, blinking, absorbing, frozen, poisoned, withered, and vehicle hearts.
+  - `food`, `armor`, `air`: their full, half, and empty sprites, and the hunger and bursting variants.
+  - `experience`: the experience bar, plus the jump bar and locator bar that replace it.
+  - `crosshair`: the crosshair and its attack indicator.
+
+Blanking sprites cannot hide HUD text, such as the experience level number or the held item name.
+
+### Overriding files
+
+rpp fails the build when a generated file would replace a file the pack's own source owns, for example under
+`assets/minecraft/shaders/core/` or a vanilla texture that a `vanilla` option overrides. Overrides that come from
+separately loaded packs or mods cannot be detected at build time, so the load order decides which one wins.
+
 ## Text fonts
 
 `defineWindows({ fonts })` declares bitmap text fonts by name, which text selects with `font`:
@@ -373,7 +422,7 @@ const { player } = containerLayout("generic_9x6").sections;
 <Image art={vent} x={52} y={player.bounds.y - 8} />;
 ```
 
-`<Hud anchor>` pins the HUD with the generated core shaders (requires `hudShaders`): `"top-left"`, `"top"`,
+`<Hud anchor>` pins the HUD with the generated core shaders (requires `coreShaders.hud`): `"top-left"`, `"top"`,
 `"top-right"`, `"left"`, `"center"`, `"right"`, `"bottom-left"`, `"bottom"`, `"bottom-right"`, or a normalized
 `{ x, y }`. The same point of the HUD is placed on that screen point, and `offset={[x, y]}` nudges it in GUI pixels.
 
@@ -439,7 +488,7 @@ const products = collection("products", { selectable: true });
   face, or an icon in a box one pixel wider than it.
 - `art` holds the frames `shell`, `panel`, `recess`, `slot`, `button`, `buttonSelected`, `buttonDisabled`,
   `buttonAccent`, `buttonDanger`, `buttonConfirm`, `hud`, and `hazardBar`, and the images `rivet` (5x5), `lampOn` and
-  `lampOff` (4x4), `slotSelected` (18x18), and `inputField` (110x16, for the `anvilFieldSprite` plugin option).
+  `lampOff` (4x4), `slotSelected` (18x18), and `inputField` (110x16, for the `vanilla.anvil.field` plugin option).
 - `raised(fill, options?)` and `sunken(fill, options?)` are the bevel recipes behind them, and `tones` their light and
   dark tones.
 
@@ -631,7 +680,7 @@ export default raw.hud({
 });
 ```
 
-If the plugin option `hudShaders: true` is set, a HUD may also include
+If the plugin option `coreShaders: { hud: true }` is set, a HUD may also include
 `shader: { source_bottom: 59, origin: { x: 0.5, y: 0.08 }, anchor: { x: 0.5, y: 0.0 } }`. `origin` is a normalized GUI
 point (`0.0` is left/top, `1.0` is right/bottom); `anchor` is the normalized point inside the HUD surface placed on that
 origin. Optional `x`/`y` values add a GUI-pixel nudge from the normalized origin. `source_bottom` is the GUI-pixel
@@ -640,8 +689,8 @@ actionbar source inset when deriving its top edge; the source position does not 
 Window then emits generated text core shaders for the pack's `pack.format` (the `max` of a range), including the
 matching text-background pass so vanilla actionbar backdrops do not sit behind relocated HUD glyphs. Shader profiles
 cover pack formats 9 through 88 (Minecraft 26.2); compilation fails when a shader-placed HUD targets an unsupported pack
-format or `hudShaders` is not enabled. Core shaders are intentionally opt-in; the fallback channel remains the runtime
-contract.
+format or `coreShaders.hud` is not enabled. Core shaders are intentionally opt-in; the fallback channel remains the
+runtime contract.
 
 ### Elements
 
@@ -865,12 +914,14 @@ updates in place and the binding receives the value.
 
 Window keeps the client's own rename box visible, with its cursor, selection, and font: in every window with an input,
 the field's rect (59, 20, 110x16) stays transparent in Window's art. Text drawn over that rect produces a warning. The
-plugin option `anvilFieldSprite: "<sprite>"` names a 110x16 [catalog sprite](#sprite-catalog) that replaces vanilla's
-anvil text-field sprites for the whole pack; industrial's `art.inputField` is one, registered in `sprites`.
+plugin option `vanilla.anvil.field: "<sprite>"` names a 110x16 [catalog sprite](#sprite-catalog) that replaces vanilla's
+anvil text-field sprites for the whole pack; industrial's `art.inputField` is one, registered in `sprites`. See
+[Plugin options](#plugin-options) for `vanilla.anvil.background` and the rest of the `vanilla` rule.
 
-The plugin option `experimentalAnvilUpdates: true` lifts the static-title rule. Title changes then reopen the anvil:
-Window holds them until the player pauses typing and rebases edits typed during a reopen, but the screen can still
-flicker, keystrokes can still be lost, and each reopen moves the cursor to the end. `input` also reopens the anvil.
+The plugin option `experimental: { anvilUpdates: true }` lifts the static-title rule. Title changes then reopen the
+anvil: Window holds them until the player pauses typing and rebases edits typed during a reopen, but the screen can
+still flicker, keystrokes can still be lost, and each reopen moves the cursor to the end. `input` also reopens the
+anvil.
 
 ## Slot Patterns
 

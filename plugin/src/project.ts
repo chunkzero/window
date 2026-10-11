@@ -3,20 +3,117 @@ import { resolveTokens } from "./ui/tokens.ts";
 import type { Hud, Window, WindowDocument } from "./ui/document.ts";
 import type { Art, TextFont } from "./ui/types.ts";
 
+/** Core shader overrides Window generates. Each is opt-in and client-version-sensitive. */
+export interface CoreShaderOptions {
+    /** Relocate `<Hud anchor>` HUDs with generated core text shaders. */
+    hud?: boolean;
+}
+
+/**
+ * How a vanilla texture is treated: a string names a catalog sprite that replaces it, `false` replaces it
+ * with a transparent texture, and `true` or omitted leaves vanilla's alone.
+ */
+export type VanillaTexture = string | boolean;
+
+export interface VanillaAnvilOptions {
+    /** A 110x16 catalog sprite or `false` for both of the anvil's native text-field sprites. */
+    field?: VanillaTexture;
+    /**
+     * The anvil background (256x256) and its missing-result error icon. Omitted: both are blanked exactly when
+     * some window has an anvil `<Input>`. `true` keeps vanilla's even then; a string also blanks the error icon.
+     */
+    background?: VanillaTexture;
+}
+
+export const hudGroups = ["hotbar", "health", "food", "armor", "air", "experience", "crosshair"] as const;
+
+/** `false` blanks every vanilla GUI sprite of the group. Needs pack format 18 or newer. */
+export type VanillaHudOptions = { [Group in (typeof hudGroups)[number]]?: boolean };
+
+export interface VanillaOptions {
+    anvil?: VanillaAnvilOptions;
+    hud?: VanillaHudOptions;
+}
+
+export interface ExperimentalOptions {
+    /**
+     * Let anvil input windows change their title at runtime. Each change reopens the anvil, which can flicker
+     * and drop keystrokes while the player types.
+     */
+    anvilUpdates?: boolean;
+}
+
 export interface WindowOptions {
     /** Namespace of the generated assets. Defaults to `window`. */
     namespace?: string;
-    /** Emit HUD shader assets. */
-    hudShaders?: boolean;
-    /** A 110x16 catalog sprite that restyles every anvil's native text field; see docs/AUTHORING.md. */
-    anvilFieldSprite?: string;
-    /**
-     * Experimental: let anvil input windows change their title at runtime. Each change reopens the anvil,
-     * which can flicker and drop keystrokes while the player types.
-     */
-    experimentalAnvilUpdates?: boolean;
+    coreShaders?: CoreShaderOptions;
+    /** Overrides for vanilla textures; see docs/AUTHORING.md. */
+    vanilla?: VanillaOptions;
+    experimental?: ExperimentalOptions;
     /** Generate Kotlin bindings. */
     kotlin?: KotlinOptions;
+}
+
+type LeafKind = "boolean" | "string" | "string or boolean";
+
+/** An option object: each key maps to its leaf kind or, for a nested object, its own keys. */
+interface OptionTree {
+    readonly [key: string]: LeafKind | OptionTree;
+}
+
+const OPTION_TREE: OptionTree = {
+    namespace: "string",
+    coreShaders: { hud: "boolean" },
+    vanilla: {
+        anvil: { field: "string or boolean", background: "string or boolean" },
+        hud: Object.fromEntries(hudGroups.map((group) => [group, "boolean"])),
+    },
+    experimental: { anvilUpdates: "boolean" },
+};
+
+/** The `kotlin` keys of `window()`'s config. */
+const AUTHORED_KOTLIN: OptionTree = { package: "string", output: "string", target: "string" };
+
+/** The `kotlin` keys of the plugin options `window()` hands to the generator. */
+const PLUGIN_KOTLIN: OptionTree = { packageName: "string", target: "string" };
+
+function hasKind(kind: LeafKind, value: unknown): boolean {
+    return (kind !== "string" && typeof value === "boolean") || (kind !== "boolean" && typeof value === "string");
+}
+
+function checkTree(config: unknown, tree: OptionTree, path: string): void {
+    if (typeof config !== "object" || config === null || Array.isArray(config)) {
+        throw new Error(`Window option \`${path}\` must be an object`);
+    }
+    const prefix = path === "" ? "" : `${path}.`;
+    for (const [key, value] of Object.entries(config)) {
+        const child = Object.hasOwn(tree, key) ? tree[key] : undefined;
+        if (child === undefined) {
+            const scope = path === "" ? "" : ` in \`${path}\``;
+            throw new Error(
+                `Window option \`${prefix}${key}\` is unknown; accepted keys${scope}: ${Object.keys(tree).join(", ")}`,
+            );
+        }
+        if (value === undefined) {
+            continue;
+        }
+        if (typeof child === "string") {
+            if (!hasKind(child, value)) {
+                const got = JSON.stringify(value);
+                throw new Error(`Window option \`${prefix}${key}\` must be a ${child}; got ${got}`);
+            }
+        } else {
+            checkTree(value, child, `${prefix}${key}`);
+        }
+    }
+}
+
+/**
+ * Throws naming the first plugin option in `config` that is unknown or has the wrong type. `config` is either
+ * `window()`'s authored config or, with `kotlin: "plugin"`, the options the generator receives.
+ */
+export function checkOptions(config: unknown, kotlin: "authored" | "plugin" = "authored"): void {
+    checkTree(config, { ...OPTION_TREE, kotlin: kotlin === "authored" ? AUTHORED_KOTLIN : PLUGIN_KOTLIN }, "");
 }
 
 /** Server API the generated Kotlin views and HUDs bind to. */
@@ -73,7 +170,11 @@ export interface ProjectJson {
     sprites?: Record<string, Art>;
     windows: Window[];
     huds: Hud[];
-    options: { hud_shaders: boolean; anvil_field_sprite?: string; experimental_anvil_updates?: boolean };
+    options: {
+        core_shaders: { hud: boolean };
+        vanilla?: VanillaOptions;
+        experimental?: { anvil_updates: true };
+    };
     target: { pack_format: number };
 }
 
@@ -151,9 +252,9 @@ export function buildProject(
         windows,
         huds,
         options: {
-            hud_shaders: options.hudShaders === true,
-            ...(options.anvilFieldSprite === undefined ? {} : { anvil_field_sprite: options.anvilFieldSprite }),
-            ...(options.experimentalAnvilUpdates === true ? { experimental_anvil_updates: true } : {}),
+            core_shaders: { hud: options.coreShaders?.hud === true },
+            ...(options.vanilla === undefined ? {} : { vanilla: options.vanilla }),
+            ...(options.experimental?.anvilUpdates === true ? { experimental: { anvil_updates: true } } : {}),
         },
         target: { pack_format: packFormat },
     };
@@ -322,16 +423,23 @@ function packFormat(format: unknown): number {
     return max;
 }
 
+/** Whether `vanilla` blanks or replaces some texture, which needs a build even without definitions. */
+function replacesVanillaTextures(vanilla: VanillaOptions | undefined): boolean {
+    const values = [...Object.values(vanilla?.anvil ?? {}), ...Object.values(vanilla?.hud ?? {})];
+    return values.some((value) => value === false || typeof value === "string");
+}
+
 /** Compile the project's definitions and write the pack files, warnings, and Kotlin bindings. */
 export function generate(ctx: WindowContext, compile: Compile): void {
     const { documents, files, warnings } = collectInputs(ctx);
     for (const warning of warnings) {
         console.warn(warning);
     }
-    if (documents.length === 0) {
+    const { options } = ctx;
+    checkOptions(options, "plugin");
+    if (documents.length === 0 && !replacesVanillaTextures(options.vanilla)) {
         return;
     }
-    const { options } = ctx;
     const kotlin =
         options.kotlin === undefined
             ? undefined

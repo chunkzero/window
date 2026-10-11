@@ -55,7 +55,7 @@ fn descriptor_is_byte_identical_when_rebuilt() {
 #[test]
 fn hud_descriptor_distinguishes_shared_and_independent_fixed_width_overlays() {
     let project = r##"{
-      "options":{"hud_shaders":true},"target":{"pack_format":84},
+      "options":{"core_shaders":{"hud":true}},"target":{"pack_format":84},
           "huds":[
         {"name":"shared","channel":"actionbar","width":40,"height":12,"children":[
           {"type":"flex","frame":{"art":"shape","kind":"panel","fill":"#123456","border_width":0,"radius":0,"inset_depth":0},"x":0,"y":0,"style":{"width":8,"height":8}},

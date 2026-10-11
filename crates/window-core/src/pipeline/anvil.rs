@@ -1,10 +1,11 @@
 //! Anvil input windows: a static title, a hole in the art so the client's rename box shows through,
-//! hidden vanilla anvil art, and an optional restyled vanilla field sprite.
+//! and the `vanilla.anvil` texture replacements.
 
 use std::collections::BTreeMap;
 
+use crate::authoring::{Replacement, VanillaAnvil};
 use crate::compose::{Composite, Texture};
-use crate::geometry::Rect;
+use crate::geometry::{Rect, Size};
 use crate::ir::LaidOutWindow;
 use crate::surface::ContainerKind;
 use crate::{Error, Result};
@@ -20,42 +21,79 @@ const FIELD_SPRITES: [&str; 2] = [
     "assets/minecraft/textures/gui/sprites/container/anvil/text_field_disabled.png",
 ];
 
-/// Vanilla anvil art Window windows draw over, with its size: the background and the
-/// missing-result error icon.
-const VANILLA_ART: [(&str, u32, u32); 2] = [
-    ("assets/minecraft/textures/gui/container/anvil.png", 256, 256),
-    ("assets/minecraft/textures/gui/sprites/container/anvil/error.png", 28, 21),
-];
+const BACKGROUND: (&str, Size) =
+    ("assets/minecraft/textures/gui/container/anvil.png", Size { width: 256, height: 256 });
 
-/// Transparent replacements for vanilla's anvil art, so anvil windows only show Window art.
-pub(super) fn hidden_vanilla_art() -> Result<Vec<OutputFile>> {
-    VANILLA_ART
-        .iter()
-        .map(|&(path, width, height)| Ok(OutputFile::binary(path, Texture::transparent(width, height).encode_png()?)))
-        .collect()
+const ERROR_ICON: (&str, Size) =
+    ("assets/minecraft/textures/gui/sprites/container/anvil/error.png", Size { width: 28, height: 21 });
+
+/// Files for the `vanilla.anvil` options. Unless `background` says otherwise, windows with an anvil input
+/// (`has_input`) blank the background and error icon, since Window windows draw over them.
+pub(super) fn vanilla_files(
+    runtime_sprites: &BTreeMap<String, RuntimeSpriteAsset>,
+    options: &VanillaAnvil,
+    has_input: bool,
+) -> Result<Vec<OutputFile>> {
+    let mut files = Vec::new();
+    match &options.field {
+        Replacement::Keep => {}
+        Replacement::Blank => {
+            for path in FIELD_SPRITES {
+                files.push(blank(path, TEXT_FIELD.size())?);
+            }
+        }
+        Replacement::Sprite(sprite) => {
+            files.extend(sprite_files(
+                "vanilla.anvil.field",
+                runtime_sprites,
+                sprite,
+                TEXT_FIELD.size(),
+                &FIELD_SPRITES,
+            )?);
+        }
+    }
+    let background =
+        options.background.clone().unwrap_or(if has_input { Replacement::Blank } else { Replacement::Keep });
+    match background {
+        Replacement::Keep => {}
+        Replacement::Blank => {
+            files.push(blank(BACKGROUND.0, BACKGROUND.1)?);
+            files.push(blank(ERROR_ICON.0, ERROR_ICON.1)?);
+        }
+        Replacement::Sprite(sprite) => {
+            let (path, size) = BACKGROUND;
+            files.extend(sprite_files("vanilla.anvil.background", runtime_sprites, &sprite, size, &[path])?);
+            files.push(blank(ERROR_ICON.0, ERROR_ICON.1)?);
+        }
+    }
+    Ok(files)
 }
 
-/// Emits catalog `sprite` as vanilla's enabled and disabled anvil text-field sprites.
-pub(super) fn field_sprites(
+fn blank(path: &str, size: Size) -> Result<OutputFile> {
+    Ok(OutputFile::binary(path, Texture::transparent(size.width, size.height).encode_png()?))
+}
+
+/// Emits catalog `sprite` at each of `paths`; `option` names the plugin option in errors.
+fn sprite_files(
+    option: &str,
     runtime_sprites: &BTreeMap<String, RuntimeSpriteAsset>,
     sprite: &str,
+    size: Size,
+    paths: &[&str],
 ) -> Result<Vec<OutputFile>> {
     let asset = runtime_sprites
         .get(sprite)
-        .ok_or_else(|| Error::Validation(format!("anvil_field_sprite references unknown sprite `{sprite}`")))?;
-    if asset.size != TEXT_FIELD.size() {
+        .ok_or_else(|| Error::Validation(format!("`{option}` references unknown sprite `{sprite}`")))?;
+    if asset.size != size {
         return Err(Error::Validation(format!(
-            "anvil_field_sprite `{sprite}` must be {}x{}",
-            TEXT_FIELD.width, TEXT_FIELD.height
+            "`{option}` sprite `{sprite}` must be {}x{}, but is {}x{}",
+            size.width, size.height, asset.size.width, asset.size.height
         )));
     }
     let output = asset.output.as_ref().ok_or_else(|| {
-        Error::Validation(format!("anvil_field_sprite `{sprite}` must be generated or bundled, not external"))
+        Error::Validation(format!("`{option}` sprite `{sprite}` must be generated or bundled, not external"))
     })?;
-    Ok(FIELD_SPRITES
-        .iter()
-        .map(|path| OutputFile { path: (*path).into(), contents: output.contents.clone() })
-        .collect())
+    Ok(paths.iter().map(|path| OutputFile { path: (*path).into(), contents: output.contents.clone() }).collect())
 }
 
 /// Rejects controls that change the title of `w` when it has an anvil input, since each title change
@@ -84,12 +122,12 @@ pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut 
         if !experimental {
             return Err(Error::Validation(format!(
                 "window `{}`: `{name}` changes the title of an anvil input window, which reopens the anvil while \
-                 the player types; keep anvil windows static or set experimental_anvil_updates",
+                 the player types; keep anvil windows static or set `experimental.anvilUpdates`",
                 w.name
             )));
         }
         warnings.push(format!(
-            "window `{}`: `{name}` reopens the anvil to change its title (experimental_anvil_updates), which can \
+            "window `{}`: `{name}` reopens the anvil to change its title (`experimental.anvilUpdates`), which can \
              flicker and drop keystrokes",
             w.name
         ));

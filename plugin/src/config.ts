@@ -1,7 +1,7 @@
 import { definePluginConfig } from "rpp:config";
 import type { Access, PluginEntry } from "rpp:config";
 
-import { kotlinTarget } from "./project.ts";
+import { checkOptions, kotlinTarget } from "./project.ts";
 import type { KotlinTarget, WindowOptions } from "./project.ts";
 
 export type { KotlinTarget } from "./project.ts";
@@ -19,6 +19,7 @@ const configure: (options: WindowOptions, access?: Access) => PluginEntry = defi
 
 /** Configure the Window plugin in `rpp.config.ts`. */
 const window: (config?: WindowConfig, access?: Access) => PluginEntry = (config = {}, access) => {
+    checkOptions(config);
     const { kotlin, ...rest } = config;
     const options: WindowOptions = {
         ...rest,

@@ -11,7 +11,7 @@ use window_core::validation::validate_compile_output;
 
 const PROJECT: &str = r##"{
   "options": {
-    "hud_shaders": true
+    "core_shaders": { "hud": true }
   },
   "target": {
     "pack_format": 88

@@ -43,7 +43,7 @@ pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud]) -> Result<ShaderOutp
 
     let Some(pack_format) = pack_format else {
         return Err(Error::Validation(
-            "hud_shaders is enabled with shader-placed HUDs, but Window could not determine pack_format; \
+            "`coreShaders.hud` is enabled with shader-placed HUDs, but Window could not determine pack_format; \
              set the pack format or remove the HUD `shader` placement"
                 .into(),
         ));
@@ -51,7 +51,7 @@ pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud]) -> Result<ShaderOutp
 
     let Some(profile) = ShaderProfile::for_pack_format(pack_format) else {
         return Err(Error::Validation(format!(
-            "hud_shaders is enabled with shader-placed HUDs, but pack_format {pack_format} has no core shader \
+            "`coreShaders.hud` is enabled with shader-placed HUDs, but pack_format {pack_format} has no core shader \
              profile; target a supported pack format or remove the HUD `shader` placement"
         )));
     };

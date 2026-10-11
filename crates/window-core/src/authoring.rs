@@ -19,7 +19,7 @@ mod tooltip;
 #[cfg(test)]
 mod tests;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use self::project::ProjectDto;
 use crate::model::{Art, FontDef, Hud, Window};
@@ -45,13 +45,69 @@ pub struct ParsedProject {
 /// Build options supplied by the rpp plugin host.
 #[derive(Clone, Debug, Default)]
 pub struct BuildOptions {
-    /// Whether to emit generated core shader overrides for HUD relocation.
-    pub hud_shaders: bool,
-    /// 110x16 catalog sprite that restyles vanilla's anvil text field pack-wide.
-    pub anvil_field_sprite: Option<String>,
-    /// Allow anvil input windows to change their title at runtime. Experimental: each change reopens
-    /// the anvil, which races the player's typing.
-    pub experimental_anvil_updates: bool,
+    /// `coreShaders`: generated core shader overrides.
+    pub core_shaders: CoreShaders,
+    /// `vanilla`: replacements for vanilla textures.
+    pub vanilla: Vanilla,
+    /// `experimental`: options that may change or break.
+    pub experimental: Experimental,
+}
+
+/// `coreShaders` options.
+#[derive(Clone, Debug, Default)]
+pub struct CoreShaders {
+    /// `coreShaders.hud`: emit core shader overrides for HUD relocation.
+    pub hud: bool,
+}
+
+/// `experimental` options.
+#[derive(Clone, Debug, Default)]
+pub struct Experimental {
+    /// `experimental.anvilUpdates`: allow anvil input windows to change their title at runtime. Each change
+    /// reopens the anvil, which races the player's typing.
+    pub anvil_updates: bool,
+}
+
+/// What replaces a vanilla texture.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Replacement {
+    /// Vanilla's texture stays.
+    #[default]
+    Keep,
+    /// A transparent texture of vanilla's size.
+    Blank,
+    /// A runtime catalog sprite.
+    Sprite(String),
+}
+
+/// `vanilla` options.
+#[derive(Clone, Debug, Default)]
+pub struct Vanilla {
+    pub anvil: VanillaAnvil,
+    /// `vanilla.hud`: the HUD groups whose GUI sprites are blanked.
+    pub blank_hud: BTreeSet<HudGroup>,
+}
+
+/// `vanilla.anvil` options.
+#[derive(Clone, Debug, Default)]
+pub struct VanillaAnvil {
+    /// `vanilla.anvil.field`: the 110x16 text-field sprites.
+    pub field: Replacement,
+    /// `vanilla.anvil.background`: the background and error icon. `None` blanks both exactly when some
+    /// window has an anvil input.
+    pub background: Option<Replacement>,
+}
+
+/// A group of vanilla HUD sprites, named as in `vanilla.hud`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HudGroup {
+    Hotbar,
+    Health,
+    Food,
+    Armor,
+    Air,
+    Experience,
+    Crosshair,
 }
 
 /// Target pack metadata supplied by the rpp plugin host.

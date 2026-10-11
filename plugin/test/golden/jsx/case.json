@@ -1,1 +1,6 @@
-{ "packFormat": 84, "hudShaders": true, "kotlinPackage": "golden.jsx", "kotlinTarget": "agnostic" }
+{
+  "packFormat": 84,
+  "window": { "coreShaders": { "hud": true } },
+  "kotlinPackage": "golden.jsx",
+  "kotlinTarget": "agnostic"
+}
