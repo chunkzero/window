@@ -33,7 +33,8 @@ import java.nio.file.Path
  * jvm/gradlew -p jvm :example:run
  * ```
  *
- * Then connect a Minecraft 26.2 client and the shop opens on spawn. Reopen it with `/shop` or the hotbar emerald.
+ * Then connect a Minecraft 26.2 client and the shop opens on spawn. Reopen it with `/shop` or the hotbar emerald, and
+ * open the workshop with `/upgrades` or the shop's Workshop button.
  */
 fun main() {
     val server = MinecraftServer.init()
@@ -114,11 +115,14 @@ private val SHOP_ITEM by lazy {
         .build()
 }
 
-/** Reopens the shop from `/shop` or by using the hotbar emerald handed out on first spawn. */
+/** Reopens the shop from `/shop` or by using the hotbar emerald handed out on first spawn; `/upgrades` opens the workshop. */
 private fun registerShopAccess(market: Market) {
     val command = Command("shop")
     command.setDefaultExecutor { sender, _ -> (sender as? Player)?.let { openShop(it, market) } }
     MinecraftServer.getCommandManager().register(command)
+    val upgrades = Command("upgrades")
+    upgrades.setDefaultExecutor { sender, _ -> (sender as? Player)?.let { MyUpgrades(it, market).open() } }
+    MinecraftServer.getCommandManager().register(upgrades)
     MinecraftServer.getGlobalEventHandler().addListener(PlayerUseItemEvent::class.java) { event ->
         if (event.itemStack.getTag(SHOP_ITEM_TAG) == true) openShop(event.player, market)
     }
@@ -176,6 +180,7 @@ private fun createStatusHuds(
         MyStatusLeftSideHud(player),
         MyStatusRightSideHud(market),
         MyStatusBottomCenterHud(player, startedAt),
+        MyStatusWaveBarHud(player, startedAt),
     )
 
 /** Locate the built resource-pack zip, or use `-Dwindow.pack=/path/to/window-example.zip`. */

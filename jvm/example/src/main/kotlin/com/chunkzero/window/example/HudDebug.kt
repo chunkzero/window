@@ -13,6 +13,7 @@ private val HUD_DEBUG_DEFINITIONS =
         WindowHudDefinitions.statusLeftSide,
         WindowHudDefinitions.statusRightSide,
         WindowHudDefinitions.statusBottomCenter,
+        WindowHudDefinitions.statusWaveBar,
     )
 
 internal fun sendHudSpriteDebug(player: Player) {

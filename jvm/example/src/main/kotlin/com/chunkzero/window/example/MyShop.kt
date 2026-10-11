@@ -100,6 +100,10 @@ class MyShop(
         filtersChanged()
     }
 
+    override fun onOpenUpgrades(click: Click) {
+        MyUpgrades(player, market).open()
+    }
+
     override fun onBuy(click: Click) {
         val product = catalog.selected ?: return
         val newBalance = market.purchase(player, product.price)

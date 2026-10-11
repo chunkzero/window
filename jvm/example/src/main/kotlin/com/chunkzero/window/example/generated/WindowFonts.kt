@@ -824,16 +824,23 @@ internal object WindowFonts {
     val metrics: Map<String, FontMetricsEntry> =
         mapOf(
             "minecraft:default" to vanillaMetrics,
+            "window:small_caps/y104" to fontMetrics0,
             "window:small_caps/y106" to fontMetrics0,
+            "window:small_caps/y116" to fontMetrics0,
             "window:small_caps/y137" to fontMetrics0,
+            "window:small_caps/y141" to fontMetrics0,
             "window:small_caps/y155" to fontMetrics0,
             "window:small_caps/y16" to fontMetrics0,
             "window:small_caps/y173" to fontMetrics0,
             "window:small_caps/y18" to fontMetrics0,
             "window:small_caps/y19" to fontMetrics0,
             "window:small_caps/y195" to fontMetrics0,
+            "window:small_caps/y33" to fontMetrics0,
+            "window:small_caps/y43" to fontMetrics0,
+            "window:small_caps/y48" to fontMetrics0,
+            "window:small_caps/y53" to fontMetrics0,
+            "window:small_caps/y83" to fontMetrics0,
             "window:small_caps/y88" to fontMetrics0,
-            "window:small_caps/y9" to fontMetrics0,
             "window:small_caps/ym1" to fontMetrics0,
         )
 }

@@ -20,16 +20,12 @@ public abstract class StatusBottomCenterHud : HudView(WindowHudDefinitions.statu
     /** The palette entry the `tone` tint draws in. */
     protected abstract fun tone(): Tone
 
-    /** How much of the `wave_charge` bar is filled, from 0 to 1. */
-    protected abstract fun waveCharge(): Float
-
     /** The `wave_progress` flag. */
     protected abstract fun waveProgress(index: Int): Boolean
 
     final override fun HudScope.bind() {
         slot("hint") { hint() }
         tint("tone") { tone().value }
-        bar("wave_charge") { waveCharge() }
         for (index in 0 until WAVE_PROGRESS_SIZE) {
             switch("wave_progress[$index]") { waveProgress(index).toString() }
         }

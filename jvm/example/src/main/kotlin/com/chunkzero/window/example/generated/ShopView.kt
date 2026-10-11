@@ -76,6 +76,9 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
     /** Render the `next_label` text. */
     protected abstract fun nextLabel(): Component
 
+    /** Handle a `open_upgrades` click. */
+    protected abstract fun onOpenUpgrades(click: Click)
+
     /** Render the `page` text. */
     protected abstract fun page(): Component
 
@@ -208,6 +211,7 @@ public abstract class ShopView(protected val player: Player) : WindowView<ItemSt
         button("next", ::onNext)
         slot("next_label") { nextLabel() }
         slot("next_label~2") { nextLabel() }
+        button("open_upgrades", ::onOpenUpgrades)
         slot("page") { page() }
         button("previous", ::onPrevious)
         slot("previous_label") { previousLabel() }

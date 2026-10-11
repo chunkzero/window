@@ -4,12 +4,13 @@ import net.minestom.server.entity.Player
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-/** Small in-memory catalog and wallet used by the visual example. */
+/** Small in-memory catalog, wallet, and workshop used by the visual example. */
 class Market(
     val unitPrice: Int = 10,
     private val startingBalance: Int = 2_500,
 ) {
     val products: List<Product> = MARKET_CATALOG
+    val workshop = Workshop()
 
     private val balances = ConcurrentHashMap<UUID, Int>()
 

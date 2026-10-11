@@ -7,4 +7,5 @@ import com.chunkzero.window.WindowDefinition
 public object WindowDefinitions {
     public val catalogSearch: WindowDefinition = WindowDefinition(WindowPackData.manifest, "catalog_search")
     public val shop: WindowDefinition = WindowDefinition(WindowPackData.manifest, "shop")
+    public val upgrades: WindowDefinition = WindowDefinition(WindowPackData.manifest, "upgrades")
 }

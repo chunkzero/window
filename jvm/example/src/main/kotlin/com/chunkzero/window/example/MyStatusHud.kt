@@ -6,6 +6,7 @@ import com.chunkzero.window.example.generated.StatusRightSideHud
 import com.chunkzero.window.example.generated.StatusTopCenterHud
 import com.chunkzero.window.example.generated.StatusTopLeftHud
 import com.chunkzero.window.example.generated.StatusTopRightHud
+import com.chunkzero.window.example.generated.StatusWaveBarHud
 import net.kyori.adventure.text.Component
 import net.minestom.server.entity.Player
 
@@ -63,27 +64,38 @@ class MyStatusBottomCenterHud(
     private val player: Player,
     private val startedAt: Long,
 ) : StatusBottomCenterHud() {
-    override fun hint(): Component = Component.text("Next wave in ${(remaining() + 999) / 1000}s")
+    override fun hint(): Component = Component.text("Next wave in ${(waveRemaining(startedAt) + 999) / 1000}s")
 
-    /** Turns from ok to warn to danger as the wave nears, unless `/tone` pinned one. */
-    override fun tone(): Tone {
-        val pinned = pinnedTone(player)
-        if (pinned != null) return Tone.entries.first { it.value == pinned }
-        val remaining = remaining()
-        return when {
-            remaining > 6_000L -> Tone.OK
-            remaining > 3_000L -> Tone.WARN
-            else -> Tone.DANGER
-        }
-    }
-
-    /** Fills as the wave nears, unless `/bar` pinned a fraction. */
-    override fun waveCharge(): Float = pinnedBar(player) ?: (1f - remaining().toFloat() / WAVE_MILLIS)
-
-    private fun remaining(): Long = WAVE_MILLIS - (System.currentTimeMillis() - startedAt) % WAVE_MILLIS
+    override fun tone(): Tone = Tone.entries.first { it.value == waveTone(player, startedAt) }
 
     override fun waveProgress(index: Int): Boolean =
         (System.currentTimeMillis() - startedAt) % WAVE_MILLIS * 10 / WAVE_MILLIS >= index
+}
+
+/** Window's bar in place of vanilla's experience bar. */
+class MyStatusWaveBarHud(
+    private val player: Player,
+    private val startedAt: Long,
+) : StatusWaveBarHud() {
+    override fun tone(): Tone = Tone.entries.first { it.value == waveTone(player, startedAt) }
+
+    /** Fills as the wave nears, unless `/bar` pinned a fraction. */
+    override fun waveCharge(): Float = pinnedBar(player) ?: (1f - waveRemaining(startedAt).toFloat() / WAVE_MILLIS)
+}
+
+private fun waveRemaining(startedAt: Long): Long = WAVE_MILLIS - (System.currentTimeMillis() - startedAt) % WAVE_MILLIS
+
+/** The `tone` entry: from ok to warn to danger as the wave nears, unless `/tone` pinned one. */
+private fun waveTone(
+    player: Player,
+    startedAt: Long,
+): String {
+    val remaining = waveRemaining(startedAt)
+    return pinnedTone(player) ?: when {
+        remaining > 6_000L -> "ok"
+        remaining > 3_000L -> "warn"
+        else -> "danger"
+    }
 }
 
 private const val WAVE_MILLIS = 10_000L

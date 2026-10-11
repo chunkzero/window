@@ -11,4 +11,5 @@ public object WindowHudDefinitions {
     public val statusTopCenter: HudDefinition = HudDefinition(WindowPackData.manifest, "status_top_center")
     public val statusTopLeft: HudDefinition = HudDefinition(WindowPackData.manifest, "status_top_left")
     public val statusTopRight: HudDefinition = HudDefinition(WindowPackData.manifest, "status_top_right")
+    public val statusWaveBar: HudDefinition = HudDefinition(WindowPackData.manifest, "status_wave_bar")
 }
