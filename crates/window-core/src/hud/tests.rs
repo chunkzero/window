@@ -98,8 +98,8 @@ fn marker_color_uses_green_zero_and_red_blue_id() {
 fn segment_markers_are_green_zero_unique_and_stable() {
     let hud_a = shader_hud("status", "coins");
     let hud_b = shader_hud("run", "wave");
-    let markers = segment_markers(&[&hud_a, &hud_b]);
-    let again = segment_markers(&[&hud_a, &hud_b]);
+    let markers = segment_markers(&[&hud_a, &hud_b]).unwrap();
+    let again = segment_markers(&[&hud_a, &hud_b]).unwrap();
 
     assert_eq!(markers, again);
     let colors = [
@@ -131,7 +131,7 @@ fn tinted_segments_get_a_marker_per_palette_entry_drawn_in_its_color() {
         uses: Vec::new(),
     };
     hud.handles.insert("tone".into(), tone);
-    let markers = segment_markers(&[&hud]);
+    let markers = segment_markers(&[&hud]).unwrap();
     let segments = &rules(&[&hud], &[0], &markers)[0].segments;
 
     // The static segment, the slot's own marker, and one marker per palette entry of the art and of the slot.
@@ -153,7 +153,7 @@ fn tinted_segments_get_a_marker_per_palette_entry_drawn_in_its_color() {
 #[test]
 fn generated_shader_matches_only_known_green_zero_ids() {
     let hud = shader_hud("status", "coins");
-    let markers = segment_markers(&[&hud]);
+    let markers = segment_markers(&[&hud]).unwrap();
     let static_id = renderer::marker_id(markers.static_marker("status"));
     let slot_id = renderer::marker_id(markers.slot_marker("status", "coins"));
     let output = emit(Some(84), &[&hud], &[0]).unwrap();

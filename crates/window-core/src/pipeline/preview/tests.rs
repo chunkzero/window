@@ -332,6 +332,38 @@ fn untinted_art_over_tinted_art_draws_above_it_unmultiplied() {
     assert_eq!(columns(&shot, BLUE), Some((10, 21)));
 }
 
+/// A 4x4 untinted `texture` sprite at (`x`, 10).
+fn box_at(texture: &str, x: u32) -> Value {
+    json!({ "type": "sprite", "art": { "art": "texture", "texture": texture }, "x": x, "y": 10 })
+}
+
+#[test]
+fn untinted_art_authored_after_text_draws_above_it() {
+    let children = json!([
+        white(10, tone()),
+        box_at("red.png", 12),
+        { "type": "label", "text": "HHHH", "x": 10, "y": 10, "color": "#00ff00", "shadow": false },
+        box_at("blue.png", 12),
+    ]);
+    let shot = preview_white(children, json!([])).unwrap();
+
+    for (x, y) in (12..16).flat_map(|x| (10..14).map(move |y| (x, y))) {
+        assert_eq!(shot.get(x, y), BLUE, "({x}, {y})");
+    }
+}
+
+#[test]
+fn untinted_art_after_a_switch_draws_above_the_tinted_art_inside_its_case() {
+    let lit = json!({ "type": "switch", "handle": { "kind": "flag", "id": "lit" }, "children": [
+        { "type": "case", "value": "true", "children": [white(10, tone())] },
+        { "type": "case", "value": "false", "children": [] }
+    ] });
+    let children = json!([lit, box_at("blue.png", 10)]);
+    let shot = preview_white(children, json!([{ "handle": "lit", "value": true }])).unwrap();
+
+    assert_eq!(shot.get(10, 10), BLUE);
+}
+
 #[test]
 fn tinted_art_outside_the_surface_grows_the_canvas_within_the_pixel_limit() {
     let shot = preview_white(json!([white(200, tone())]), json!([])).unwrap();

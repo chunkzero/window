@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::ir::{LaidOutHud, Rgb, tint_palette};
+use crate::{Error, Result};
 
 const MARKER_SPAN: u16 = u16::MAX;
 
@@ -44,7 +45,10 @@ pub fn tinted_segments(hud: &LaidOutHud) -> Vec<(TintedSegment<'_>, Vec<(String,
         .collect()
 }
 
-pub fn segment_markers(huds: &[&LaidOutHud]) -> SegmentMarkers {
+/// Assigns every shader-placed HUD segment a distinct marker color.
+///
+/// Fails when the segments outnumber the available marker IDs.
+pub fn segment_markers(huds: &[&LaidOutHud]) -> Result<SegmentMarkers> {
     let mut keys = BTreeSet::new();
     for hud in huds {
         if hud.shader.is_none() {
@@ -60,7 +64,7 @@ pub fn segment_markers(huds: &[&LaidOutHud]) -> SegmentMarkers {
             }
         }
     }
-    SegmentMarkers { markers: allocate_marker_colors(&keys) }
+    Ok(SegmentMarkers { markers: allocate_marker_colors(&keys)? })
 }
 
 fn static_key(hud: &str) -> String {
@@ -78,7 +82,14 @@ fn tint_key(hud: &str, segment: &TintedSegment<'_>, value: &str) -> String {
     }
 }
 
-fn allocate_marker_colors(keys: &BTreeSet<String>) -> BTreeMap<String, Rgb> {
+fn allocate_marker_colors(keys: &BTreeSet<String>) -> Result<BTreeMap<String, Rgb>> {
+    if keys.len() > MARKER_SPAN as usize {
+        return Err(Error::Validation(format!(
+            "shader-placed HUDs need {} segment marker colors, but only {MARKER_SPAN} exist; use fewer tinted \
+             segments or fewer palette entries",
+            keys.len()
+        )));
+    }
     let mut used = BTreeSet::new();
     let mut out = BTreeMap::new();
     for key in keys {
@@ -89,7 +100,7 @@ fn allocate_marker_colors(keys: &BTreeSet<String>) -> BTreeMap<String, Rgb> {
         used.insert(id);
         out.insert(key.clone(), marker_color(id));
     }
-    out
+    Ok(out)
 }
 
 fn marker_start_id(key: &str) -> u16 {
@@ -98,4 +109,16 @@ fn marker_start_id(key: &str) -> u16 {
 
 pub(super) fn marker_color(id: u16) -> Rgb {
     Rgb { r: (id >> 8) as u8, g: 0, b: id as u8 }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn more_segments_than_marker_ids_is_an_error_naming_the_count() {
+        let keys = (0..=MARKER_SPAN as usize).map(|i| format!("key{i}")).collect();
+        let err = allocate_marker_colors(&keys).unwrap_err().to_string();
+        assert!(err.contains("65536") && err.contains("65535"), "{err}");
+    }
 }

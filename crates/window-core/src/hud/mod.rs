@@ -36,7 +36,7 @@ pub struct ShaderOutput {
 /// Fails when shader-placed HUDs exist but `pack_format` is unknown or has no shader profile,
 /// since their baked marker colors and placement only render correctly through these shaders.
 pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud], row_offsets: &[i32]) -> Result<ShaderOutput> {
-    let markers = segment_markers(huds);
+    let markers = segment_markers(huds)?;
     let rules = rules(huds, row_offsets, &markers);
     if rules.is_empty() {
         return Ok(ShaderOutput::default());

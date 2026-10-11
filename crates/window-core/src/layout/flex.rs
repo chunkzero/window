@@ -302,7 +302,8 @@ impl<T: LayoutTarget> Solver<'_, T> {
         );
         let emitted = emit(self);
         let draws = std::mem::replace(&mut self.draws, outer_draws);
-        self.art_run = outer_run;
+        let case_run = std::mem::replace(&mut self.art_run, outer_run);
+        self.art_run.covered.extend(case_run.covered);
         emitted?;
         let nested = &self.switches[starts.3..];
         let inner = |pick: fn(&SwitchCaseIr) -> &Vec<String>| -> BTreeSet<&String> {

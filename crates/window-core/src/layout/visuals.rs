@@ -93,13 +93,10 @@ impl<T: LayoutTarget> Solver<'_, T> {
             self.draws.push(draw);
             return;
         }
-        let open = match &palette {
-            Some(_) => self.art_run.tinted.filter(|&index| {
-                let art = &self.art[index];
-                art.tint == palette && self.layers.last() == Some(&Layer::Art(art.name.clone()))
-            }),
-            None => self.art_run.untinted,
-        };
+        let open = if palette.is_some() { self.art_run.tinted } else { self.art_run.untinted }.filter(|&index| {
+            let art = &self.art[index];
+            art.tint == palette && self.layers.last() == Some(&Layer::Art(art.name.clone()))
+        });
         let index = open.unwrap_or_else(|| {
             let name = format!("art/{}", self.art.len());
             self.layers.push(Layer::Art(name.clone()));
