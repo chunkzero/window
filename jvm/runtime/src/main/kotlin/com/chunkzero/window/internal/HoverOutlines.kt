@@ -74,6 +74,8 @@ internal class HoverOutlines(
     private companion object {
         const val DEFAULT_FONT = "minecraft:default"
         const val MAX_WIDTH = 2047
-        const val MAX_LINES = 30
+
+        /** The most lines that keep the packed alpha below 255, which the shader reads as the hidden text copy. */
+        const val MAX_LINES = 29
     }
 }

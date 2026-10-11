@@ -412,7 +412,7 @@ while the cursor is over one of its slots. Vanilla highlights only the single ho
   depends on the client version. Where the outline crosses the region's own tooltip it is cut out, using the tooltip
   size the server measures; advanced tooltips (F3+H) add lines the server cannot see, so the outline may show through
   them. A tooltip the server cannot measure exactly (such as a translatable component) or that is wider than 2047 px or
-  longer than 30 lines gets no cut-out, so the whole outline is drawn and may show through the tooltip.
+  longer than 29 lines gets no cut-out, so the whole outline is drawn and may show through the tooltip.
 
 ### Inline art
 

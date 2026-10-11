@@ -87,8 +87,9 @@ class HoverOutlinesTest :
             val zero = ShadowColor.shadowColor(48, 62, 0, 1)
 
             shadowOf(TooltipEntry(title = "<lang:item.minecraft.paper>")) shouldBe zero
-            shadowOf(TooltipEntry(title = "Loot", lines = List(30) { "line" })) shouldBe zero
-            shadowOf(TooltipEntry(title = "Loot", lines = List(29) { "line" })) shouldBe
-                ShadowColor.shadowColor(48, 62, 24, 31)
+            shadowOf(TooltipEntry(title = "Loot", lines = List(29) { "line" })) shouldBe zero
+            // The widest and longest tooltip that is cut out: 1800 px over 29 lines, alpha 254.
+            shadowOf(TooltipEntry(title = "a".repeat(300), lines = List(28) { "line" })) shouldBe
+                ShadowColor.shadowColor(48, 62, 8, 254)
         }
     })
