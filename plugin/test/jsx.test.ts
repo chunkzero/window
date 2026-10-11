@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { Fragment, createElement, jsx } from "../.rpp/sdk/jsx.ts";
 import { shape, texture } from "../src/ui/index.ts";
-import { builtin, collection, selection, sprite, text, toggle, value } from "../src/bind/index.ts";
+import { builtin, collection, selection, sprite, text, tint, toggle, value } from "../src/bind/index.ts";
 import * as raw from "../src/raw/index.ts";
 import { Box, Case, Collection, Hud, Image, Region, Section, Switch, Text, Window } from "../src/ui/components.ts";
 
@@ -119,6 +119,16 @@ test("selection helpers carry the compared or assigned value", () => {
     );
     assert.throws(() => category.set("magic" as "all"), /not one of its values/);
     assert.throws(() => Switch({ on: mode, children: { buy: null, sell: null, rent: null } }), /`rent`/);
+});
+
+test("a tint handle serializes its palette where a color goes", () => {
+    const tone = tint("tone", { ok: "#3ddc84", warn: "#ffb020" });
+    const handle = { kind: "tint", id: "tone", values: ["ok", "warn"], colors: ["#3ddc84", "#ffb020"] };
+    const box = Box({ frame: shape({ kind: "panel" }), tint: tone, children: Text({ color: tone, children: "Wave" }) });
+    assert.ok(box.type === "flex");
+    assert.deepEqual(box.tint, handle);
+    assert.deepEqual(box.children?.[0], { type: "label", text: "Wave", color: handle });
+    assert.throws(() => tint("tone", { ok: "green" }), /entry `ok` must be a "#rrggbb" color/);
 });
 
 test("indexed handles select one entry with at()", () => {

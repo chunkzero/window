@@ -54,7 +54,7 @@ const TEXT_KEYS = [
     "debug_name",
     "style",
 ] as const;
-const FLEX_KEYS = ["x", "y", "frame", "style", "theme", "children", "layout", "debug_name"] as const;
+const FLEX_KEYS = ["x", "y", "frame", "tint", "style", "theme", "children", "layout", "debug_name"] as const;
 const SECTIONS: readonly SlotSection[] = ["container", "player", "hotbar"];
 const PLACEMENT_KEYS = ["slots", "pattern", "transform"] as const;
 const FIT_KEYS = ["overflow", "lines", "line_height"] as const;
@@ -189,13 +189,13 @@ export function image(
             ...element(
                 "sprite_slot",
                 opts,
-                ["x", "y", "width", "height", "align", "layout", "style", "debug_name"],
+                ["x", "y", "width", "height", "align", "tint", "layout", "style", "debug_name"],
                 ["width", "height"],
             ),
             ...bound(source, ["sprite"], "image source"),
         } as unknown as SpriteSlotElement;
     }
-    const out = element("sprite", opts, ["x", "y", "layout", "style", "debug_name"]);
+    const out = element("sprite", opts, ["x", "y", "tint", "layout", "style", "debug_name"]);
     return { ...out, art: requireObject(source, "image art") } as unknown as SpriteElement;
 }
 
@@ -282,7 +282,7 @@ export function switchCase(value: string, opts: CaseOptions = {}): CaseElement {
     requireName(value, "switch case value");
     const label = `switch case \`${value}\``;
     const out = applyStyle(
-        copyKnown(label, opts, ["frame", "style", "theme", "children", "debug_name"]),
+        copyKnown(label, opts, ["frame", "tint", "style", "theme", "children", "debug_name"]),
         "case",
         label,
     );

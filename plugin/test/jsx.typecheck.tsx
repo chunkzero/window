@@ -9,6 +9,7 @@ import {
     selection,
     sprite,
     text,
+    tint,
     toggle,
     value,
 } from "../src/bind/index.ts";
@@ -125,6 +126,23 @@ const setterCondition = Switch({ bind: category.set("all"), children: [] });
 // @ts-expect-error A comparison is not a click.
 const comparedClick = <Region onClick={category.is("all")} />;
 void [comparedSwitch, setterCondition, comparedClick];
+
+const tone = tint("tone", { ok: "#3ddc84", warn: "#ffb020" });
+const tinted = (
+    <Box frame={shape({ kind: "panel" })} tint={tone}>
+        <Text color={tone}>Wave</Text>
+        <Image art={texture("window/coin.png")} tint="#ffaa00" />
+    </Box>
+);
+// @ts-expect-error A tint is a tint handle or a color, not another handle.
+const valueTint = <Box tint={mode} />;
+// @ts-expect-error A text color is a color or a tint handle.
+const flagColor = <Text color={favorites}>Wave</Text>;
+// @ts-expect-error A bound image takes a tint handle, not a fixed color.
+const fixedSlotTint = <Image bind={sprite("lamp_icon")} size={8} tint="#ffaa00" />;
+// @ts-expect-error A HUD's own frame is not tinted.
+const tintedHud = <Hud name="tinted" tint={tone} />;
+void [tinted, valueTint, flagColor, fixedSlotTint, tintedHud];
 
 const coin = texture("window/coin.png");
 const bevel = shape({ kind: "button", fill: "#3a3a3a" }, { name: "industrial/button" });
