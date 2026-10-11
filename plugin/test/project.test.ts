@@ -250,6 +250,23 @@ test("Kotlin files are emitted only when configured", () => {
     assert.deepEqual(calls, [undefined, kotlin]);
 });
 
+test("the size report is not printed when Kotlin output fails", (t) => {
+    const log = t.mock.method(console, "log", () => {});
+    const output: CompileOutput = {
+        files: [],
+        kotlinFiles: [{ path: "A.kt", contents: { tag: "text", val: "class A" } }],
+        warnings: [],
+        sizeReport: "Window output: 1 B",
+    };
+    const kotlin: KotlinOptions = { packageName: "dev.example", target: "multistom" };
+    const { ctx } = fake({ "window/a.ts": shop }, {}, { kotlin, size: { report: true } });
+    ctx.emitOutput = () => {
+        throw new Error("disk full");
+    };
+    assert.throws(() => generate(ctx, () => output), /disk full/);
+    assert.equal(log.mock.callCount(), 0);
+});
+
 test("a missing or unknown Kotlin target is rejected", () => {
     for (const [target, got] of [
         [undefined, "it is missing"],

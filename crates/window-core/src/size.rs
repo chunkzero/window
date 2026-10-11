@@ -7,6 +7,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
+use crate::manifest::{Manifest, SwitchEntry};
 use crate::pipeline::{CompileOutput, OutputFile};
 
 /// The window or HUD a file draws.
@@ -82,7 +83,7 @@ impl SizeReport {
             ledger.record(Part::Kotlin, file);
         }
         let total = core.files.iter().chain(kotlin).map(|file| file.contents.as_bytes().len() as u64).sum();
-        let text = render(&ledger, total, budget);
+        let text = render(&ledger, &core.manifest, total, budget);
         Self { total, budget, text }
     }
 
@@ -106,7 +107,7 @@ impl SizeReport {
 #[derive(Default)]
 struct PaneSizes {
     static_bytes: u64,
-    cases: u64,
+    cases: usize,
     case_bytes: u64,
 }
 
@@ -136,8 +137,18 @@ struct Row {
     detail: String,
 }
 
-fn render(ledger: &SizeLedger, total: u64, budget: Option<u64>) -> String {
+fn case_count(switches: &BTreeMap<String, SwitchEntry>) -> usize {
+    switches.values().map(|switch| switch.cases.len()).sum()
+}
+
+fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u64>) -> String {
     let mut panes: BTreeMap<(bool, &str), PaneSizes> = BTreeMap::new();
+    for (name, window) in &manifest.windows {
+        panes.insert((false, name), PaneSizes { cases: case_count(&window.switches), ..Default::default() });
+    }
+    for (name, hud) in &manifest.huds {
+        panes.insert((true, name), PaneSizes { cases: case_count(&hud.switches), ..Default::default() });
+    }
     let mut sprite_fonts = Group::default();
     let mut text_row_fonts = Group::default();
     let mut shared: BTreeMap<&str, Group> = BTreeMap::new();
@@ -151,9 +162,7 @@ fn render(ledger: &SizeLedger, total: u64, budget: Option<u64>) -> String {
                 continue;
             }
             Part::SwitchCase { hud, pane } => {
-                let sizes = panes.entry((*hud, pane)).or_default();
-                sizes.cases += 1;
-                sizes.case_bytes += bytes;
+                panes.entry((*hud, pane)).or_default().case_bytes += bytes;
                 continue;
             }
             Part::SpriteFont(label) => {
@@ -274,11 +283,27 @@ mod tests {
         let text = report.text();
         let line = |label: &str| text.lines().find(|line| line.trim_start().starts_with(label)).unwrap_or(text);
         let case = bytes(&output, "shop_switch/lamp-0/true.png");
-        assert!(line("win shop").contains(&format!("1 switch case {}", size(case))), "{text}");
+        assert!(line("win shop").contains(&format!("2 switch cases {}", size(case))), "{text}");
         assert!(line("win shop").contains(&format!("static {}", size(bytes(&output, "textures/font/shop.png")))));
         assert!(line("text-row fonts (1)").contains("largest y"), "{text}");
         assert!(line("kotlin").contains("14 B"), "{text}");
         assert!(!text.contains("unattributed"), "{text}");
+    }
+
+    #[test]
+    fn text_only_panes_are_listed_with_no_bytes() {
+        let project = r##"{
+          "windows":[{"name":"menu","container":"generic_9x3","children":[
+            {"type":"slot","handle":{"kind":"text","id":"title"},"width":30,"x":9,"y":5}]}],
+          "huds":[{"name":"ticker","children":[
+            {"type":"slot","handle":{"kind":"text","id":"line"},"width":30,"x":0,"y":0}]}]
+        }"##;
+        let output = compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
+        let text = SizeReport::new(&output, &[], None).text().to_owned();
+        for pane in ["win menu", "hud ticker"] {
+            let line = text.lines().find(|line| line.trim_start().starts_with(pane)).unwrap_or(&text);
+            assert!(line.contains("0 B") && line.contains("0 switch cases 0 B"), "{text}");
+        }
     }
 
     #[test]

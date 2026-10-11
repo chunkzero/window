@@ -476,12 +476,12 @@ export function generate(ctx: WindowContext, compile: Compile): void {
     for (const warning of output.warnings) {
         console.warn(warning);
     }
-    if (output.sizeReport !== undefined) {
-        console.log(output.sizeReport);
-    }
     if (kotlin !== undefined) {
         for (const file of output.kotlinFiles) {
             ctx.emitOutput("kotlin", file.path, file.contents.val);
         }
+    }
+    if (output.sizeReport !== undefined) {
+        console.log(output.sizeReport);
     }
 }
