@@ -166,11 +166,14 @@ of several), a list of `[handle, value]` entries, and:
   pixel per GUI pixel.
 - `outlines`: outline the active [regions](#primitives), which otherwise draw nothing.
 
+An image may hold at most 16,777,216 pixels (4096 x 4096) after scaling; a larger one fails the build naming the
+preview, its size, and its scale.
+
 Each entry's value is typed by its handle, and a handle the entry omits takes its default:
 
 | handle       | value                                | default                                    |
 | ------------ | ------------------------------------ | ------------------------------------------ |
-| `text`       | a string                             | empty: the slot draws nothing              |
+| `text`       | a string, `§` codes allowed          | empty: the slot draws nothing              |
 | `flag`       | a boolean                            | `false`                                    |
 | `toggle`     | a boolean                            | its `initial`, else `false`                |
 | `value`      | one of its values                    | its first value                            |
@@ -190,7 +193,9 @@ that bleeds outside it, on a transparent background. What it shows:
 - **As the client draws it**: static art, the active case of every switch (nested ones too), runtime sprites in their
   slots, a collection's `selected` sprite, a `vanilla.anvil.field` sprite, and text in a [text font](#text-fonts),
   including the bundled `small_caps`. Text is placed, wrapped, and ellipsized by the rules the runtime applies, with the
-  slot's width, alignment, color, shadow, and bold.
+  slot's width, alignment, color, shadow, and bold. Text state may carry legacy `§` codes, consumed as the runtime
+  consumes them: `§l` draws bold, `§0`-`§f` draw that color (and end bold), `§r` restores the slot's color and bold, and
+  any other code is consumed without effect. A trailing `§` is dropped.
 - **Approximately**: text in Minecraft's default font. Window cannot bundle Mojang's glyph bitmaps, so each character is
   drawn as its `small_caps` glyph, centered in and clipped to the real glyph's width, or as a box when `small_caps` has
   no glyph for it. Advances are the real ones, so the text occupies exactly the box it does in game, but the lettering
@@ -198,8 +203,8 @@ that bleeds outside it, on a transparent background. What it shows:
 - **As a placeholder**: inventory items. The compiler has no item models, so each item slot, filled collection cell, and
   anvil input slot is a thin magenta outline.
 - **Not at all**: vanilla's own textures (an anvil's background, the inventory behind a window), italic, underline,
-  strikethrough and obfuscation, and anything the server decides at runtime, such as a text component carrying its own
-  color, or a tooltip.
+  strikethrough and obfuscation (their `§` codes are consumed but draw nothing), and anything the server decides at
+  runtime, such as a text component carrying its own color, or a tooltip.
 
 Previews are not pack output: they are written outside the pack and do not count toward the
 [size report or budget](#what-things-cost). Without `previews.output`, declared previews are not rendered and the build

@@ -496,6 +496,10 @@ export function generate(ctx: WindowContext, compile: Compile, renderPreviews?: 
     const { options } = ctx;
     checkOptions(options, "plugin");
     if (documents.length === 0 && !replacesVanillaTextures(options.vanilla)) {
+        if (previews.length > 0) {
+            const project = buildProject(documents, options, packFormat(ctx.pack.format));
+            emitPreviews(ctx, renderPreviews, JSON.stringify(project), files, previews);
+        }
         return;
     }
     const kotlin =
@@ -519,10 +523,21 @@ export function generate(ctx: WindowContext, compile: Compile, renderPreviews?: 
     if (output.sizeReport !== undefined) {
         console.log(output.sizeReport);
     }
+    emitPreviews(ctx, renderPreviews, projectJson, files, previews);
+}
+
+/** Render the declared previews, or warn that none is rendered when `previews.output` is unset. */
+function emitPreviews(
+    ctx: WindowContext,
+    renderPreviews: RenderPreviews | undefined,
+    projectJson: string,
+    files: SourceFile[],
+    previews: readonly unknown[],
+): void {
     if (previews.length === 0) {
         return;
     }
-    if (options.previews === undefined) {
+    if (ctx.options.previews === undefined) {
         console.warn(
             `Window: ${previews.length} previews are declared, but \`previews.output\` is not set; none is rendered.`,
         );

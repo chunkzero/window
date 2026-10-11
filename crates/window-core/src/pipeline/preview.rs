@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Deserialize;
 
-use crate::authoring::{ParsedProject, Replacement};
+use crate::authoring::{ParsedProject, Replacement, sprite_key};
 use crate::compose::{Composite, Texture, blit_sprite};
 use crate::geometry::{Point, Rect, Size};
 use crate::inventory::InventorySlotRef;
@@ -23,7 +23,7 @@ use crate::surface::{ContainerKind, Surface};
 use crate::{Error, Result, text_font};
 
 use super::glyphs::{Layers, compose_layers};
-use super::metrics::bitmap_metrics;
+use super::metrics::{bitmap_metrics, scale_boundary};
 use super::sprites::texture_source_path;
 use super::{CompileInput, OutputFile, anvil, decode_textures};
 
@@ -35,6 +35,8 @@ mod tests;
 use text::{Shadow, TextPainter};
 
 const MAX_SCALE: u32 = 16;
+/// The most pixels a finished preview image may hold, the area of 4096 x 4096.
+const MAX_PIXELS: u64 = 4096 * 4096;
 const ITEM_OUTLINE: [u8; 4] = [0xff, 0x40, 0xff, 0xc0];
 const REGION_OUTLINE: [u8; 4] = [0x60, 0xff, 0x20, 0xc0];
 /// Where the client draws the anvil's rename text inside the text field.
@@ -180,6 +182,22 @@ pub fn render(project: &ParsedProject, input: &CompileInput, requests: &[Preview
     Ok(files)
 }
 
+/// Fails when the image of `rect` at `scale` would hold more than [`MAX_PIXELS`], before any buffer exists.
+fn check_size(preview: &str, rect: &Rect, scale: u32) -> Result<()> {
+    let pixels = u64::from(rect.width)
+        .checked_mul(u64::from(scale))
+        .zip(u64::from(rect.height).checked_mul(u64::from(scale)))
+        .and_then(|(width, height)| width.checked_mul(height));
+    if pixels.is_none_or(|pixels| pixels > MAX_PIXELS) {
+        let (width, height) = (rect.width, rect.height);
+        return Err(fail(
+            preview,
+            format!("its {width}x{height} image at scale {scale} exceeds the limit of {MAX_PIXELS} pixels"),
+        ));
+    }
+    Ok(())
+}
+
 fn fail(preview: &str, message: String) -> Error {
     Error::Validation(format!("preview `{preview}`: {message}"))
 }
@@ -259,7 +277,7 @@ struct Bound<'a> {
 /// Validated state of one preview: the authored values by handle and member, over the pane's declared handles.
 struct State<'a> {
     preview: &'a str,
-    values: BTreeMap<(&'a str, &'a [u32]), &'a StateValue>,
+    values: BTreeMap<(&'a str, &'a [u32]), Cow<'a, StateValue>>,
     /// The handle and index behind each entry a role binds.
     uses: BTreeMap<(HandleRole, &'a str), Bound<'a>>,
 }
@@ -291,7 +309,12 @@ impl<'a> State<'a> {
                     format!("`{member}` does not name a member of handle `{id}`, which {shape}"),
                 ));
             }
-            let expected = match (handle.kind, &entry.value) {
+            let value = match (handle.kind, &entry.value) {
+                (HandleKind::Sprite, StateValue::Text(sprite)) => sprite_key(sprite, "sprite")
+                    .map_or(Cow::Borrowed(&entry.value), |key| Cow::Owned(StateValue::Text(key))),
+                (_, value) => Cow::Borrowed(value),
+            };
+            let expected = match (handle.kind, &*value) {
                 (HandleKind::Flag | HandleKind::Toggle | HandleKind::Items, StateValue::Bool(_))
                 | (HandleKind::Text | HandleKind::Input, StateValue::Text(_))
                 | (HandleKind::Collection, StateValue::Collection { .. }) => None,
@@ -319,7 +342,7 @@ impl<'a> State<'a> {
                 let got = &entry.value;
                 return Err(fail(preview, format!("handle `{member}` is a {kind} and takes {expected}; got {got}")));
             }
-            if values.insert((id, entry.at.as_slice()), &entry.value).is_some() {
+            if values.insert((id, entry.at.as_slice()), value).is_some() {
                 return Err(fail(preview, format!("handle `{member}` is set twice")));
             }
         }
@@ -332,13 +355,13 @@ impl<'a> State<'a> {
         Ok(Self { preview, values, uses })
     }
 
-    fn get(&self, role: HandleRole, entry: &str) -> Option<&'a StateValue> {
+    fn get(&self, role: HandleRole, entry: &str) -> Option<&StateValue> {
         let bound = self.uses.get(&(role, entry))?;
-        self.values.get(&(bound.id, bound.use_.at.as_slice())).copied()
+        self.values.get(&(bound.id, bound.use_.at.as_slice())).map(|value| &**value)
     }
 
     /// The string set for a role's entry, if any.
-    fn text(&self, role: HandleRole, entry: &str) -> Option<&'a str> {
+    fn text(&self, role: HandleRole, entry: &str) -> Option<&str> {
         match self.get(role, entry) {
             Some(StateValue::Text(text)) => Some(text),
             _ => None,
@@ -346,9 +369,9 @@ impl<'a> State<'a> {
     }
 
     /// The case value the switch `name` shows: its handle's value, or whether that value is the one it compares with.
-    fn case(&self, name: &str) -> Option<Cow<'a, str>> {
+    fn case(&self, name: &str) -> Option<Cow<'_, str>> {
         let Bound { id, handle, use_ } = *self.uses.get(&(HandleRole::Switch, name))?;
-        let value: Cow<'a, str> = match self.values.get(&(id, use_.at.as_slice())) {
+        let value: Cow<'_, str> = match self.values.get(&(id, use_.at.as_slice())).map(|value| &**value) {
             Some(StateValue::Bool(value)) => value.to_string().into(),
             Some(StateValue::Text(value)) => value.as_str().into(),
             Some(StateValue::Collection { .. } | StateValue::Other(_)) => return None,
@@ -496,6 +519,7 @@ impl Scene<'_> {
 
         let composites = std::iter::once(&layers.base).chain(layers.cases.iter().flatten());
         let rect = composites.filter(|comp| comp.has_content).fold(pane.rect, |rect, comp| rect.union(&comp.bounds));
+        check_size(&request.name, &rect, request.scale.unwrap_or(1))?;
         let mut canvas = Canvas::new(rect);
         let field = ContainerKind::ANVIL_TEXT_FIELD;
         if pane.container == Some(ContainerKind::Anvil)
@@ -574,7 +598,8 @@ impl Scene<'_> {
     fn draw_sprite(&self, canvas: &mut Canvas, name: &str, rect: &Rect, align: Align) -> Result<()> {
         let (texture, size) = self.sprite(name)?;
         let metrics = bitmap_metrics(&texture, size);
-        let texture = resize(&texture, size.width, size.height);
+        let width = scale_boundary(texture.width, texture.height, size.height);
+        let texture = resize(&texture, width, size.height);
         let x = text::origin(align, rect.x, rect.width, metrics.glyph_width) - metrics.x_offset as i32;
         canvas.blit(&texture, Point::new(x, rect.y));
         Ok(())

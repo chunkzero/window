@@ -315,6 +315,22 @@ test("previews are rendered into the previews output only when it is configured"
     assert.throws(() => preview([shop, status]), /preview\(\) takes one window or HUD/);
 });
 
+test("previews of a target no document lists still reach the renderer or the missing-output warning", (t) => {
+    const warn = t.mock.method(console, "warn", () => {});
+    const entry = { "window/index.ts": defineWindows({ previews: [preview(shop)] }) };
+    const compile = () => assert.fail("nothing is compiled");
+    const render = () => {
+        throw new Error("preview `shop`: there is no window `shop`");
+    };
+
+    assert.throws(
+        () => generate(fake(entry, {}, { previews: { output: "build/previews" } }).ctx, compile, render),
+        /there is no window `shop`/,
+    );
+    generate(fake(entry).ctx, compile, render);
+    assert.match(String(warn.mock.calls[0]?.arguments[0]), /1 previews are declared, but `previews.output` is not set/);
+});
+
 test("the size report is not printed when Kotlin output fails", (t) => {
     const log = t.mock.method(console, "log", () => {});
     const output: CompileOutput = {

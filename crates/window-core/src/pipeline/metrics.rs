@@ -22,7 +22,8 @@ pub(super) fn bitmap_metrics(texture: &Texture, rendered_size: Size) -> GlyphMet
     GlyphMetrics { x_offset, glyph_width: right_edge.saturating_sub(x_offset), advance: right_edge.saturating_add(1) }
 }
 
-fn scale_boundary(value: u32, source_height: u32, rendered_height: u32) -> u32 {
+/// `value` source pixels scaled to a bitmap rendered `rendered_height` tall, rounding half up.
+pub(super) fn scale_boundary(value: u32, source_height: u32, rendered_height: u32) -> u32 {
     let value = u128::from(value);
     let source_height = u128::from(source_height.max(1));
     let rendered_height = u128::from(rendered_height);

@@ -13,12 +13,16 @@ fn solid(rgba: [u8; 4]) -> Vec<u8> {
 /// Renders one preview of a `generic_9x1` window `shop` with `children` and returns its pixels.
 fn preview(children: Value, state: Value) -> Result<Texture> {
     let project = json!({ "windows": [{ "name": "shop", "container": "generic_9x1", "children": children }] });
+    let request = json!({ "name": "shot", "target": { "kind": "window", "name": "shop" }, "state": state });
+    render_one(project, request)
+}
+
+/// Renders one preview request of `project` and returns its pixels.
+fn render_one(project: Value, request: Value) -> Result<Texture> {
     let project = crate::authoring::project_from_json(project.to_string().as_bytes())?;
     let files = [("red.png", RED), ("green.png", GREEN), ("blue.png", BLUE)];
     let input = CompileInput::new(files.into_iter().map(|(path, rgba)| (path.to_string(), solid(rgba))).collect());
-    let request = json!([{ "name": "shot", "target": { "kind": "window", "name": "shop" }, "state": state }]);
-    let files = render(&project, &input, &requests_from_json(request.to_string().as_bytes())?)?;
-    assert_eq!(files[0].path, "shot.png");
+    let files = render(&project, &input, &requests_from_json(json!([request]).to_string().as_bytes())?)?;
     Texture::decode_png(files[0].contents.as_bytes())
 }
 
@@ -104,4 +108,66 @@ fn state_for_an_unknown_handle_or_of_the_wrong_kind_names_the_preview_and_handle
         error(json!([{ "handle": "title", "at": [1], "value": "Shop" }])),
         "preview `shot`: `title[1]` does not name a member of handle `title`, which is not indexed"
     );
+}
+
+#[test]
+fn an_image_over_the_pixel_limit_fails_before_it_is_allocated() {
+    let project = json!({ "huds": [{ "name": "huge", "width": 65536, "height": 65536, "children": [] }] });
+    let request = json!({ "name": "big", "target": { "kind": "hud", "name": "huge" }, "scale": 16 });
+    let error = render_one(project, request).unwrap_err().to_string();
+
+    assert_eq!(error, "preview `big`: its 65536x65536 image at scale 16 exceeds the limit of 16777216 pixels");
+}
+
+#[test]
+fn sprite_state_takes_the_authored_camel_case_name() {
+    let lamp = json!({ "art": "texture", "texture": "green.png" });
+    let handle = json!({ "kind": "sprite", "id": "lamp", "only": ["lampOn"] });
+    let project = json!({
+        "sprites": { "lampOn": lamp },
+        "windows": [{ "name": "shop", "container": "generic_9x1", "children": [
+            { "type": "sprite_slot", "handle": handle, "x": 10, "y": 10, "width": 4, "height": 4 },
+        ] }],
+    });
+    let request = json!({
+        "name": "shot", "target": { "kind": "window", "name": "shop" }, "state": [{ "handle": "lamp", "value": "lampOn" }],
+    });
+
+    assert_eq!(columns(&render_one(project, request).unwrap(), GREEN), Some((10, 13)));
+}
+
+#[test]
+fn a_runtime_sprite_keeps_its_aspect_ratio_at_the_authored_height() {
+    let wide = json!({ "art": "texture", "texture": "red.png", "width": 8, "height": 4 });
+    let handle = json!({ "kind": "sprite", "id": "icon" });
+    let project = json!({
+        "sprites": { "icon": wide },
+        "windows": [{ "name": "shop", "container": "generic_9x1", "children": [
+            { "type": "sprite_slot", "handle": handle, "x": 10, "y": 10, "width": 20, "height": 4 },
+        ] }],
+    });
+    let request = json!({
+        "name": "shot", "target": { "kind": "window", "name": "shop" }, "state": [{ "handle": "icon", "value": "icon" }],
+    });
+
+    assert_eq!(columns(&render_one(project, request).unwrap(), RED), Some((10, 13)));
+}
+
+#[test]
+fn legacy_codes_are_consumed_with_bold_and_color_drawn() {
+    let slot = json!([{ "type": "slot", "handle": { "kind": "text", "id": "title" }, "x": 20, "y": 30, "width": 60,
+                        "color": "#ff0000", "shadow": false }]);
+    let shot = |text: &str| preview(slot.clone(), json!([{ "handle": "title", "value": text }])).unwrap();
+    let plain = shot("Hi");
+
+    for consumed in ["§kHi", "§oHi", "§zHi", "Hi§", "§rHi"] {
+        assert_eq!(shot(consumed).rgba, plain.rgba, "{consumed:?} draws as plain text");
+    }
+    let bold = shot("§lHi");
+    assert_ne!(bold.rgba, plain.rgba);
+    assert_eq!(columns(&bold, RED), columns(&shot("§LHi"), RED));
+    assert_eq!(columns(&shot("§l§rHi"), RED), columns(&plain, RED), "`§r` restores the slot's style");
+    let blue = shot("§9Hi");
+    assert!(columns(&blue, RED).is_none() && columns(&blue, [0x55, 0x55, 0xff, 255]).is_some());
+    assert!(columns(&shot("§9§rHi"), RED).is_some(), "`§r` restores the slot's color");
 }

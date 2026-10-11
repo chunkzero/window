@@ -3,6 +3,9 @@
 //! Characters a text font's sheet maps draw from that sheet. Every other character belongs to Minecraft's default
 //! font, whose bitmaps Window does not ship: it draws as the bundled small-caps glyph centered in, and clipped to,
 //! the default glyph's width, or as a box when small caps has no glyph for it.
+//!
+//! Legacy `§` formatting codes are consumed as the runtime's `forEachRenderedCodePoint` does. Bold and the sixteen
+//! color codes take effect; italic, underline, strikethrough and obfuscation are consumed without being drawn.
 
 use crate::Result;
 use crate::compose::Texture;
@@ -17,6 +20,26 @@ const ELLIPSIS: char = '…';
 const ASCII_ELLIPSIS: &str = "...";
 /// The opacity of the shadow the runtime gives slot text.
 const SHADOW_ALPHA: u8 = 180;
+const SECTION_SIGN: char = '§';
+/// The colors of the codes `0` through `f`.
+const LEGACY_COLORS: [Rgb; 16] = [
+    Rgb::new(0x00, 0x00, 0x00),
+    Rgb::new(0x00, 0x00, 0xaa),
+    Rgb::new(0x00, 0xaa, 0x00),
+    Rgb::new(0x00, 0xaa, 0xaa),
+    Rgb::new(0xaa, 0x00, 0x00),
+    Rgb::new(0xaa, 0x00, 0xaa),
+    Rgb::new(0xff, 0xaa, 0x00),
+    Rgb::new(0xaa, 0xaa, 0xaa),
+    Rgb::new(0x55, 0x55, 0x55),
+    Rgb::new(0x55, 0x55, 0xff),
+    Rgb::new(0x55, 0xff, 0x55),
+    Rgb::new(0x55, 0xff, 0xff),
+    Rgb::new(0xff, 0x55, 0x55),
+    Rgb::new(0xff, 0x55, 0xff),
+    Rgb::new(0xff, 0xff, 0x55),
+    Rgb::new(0xff, 0xff, 0xff),
+];
 
 /// A text shadow, drawn one pixel down and right of its text.
 #[derive(Clone, Copy)]
@@ -57,10 +80,32 @@ impl Width {
     }
 }
 
+/// The formatting a legacy code sequence leaves in effect.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Style {
+    bold: bool,
+    /// The code's color; the slot's color when absent.
+    color: Option<Rgb>,
+}
+
+impl Style {
+    /// The style after the legacy code `code` over `self`, where `base` is the style `§r` restores.
+    fn after(self, code: char, base: Style) -> Style {
+        let code = code.to_ascii_lowercase();
+        match code.to_digit(16) {
+            Some(index) => Style { bold: false, color: Some(LEGACY_COLORS[index as usize]) },
+            None if code == 'l' => Style { bold: true, ..self },
+            None if code == 'r' => base,
+            None => self,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Glyph {
     c: char,
     width: Width,
+    style: Style,
 }
 
 fn measure(glyphs: &[Glyph]) -> Width {
@@ -106,7 +151,10 @@ impl<'a> TextPainter<'a> {
         } else {
             let has_ellipsis = font.is_some_and(|font| cell(font, ELLIPSIS).is_some());
             let ellipsis = if has_ellipsis { ELLIPSIS.to_string() } else { ASCII_ELLIPSIS.to_string() };
-            wrap(&glyphs, slot.rect.width as i32, fit.lines as usize, &self.glyphs(font, &ellipsis, slot.bold))
+            let base = Style { bold: slot.bold, color: None };
+            // The ellipsis continues the style of the text it follows.
+            let ellipsis = |last: Option<&Glyph>| self.styled(font, &ellipsis, last.map_or(base, |g| g.style), base);
+            wrap(&glyphs, slot.rect.width as i32, fit.lines as usize, &ellipsis)
         };
         let shadow = if slot.shadow { shadow } else { Shadow::None };
         let unused = fit.lines as i32 - lines.len() as i32;
@@ -117,7 +165,7 @@ impl<'a> TextPainter<'a> {
                 origin(slot.align, slot.rect.x, slot.rect.width, visual),
                 slot.rect.y + step * fit.line_height as i32 / 2,
             );
-            self.draw_glyphs(canvas, font, line, at, slot.color, shadow, slot.bold);
+            self.draw_glyphs(canvas, font, line, at, slot.color, shadow);
         }
         Ok(())
     }
@@ -134,26 +182,38 @@ impl<'a> TextPainter<'a> {
         shadow: Shadow,
         bold: bool,
     ) {
-        self.draw_glyphs(canvas, font, &self.glyphs(font, content, bold), at, color, shadow, bold);
+        self.draw_glyphs(canvas, font, &self.glyphs(font, content, bold), at, color, shadow);
     }
 
     fn glyphs(&self, font: Option<&TextFont>, content: &str, bold: bool) -> Vec<Glyph> {
-        let bold = i32::from(bold) * vanilla::BOLD_ADVANCE as i32;
-        content
-            .chars()
-            .map(|c| {
-                let (advance, ink) = match font {
-                    Some(font) => (font.advance(c), font.glyph_width(c)),
-                    None => (vanilla::advance(c), vanilla::glyph_width(c)),
-                };
-                let advance = advance.unwrap_or(vanilla::FALLBACK_ADVANCE) as i32 + bold;
-                let ink = ink.unwrap_or(vanilla::FALLBACK_GLYPH_WIDTH) as i32;
-                Glyph { c, width: Width { advance, visual: if ink > 0 { ink + bold } else { 0 } } }
-            })
-            .collect()
+        let base = Style { bold, color: None };
+        self.styled(font, content, base, base)
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// The glyphs of `content` starting in style `start`, with legacy codes consumed. A trailing `§` is dropped.
+    fn styled(&self, font: Option<&TextFont>, content: &str, start: Style, base: Style) -> Vec<Glyph> {
+        let mut style = start;
+        let mut glyphs = Vec::new();
+        let mut chars = content.chars();
+        while let Some(c) = chars.next() {
+            if c == SECTION_SIGN {
+                let Some(code) = chars.next() else { break };
+                style = style.after(code, base);
+                continue;
+            }
+            let bold = i32::from(style.bold) * vanilla::BOLD_ADVANCE as i32;
+            let (advance, ink) = match font {
+                Some(font) => (font.advance(c), font.glyph_width(c)),
+                None => (vanilla::advance(c), vanilla::glyph_width(c)),
+            };
+            let advance = advance.unwrap_or(vanilla::FALLBACK_ADVANCE) as i32 + bold;
+            let ink = ink.unwrap_or(vanilla::FALLBACK_GLYPH_WIDTH) as i32;
+            let width = Width { advance, visual: if ink > 0 { ink + bold } else { 0 } };
+            glyphs.push(Glyph { c, width, style });
+        }
+        glyphs
+    }
+
     fn draw_glyphs(
         &self,
         canvas: &mut Canvas,
@@ -162,14 +222,16 @@ impl<'a> TextPainter<'a> {
         at: Point,
         color: Rgb,
         shadow: Shadow,
-        bold: bool,
     ) {
-        let passes = [(1, shadow.rgba(color)), (0, Some([color.r, color.g, color.b, 255]))];
-        for (offset, color) in passes.into_iter().filter_map(|(offset, color)| Some((offset, color?))) {
+        for offset in [1, 0] {
             let mut x = at.x + offset;
             for glyph in glyphs {
-                for copy in 0..=i32::from(bold) {
-                    self.stamp(canvas, font, glyph, Point::new(x + copy, at.y + offset), color);
+                let color = glyph.style.color.unwrap_or(color);
+                let rgba = if offset == 1 { shadow.rgba(color) } else { Some([color.r, color.g, color.b, 255]) };
+                if let Some(rgba) = rgba {
+                    for copy in 0..=i32::from(glyph.style.bold) {
+                        self.stamp(canvas, font, glyph, Point::new(x + copy, at.y + offset), rgba);
+                    }
                 }
                 x += glyph.width.advance;
             }
@@ -238,7 +300,12 @@ fn trim_end(glyphs: &[Glyph], from: usize, to: usize) -> usize {
 /// Wraps `glyphs` at spaces onto at most `max_lines` lines whose ink fits `width`, as the runtime's `wrapText` does:
 /// a word wider than `width` ends in `ellipsis`, as does the last line when text is left over. Text that fits on one
 /// line is one line; blank text has no lines.
-fn wrap(glyphs: &[Glyph], width: i32, max_lines: usize, ellipsis: &[Glyph]) -> Vec<Vec<Glyph>> {
+fn wrap(
+    glyphs: &[Glyph],
+    width: i32,
+    max_lines: usize,
+    ellipsis: &dyn Fn(Option<&Glyph>) -> Vec<Glyph>,
+) -> Vec<Vec<Glyph>> {
     if glyphs.iter().all(|glyph| glyph.c == ' ') {
         return Vec::new();
     }
@@ -296,13 +363,19 @@ fn last_break(glyphs: &[Glyph], from: usize, width: i32) -> Option<usize> {
 
 /// The longest prefix of `[from, to)` that fits `width` when followed by `ellipsis`; empty when not even the
 /// ellipsis fits.
-fn ellipsized(glyphs: &[Glyph], from: usize, to: usize, width: i32, ellipsis: &[Glyph]) -> Vec<Glyph> {
-    let tail = measure(ellipsis);
+fn ellipsized(
+    glyphs: &[Glyph],
+    from: usize,
+    to: usize,
+    width: i32,
+    ellipsis: &dyn Fn(Option<&Glyph>) -> Vec<Glyph>,
+) -> Vec<Glyph> {
     let mut end = to;
     loop {
         let kept = trim_end(glyphs, from, end);
-        if measure(&glyphs[from..kept]).append(tail).visual <= width {
-            return glyphs[from..kept].iter().chain(ellipsis).copied().collect();
+        let tail = ellipsis(glyphs[from..kept].last());
+        if measure(&glyphs[from..kept]).append(measure(&tail)).visual <= width {
+            return glyphs[from..kept].iter().chain(&tail).copied().collect();
         }
         if kept <= from {
             return Vec::new();
@@ -321,7 +394,7 @@ mod tests {
         let painter = TextPainter::new(&fonts);
         let glyphs = |text: &str| painter.glyphs(None, text, false);
         let lines = |text: &str, width, max_lines| -> Vec<String> {
-            let lines = wrap(&glyphs(text), width, max_lines, &glyphs(ASCII_ELLIPSIS));
+            let lines = wrap(&glyphs(text), width, max_lines, &|_| glyphs(ASCII_ELLIPSIS));
             lines.iter().map(|line| line.iter().map(|glyph| glyph.c).collect()).collect()
         };
 
