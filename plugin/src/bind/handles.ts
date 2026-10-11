@@ -11,7 +11,8 @@ export type HandleKind =
     | "action"
     | "input"
     | "builtin"
-    | "tint";
+    | "tint"
+    | "fraction";
 
 /** The extent of an indexed handle: `[n]` or `[rows, columns]`. */
 export type Shape = readonly [number] | readonly [number, number];
@@ -65,6 +66,7 @@ export type Collection = Ref<"collection">;
 export type Action = Ref<"action">;
 export type Input = Ref<"input">;
 export type Builtin = Ref<"builtin">;
+export type Fraction = Ref<"fraction">;
 
 export interface Value<V extends string = string> extends Ref<"value", V> {
     readonly values: readonly V[];
@@ -240,6 +242,14 @@ export function tint<const V extends string>(id: string, palette: Readonly<Recor
         return color.toLowerCase();
     });
     return make({ kind: "tint", id, values, colors: Object.freeze(colors) } as Tint<V>, none);
+}
+
+/** How much of a `<Bar>` is filled, from 0 to 1: `protected abstract fun health(): Float`. */
+export function fraction(id: string): Fraction;
+export function fraction<const S extends Shape>(id: string, options: { shape: S }): Indexed<Fraction, S>;
+export function fraction(id: string, options?: { shape?: Shape }): unknown {
+    requireId(id, "fraction");
+    return shaped({ kind: "fraction", id } as Fraction, options?.shape, none);
 }
 
 /** Dynamic text: `protected abstract fun title(): Component`. */

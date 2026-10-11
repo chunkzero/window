@@ -17,7 +17,7 @@ import type {
 } from "./styles.ts";
 import type { Color, Token, VarTheme } from "./tokens.ts";
 import type { ClickAction, Collection, Condition, Flag, Ref } from "../bind/handles.ts";
-import type { Input as InputHandle, Items as ItemsHandle } from "../bind/handles.ts";
+import type { Fraction as FractionHandle, Input as InputHandle, Items as ItemsHandle } from "../bind/handles.ts";
 import type { Sprite as SpriteHandle, Text as TextHandle, Tint, Toggle as ToggleHandle } from "../bind/handles.ts";
 import type { CaseElement, Element, Hud as HudDef, Window as WindowDef } from "./document.ts";
 import type {
@@ -113,6 +113,21 @@ export interface ImageBindProps extends ImagePlacement {
 }
 
 export type ImageProps = ImageArtProps | ImageBindProps;
+
+/** A bar whose `fill` is drawn from the left, up to the fraction its handle returns. */
+export interface BarProps extends ImagePlacement {
+    /** The `fraction` handle returning how much of the bar is filled, from 0 to 1. */
+    bind: FractionHandle;
+    /** The bar's size in pixels, each from 1 to 256. */
+    width: number;
+    height: number;
+    /** Art stretched over the bar; a fraction draws its leftmost columns. */
+    fill: ArtRef;
+    /** Art stretched over the bar and drawn whole, under the fill. */
+    track?: ArtRef;
+    /** Multiplies the fill's colors: a `tint` handle picks the color at runtime, a hex color is baked in. */
+    tint?: Token<Color> | Tint;
+}
 
 /**
  * An inventory region: the slots it covers route clicks to `onClick` and show its hitbox item. Without `width` and
@@ -404,6 +419,30 @@ export function Image(input: ImageProps): Element {
         throw new Error("<Image> requires `art`, such as texture(...) or shape(...), or a `sprite` handle `bind`");
     }
     return clean({ type: "sprite", art: props.art, tint: props.tint, ...placement }) as Element;
+}
+
+/**
+ * A bar of `width` by `height` pixels. `fill` is stretched over it and drawn from the left, up to the fraction the
+ * `fraction` handle `bind` returns, rounded to whole pixel columns; `track` is drawn whole under it.
+ */
+export function Bar(input: BarProps): Element {
+    const props = withStyle(input, STYLE_KEYS.item!, "Bar");
+    if (typeof props.fill !== "object" || props.fill === null) {
+        throw new Error("<Bar> requires `fill`, such as texture(...) or shape(...)");
+    }
+    return clean({
+        type: "bar",
+        ...bound(props.bind, ["fraction"], "<Bar bind>"),
+        width: props.width,
+        height: props.height,
+        fill: props.fill,
+        track: props.track,
+        tint: props.tint,
+        x: props.x,
+        y: props.y,
+        ...layout(props),
+        ...debug(props),
+    }) as Element;
 }
 
 /**

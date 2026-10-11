@@ -11,7 +11,17 @@ export interface CollectionState {
 
 /** A handle with a previewed value: every kind but actions. */
 type Stateful = Ref<
-    "flag" | "toggle" | "value" | "selection" | "tint" | "text" | "sprite" | "items" | "collection" | "input"
+    | "flag"
+    | "toggle"
+    | "value"
+    | "selection"
+    | "tint"
+    | "fraction"
+    | "text"
+    | "sprite"
+    | "items"
+    | "collection"
+    | "input"
 >;
 
 /** The value a preview gives the handle `H`. An indexed handle takes its members' values, nested as its shape. */
@@ -23,13 +33,15 @@ export type StateOf<H> = H extends { at(...index: infer I): infer M }
       ? string
       : H extends Ref<"flag" | "toggle" | "items">
         ? boolean
-        : H extends Ref<"value" | "selection" | "tint", infer V>
-          ? V
-          : H extends Sprite<infer O>
-            ? O
-            : H extends Ref<"collection">
-              ? CollectionState
-              : never;
+        : H extends Ref<"fraction">
+          ? number
+          : H extends Ref<"value" | "selection" | "tint", infer V>
+            ? V
+            : H extends Sprite<infer O>
+              ? O
+              : H extends Ref<"collection">
+                ? CollectionState
+                : never;
 
 /** One handle and its previewed value, such as `[category, "gear"]` or `[label.at(1), "Gear"]`. */
 export type StateEntry = readonly [handle: Stateful | { at(...index: never[]): Stateful }, value: unknown];
@@ -99,7 +111,7 @@ function members(id: string, shape: readonly number[], values: unknown, at: read
  * A PNG of `target`, a window or HUD, drawn with the handle values of `state`. List it in `defineWindows({ previews })`;
  * a build writes `<name>.png` into the plugin's `previews.output` directory. A handle without a value takes its
  * default: a toggle's or selection's `initial`, the first value of a `value`, the first palette entry of a `tint`,
- * `false` for a flag, no text, and no sprite. Item slots draw as outlined placeholders.
+ * `false` for a flag, 1 for a fraction, no text, and no sprite. Item slots draw as outlined placeholders.
  */
 export function preview<const T extends readonly StateEntry[]>(
     target_: unknown,

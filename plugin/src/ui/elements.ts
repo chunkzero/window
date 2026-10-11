@@ -1,10 +1,13 @@
 import { isRef, refJson } from "../bind/handles.ts";
 import { applyStyle } from "./styles.ts";
 import { resolveTokens } from "./tokens.ts";
-import type { ClickAction, Collection, Condition, Input, Items, Ref, Sprite, Text } from "../bind/handles.ts";
+import type { ClickAction, Collection, Condition, Fraction, Input, Items, Ref } from "../bind/handles.ts";
+import type { Sprite, Text } from "../bind/handles.ts";
 import type {
     AnvilInputElement,
     AnvilInputOptions,
+    BarElement,
+    BarOptions,
     BoxOptions,
     CaseElement,
     CaseOptions,
@@ -111,6 +114,7 @@ const STYLE_KINDS: Readonly<Record<string, string>> = {
     slot: "text",
     sprite: "item",
     sprite_slot: "item",
+    bar: "item",
     region: "item",
     item: "item",
     collection: "collection",
@@ -197,6 +201,17 @@ export function image(
     }
     const out = element("sprite", opts, ["x", "y", "tint", "layout", "style", "debug_name"]);
     return { ...out, art: requireObject(source, "image art") } as unknown as SpriteElement;
+}
+
+/** A bar that draws the leftmost columns of its `fill`, up to the fraction a `fraction` handle returns. */
+export function bar(bind: Fraction, opts: BarOptions): BarElement {
+    const out = element(
+        "bar",
+        opts,
+        ["width", "height", "fill", "track", "tint", "x", "y", "layout", "style", "debug_name"],
+        ["width", "height", "fill"],
+    );
+    return { ...out, ...bound(bind, ["fraction"], "bar source") } as unknown as BarElement;
 }
 
 /** An inventory region: the slots it covers route clicks to `onClick` and show its hitbox item. */

@@ -3,6 +3,7 @@ import { text as textElement } from "../ui/elements.ts";
 import * as textHelpers from "../ui/text.ts";
 
 export {
+    bar,
     box,
     collection,
     hud,

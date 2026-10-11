@@ -3,9 +3,9 @@ import { test } from "node:test";
 
 import { Fragment, createElement, jsx } from "../.rpp/sdk/jsx.ts";
 import { shape, texture } from "../src/ui/index.ts";
-import { builtin, collection, selection, sprite, text, tint, toggle, value } from "../src/bind/index.ts";
+import { builtin, collection, fraction, selection, sprite, text, tint, toggle, value } from "../src/bind/index.ts";
 import * as raw from "../src/raw/index.ts";
-import { Box, Case, Collection, Hud, Image, Region, Section, Switch, Text, Window } from "../src/ui/components.ts";
+import { Bar, Box, Case, Collection, Hud, Image, Region, Section, Switch, Text, Window } from "../src/ui/components.ts";
 
 test("JSX text defaults do not mutate reusable children", () => {
     const child = Box({ children: Text({ children: "Hello" }) });
@@ -129,6 +129,21 @@ test("a tint handle serializes its palette where a color goes", () => {
     assert.deepEqual(box.tint, handle);
     assert.deepEqual(box.children?.[0], { type: "label", text: "Wave", color: handle });
     assert.throws(() => tint("tone", { ok: "green" }), /entry `ok` must be a "#rrggbb" color/);
+});
+
+test("a bar serializes its fraction handle, art, and size", () => {
+    const fill = shape({ kind: "panel" });
+    const hp = fraction("hp");
+    assert.deepEqual(Bar({ bind: hp, width: 80, height: 6, fill, tint: "#ff5555", grow: 1 }), {
+        type: "bar",
+        handle: { kind: "fraction", id: "hp" },
+        width: 80,
+        height: 6,
+        fill,
+        tint: "#ff5555",
+        layout: { grow: 1 },
+    });
+    assert.throws(() => Bar({ bind: text("hp") as never, width: 80, height: 6, fill }), /`fraction` handle/);
 });
 
 test("indexed handles select one entry with at()", () => {
