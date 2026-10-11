@@ -279,9 +279,23 @@ switch on its handle with one region per state.
         },
       },
 
-      // Every slot, sprite slot, switch, and selectable collection in authored
-      // tree order: the order runtime layers compose above `static`.
+      // Optional. Art drawn as a layer of its own: art tinted from a palette,
+      // and untinted art authored over it. `static` is net-zero like the window's.
+      "art": {
+        "art/0": { "static": "󰀀…", "tint": "tone" },
+        "art/1": { "static": "󰀀…" },
+      },
+
+      // Optional. The palettes that `tint` fields name: entry name to color.
+      "tints": {
+        "tone": { "danger": "#ff4d4d", "ok": "#3ddc84", "warn": "#ffb020" },
+      },
+
+      // Every slot, sprite slot, switch, art layer, and selectable collection in
+      // authored tree order: the order runtime layers compose above `static`.
       "layers": [
+        { "kind": "art", "name": "art/0" },
+        { "kind": "art", "name": "art/1" },
         { "kind": "slot", "name": "title" },
         { "kind": "switch", "name": "mode" },
         { "kind": "slot", "name": "price" },
@@ -316,6 +330,12 @@ switch on its handle with one region per state.
           ],
         },
         "names": { "kind": "text", "shape": [2], "uses": [{ "role": "slot", "entry": "names[0]", "at": [0] }] },
+        "tone": {
+          "kind": "tint",
+          "values": ["ok", "warn", "danger"],
+          "colors": ["#3ddc84", "#ffb020", "#ff4d4d"],
+          "uses": [{ "role": "tint", "entry": "tone" }],
+        },
       },
     },
   },
@@ -348,7 +368,8 @@ switch on its handle with one region per state.
         },
       },
 
-      // HUDs carry `switches` and `layers` like windows; HUD layers hold slots and switches.
+      // HUDs carry `switches`, `art`, `tints`, and `layers` like windows; HUD layers hold slots, switches, and
+      // art. In a shader HUD a tinted slot or art layer also carries `tint_markers`.
 
       // Present only when the authored HUD requested core-shader relocation.
       "shader": {
@@ -415,15 +436,16 @@ Notes:
 - `inputs` describes native inventory input metadata. It is currently valid only for `surface.container = "anvil"`;
   exactly one input owns container slot `0`, whose item name drives the vanilla edit field.
 - `handles` is optional metadata for codegen on windows and HUDs; runtimes ignore it. `kind` is `flag`, `toggle`,
-  `value`, `selection`, `text`, `sprite`, `items`, `collection`, `action`, `input`, or `builtin`. `values` lists a value
-  or selection's values, `shape` an indexed handle's extents, `initial` a toggle's (`"true"`/`"false"`) or selection's
-  initial value, `selectable` whether a collection marks a selected cell, and `only` the sprites a sprite handle
-  returns, which codegen generates as an enum of those `WindowSprite` constants. Each use names the entry it binds: a
-  `slot`, `sprite_slot`, `item`, `collection`, `input`, `switch`, or a region's `click`. `at` is the index read from an
-  indexed handle, and `value` the value a condition compares with or a click sets. A use is keyed `{id}`, then `[{i}]`
-  per index, `={value}` for a click that sets a value, or `?{value}` for a condition, with `~2`, `~3`, … appended to
-  later uses of the same key. Codegen generates members only from handles and binds every use to its handle's member; an
-  entry no handle uses gets no member.
+  `value`, `selection`, `text`, `sprite`, `tint`, `items`, `collection`, `action`, `input`, or `builtin`. `values` lists
+  a value or selection's values or a tint's entries, `colors` a tint's color per entry, `shape` an indexed handle's
+  extents, `initial` a toggle's (`"true"`/`"false"`) or selection's initial value, `selectable` whether a collection
+  marks a selected cell, and `only` the sprites a sprite handle returns, which codegen generates as an enum of those
+  `WindowSprite` constants. Each use names the entry it binds: a `slot`, `sprite_slot`, `item`, `collection`, `input`,
+  `switch`, a region's `click`, or the palette a `tint` handle picks from. `at` is the index read from an indexed
+  handle, and `value` the value a condition compares with or a click sets. A use is keyed `{id}`, then `[{i}]` per
+  index, `={value}` for a click that sets a value, or `?{value}` for a condition, with `~2`, `~3`, … appended to later
+  uses of the same key. Codegen generates members only from handles and binds every use to its handle's member; an entry
+  no handle uses gets no member.
 - `switches` is optional on windows and HUDs. At most one case of a switch is active: the case whose `value` the
   switch's binding returns, or none until it is bound. A switch named in a case's `switches` is nested: it and
   everything in its cases are active only while that case is. A case lists only the entries directly inside it. The
@@ -433,9 +455,19 @@ Notes:
   the runtime reads each enclosing switch's binding at click time rather than waiting for the next render. Each case's
   `static` is net-zero: window cases start and end at `title_origin.x`, HUD cases at the HUD's left edge. Codegen binds
   a `Boolean` when the case values are exactly `true` and `false`, otherwise an enum of the values.
-- `layers` lists every slot, sprite slot, switch, and collection with a selected sprite exactly once, in authored tree
-  order. The runtime composes `static` first, then these layers in order, skipping entries in inactive cases. A switch
-  layer draws its active case's `static`; a collection layer draws its selected cell's `selection` sprite.
+- `layers` lists every slot, sprite slot, switch, art layer, and collection with a selected sprite exactly once, in
+  authored tree order. The runtime composes `static` first, then these layers in order, skipping entries in inactive
+  cases. A switch layer draws its active case's `static`; an art layer draws its `static`; a collection layer draws its
+  selected cell's `selection` sprite.
+- `art` and `tints` are optional on windows and HUDs, and a definition without them draws as before. `tints` maps each
+  palette id to its entries' `#rrggbb` colors. `tint` on an `art` entry, a slot, or a sprite slot names a palette: the
+  runtime sends that entry in the color of the palette entry the tint's binding returns, which the client multiplies
+  into art and sprites. Every palette must be bound. A tinted slot's `color` is its palette's first authored entry, and
+  runtimes ignore it. Art and sprites without `tint` are sent in white. A case lists the art layers directly inside it
+  in `art`, drawn only while the case is active.
+- In a shader HUD, `art.*.tint_markers` and `slots.*.tint_markers` map each palette entry to the marker color the
+  runtime sends in place of the palette color; the generated shader restores that entry's color. Untinted art layers use
+  `shader.static_marker`. Outside shader HUDs `tint_markers` is absent and the runtime sends the palette color.
 - `slots.*.overflow` and `slots.*.lines` appear only on dynamic slots. With `overflow: "ellipsis"`, runtimes truncate
   rendered content whose visible width exceeds `width` and append "…", or "..." when the slot's font metrics have no
   advance for "…", keeping the styling of the kept text. With `lines`, runtimes wrap content at spaces onto at most
@@ -457,9 +489,9 @@ Notes:
   the compiler baked the HUD's art, switch cases, and slot fonts so that its text rows share fonts with other surfaces;
   the generated shaders subtract it again, so it does not move the HUD. Runtime display still uses the HUD's fallback
   `channel`.
-- Shader HUDs include generated marker colors in the compiled definition: `shader.static_marker` for baked chrome and
-  `slots.*.shader_marker` for slot text. These marker colors reserve green channel `00`; red+blue encode a generated
-  16-bit segment id. Generated shaders only move exact ids in their table, then restore the authored display color, so
-  unrelated green-zero text does not relocate.
+- Shader HUDs include generated marker colors in the compiled definition: `shader.static_marker` for baked chrome,
+  `slots.*.shader_marker` for slot text, and `tint_markers` for tinted art and text. These marker colors reserve green
+  channel `00`; red+blue encode a generated 16-bit segment id. Generated shaders only move exact ids in their table,
+  then restore the authored display color, so unrelated green-zero text does not relocate.
 - Generated Kotlin is deterministic: files use stable iteration order, fixed headers, and `\n` endings. Legacy JSON
   serializers should keep sorted keys so identical inputs stay byte-identical.

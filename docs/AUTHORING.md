@@ -117,6 +117,8 @@ Window output: 534.9 KB (compiler output, before pack optimization)
 - Each window and HUD line is its total, split into its static art and its switch cases. The count is every case; a case
   that draws art bakes its own texture, so a switch costs roughly the number of such cases times one case's art. Cut
   cases, or move art that every case repeats out of the switch.
+- A line also counts its art layers when it has any: the textures of art with a [`tint` handle](#tints) and of untinted
+  art drawn over it.
 - Each distinct vertical position that a text slot (or line of a multi-line slot) draws at adds one text-row font
   document, and a custom font adds one per position. Sprite slots add one sprite font per position, listing every
   catalog sprite. Aligning slots to fewer rows removes fonts. HUDs pinned with [`<Hud anchor>`](#roots) are aligned to
@@ -333,17 +335,17 @@ percentages; margins and insets also accept `"auto"`.
 
 Every window is built from a few primitives, which the [`industrial`](#industrial) components are made of:
 
-| primitive                                          | `raw` equivalent              | notes                                                                 |
-| -------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------- |
-| `<Window>`, `<Hud>`                                | `ui`, `hud`                   | roots                                                                 |
-| `<Box>`                                            | `box`                         | flexbox or grid; `frame` is [inline art](#inline-art)                 |
-| `<Text>` / `<Text bind>`                           | `text`                        | static text, or dynamic text bound by a `text` handle                 |
-| `<Image art>` / `<Image bind size>`                | `image`                       | art drawn at its own size, or a runtime sprite slot bound by a handle |
-| `<Switch bind><Case value>…</Case></Switch>`       | `switchOn(on, cases)`, `case` | `bind` is a value, selection, flag, or toggle handle, or a condition  |
-| `<Region onClick? tooltip? itemModel?>`            | `region`                      | slots that take clicks and show a hitbox item                         |
-| `<Items bind>`, `<Collection bind>`                | `items`, `collection`         | real item stacks                                                      |
-| `<Input bind>`                                     | `input`                       | the anvil's rename field                                              |
-| `<Section of="container" \| "player" \| "hotbar">` | `section(kind)`               | slot grids; see [Slot sections](#slot-sections)                       |
+| primitive                                          | `raw` equivalent              | notes                                                                   |
+| -------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------- |
+| `<Window>`, `<Hud>`                                | `ui`, `hud`                   | roots                                                                   |
+| `<Box>`                                            | `box`                         | flexbox or grid; `frame` is [inline art](#inline-art), `tint` colors it |
+| `<Text>` / `<Text bind>`                           | `text`                        | static text, or dynamic text bound by a `text` handle                   |
+| `<Image art>` / `<Image bind size>`                | `image`                       | art drawn at its own size, or a runtime sprite slot bound by a handle   |
+| `<Switch bind><Case value>…</Case></Switch>`       | `switchOn(on, cases)`, `case` | `bind` is a value, selection, flag, or toggle handle, or a condition    |
+| `<Region onClick? tooltip? itemModel?>`            | `region`                      | slots that take clicks and show a hitbox item                           |
+| `<Items bind>`, `<Collection bind>`                | `items`, `collection`         | real item stacks                                                        |
+| `<Input bind>`                                     | `input`                       | the anvil's rename field                                                |
+| `<Section of="container" \| "player" \| "hotbar">` | `section(kind)`               | slot grids; see [Slot sections](#slot-sections)                         |
 
 - A region without `width` and `height` fills its parent box and claims the slots the box covers; in a section it claims
   its `span`/`at` area. Its `onClick` is an `action`, `selection.set(value)`, `toggle`, or `builtin`; without one it
@@ -399,6 +401,8 @@ export const lamp = shape({ kind: "badge", fill: "#ffb20b", width: 8, height: 8 
   `stripe_color`, `stripe_shadow_color`, and `stripe_width`.
 - Art is named by a hash of its content, prefixed by its optional `name`: `art/industrial-button-3fa2c1`. Identical art
   is shared.
+- `tint` on a `<Box>` or `<Case>` with a `frame`, or on an `<Image>`, multiplies the art's colors by a color: a hex
+  color is baked into the art at build time, and a [`tint` handle](#tints) picks the color at runtime.
 
 ### Sprite catalog
 
@@ -704,6 +708,7 @@ export const title = text("title");
 | `selection(id, values, { initial? })` | `<Switch on>`, `Tabs bind`, `Choice bind`, `.is`, `.set` | `enum class Category`, `protected var category` and `onCategoryChanged` |
 | `text(id)`                            | `<Text bind>`                                            | `protected abstract fun title(): Component`                             |
 | `sprite(id, { only? })`               | `<Image bind>`                                           | `protected abstract fun iconSprite(): WindowSprite?`                    |
+| `tint(id, palette)`                   | `tint` of a box, case, or image; text `color`            | `enum class Tone` and `protected abstract fun tone(): Tone`             |
 | `items(id)`                           | `<Items bind>`                                           | `protected abstract fun stack(): ItemStack?`                            |
 | `collection(id, { selectable? })`     | `<Collection bind>`                                      | `protected abstract val products: WindowCollection<ItemStack>`          |
 | `action(id)`                          | `onClick` of a region or control                         | `protected abstract fun onBuy(click: Click)`                            |
@@ -748,6 +753,43 @@ export const entryName = text("entry_name", { shape: [6] });
 A repeater whose children are a function renders each cell, row-major, with its index. Its cells click into `onClick`,
 an action shaped `[cells]`, everywhere but the `itemSlot`, which shows the cell's `item` stack. Every indexed handle
 read inside its cells must have as many entries as the repeater has cells.
+
+### Tints
+
+`tint(id, palette)` names a fixed set of colors, and Kotlin picks which one is drawn. A `tint` prop colors art with it,
+and a text `color` takes it.
+
+```tsx
+import { text, tint } from "plugin:window/bind";
+
+export const tone = tint("tone", { ok: "#3ddc84", warn: "#ffb020", danger: "#ff4d4d" });
+
+<Box frame={art.pill} tint={tone} padding={3}>
+  <Text bind={text("time")} width={60} color={tone} />
+</Box>
+<Image art={art.icon} tint={tone} />
+```
+
+```kotlin
+override fun tone(): Tone = if (remaining > 3) Tone.OK else Tone.DANGER
+```
+
+- A tint multiplies: each pixel's red, green, and blue are scaled by the tint's, and alpha is kept. White art takes the
+  color exactly, grey art a darker shade of it, and black stays black, so author tinted art in white and greys. Art that
+  already has a hue is filtered by the tint rather than recolored.
+- The palette is fixed at build time: one to 64 entries, each a `#rrggbb` color named like a `value` handle's values.
+  Kotlin returns an entry of the generated enum, not a color, and the color changes on the next render.
+- `tint` goes on a `<Box>` or `<Case>` with a `frame`, on `<Image art>`, and on `<Image bind>`, which takes only a
+  handle. A hex `tint` on art is baked into its texture and costs nothing at runtime. A window, HUD, section, or
+  collection frame cannot be tinted; wrap or cover it with a tinted box instead.
+- Text takes a tint as its `color`, on bound and static text and in `text={{ color }}` defaults. It replaces the colors
+  inside a runtime text value in a shader-placed HUD, like any other color there.
+- Art tinted by a handle leaves the static art and becomes a layer of its own, drawn at its place in the
+  [draw order](#draw-order). Adjacent art of one tint shares a layer, and each layer is one more texture of its pane or
+  switch case.
+- In a shader-placed HUD each tinted art layer and each tinted text adds one entry per palette entry to the generated
+  shader's table, so a three-color tint on a frame and its text costs six. Menus and HUDs without a shader send the
+  palette color itself and cost nothing more.
 
 ## Raw API
 
@@ -836,15 +878,15 @@ is not enabled. Core shaders are intentionally opt-in; the fallback channel rema
 | constructor                 | required                                                                    | optional                                                                                                                                                 |
 | --------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ui(def)`, `hud(def)`       | `name`; `container` for a window                                            | `frame`, `bleed`, `style`, `theme`, `children`; a HUD's `channel`, `width`/`height`, `shader`                                                            |
-| `box(opts)`                 | none                                                                        | `x`, `y`, `frame`, `style`, `theme`, `children`; see [Box layout](#box-layout)                                                                           |
+| `box(opts)`                 | none                                                                        | `x`, `y`, `frame`, `tint`, `style`, `theme`, `children`; see [Box layout](#box-layout)                                                                   |
 | `text(content, opts)`       | text, or a `text` handle                                                    | `x`, `y`, `width`, `align`, `color`, `shadow`, `bold`, `italic`, `underlined`, `strikethrough`, `obfuscated`, `font`, `small_caps`; bound text also fits |
-| `image(art, opts)`          | inline art; or a `sprite` handle with `width` and `height`                  | `x`, `y`; with a handle `align` (`"left"`, `"center"`, `"right"`)                                                                                        |
+| `image(art, opts)`          | inline art; or a `sprite` handle with `width` and `height`                  | `x`, `y`, `tint`; with a handle `align` (`"left"`, `"center"`, `"right"`)                                                                                |
 | `region(opts)`              | none; fills its box, or set `width` and `height`                            | `on_click` (a click handle), `tooltip`, `item_model`                                                                                                     |
 | `items(handle, opts)`       | an `items` handle; outside a section or box `slots`, `pattern`, `transform` | none                                                                                                                                                     |
 | `collection(handle, opts)`  | a `collection` handle; outside a section `slots`, `pattern`, `transform`    | `frame`, `selected_sprite`, `action: false` for display-only collections                                                                                 |
 | `input(handle, opts)`       | an `anvil` window and an `input` handle                                     | `initial`, `item_model`                                                                                                                                  |
-| `switchOn(on, cases, opts)` | a handle or condition, and cases keyed by value or a list of `case(…)`      | `x`, `y`; each case takes `frame`, `style`, `children`; see [Conditionals](#conditionals)                                                                |
-| `case(value, opts)`         | the case value                                                              | `frame`, `style`, `theme`, `children`                                                                                                                    |
+| `switchOn(on, cases, opts)` | a handle or condition, and cases keyed by value or a list of `case(…)`      | `x`, `y`; each case takes `frame`, `tint`, `style`, `children`; see [Conditionals](#conditionals)                                                        |
+| `case(value, opts)`         | the case value                                                              | `frame`, `tint`, `style`, `theme`, `children`                                                                                                            |
 | `section(kind, opts)`       | `"container"`, `"player"`, or `"hotbar"`                                    | `frame`, `outset` (3 when `frame` is set), `claim`, `flow`, `children`; see [Slot sections](#slot-sections)                                              |
 
 Every constructor except `ui`, `hud`, `case`, `input`, and `section` also takes `layout`, its item layout inside a box,
@@ -880,8 +922,12 @@ raw.section("container", {
 ### Draw order
 
 Window draws the static chrome first, then every runtime layer in authored tree order: text, runtime sprite slots,
-switch case art, and collection selections. Later elements draw above earlier ones, so anything authored after a switch
-draws above its case art. Elements in a box draw in authored order whether they flow or set `x`/`y`.
+switch case art, art layers, and collection selections. Later elements draw above earlier ones, so anything authored
+after a switch draws above its case art. Elements in a box draw in authored order whether they flow or set `x`/`y`.
+
+Art with a [`tint` handle](#tints) is an art layer, so it draws above the static chrome and above the text and switches
+authored before it. Untinted art authored after it that overlaps it becomes an art layer too and draws above it; all
+other untinted art stays in the static chrome underneath. Inside a switch case the same holds within the case's art.
 
 `WindowView.list(...)` creates a `WindowList` that pages or scrolls a reactive list through a fixed number of cells and
 keeps its selection by key; its `items(...)` adapts it to a `collection` handle, and `canPrevious()`/`canNext()` back
@@ -1136,7 +1182,7 @@ additional iconography instead of relying on Minecraft's missing-glyph fallback.
 - Unknown fields, and fields that belong to a different element or pattern kind, are rejected by the compiler. This
   applies even when plain objects are passed directly through `raw.ui` or `raw.hud`. Frame and image fields take only
   art values; a string is rejected.
-- `color` is `#rrggbb`; default text color is `#404040`; `shadow` defaults to `false`.
+- `color` is `#rrggbb` or a [`tint` handle](#tints); default text color is `#404040`; `shadow` defaults to `false`.
 - Text `bold`, `italic`, `underlined`, `strikethrough`, and `obfuscated` default to `false`. Bold changes measured
   width; the other decorations are visual style only.
 - `font` draws text with a [text font](#text-fonts), and `small_caps: true` with the bundled small-caps font; setting
