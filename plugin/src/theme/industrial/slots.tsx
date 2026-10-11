@@ -56,8 +56,8 @@ export interface RepeaterProps extends ItemStyle, DebugProps {
     /** An action indexed by cell; a click calls it with the clicked cell's index. */
     onClick?: Indexed<Action, readonly [number]>;
     tooltip?: string | Tooltip | ((i: number) => string | Tooltip);
-    /** Whether hovering outlines a cell; see `<Region hover>`. */
-    hover?: boolean;
+    /** What hovering draws over a cell; see `<Region hover>`. */
+    hover?: boolean | ArtRef;
     /** Items indexed by cell, shown in each cell's `itemSlot`; clicks on it still call `onClick`. */
     item?: Indexed<ItemsHandle, readonly [number]>;
     /** One-based slot of the cell `item` fills; defaults to 1. */

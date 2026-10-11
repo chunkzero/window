@@ -88,6 +88,52 @@ pub(super) fn intern(table: &mut Art, art: &mut Option<ArtRefDto>, usage: ArtUse
     Ok(())
 }
 
+/// A region's `hover`: whether it gets the generated outline, or the art it draws instead.
+#[derive(Clone, Debug)]
+pub(super) enum HoverDto {
+    Outline(bool),
+    Art {
+        art: Option<ArtRefDto>,
+        /// Whether the art stretches over the region as a frame, rather than being drawn at its own size.
+        stretch: bool,
+    },
+}
+
+impl<'de> Deserialize<'de> for HoverDto {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error as _;
+        match serde_json::Value::deserialize(deserializer)? {
+            serde_json::Value::Bool(outline) => Ok(Self::Outline(outline)),
+            value => {
+                let ArtRefDto::Inline(inline) = serde_json::from_value(value)
+                    .map_err(|_| D::Error::custom("`hover` must be a boolean or an art value"))?
+                else {
+                    unreachable!("art values deserialize inline");
+                };
+                // Texture art has a size of its own unless it is nine-sliced; shape art only when it sets one.
+                let stretch = inline.def.contains_key("insets")
+                    || (inline.art == "shape"
+                        && !inline.def.contains_key("width")
+                        && !inline.def.contains_key("height"));
+                Ok(Self::Art { art: Some(ArtRefDto::Inline(inline)), stretch })
+            }
+        }
+    }
+}
+
+impl HoverDto {
+    /// Interns hover art into `table`, as a frame when it stretches and as an image otherwise.
+    pub(super) fn intern(&mut self, table: &mut Art) -> Result<()> {
+        match self {
+            Self::Outline(_) => Ok(()),
+            Self::Art { art, stretch } => intern(table, art, if *stretch { ArtUse::Frame } else { ArtUse::Image }),
+        }
+    }
+}
+
 fn intern_inline(table: &mut Art, inline: &InlineArtDto, usage: ArtUse) -> Result<String> {
     let def = inline.def(usage)?;
     let kind = if usage == ArtUse::Frame { "frame" } else { "sprite" };

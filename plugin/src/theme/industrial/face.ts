@@ -23,8 +23,8 @@ export interface FaceProps {
     /** Frame of the face; a state's `frame` replaces it. */
     frame?: ArtRef;
     tooltip?: string | Tooltip;
-    /** Whether hovering outlines the control where it takes clicks; see `<Region hover>`. */
-    hover?: boolean;
+    /** What hovering draws over the control where it takes clicks; see `<Region hover>`. */
+    hover?: boolean | ArtRef;
     itemModel?: string;
     /** Inset of the content from the face's edges. */
     padding?: number;

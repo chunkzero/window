@@ -65,8 +65,8 @@ window({
 - `namespace`: namespace of the generated assets. Defaults to `window`.
 - `coreShaders.hud`: emit the core text shaders that place [`<Hud anchor>`](#roots) HUDs. Opt-in, and sensitive to the
   client version.
-- `coreShaders.hover`: emit the core text shaders that draw [hover outlines](#hover-outlines). Opt-in, and sensitive to
-  the client version.
+- `coreShaders.hover`: emit the core text shaders that draw region [hovers](#hover). Opt-in, and sensitive to the client
+  version.
 - `experimental.anvilUpdates`: lets [anvil input windows](#native-anvil-search) change their title at runtime.
 - `size.report`: print a breakdown of the compiler's output after a successful build; see
   [What things cost](#what-things-cost).
@@ -388,32 +388,39 @@ A tab group built from primitives:
 
 A section cell spans its slots' 18x18 boxes, while a control's face covers their 16x16 interiors, hence the `padding`.
 
-### Hover outlines
+### Hover
 
-With the plugin option `coreShaders: { hover: true }`, the client draws a 1px white outline around a region's rectangle
-while the cursor is over one of its slots. Vanilla highlights only the single hovered slot, which
+With the plugin option `coreShaders: { hover: true }`, the client draws an outline or authored art over a region while
+the cursor is over one of its slots. Vanilla highlights only the single hovered slot, which
 `vanilla: { slotHighlight: false }` removes.
 
 ```tsx
-<Button onClick={buy} span={6}>Buy</Button> // outlined: it takes clicks
-<Button onClick={sort} span={3} hover={false}>Sort</Button> // never outlined
+<Button onClick={buy} span={6}>Buy</Button> // a 1px white outline: it takes clicks
+<Button onClick={sort} span={3} hover={false}>Sort</Button> // nothing
 <Hotspot tooltip="Balance" span={3} hover /> // outlined although it takes no clicks
+<Button onClick={close} hover={texture("ui/close_hover.png")}>X</Button> // this art, in its own colors
 ```
 
-- A region is outlined by default when it has an `onClick`. `hover` overrides that either way, on `<Region>` and on the
-  industrial controls built on one (`Button`, `Toggle`, `Choice`, `Tabs`, `Repeater`, `Hotspot`); a control passes it
-  only to the states that take clicks. Setting `hover` while `coreShaders.hover` is off is a build error.
-- The outline is drawn with the region's hitbox item, so an outlined region without a tooltip still fills its slots; its
+- A region draws the white outline of its rectangle by default when it has an `onClick`. `hover` overrides that on
+  `<Region>` and on the industrial controls built on one (`Button`, `Toggle`, `Choice`, `Tabs`, `Repeater`, `Hotspot`):
+  `true` for the outline, `false` for nothing, or [inline art](#inline-art). A control passes it only to the states that
+  take clicks. Setting `hover` while `coreShaders.hover` is off is a build error.
+- Hover art is drawn in its own colors and alpha, over everything else in the window. Art that stretches, which is a
+  texture with `insets` or a shape without `width` and `height`, covers the region's rectangle as a `frame` would. Other
+  art is drawn at its own size and centered on the region, so art 2px wider and taller than the region surrounds it by
+  1px; when the sizes differ by an odd amount the art sits the odd pixel toward the top-left. Art may extend past the
+  region and the window. Pixels under 10% alpha are not drawn, and a texture id from another pack cannot be hover art.
+- The hover is drawn with the region's hitbox item, so a region with a hover and no tooltip still fills its slots; its
   tooltip box is hidden. Slots where an `<Items>` or `<Collection>` shows a stack show that stack's tooltip and no
-  outline.
-- An outlined region is 4 to 256 px wide, at most 256 px tall, and starts within 128 px of the GUI's center; a region
-  outside those limits fails the build until its `hover` is `false`.
-- The outline's color and thickness are fixed, and [previews](#previews) do not draw it.
+  hover.
+- An outline or hover art is 4 to 256 px wide, at most 254 px tall, and starts within 128 px of the GUI's center; a
+  region outside those limits fails the build until its art is resized or its `hover` is `false`.
+- The outline's color and thickness are fixed; use art for anything else. [Previews](#previews) do not draw hovers.
 - It needs pack format 85 through 88 (Minecraft 26.2 is 88), shares `core/text` with `coreShaders.hud`, and like it
-  depends on the client version. Where the outline crosses the region's own tooltip it is cut out, using the tooltip
-  size the server measures; advanced tooltips (F3+H) add lines the server cannot see, so the outline may show through
-  them. A tooltip the server cannot measure exactly (such as a translatable component) or that is wider than 2047 px or
-  longer than 29 lines gets no cut-out, so the whole outline is drawn and may show through the tooltip.
+  depends on the client version. Where the hover crosses the region's own tooltip it is cut out, using the tooltip size
+  the server measures; advanced tooltips (F3+H) add lines the server cannot see, so the hover may show through them. A
+  tooltip the server cannot measure exactly (such as a translatable component) or that is wider than 2047 px or longer
+  than 29 lines gets no cut-out, so the whole hover is drawn and may show through the tooltip.
 
 ### Inline art
 

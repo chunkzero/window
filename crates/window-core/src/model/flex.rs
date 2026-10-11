@@ -68,12 +68,24 @@ pub struct Region {
     /// Fixed size; `None` fills the parent box.
     pub size: Option<Size>,
     pub tooltip: Option<Tooltip>,
-    /// Whether it is outlined while hovered; `None` outlines a region that takes clicks. Needs `coreShaders.hover`.
-    pub hover: Option<bool>,
+    /// What it draws while hovered; `None` outlines a region that takes clicks. Needs `coreShaders.hover`.
+    pub hover: Option<Hover>,
     /// Item model of the hitbox item filling its slots.
     pub item_model: Option<String>,
     /// Authored name shown in errors and as the region's diagnostic source.
     pub debug_name: Option<String>,
+}
+
+/// What a [`Region`] draws over itself while one of its slots is hovered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Hover {
+    None,
+    /// The generated 1px white outline of its rect.
+    Outline,
+    /// The named frame stretched over its rect.
+    Frame(String),
+    /// The named sprite at its own size, centered on its rect.
+    Image(String),
 }
 
 /// One case of a [`Switch`]: a box that fills the switch.

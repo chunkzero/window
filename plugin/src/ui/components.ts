@@ -138,10 +138,12 @@ export interface RegionProps extends ItemProps, DebugProps {
     onClick?: ClickAction;
     tooltip?: string | Tooltip;
     /**
-     * Whether hovering outlines the region. Only for packs with `coreShaders.hover`, where it defaults to whether
-     * the region has an `onClick`.
+     * What the region draws while one of its slots is hovered: `true` for a 1px white outline, `false` for nothing,
+     * or art drawn in its own colors. Art that stretches (a texture with `insets`, or a shape without a size) covers
+     * the region; other art is drawn at its own size, centered on the region. Only for packs with
+     * `coreShaders.hover`, where it defaults to whether the region has an `onClick`.
      */
-    hover?: boolean;
+    hover?: boolean | ArtRef;
     /** Item model of the hitbox item filling its slots. */
     itemModel?: string;
     width?: number;

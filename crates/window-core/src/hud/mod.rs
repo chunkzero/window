@@ -30,11 +30,12 @@ pub struct ShaderOutput {
     pub warnings: Vec<String>,
 }
 
-/// Color of the corner pixels of a hover outline glyph, by which the text shader finds hover glyphs.
+/// Color of the corner pixels of a hover glyph, by which the text shader finds hover glyphs.
 pub const HOVER_GLYPH_ID: Rgb = Rgb { r: 0x57, g: 0x48, b: 0x56 };
 
-/// Blue channel of the pixel beside each corner of a hover outline glyph, whose red and green hold the glyph's
-/// width and height minus one. A glyph is a hover glyph only with both this and [`HOVER_GLYPH_ID`].
+/// Blue channel of the pixel beside each corner of a hover glyph, whose red and green hold the width and height
+/// minus one of the art between the glyph's top and bottom rows. A glyph is a hover glyph only with both this and
+/// [`HOVER_GLYPH_ID`].
 pub const HOVER_SIZE_MARK: u8 = 0xa9;
 
 /// Emits core text shaders that relocate shader-placed HUDs, where `row_offsets` holds the rows each of `huds` is

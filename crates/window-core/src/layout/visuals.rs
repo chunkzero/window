@@ -2,8 +2,8 @@ use super::Solver;
 use super::target::LayoutTarget;
 use crate::Result;
 use crate::geometry::{Point, Rect, Size};
-use crate::ir::{Align, ArtIr, Draw, Layer, SlotIr, SpriteSlotIr, TextureKey};
-use crate::model::{Bar, Frame, SpriteDef, TextFit, TextStyle, Tint};
+use crate::ir::{Align, ArtIr, Draw, HoverIr, Layer, SlotIr, SpriteSlotIr, TextureKey};
+use crate::model::{Bar, Frame, Hover, SpriteDef, TextFit, TextStyle, Tint};
 use crate::pipeline::texture_source_path;
 
 impl<T: LayoutTarget> Solver<'_, T> {
@@ -67,14 +67,34 @@ impl<T: LayoutTarget> Solver<'_, T> {
         let def = self.sprite_def(name)?;
         let rect = Rect::from_parts(origin, self.sprite_size(name, def)?);
         self.warn_if_overflow(rect, &format!("image `{name}`"));
-        let draw = match def {
-            SpriteDef::Texture { texture, .. } => {
-                Draw::Sprite { texture: TextureKey(texture_source_path(texture)), dest: rect }
-            }
-            SpriteDef::Generated { style, .. } => Draw::Generated { style: style.clone(), dest: rect },
-        };
-        self.emit_draw(draw, tint);
+        self.emit_draw(sprite_draw(def, rect), tint);
         Ok(rect)
+    }
+
+    /// What `hover` draws over a region at `rect`. Art need not stay inside the pane: the client draws it over the
+    /// whole screen.
+    pub(super) fn hover_ir(&mut self, hover: &Hover, rect: Rect, referenced_by: &str) -> Result<HoverIr> {
+        Ok(match hover {
+            Hover::None => HoverIr::None,
+            Hover::Outline => HoverIr::Outline,
+            Hover::Frame(name) => {
+                let project = self.project;
+                let def = project
+                    .art
+                    .frames
+                    .get(name)
+                    .ok_or_else(|| self.target.layout_err(format!("unknown frame `{name}`")))?;
+                HoverIr::Art { name: name.clone(), draw: self.frame_def_draw(name, def, rect, referenced_by)? }
+            }
+            Hover::Image(name) => {
+                let def = self.sprite_def(name)?;
+                let size = self.sprite_size(name, def)?;
+                // An odd difference in size leaves the art half a pixel off center, toward the top-left.
+                let x = rect.x + (rect.width as i32 - size.width as i32).div_euclid(2);
+                let y = rect.y + (rect.height as i32 - size.height as i32).div_euclid(2);
+                HoverIr::Art { name: name.clone(), draw: sprite_draw(def, Rect::new(x, y, size.width, size.height)) }
+            }
+        })
     }
 
     /// Adds `draw` to the pane or switch case being emitted.
@@ -155,6 +175,11 @@ impl<T: LayoutTarget> Solver<'_, T> {
         let def =
             project.art.frames.get(frame).ok_or_else(|| self.target.layout_err(format!("unknown frame `{frame}`")))?;
         self.warn_if_overflow(dest, referenced_by);
+        self.frame_def_draw(frame, def, dest, referenced_by)
+    }
+
+    /// The frame `def`, named `frame`, stretched over `dest`, after checking the frame.
+    fn frame_def_draw(&self, frame: &str, def: &Frame, dest: Rect, referenced_by: &str) -> Result<Draw> {
         Ok(match def {
             Frame::Texture { texture, insets } => {
                 let tex_size = self.intrinsic_texture_size(texture, referenced_by)?;
@@ -167,6 +192,16 @@ impl<T: LayoutTarget> Solver<'_, T> {
             }
             Frame::Generated(style) => Draw::Generated { style: style.clone(), dest },
         })
+    }
+}
+
+/// The sprite `def` drawn whole at `rect`.
+fn sprite_draw(def: &SpriteDef, rect: Rect) -> Draw {
+    match def {
+        SpriteDef::Texture { texture, .. } => {
+            Draw::Sprite { texture: TextureKey(texture_source_path(texture)), dest: rect }
+        }
+        SpriteDef::Generated { style, .. } => Draw::Generated { style: style.clone(), dest: rect },
     }
 }
 

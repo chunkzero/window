@@ -81,7 +81,7 @@ fn clickable_regions_are_outlined_unless_they_opt_out() {
     assert_eq!(shaders, ["assets/minecraft/shaders/core/text.fsh", "assets/minecraft/shaders/core/text.vsh"]);
     let font = output.files.iter().find(|file| file.path == "assets/window/font/ui.json").unwrap();
     let font = String::from_utf8(font.contents.as_bytes().to_vec()).unwrap();
-    assert!(font.contains(r#""file":"window:font/hover/16x16.png","height":16,"type":"bitmap""#), "{font}");
+    assert!(font.contains(r#""file":"window:font/hover/16x16.png","height":18,"type":"bitmap""#), "{font}");
 
     let kotlin = generate_kotlin(&output.manifest, "demo", KotlinTarget::Agnostic).unwrap();
     let entries = kotlin.iter().find(|file| file.path == "WindowEntries.kt").unwrap();
@@ -113,7 +113,60 @@ fn hover_needs_its_core_shader_option_and_a_supported_pack_format() {
         { "type": "region", "on_click": click("thin"), "width": 3, "height": 16 }
     ] }]);
     let err = compile(narrow, json!({ "core_shaders": { "hover": true } }), 88).unwrap_err().to_string();
-    assert!(err.contains("region `thin` is 3x16 px, but a hover outline is 4 to 256 px wide"), "{err}");
+    assert!(err.contains("region `thin` has a 3x16 px hover outline, which must be 4 to 256 px wide"), "{err}");
+}
+
+#[test]
+fn hover_art_keeps_its_colors_and_is_stretched_or_centered_on_its_region() {
+    let shape = |fill: &str, size: Option<u32>| {
+        let mut shape = json!({ "art": "shape", "kind": "panel", "fill": fill, "border_width": 0, "radius": 0,
+            "inset_depth": 0 });
+        if let Some(size) = size {
+            shape.as_object_mut().unwrap().extend([("width".into(), json!(size)), ("height".into(), json!(size))]);
+        }
+        shape
+    };
+    let children = json!([
+        region(0, json!({ "on_click": click("frame"), "hover": shape("#ff0000", None) })),
+        region(1, json!({ "on_click": click("image"), "hover": shape("#00ff00", Some(19)) })),
+        region(2, json!({ "on_click": click("same"), "hover": shape("#00ff00", Some(19)) })),
+        region(3, json!({ "on_click": click("plain") })),
+    ]);
+    let output = compile(children, json!({ "core_shaders": { "hover": true } }), 88).unwrap();
+    window_core::validation::validate_compile_output(&output).assert_valid();
+    let regions = &output.manifest.windows["shop"].regions;
+    let hover = |name: &str| regions[name].hover.as_ref().unwrap();
+
+    // Art without a size of its own stretches over the region, so it starts where the region does.
+    assert_eq!((hover("frame").x, hover("frame").y), (-80, -66));
+    assert_ne!(hover("frame").text, hover("plain").text, "art of the outline's size is another glyph");
+    // The 19x19 image is centered on its 16x16 region, the odd pixel toward the top-left.
+    assert_eq!((hover("image").x, hover("image").y), (-64, -68));
+    let glyph = hover("image").text.chars().next().unwrap();
+    assert_eq!(hover("image").text, format!("{glyph}{}", spacers_for(-20)));
+    assert_eq!(hover("same").text, hover("image").text, "regions with the same art share its glyph");
+    assert_eq!(hover("same").x, -46);
+
+    let glyphs: Vec<&str> = paths(&output).into_iter().filter(|path| path.contains("/font/hover/")).collect();
+    let [outline, image, frame] = glyphs[..] else { panic!("expected three hover glyphs: {glyphs:?}") };
+    assert_eq!(outline, "assets/window/textures/font/hover/16x16.png");
+    assert!(image.starts_with("assets/window/textures/font/hover/art/") && image.ends_with("/19x19.png"), "{image}");
+    assert!(frame.starts_with("assets/window/textures/font/hover/art/") && frame.ends_with("/16x16.png"), "{frame}");
+
+    let file = output.files.iter().find(|file| file.path == frame).unwrap();
+    let texture = Texture::decode_png(file.contents.as_bytes()).unwrap();
+    assert_eq!((texture.width, texture.height), (16, 18), "the art sits between two data rows");
+    let pixel = |x: usize, y: usize| &texture.rgba[(y * 16 + x) * 4..][..4];
+    assert_eq!(pixel(0, 1), [0xff, 0, 0, 0xff]);
+    assert_eq!(pixel(15, 16), [0xff, 0, 0, 0xff]);
+    assert_eq!(pixel(1, 0), [15, 15, 0xa9, 0xff], "a data row holds the art's size minus one");
+    assert_eq!(pixel(8, 17)[3], 0);
+
+    let thin = json!([region(0, json!({ "on_click": click("thin"), "hover": shape("#ff0000", Some(3)) }))]);
+    let err = compile(thin, json!({ "core_shaders": { "hover": true } }), 88).unwrap_err().to_string();
+    assert!(err.contains("region `thin` has a 3x3 px hover art, which must be 4 to 256 px wide"), "{err}");
+    let err = compile(json!([region(0, json!({ "hover": "#ffffff" }))]), json!({}), 88).unwrap_err().to_string();
+    assert!(err.contains("`hover` must be a boolean or an art value"), "{err}");
 }
 
 #[test]

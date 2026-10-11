@@ -128,9 +128,11 @@ const setterCondition = Switch({ bind: category.set("all"), children: [] });
 const comparedClick = <Region onClick={category.is("all")} />;
 const quietRegion = <Region onClick={category.set("all")} hover={false} />;
 const quietButton = <Button onClick={action("buy")} hover={false} />;
-// @ts-expect-error `hover` is a boolean, not an outline style.
+const artRegion = <Region onClick={category.set("all")} hover={texture("ui/hover.png", { insets: 2 })} />;
+const artButton = <Button onClick={action("buy")} hover={shape({ kind: "panel", fill: "#ff0000" })} />;
+// @ts-expect-error `hover` is a boolean or art, not a color.
 const styledHover = <Region onClick={category.set("all")} hover="#ffffff" />;
-void [comparedSwitch, setterCondition, comparedClick, quietRegion, quietButton, styledHover];
+void [comparedSwitch, setterCondition, comparedClick, quietRegion, quietButton, artRegion, artButton, styledHover];
 
 const tone = tint("tone", { ok: "#3ddc84", warn: "#ffb020" });
 const tinted = (

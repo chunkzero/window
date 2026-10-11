@@ -197,7 +197,7 @@ fn compile_layouts(
     }
     let hover_keys = hover.then(|| hover::glyph_keys(&windows)).into_iter().flatten();
     let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites, hover_keys)?;
-    let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
+    let mut ctx = CompileContext::new(namespace, textures, runtime_sprites, text_fonts, codepoints);
     ctx.hover = hover;
     ctx.warnings.extend(field_warnings);
     let has_anvil_input = windows.iter().any(|w| !w.inputs.is_empty());
@@ -258,6 +258,7 @@ fn validate_namespace(namespace: &str) -> Result<()> {
 /// provider order.
 struct CompileContext<'a> {
     namespace: &'a str,
+    textures: &'a BTreeMap<String, Texture>,
     runtime_sprites: &'a BTreeMap<String, RuntimeSpriteAsset>,
     text_fonts: &'a TextFonts,
     codepoints: BTreeMap<String, u32>,
@@ -269,21 +270,23 @@ struct CompileContext<'a> {
     text_font_offsets: BTreeSet<(&'a str, i32)>,
     /// The catalog sprites each sprite font, by vertical offset, can show.
     sprite_fonts: BTreeMap<i32, BTreeSet<String>>,
-    /// `coreShaders.hover`: whether regions get hover outlines.
+    /// `coreShaders.hover`: whether regions draw hovers.
     hover: bool,
-    /// The hover outline glyphs emitted so far.
+    /// The hover glyphs emitted so far.
     hover_glyphs: BTreeSet<char>,
 }
 
 impl<'a> CompileContext<'a> {
     fn new(
         namespace: &'a str,
+        textures: &'a BTreeMap<String, Texture>,
         runtime_sprites: &'a BTreeMap<String, RuntimeSpriteAsset>,
         text_fonts: &'a TextFonts,
         codepoints: BTreeMap<String, u32>,
     ) -> Self {
         Self {
             namespace,
+            textures,
             runtime_sprites,
             text_fonts,
             codepoints,

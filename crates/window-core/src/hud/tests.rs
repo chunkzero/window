@@ -101,6 +101,7 @@ fn hover_outlines_join_the_define_variant_shaders_with_or_without_huds() {
     assert!(both.files[0].contents.contains("#endif\n#ifdef IS_GUI\n    window_hover_apply();\n#endif\n}"));
     assert!(both.files[1].contents.contains("if (windowHudTextureMode != 1) {"));
     assert!(both.files[1].contents.contains("if (windowHover == 1) {"));
+    assert!(!both.files[1].contents.contains("texColor.rgb ="), "a hover glyph keeps its texture's colors");
 
     // Without a shader-placed HUD there are no rule tables and no text background to relocate.
     let alone = emit(Some(88), &[], &[], true).unwrap();

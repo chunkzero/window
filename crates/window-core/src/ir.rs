@@ -411,6 +411,21 @@ pub struct SpriteSlotIr {
     pub source: Option<String>,
 }
 
+/// What a region draws over itself while one of its slots is hovered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum HoverIr {
+    None,
+    /// The generated 1px white outline of the region's rect.
+    Outline,
+    /// Authored art.
+    Art {
+        /// The art's interned name.
+        name: String,
+        /// The art at its place in GUI space, which may extend past the region.
+        draw: Draw,
+    },
+}
+
 /// An inventory region: slots it claims and fills with its hitbox item, and the action its clicks name.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RegionIr {
@@ -428,8 +443,8 @@ pub struct RegionIr {
     pub default_action: Option<String>,
     /// The hitbox item filling the region's slots; `None` leaves them empty.
     pub hitbox: Option<Hitbox>,
-    /// The authored `hover`: whether the region is outlined while hovered. `None` outlines a region with an action.
-    pub hover: Option<bool>,
+    /// The authored `hover`: what the region draws while hovered. `None` outlines a region with an action.
+    pub hover: Option<HoverIr>,
     /// The authored element this region comes from, such as ``region `buy` ``.
     pub source: String,
 }

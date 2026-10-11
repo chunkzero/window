@@ -53,7 +53,7 @@ public data class RegionEntry(
     @SerialName("default_action") val defaultAction: String? = null,
     /** The item filling [filledSlots]; `null` leaves them empty unless [hover] is set. */
     val hitbox: HitboxEntry? = null,
-    /** The outline drawn around the region while one of its [filledSlots] is hovered. */
+    /** The outline or art drawn over the region while one of its [filledSlots] is hovered. */
     val hover: HoverEntry? = null,
     /** The authored element this region comes from, such as ``region `buy` ``, for diagnostics. */
     val source: String? = null,
@@ -73,16 +73,16 @@ public data class HitboxEntry(
 )
 
 /**
- * A region's hover outline: what leads its hitbox item's tooltip title, which the pack's core text shader moves
- * onto the region.
+ * A region's hover, an outline or art: what leads its hitbox item's tooltip title, which the pack's core text
+ * shader moves onto the region.
  */
 @Serializable
 public data class HoverEntry(
-    /** The outline glyph and the spacers returning the cursor to its start, in the manifest's main font. */
+    /** The hover glyph and the spacers returning the cursor to its start, in the manifest's main font. */
     val text: String,
-    /** The region's left edge relative to the GUI center, in GUI pixels, within `-128..127`. */
+    /** The left edge of what is drawn relative to the GUI center, in GUI pixels, within `-128..127`. */
     val x: Int,
-    /** The region's top edge relative to the GUI center, in GUI pixels, within `-128..127`. */
+    /** The top edge of what is drawn relative to the GUI center, in GUI pixels, within `-128..127`. */
     val y: Int,
 )
 

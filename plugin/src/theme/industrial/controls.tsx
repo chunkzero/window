@@ -228,8 +228,8 @@ export function Tabs<V extends string>(props: TabsProps<V>): Element[] {
 
 export interface HotspotProps extends ItemStyle, DebugProps {
     tooltip: string | Tooltip;
-    /** Whether hovering outlines its slots; see `<Region hover>`. */
-    hover?: boolean;
+    /** What hovering draws over its slots; see `<Region hover>`. */
+    hover?: boolean | ArtRef;
     itemModel?: string;
 }
 
