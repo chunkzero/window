@@ -1,7 +1,7 @@
 use super::*;
 use crate::authoring::CoreShaders;
 use crate::font::MAX_TEXT_ROW;
-use crate::ir::{HudChannel, HudShader, SwitchCaseIr, SwitchIr};
+use crate::ir::{ArtIr, HudChannel, HudShader, Layer, SwitchCaseIr, SwitchIr};
 
 const SHADER: HudShader = HudShader {
     source_bottom: 59,
@@ -135,4 +135,21 @@ fn row_offsets_stay_within_the_font_limits() {
 
     let offset = out.manifest.huds["b"].shader.as_ref().unwrap().row_offset;
     assert!((-1..=MAX_TEXT_ROW - 100).contains(&offset), "{offset}");
+}
+
+#[test]
+fn an_art_layer_bounds_the_row_offset_like_static_art() {
+    // Sharing `a`'s rows would bake `b` 300 rows higher, padding its art layer's glyph past an atlas page; no offset
+    // the art layer allows shares a row, so `b` stays put.
+    let mut tinted = hud("b", Some(SHADER), &[300, 310], 0);
+    let frame = Draw::NineSlice {
+        texture: TextureKey("frame.png".into()),
+        insets: Insets::uniform(1),
+        dest: Rect::new(0, 0, 80, 20),
+    };
+    tinted.art = vec![ArtIr { name: "art/0".into(), draws: vec![frame], tint: None }];
+    tinted.layers = vec![Layer::Art("art/0".into())];
+    let out = compile_huds(&[hud("a", Some(SHADER), &[0, 10], 0), tinted], true).expect("the art layer fits a page");
+
+    assert_eq!(out.manifest.huds["b"].shader.as_ref().unwrap().row_offset, 0);
 }

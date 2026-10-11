@@ -171,3 +171,13 @@ fn invalid_tints_are_rejected_with_the_cause() {
     let section = json!({ "type": "section", "section": "container", "tint": tone() });
     assert!(error(json!([section])).contains("section element does not accept field `tint`"));
 }
+
+#[test]
+fn an_art_layer_larger_than_a_font_atlas_page_is_rejected_like_static_art() {
+    let mut pill = tinted(0, "#ffffff", tone());
+    pill["style"] = json!({ "width": 8, "height": 300 });
+    let hud = json!({ "name": "tall", "width": 8, "height": 320, "children": [pill] });
+    let error = compile(&json!({ "huds": [hud] })).expect_err("the art layer is one glyph").to_string();
+
+    assert!(error.contains("HUD `tall`: art `hud_tall_art/0` bakes into one 8x300 px font glyph"), "{error}");
+}
