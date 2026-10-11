@@ -1,4 +1,4 @@
-//! Switch cases: each case's art baked as its own net-zero static segment.
+//! Switch cases and art layers: the art of each baked as its own net-zero static segment.
 
 use std::collections::BTreeMap;
 
@@ -6,12 +6,12 @@ use crate::Result;
 use crate::bake;
 use crate::compose::Composite;
 use crate::geometry::Point;
-use crate::ir::SwitchIr;
-use crate::manifest::{SwitchCaseEntry, SwitchEntry};
+use crate::ir::{ArtIr, SwitchIr};
+use crate::manifest::{ArtEntry, SwitchCaseEntry, SwitchEntry};
 use crate::size::{Pane, Part};
 
 use super::CompileContext;
-use super::glyphs::case_key;
+use super::glyphs::{art_key, case_key};
 
 impl CompileContext<'_> {
     /// Bakes every case of `switches` net-zero from `origin`, where `cases` holds the composites indexed
@@ -47,10 +47,35 @@ impl CompileContext<'_> {
                     switches: case.switches.clone(),
                     items: case.items.clone(),
                     collections: case.collections.clone(),
+                    art: case.art.clone(),
                 });
             }
             let entry = SwitchEntry { source: switch.source.clone(), cases: out };
             entries.insert(switch.name.clone(), entry);
+        }
+        Ok(entries)
+    }
+
+    /// Bakes every art layer of `art` net-zero from `origin`, where `comps` holds their composites in the same
+    /// order. `key_prefix` and `file_base` name the owning surface's glyph keys and textures.
+    pub(super) fn art_entries(
+        &mut self,
+        pane: Pane<'_>,
+        key_prefix: &str,
+        file_base: &str,
+        art: &[ArtIr],
+        comps: &[Composite],
+        origin: Point,
+    ) -> Result<BTreeMap<String, ArtEntry>> {
+        let mut entries = BTreeMap::new();
+        for (art, comp) in art.iter().zip(comps) {
+            let ascent = origin.y + 7 - comp.bounds.y;
+            let file = format!("{file_base}_{}", art.name);
+            let key = art_key(key_prefix, &art.name);
+            let glyph = self.emit_static_glyph(comp, ascent, pane, &file, key, Part::art_layer(pane))?;
+            let static_text = bake::bake_static_with_advance(glyph.glyph, &comp.bounds, origin, glyph.advance);
+            let entry = ArtEntry { static_text, tint: art.tint.clone(), tint_markers: BTreeMap::new() };
+            entries.insert(art.name.clone(), entry);
         }
         Ok(entries)
     }

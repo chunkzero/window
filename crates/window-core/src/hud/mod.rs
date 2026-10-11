@@ -14,7 +14,7 @@ mod rule;
 #[cfg(test)]
 mod tests;
 
-pub use markers::{SegmentMarkers, segment_markers};
+pub use markers::{SegmentMarkers, TintedSegment, segment_markers, tinted_segments};
 use profile::ShaderProfile;
 use rule::{HudShaderRule, rules};
 

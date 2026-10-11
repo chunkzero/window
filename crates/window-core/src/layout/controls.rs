@@ -37,7 +37,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         if let Some(frame) = frame {
             for slot in &slots {
                 let rect = self.slot_rect(name, *slot)?.slot_box();
-                self.emit_frame(frame, rect, &format!("collection `{name}` frame"))?;
+                self.emit_frame(frame, rect, None, &format!("collection `{name}` frame"))?;
             }
         }
         if selected_sprite.is_some() {

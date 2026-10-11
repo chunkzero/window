@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use crate::authoring::{Replacement, VanillaAnvil};
 use crate::compose::{Composite, Texture};
 use crate::geometry::{Rect, Size};
-use crate::ir::LaidOutWindow;
+use crate::ir::{HandleKind, LaidOutWindow};
 use crate::surface::ContainerKind;
 use crate::{Error, Result};
 
@@ -112,12 +112,15 @@ pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut 
                 || !case.slots.is_empty()
                 || !case.sprite_slots.is_empty()
                 || !case.switches.is_empty()
+                || !case.art.is_empty()
         })
     });
+    let tints = w.handles.iter().filter(|(_, handle)| handle.kind == HandleKind::Tint).map(|(id, _)| id);
     let updates = slots
         .chain(sprites)
         .chain(collections.map(|collection| &collection.name))
-        .chain(drawing.map(|switch| &switch.name));
+        .chain(drawing.map(|switch| &switch.name))
+        .chain(tints);
     for name in updates {
         if !experimental {
             return Err(Error::Validation(format!(
@@ -135,7 +138,7 @@ pub(super) fn check_title(w: &LaidOutWindow, experimental: bool, warnings: &mut 
     Ok(())
 }
 
-/// Clears the text field from `w`'s static and switch case art when it has an anvil input, and warns
+/// Clears the text field from `w`'s static, switch case, and art layer art when it has an anvil input, and warns
 /// about slots that would still draw over the native rename box.
 pub(super) fn open_field(w: &LaidOutWindow, layers: &mut Layers, warnings: &mut Vec<String>) {
     if w.inputs.is_empty() {
@@ -149,7 +152,7 @@ pub(super) fn open_field(w: &LaidOutWindow, layers: &mut Layers, warnings: &mut 
         }
     }
     clear_field(&mut layers.base);
-    layers.cases.iter_mut().flatten().for_each(clear_field);
+    layers.cases.iter_mut().flatten().chain(&mut layers.art).for_each(clear_field);
 }
 
 fn clear_field(comp: &mut Composite) {

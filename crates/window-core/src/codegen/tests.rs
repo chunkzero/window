@@ -36,6 +36,8 @@ fn window(container: &str, size: [u32; 2], title_origin: [i32; 2]) -> WindowEntr
         collections: BTreeMap::new(),
         inputs: BTreeMap::new(),
         switches: BTreeMap::new(),
+        art: BTreeMap::new(),
+        tints: BTreeMap::new(),
         layers: Vec::new(),
         handles: BTreeMap::new(),
     }
@@ -51,6 +53,8 @@ fn slot(x: i32, y: i32, width: u32, align: Align, font: &str, color: &str, text:
         color: color.into(),
         shader_marker: None,
         shader_color: None,
+        tint: None,
+        tint_markers: BTreeMap::new(),
         shadow: false,
         bold: false,
         italic: false,
@@ -89,6 +93,7 @@ fn handle(kind: HandleKind, uses: &[(HandleRole, &str)]) -> Handle {
     Handle {
         kind,
         values: Vec::new(),
+        colors: Vec::new(),
         shape: Vec::new(),
         initial: None,
         selectable: false,
@@ -131,6 +136,7 @@ fn shop_window() -> WindowEntry {
         font: "window:sprite_y11".into(),
         sprite: Some("slot_selected".into()),
         only: Vec::new(),
+        tint: None,
         source: None,
     };
     shop.collections = BTreeMap::from([(
@@ -188,6 +194,8 @@ fn status_hud() -> HudEntry {
         slots: BTreeMap::from([("coins".into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
         shader: None,
         switches: BTreeMap::new(),
+        art: BTreeMap::new(),
+        tints: BTreeMap::new(),
         layers: Vec::new(),
         handles: BTreeMap::from([("coins".into(), handle(HandleKind::Text, &[(HandleRole::Slot, "coins")]))]),
     }
@@ -321,6 +329,7 @@ fn sprite_slots_return_typed_runtime_sprites() {
             font: "window:sprite_y0".into(),
             sprite: None,
             only: vec!["card_empty".into()],
+            tint: None,
             source: None,
         },
     )]);
@@ -378,6 +387,8 @@ fn hud_lifecycle_members_are_reserved() {
         slots: BTreeMap::from([("on_show".into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
         shader: None,
         switches: BTreeMap::new(),
+        art: BTreeMap::new(),
+        tints: BTreeMap::new(),
         layers: Vec::new(),
         handles: BTreeMap::from([("on_show".into(), handle(HandleKind::Text, &[(HandleRole::Slot, "on_show")]))]),
     };
@@ -396,6 +407,8 @@ fn hud_slots_cannot_shadow_hud_view_members() {
             slots: BTreeMap::from([(name.into(), slot(0, 0, 80, Align::Left, "window:y0", "#ffffff", None))]),
             shader: None,
             switches: BTreeMap::new(),
+            art: BTreeMap::new(),
+            tints: BTreeMap::new(),
             layers: Vec::new(),
             handles: BTreeMap::from([(name.into(), handle(HandleKind::Text, &[(HandleRole::Slot, name)]))]),
         };

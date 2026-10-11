@@ -24,7 +24,7 @@ use crate::Result;
 use crate::authoring::ParsedProject;
 use crate::geometry::{Insets, Point, Rect, Size};
 use crate::ir::{
-    AnvilInputIr, CollectionIr, Draw, ItemIr, LaidOutHud, LaidOutWindow, Layer, RegionIr, SlotIr, SpriteSlotIr,
+    AnvilInputIr, ArtIr, CollectionIr, Draw, ItemIr, LaidOutHud, LaidOutWindow, Layer, RegionIr, SlotIr, SpriteSlotIr,
     SwitchIr,
 };
 use crate::model::{Element, Hud, TextStyle, Window};
@@ -89,10 +89,10 @@ fn solve_window(
     };
     let mut solver = Solver::new(project, texture_size, fonts, target);
     if let Some(frame) = &window.frame {
-        solver.emit_frame(frame, expanded(gui_rect, window.bleed), &format!("window frame `{frame}`"))?;
+        solver.emit_frame(frame, expanded(gui_rect, window.bleed), None, &format!("window frame `{frame}`"))?;
     }
     solver.place_children(&window.children, gui_rect)?;
-    let Solved { draws, slots, sprite_slots, regions, items, collections, inputs, switches, layers, warnings } =
+    let Solved { draws, slots, sprite_slots, regions, items, collections, inputs, switches, art, layers, warnings } =
         solver.finish();
 
     Ok(LaidOutWindow {
@@ -106,6 +106,7 @@ fn solve_window(
         collections,
         inputs,
         switches,
+        art,
         layers,
         handles: window.handles.clone(),
         warnings,
@@ -131,10 +132,10 @@ fn solve_hud(
     solver.target = target(size);
     let rect = Rect::from_parts(Point::new(0, 0), size);
     if let Some(frame) = &hud.frame {
-        solver.emit_frame(frame, expanded(rect, hud.bleed), &format!("hud frame `{frame}`"))?;
+        solver.emit_frame(frame, expanded(rect, hud.bleed), None, &format!("hud frame `{frame}`"))?;
     }
     solver.place_children(&hud.children, rect)?;
-    let Solved { draws, slots, switches, layers, warnings, .. } = solver.finish();
+    let Solved { draws, slots, switches, art, layers, warnings, .. } = solver.finish();
 
     Ok(LaidOutHud {
         name: hud.name.clone(),
@@ -145,6 +146,7 @@ fn solve_hud(
         draws,
         slots,
         switches,
+        art,
         layers,
         handles: hud.handles.clone(),
         warnings,
@@ -200,8 +202,20 @@ struct Solved {
     collections: Vec<CollectionIr>,
     inputs: Vec<AnvilInputIr>,
     switches: Vec<SwitchIr>,
+    art: Vec<ArtIr>,
     layers: Vec<Layer>,
     warnings: Vec<String>,
+}
+
+/// The art layers of the pane or switch case being emitted.
+#[derive(Default)]
+struct ArtRun {
+    /// The art layer of the last tinted draw.
+    tinted: Option<usize>,
+    /// The art layer collecting the untinted draws that cover art layers, since the last tinted draw.
+    untinted: Option<usize>,
+    /// The rects drawn by art layers so far. Untinted art clear of them stays in the composite underneath.
+    covered: Vec<Rect>,
 }
 
 struct Solver<'a, T> {
@@ -217,6 +231,8 @@ struct Solver<'a, T> {
     collections: Vec<CollectionIr>,
     inputs: Vec<AnvilInputIr>,
     switches: Vec<SwitchIr>,
+    art: Vec<ArtIr>,
+    art_run: ArtRun,
     layers: Vec<Layer>,
     warnings: Vec<String>,
     next_label: usize,
@@ -246,6 +262,8 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             collections: Vec::new(),
             inputs: Vec::new(),
             switches: Vec::new(),
+            art: Vec::new(),
+            art_run: ArtRun::default(),
             layers: Vec::new(),
             warnings: Vec::new(),
             next_label: 0,
@@ -281,6 +299,7 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             collections: self.collections,
             inputs: self.inputs,
             switches: self.switches,
+            art: self.art,
             layers: self.layers,
             warnings: self.warnings,
         }
@@ -348,9 +367,9 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
             Element::AnvilInput { name, initial, item_model, .. } => {
                 self.place_anvil_input(name, initial, item_model.as_deref())
             }
-            Element::Sprite { name, .. } => Ok(self.emit_sprite(name, origin)?.size()),
-            Element::SpriteSlot { name, size, align, .. } => {
-                self.place_sprite_slot(name, Rect::from_parts(origin, *size), *align)
+            Element::Sprite { name, tint, .. } => Ok(self.emit_sprite(name, origin, tint.as_ref())?.size()),
+            Element::SpriteSlot { name, size, align, tint, .. } => {
+                self.place_sprite_slot(name, Rect::from_parts(origin, *size), *align, tint.clone())
             }
             Element::Label { text, width, style, .. } => self.place_label(text, *width, style, origin),
             Element::Slot { name, width, style, fit, .. } => self.place_slot(name, *width, style, *fit, origin),

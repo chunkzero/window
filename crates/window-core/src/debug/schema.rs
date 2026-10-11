@@ -136,7 +136,7 @@ pub struct DebugSurface {
 pub struct DebugLayer {
     /// Stable semantic id (`static`, `case:<switch>/<value>`, `text:<slot>`, `sprite:<slot>`).
     pub id: String,
-    /// Layer kind (`static_chrome`, `case_chrome`, `text_slot`, or `sprite_slot`).
+    /// Layer kind (`static_chrome`, `case_chrome`, `art_chrome`, `text_slot`, or `sprite_slot`).
     pub kind: String,
     /// Expected/reserved GUI-space bounds `[x, y, width, height]`.
     pub bounds: [i32; 4],

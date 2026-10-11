@@ -15,7 +15,7 @@ pub(super) struct HandleMember {
     pub(super) handle: Handle,
     /// The function, property, or handler the handle declares; empty for a runtime action.
     pub(super) member: String,
-    /// The generated enum of a value or selection handle.
+    /// The generated enum of a value, selection, or tint handle.
     pub(super) enum_name: Option<String>,
     /// The generated enum of a sprite handle narrowed with `only`.
     pub(super) sprite_enum: Option<String>,
@@ -88,7 +88,8 @@ impl HandleMember {
                 claim(&accessor, format!("{kind} `{id}` property accessor"))?;
             }
         }
-        let enum_name = matches!(handle.kind, HandleKind::Value | HandleKind::Selection).then(|| naming::type_name(id));
+        let enum_name = matches!(handle.kind, HandleKind::Value | HandleKind::Selection | HandleKind::Tint)
+            .then(|| naming::type_name(id));
         if let Some(name) = &enum_name {
             claim(name, format!("{kind} `{id}` enum"))?;
         }
@@ -204,6 +205,11 @@ impl HandleMember {
                 w.line(format_args!("protected open fun {hook}(value: {ty}) {{}}"));
                 w.blank();
             }
+            HandleKind::Tint => abstract_fun(
+                w,
+                format!("The palette entry the `{id}` tint draws in."),
+                format!("{member}(): {enum_name}"),
+            ),
             HandleKind::Builtin => {}
         }
     }
@@ -324,6 +330,7 @@ fn bind_use(w: &mut KotlinWriter, handle: &HandleMember, use_: &HandleUse, args:
             };
             w.line(format_args!("switch({entry}) {{ {value} }}"));
         }
+        HandleRole::Tint => w.line(format_args!("tint({entry}) {{ {member}().value }}")),
         // A runtime action cannot be bound; the runtime runs it.
         HandleRole::Click if handle.handle.kind == HandleKind::Builtin => {}
         HandleRole::Click => Handler::of(handle, use_, args).call(w, &format!("button({entry}")),

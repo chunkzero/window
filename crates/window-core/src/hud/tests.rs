@@ -2,10 +2,11 @@ use std::collections::BTreeSet;
 
 use super::markers::marker_color;
 use super::profile::ShaderProfile;
-use super::{emit, renderer, segment_markers};
+use super::rule::{HudShaderSegment, HudShaderTexture, rules};
+use super::{TintedSegment, emit, renderer, segment_markers};
 
 use crate::geometry::Rect;
-use crate::ir::{Align, HudChannel, HudShader, LaidOutHud, Rgb, SlotIr};
+use crate::ir::{Align, ArtIr, Handle, HandleKind, HudChannel, HudShader, LaidOutHud, Rgb, SlotIr};
 
 fn shader_hud(name: &str, slot_name: &str) -> LaidOutHud {
     LaidOutHud {
@@ -37,9 +38,11 @@ fn shader_hud(name: &str, slot_name: &str) -> LaidOutHud {
             obfuscated: false,
             font: None,
             fit: Default::default(),
+            tint: None,
             source: None,
         }],
         switches: Vec::new(),
+        art: Vec::new(),
         layers: Vec::new(),
         handles: Default::default(),
         warnings: Vec::new(),
@@ -110,6 +113,41 @@ fn segment_markers_are_green_zero_unique_and_stable() {
     assert!(colors.iter().all(|color| color.g == 0));
     assert!(ids.iter().all(|&id| id != 0));
     assert_eq!(ids.len(), colors.len());
+}
+
+#[test]
+fn tinted_segments_get_a_marker_per_palette_entry_drawn_in_its_color() {
+    let mut hud = shader_hud("status", "coins");
+    hud.slots[0].tint = Some("tone".into());
+    hud.art.push(ArtIr { name: "art/0".into(), draws: Vec::new(), tint: Some("tone".into()) });
+    let tone = Handle {
+        kind: HandleKind::Tint,
+        values: vec!["ok".into(), "warn".into()],
+        colors: vec!["#3ddc84".into(), "#ffb020".into()],
+        shape: Vec::new(),
+        initial: None,
+        selectable: false,
+        only: Vec::new(),
+        uses: Vec::new(),
+    };
+    hud.handles.insert("tone".into(), tone);
+    let markers = segment_markers(&[&hud]);
+    let segments = &rules(&[&hud], &[0], &markers)[0].segments;
+
+    // The static segment, the slot's own marker, and one marker per palette entry of the art and of the slot.
+    assert_eq!(segments.len(), 6);
+    assert_eq!(segments.iter().map(|segment| segment.marker).collect::<BTreeSet<_>>().len(), 6);
+    let palette = [("ok", Rgb::new(0x3d, 0xdc, 0x84)), ("warn", Rgb::new(0xff, 0xb0, 0x20))];
+    let tinted = [
+        (TintedSegment::Art("art/0"), HudShaderTexture::Rgba),
+        (TintedSegment::Slot("coins"), HudShaderTexture::Intensity),
+    ];
+    for (segment, texture) in tinted {
+        for (value, display) in palette {
+            let marker = markers.tint_marker("status", &segment, value);
+            assert!(segments.contains(&HudShaderSegment { marker, display, texture }), "{segment:?} {value}");
+        }
+    }
 }
 
 #[test]

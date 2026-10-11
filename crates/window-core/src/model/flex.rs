@@ -4,7 +4,7 @@ use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
 use crate::ir::Tooltip;
 
-use super::Element;
+use super::{Element, Tint};
 
 /// A flexbox or grid box. Its children are sized and positioned by taffy.
 ///
@@ -16,6 +16,8 @@ pub struct FlexBox {
     pub pos: Option<Point>,
     /// Frame drawn over the box's border rect before its children.
     pub frame: Option<String>,
+    /// The color the frame is multiplied by.
+    pub tint: Option<Tint>,
     /// Container style, including the box's own size.
     pub style: taffy::Style,
     pub children: Vec<LayoutChild>,

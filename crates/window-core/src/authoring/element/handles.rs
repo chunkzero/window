@@ -4,8 +4,11 @@ use serde::Deserialize;
 
 use super::ElementDto;
 use crate::authoring::parse::{sprite_key, validate_name};
-use crate::ir::{CLOSE_ACTION, Handle, HandleKind, HandleRole, HandleUse, indexed_entry};
+use crate::ir::{CLOSE_ACTION, Handle, HandleKind, HandleRole, HandleUse, Rgb, indexed_entry};
 use crate::{Error, Result};
+
+/// Most palette entries a tint may declare.
+const MAX_TINT_COLORS: usize = 64;
 
 /// A typed handle as an element references it: the declaration plus how this element reads it.
 #[derive(Clone, Debug, Deserialize)]
@@ -15,6 +18,8 @@ pub(in crate::authoring) struct HandleRefDto {
     id: String,
     #[serde(default)]
     values: Vec<String>,
+    #[serde(default)]
+    colors: Vec<String>,
     #[serde(default)]
     shape: Vec<u32>,
     initial: Option<serde_json::Value>,
@@ -26,6 +31,25 @@ pub(in crate::authoring) struct HandleRefDto {
     at: Vec<u32>,
     is: Option<String>,
     set: Option<String>,
+}
+
+impl HandleRefDto {
+    pub(super) fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// The first color of a tint's palette.
+    pub(super) fn first_color(&self) -> Option<Rgb> {
+        self.colors.first().and_then(|color| Rgb::parse_hex(color))
+    }
+}
+
+/// A color field: a literal `#rrggbb`, or a tint handle supplying the color at runtime.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+pub(in crate::authoring) enum ColorDto {
+    Hex(String),
+    Tint(Box<HandleRefDto>),
 }
 
 /// Collects the handles `children` use, naming each using element after the handle it reads.
@@ -67,6 +91,11 @@ impl Collector<'_> {
         }
         if let Some(click) = dto.on_click.clone() {
             self.click(dto, &click)?;
+        }
+        for color in [&dto.color, &dto.tint] {
+            if let Some(ColorDto::Tint(tint)) = color {
+                self.tint(tint)?;
+            }
         }
         for child in &mut dto.children {
             self.visit(child)?;
@@ -117,6 +146,16 @@ impl Collector<'_> {
         Ok(())
     }
 
+    /// Records the surface's use of a tint; every element it colors shares the one use.
+    fn tint(&mut self, tint: &HandleRefDto) -> Result<()> {
+        self.declare(tint, HandleRole::Tint)?;
+        let uses = &self.handles[&tint.id].uses;
+        if uses.is_empty() {
+            self.record(tint, HandleRole::Tint, tint.id.clone(), None);
+        }
+        Ok(())
+    }
+
     /// Validates `handle` for `role` and merges its declaration into this surface's handles.
     fn declare(&mut self, handle: &HandleRefDto, role: HandleRole) -> Result<HandleKind> {
         let id = &handle.id;
@@ -135,7 +174,27 @@ impl Collector<'_> {
         if self.hud && matches!(kind, HandleKind::Toggle | HandleKind::Selection) {
             return Err(self.err(format!("{} `{id}` is window state; HUDs read flags and values", kind.id())));
         }
-        let enumerated = matches!(kind, HandleKind::Value | HandleKind::Selection);
+        let enumerated = matches!(kind, HandleKind::Value | HandleKind::Selection | HandleKind::Tint);
+        if kind == HandleKind::Tint {
+            if handle.colors.len() != handle.values.len() {
+                return Err(self.err(format!("tint `{id}` requires one color per palette entry")));
+            }
+            if handle.values.len() > MAX_TINT_COLORS {
+                return Err(self.err(format!(
+                    "tint `{id}` has {} palette entries; a tint takes at most {MAX_TINT_COLORS}",
+                    handle.values.len()
+                )));
+            }
+            for (name, color) in handle.values.iter().zip(&handle.colors) {
+                if Rgb::parse_hex(color).is_none() {
+                    return Err(
+                        self.err(format!("tint `{id}` entry `{name}` has invalid color `{color}`; expected #rrggbb"))
+                    );
+                }
+            }
+        } else if !handle.colors.is_empty() {
+            return Err(self.err(format!("{} `{id}` does not take colors", kind.id())));
+        }
         if enumerated {
             if handle.values.is_empty() {
                 return Err(self.err(format!("{} `{id}` requires at least one value", kind.id())));
@@ -208,7 +267,7 @@ impl Collector<'_> {
         };
         check_value(&handle.is, "is")?;
         check_value(&handle.set, "set")?;
-        if handle.is.is_some() && !(role == HandleRole::Switch && enumerated) {
+        if handle.is.is_some() && role != HandleRole::Switch {
             return Err(self.err(format!("`{id}.is()` is a condition for a switch")));
         }
         if (handle.set.is_some()) != (role == HandleRole::Click && kind == HandleKind::Selection) {
@@ -217,6 +276,7 @@ impl Collector<'_> {
         let declared = Handle {
             kind,
             values: handle.values.clone(),
+            colors: handle.colors.clone(),
             shape: handle.shape.clone(),
             initial,
             selectable: handle.selectable,
@@ -296,6 +356,7 @@ fn parse_kind(kind: &str) -> Option<HandleKind> {
         "action" => HandleKind::Action,
         "input" => HandleKind::Input,
         "builtin" => HandleKind::Builtin,
+        "tint" => HandleKind::Tint,
         _ => return None,
     })
 }
@@ -310,6 +371,7 @@ fn role_accepts(role: HandleRole, kind: HandleKind) -> bool {
         HandleRole::Input => kind == K::Input,
         HandleRole::Switch => matches!(kind, K::Flag | K::Toggle | K::Value | K::Selection),
         HandleRole::Click => matches!(kind, K::Action | K::Builtin | K::Selection | K::Toggle),
+        HandleRole::Tint => kind == K::Tint,
     }
 }
 
@@ -322,5 +384,6 @@ fn role_noun(role: HandleRole) -> &'static str {
         HandleRole::Input => "an anvil input",
         HandleRole::Switch => "a switch or show condition",
         HandleRole::Click => "a click",
+        HandleRole::Tint => "a tint",
     }
 }

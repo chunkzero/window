@@ -3,15 +3,14 @@
 
 use std::collections::BTreeMap;
 
-use crate::ir::Layer;
-use crate::manifest::{HudEntry, Manifest, SlotEntry, SwitchEntry, WindowEntry};
+use crate::manifest::{ArtEntry, HudEntry, Manifest, SlotEntry, WindowEntry};
 use crate::pipeline::OutputFile;
 use crate::{Error, Result};
 
 use super::entries::{
-    anvil_input_entry_expr, collection_entry_expr, hud_surface_entry_expr, item_entry_expr, layers_expr,
-    optional_hud_shader_entry_expr, region_entry_expr, slot_entry_expr, sprite_slot_entry_expr, surface_entry_expr,
-    switch_entry_expr,
+    anvil_input_entry_expr, art_entry_expr, collection_entry_expr, hud_surface_entry_expr, item_entry_expr,
+    layers_expr, optional_hud_shader_entry_expr, region_entry_expr, slot_entry_expr, sprite_slot_entry_expr,
+    strings_map, surface_entry_expr, switch_entry_expr,
 };
 use super::literals::{kt_string, string_map};
 use super::naming;
@@ -89,6 +88,7 @@ fn window_imports(manifest: &Manifest) -> Vec<&'static str> {
         (has_slots || has_sprite_slots, "Align"),
         (any(&|w| !w.collections.is_empty()), "CollectionEntry"),
         (any(&|w| !w.inputs.is_empty()), "AnvilInputEntry"),
+        (any(&|w| !w.art.is_empty()), "ArtEntry"),
         (has_hitbox, "HitboxEntry"),
         (any(&|w| !w.items.is_empty()), "ItemEntry"),
         (has_layers, "LayerEntry"),
@@ -122,14 +122,24 @@ fn window_entry_expr(window: &WindowEntry, level: usize) -> String {
         .arg("items", string_map(&window.items, inner, item_entry_expr))
         .arg("collections", string_map(&window.collections, inner, collection_entry_expr))
         .arg("inputs", string_map(&window.inputs, inner, anvil_input_entry_expr));
-    with_switches(call, &window.switches, &window.layers, inner).finish()
+    let call = if window.switches.is_empty() {
+        call
+    } else {
+        call.arg("switches", string_map(&window.switches, inner, switch_entry_expr))
+    };
+    let call = with_art(call, &window.art, &window.tints, inner);
+    if window.layers.is_empty() { call } else { call.arg("layers", layers_expr(&window.layers, inner)) }.finish()
 }
 
-/// Adds the `switches` and `layers` arguments when there are any.
-fn with_switches(call: Call, switches: &BTreeMap<String, SwitchEntry>, layers: &[Layer], level: usize) -> Call {
-    let call =
-        if switches.is_empty() { call } else { call.arg("switches", string_map(switches, level, switch_entry_expr)) };
-    if layers.is_empty() { call } else { call.arg("layers", layers_expr(layers, level)) }
+/// Adds the `art` and `tints` arguments when there are any.
+fn with_art(
+    call: Call,
+    art: &BTreeMap<String, ArtEntry>,
+    tints: &BTreeMap<String, BTreeMap<String, String>>,
+    level: usize,
+) -> Call {
+    let call = if art.is_empty() { call } else { call.arg("art", string_map(art, level, art_entry_expr)) };
+    if tints.is_empty() { call } else { call.arg("tints", string_map(tints, level, strings_map)) }
 }
 
 pub(super) fn generate_hud_entries(manifest: &Manifest, package_name: &str) -> OutputFile {
@@ -138,6 +148,7 @@ pub(super) fn generate_hud_entries(manifest: &Manifest, package_name: &str) -> O
     let any_slot = |test: &dyn Fn(&SlotEntry) -> bool| manifest.huds.values().any(|hud| hud.slots.values().any(test));
     let imports = [
         (true, "Align"),
+        (manifest.huds.values().any(|hud| !hud.art.is_empty()), "ArtEntry"),
         (true, "HudEntry"),
         (true, "HudShaderEntry"),
         (true, "HudSurfaceEntry"),
@@ -165,5 +176,11 @@ fn hud_entry_expr(hud: &HudEntry, level: usize) -> String {
         .arg("static", kt_string(&hud.static_text))
         .arg("slots", string_map(&hud.slots, inner, slot_entry_expr))
         .arg("shader", optional_hud_shader_entry_expr(hud.shader.as_ref(), inner));
-    with_switches(call, &hud.switches, &hud.layers, inner).finish()
+    let call = if hud.switches.is_empty() {
+        call
+    } else {
+        call.arg("switches", string_map(&hud.switches, inner, switch_entry_expr))
+    };
+    let call = with_art(call, &hud.art, &hud.tints, inner);
+    if hud.layers.is_empty() { call } else { call.arg("layers", layers_expr(&hud.layers, inner)) }.finish()
 }

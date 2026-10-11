@@ -36,6 +36,7 @@ fn hud(name: &str, shader: Option<HudShader>, rows: &[i32], art_height: u32) -> 
         draws,
         slots,
         switches: vec![],
+        art: Vec::new(),
         layers: vec![],
         handles: BTreeMap::new(),
         warnings: vec![],

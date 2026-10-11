@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use super::glyphs::BitmapGlyph;
 use super::schema::{DebugCursorContract, DebugLayer, DebugSurface, DebugTextStyle};
 use crate::ir::Layer;
-use crate::manifest::{HudEntry, Manifest, SlotEntry, SpriteSlotEntry, SwitchEntry, WindowEntry};
+use crate::manifest::{ArtEntry, HudEntry, Manifest, SlotEntry, SpriteSlotEntry, SwitchEntry, WindowEntry};
 
 pub(super) fn window_surface(
     manifest: &Manifest,
@@ -16,7 +16,7 @@ pub(super) fn window_surface(
     let mut layers: Vec<DebugLayer> =
         static_layer(manifest, &window.static_text, origin, glyphs, Some(0)).into_iter().collect();
     let sprites = &window.sprite_slots;
-    let entries = Entries { slots: &window.slots, sprite_slots: sprites, switches: &window.switches };
+    let entries = Entries { slots: &window.slots, sprite_slots: sprites, switches: &window.switches, art: &window.art };
     layers.extend(tree_layers(manifest, &window.layers, &entries, origin, glyphs, Some(0)));
     DebugSurface {
         kind: window.surface.kind.clone(),
@@ -38,7 +38,7 @@ pub(super) fn hud_surface(manifest: &Manifest, hud: &HudEntry, glyphs: &BTreeMap
     let independent_layer_net_advance = hud.shader.as_ref().map(|_| 0);
     let mut layers: Vec<DebugLayer> =
         static_layer(manifest, &hud.static_text, origin, glyphs, Some(width)).into_iter().collect();
-    let entries = Entries { slots: &hud.slots, sprite_slots: &BTreeMap::new(), switches: &hud.switches };
+    let entries = Entries { slots: &hud.slots, sprite_slots: &BTreeMap::new(), switches: &hud.switches, art: &hud.art };
     layers.extend(tree_layers(manifest, &hud.layers, &entries, origin, glyphs, independent_layer_net_advance));
     DebugSurface {
         kind: hud.surface.kind.clone(),
@@ -63,9 +63,11 @@ struct Entries<'a> {
     slots: &'a BTreeMap<String, SlotEntry>,
     sprite_slots: &'a BTreeMap<String, SpriteSlotEntry>,
     switches: &'a BTreeMap<String, SwitchEntry>,
+    art: &'a BTreeMap<String, ArtEntry>,
 }
 
-/// The runtime layers in authored tree order: text and sprite slots, and each case of a switch with baked art.
+/// The runtime layers in authored tree order: text and sprite slots, each case of a switch with baked art, and
+/// art layers.
 fn tree_layers(
     manifest: &Manifest,
     order: &[Layer],
@@ -118,6 +120,13 @@ fn tree_layers(
                             ..layer
                         });
                     }
+                }
+            }
+            Layer::Art(name) => {
+                let art = entries.art.get(name);
+                let layer = art.and_then(|art| static_layer(manifest, &art.static_text, origin, glyphs, Some(0)));
+                if let Some(layer) = layer {
+                    out.push(DebugLayer { id: format!("art:{name}"), kind: "art_chrome".into(), ..layer });
                 }
             }
             Layer::Collection(_) => {}

@@ -61,6 +61,15 @@ pub enum SpriteDef {
     },
 }
 
+/// The color an element's art is multiplied by.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Tint {
+    /// A fixed color, baked into the art at compile time.
+    Color(Rgb),
+    /// The current palette color of the tint handle with this id, applied at runtime.
+    Palette(String),
+}
+
 /// A bitmap text font: a glyph sheet whose cells the `chars` rows map to characters.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FontDef {
@@ -134,6 +143,8 @@ pub struct TextStyle {
     pub obfuscated: bool,
     /// The project or bundled text font to draw with, or `None` for vanilla glyphs.
     pub font: Option<String>,
+    /// The tint handle whose current palette color replaces `color`.
+    pub tint: Option<String>,
 }
 
 impl Default for TextStyle {
@@ -148,6 +159,7 @@ impl Default for TextStyle {
             strikethrough: false,
             obfuscated: false,
             font: None,
+            tint: None,
         }
     }
 }
@@ -188,6 +200,8 @@ pub enum Element {
         name: String,
         /// Explicit position relative to the parent content origin.
         pos: Option<Point>,
+        /// The color the art is multiplied by.
+        tint: Option<Tint>,
         /// Authored name shown in errors and diagnostics.
         debug_name: Option<String>,
     },
@@ -202,6 +216,8 @@ pub enum Element {
         pos: Option<Point>,
         /// Horizontal alignment of the chosen sprite within `size`.
         align: Align,
+        /// The tint handle whose current palette color the sprite is multiplied by.
+        tint: Option<String>,
         /// Authored name shown in errors and diagnostics.
         debug_name: Option<String>,
     },

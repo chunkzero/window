@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::compose::Composite;
 use crate::geometry::{Point, Rect};
-use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr, sprite_slot_only};
+use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr, sprite_slot_only, tint_palettes};
 use crate::manifest::{SlotEntry, SlotLinesEntry, SpriteSlotEntry, SurfaceEntry, TextOverflow, WindowEntry};
 use crate::size::{Pane, Part};
 use crate::surface::Surface;
@@ -18,8 +18,9 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
     ctx.warnings.extend(w.warnings.iter().cloned());
     let title_origin = w.surface.title_origin();
     let static_text = bake_static(ctx, w, &layers.base, title_origin)?;
-    let switches =
-        ctx.switch_entries(pane(w), &window_key_prefix(&w.name), &w.name, &w.switches, &layers.cases, title_origin)?;
+    let prefix = window_key_prefix(&w.name);
+    let switches = ctx.switch_entries(pane(w), &prefix, &w.name, &w.switches, &layers.cases, title_origin)?;
+    let art = ctx.art_entries(pane(w), &prefix, &w.name, &w.art, &layers.art, title_origin)?;
 
     let mut slots = BTreeMap::new();
     for slot in &w.slots {
@@ -39,6 +40,8 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
         collections: inventory.collections,
         inputs: inventory.inputs,
         switches,
+        art,
+        tints: tint_palettes(&w.handles),
         layers: w.layers.clone(),
         handles: w.handles.clone(),
     })
@@ -70,7 +73,12 @@ fn sprite_slots(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, title_y: i32) -
         let only = sprite_slot_only(&w.handles, &sprite_slot.name);
         let font = ctx.sprite_font(sprite_slot.rect.y - title_y, only);
         let entry = sprite_slot_entry(font, &sprite_slot.rect, sprite_slot.align, None);
-        let slot = SpriteSlotEntry { only: only.to_vec(), source: sprite_slot.source.clone(), ..entry };
+        let slot = SpriteSlotEntry {
+            only: only.to_vec(),
+            tint: sprite_slot.tint.clone(),
+            source: sprite_slot.source.clone(),
+            ..entry
+        };
         entries.insert(sprite_slot.name.clone(), slot);
     }
     entries
@@ -108,6 +116,8 @@ pub(super) fn slot_entry(
         color: slot.color.to_hex(),
         shader_marker: shader_marker.map(Rgb::to_hex),
         shader_color: None,
+        tint: slot.tint.clone(),
+        tint_markers: BTreeMap::new(),
         shadow: slot.shadow,
         bold: slot.bold,
         italic: slot.italic,
@@ -132,6 +142,7 @@ pub(super) fn sprite_slot_entry(font: String, rect: &Rect, align: Align, sprite:
         font,
         sprite,
         only: Vec::new(),
+        tint: None,
         source: None,
     }
 }

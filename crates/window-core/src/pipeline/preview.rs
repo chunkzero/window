@@ -375,7 +375,7 @@ impl<'a> State<'a> {
                 (HandleKind::Sprite, _) if handle.only.is_empty() => Some("a catalog sprite name".to_string()),
                 (HandleKind::Sprite, _) => Some(format!("one of {}", handle.only.join(", "))),
                 (HandleKind::Collection, _) => Some("`{ count, selected }`".to_string()),
-                (HandleKind::Action | HandleKind::Builtin, _) => Some("no state".to_string()),
+                (HandleKind::Action | HandleKind::Builtin | HandleKind::Tint, _) => Some("no state".to_string()),
             };
             if let Some(expected) = expected {
                 let kind = handle.kind.id();

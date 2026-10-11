@@ -4,12 +4,14 @@ use std::collections::BTreeMap;
 
 use crate::ir::{Hitbox, Layer, Tooltip};
 use crate::manifest::{
-    AnvilInputEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry, RegionEntry,
-    SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry,
+    AnvilInputEntry, ArtEntry, CollectionEntry, FontMetricsEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry,
+    RegionEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry,
     SwitchCaseEntry, SwitchEntry, TextOverflow,
 };
 
-use super::literals::{align_expr, char_map, float_expr, kt_string, optional_string_expr, string_list_expr};
+use super::literals::{
+    align_expr, char_map, float_expr, kt_string, optional_string_expr, string_list_expr, string_map,
+};
 use super::writer::{Call, indent, list_of};
 
 pub(super) fn surface_entry_expr(surface: &SurfaceEntry, level: usize) -> String {
@@ -63,7 +65,7 @@ pub(super) fn slot_entry_expr(slot: &SlotEntry, level: usize) -> String {
         .arg("text", optional_string_expr(slot.text.as_ref()))
         .arg("shaderMarker", optional_string_expr(slot.shader_marker.as_ref()))
         .arg("shaderColor", optional_string_expr(slot.shader_color.as_ref()));
-    let call = with_source(call, slot.source.as_ref());
+    let call = with_source(with_tint(call, slot.tint.as_ref(), &slot.tint_markers, level), slot.source.as_ref());
     let call = match slot.overflow {
         Some(TextOverflow::Ellipsis) => call.arg("overflow", "TextOverflow.ELLIPSIS"),
         None => call,
@@ -106,7 +108,26 @@ pub(super) fn sprite_slot_entry_expr(slot: &SpriteSlotEntry, level: usize) -> St
     if !slot.only.is_empty() {
         call = call.arg("only", string_list_expr(&slot.only));
     }
-    with_source(call, slot.source.as_ref()).finish()
+    with_source(with_tint(call, slot.tint.as_ref(), &BTreeMap::new(), level), slot.source.as_ref()).finish()
+}
+
+pub(super) fn art_entry_expr(art: &ArtEntry, level: usize) -> String {
+    let call = Call::new("ArtEntry", level).arg("static", kt_string(&art.static_text));
+    with_tint(call, art.tint.as_ref(), &art.tint_markers, level).finish()
+}
+
+/// A `mapOf` of strings.
+pub(super) fn strings_map(values: &BTreeMap<String, String>, level: usize) -> String {
+    string_map(values, level, |value, _| kt_string(value))
+}
+
+/// Adds the `tint` and `tintMarkers` arguments of an entry at `level` that a tint colors.
+fn with_tint(call: Call, tint: Option<&String>, markers: &BTreeMap<String, String>, level: usize) -> Call {
+    let Some(tint) = tint else {
+        return call;
+    };
+    let call = call.arg("tint", kt_string(tint));
+    if markers.is_empty() { call } else { call.arg("tintMarkers", strings_map(markers, level + 1)) }
 }
 
 /// Adds the `source` argument only to slots an authored `debug_name` labels.
@@ -223,6 +244,9 @@ fn switch_case_entry_expr(case: &SwitchCaseEntry, level: usize) -> String {
     if !case.collections.is_empty() {
         call = call.arg("collections", string_list_expr(&case.collections));
     }
+    if !case.art.is_empty() {
+        call = call.arg("art", string_list_expr(&case.art));
+    }
     call.finish()
 }
 
@@ -234,6 +258,7 @@ pub(super) fn layers_expr(layers: &[Layer], level: usize) -> String {
             Layer::SpriteSlot(name) => ("SPRITE_SLOT", name),
             Layer::Switch(name) => ("SWITCH", name),
             Layer::Collection(name) => ("COLLECTION", name),
+            Layer::Art(name) => ("ART", name),
         };
         format!("LayerEntry(LayerKind.{kind}, {})", kt_string(name))
     };

@@ -32,7 +32,12 @@ impl ElementDto {
     }
 
     fn build_sprite(self) -> Result<Element> {
-        Ok(Element::Sprite { name: self.required("art")?, pos: self.pos()?, debug_name: self.debug_name })
+        Ok(Element::Sprite {
+            name: self.required("art")?,
+            pos: self.pos()?,
+            tint: self.tint()?,
+            debug_name: self.debug_name,
+        })
     }
 
     fn build_sprite_slot(self) -> Result<Element> {
@@ -41,6 +46,7 @@ impl ElementDto {
             size: self.size()?,
             pos: self.pos()?,
             align: self.text_align()?,
+            tint: self.palette_tint()?,
             debug_name: self.debug_name,
         })
     }
@@ -100,6 +106,7 @@ impl ElementDto {
         Ok(Element::Flex(Box::new(FlexBox {
             pos: self.pos()?,
             frame: art_name(&self.frame)?,
+            tint: self.frame_tint()?,
             style: self.style.clone().unwrap_or_default().into_style()?,
             children: convert_layout_children(self.children)?,
             debug_name: self.debug_name,
@@ -154,6 +161,7 @@ impl ElementDto {
             let body = FlexBox {
                 pos: None,
                 frame: art_name(&case.frame).map_err(|error| error.with_debug_name(debug_name.as_deref()))?,
+                tint: case.frame_tint().map_err(|error| error.with_debug_name(debug_name.as_deref()))?,
                 style: case.style.clone().unwrap_or_default().into_style()?,
                 children: convert_layout_children(case.children)
                     .map_err(|error| error.with_debug_name(debug_name.as_deref()))?,
