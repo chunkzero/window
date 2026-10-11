@@ -469,7 +469,12 @@ free to bake the whole HUD (art, switch cases, and text) some rows higher or low
 shader rule subtract the same rows; nothing moves on screen. HUD by HUD in name order, it picks the shift whose text
 rows reuse the most [text-row fonts](#what-things-cost) that windows and earlier HUDs already need, and the smallest
 such shift. Rows can only coincide where their spacing matches, so pinned HUDs that use the same line pitch share every
-font, whatever `y` their first row is on. HUDs without `anchor` are not shifted.
+font, whatever `y` their first row is on. HUDs without `anchor` are not shifted, and neither are HUDs with authored
+`underlined`, `strikethrough` or `italic` text (static labels, dynamic slots, and text inside switch cases), because
+Minecraft draws those decorations from the unshifted baseline and shears italics by the glyph ascent. The compiler
+cannot see styling a server applies inside a bound text value, such as an Adventure component; on a pinned HUD, such an
+underline or strikethrough is positioned from the text baseline rather than the row, and italics may drift sideways, so
+set the style on the element when you need it.
 
 The size limit of a pane is the size of its art. A pane's static art, and each switch case's art, bakes into one font
 glyph, and the client keeps glyphs on 256x256 px font atlas pages. A glyph larger than that in either direction is never

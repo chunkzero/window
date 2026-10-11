@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::compose::Composite;
+use crate::font::{MAX_TEXT_ROW, MIN_ASCENT, MIN_TEXT_ROW};
 use crate::geometry::Point;
 use crate::hud::SegmentMarkers;
 use crate::ir::{HudShader, LaidOutHud, Rgb};
@@ -13,9 +14,6 @@ use crate::{Result, bake};
 use super::glyphs::{Layers, MAX_GLYPH_SIZE, hud_key_prefix, hud_static_key};
 use super::window::{slot_entry, slot_rows};
 use super::{CompileContext, OutputFile};
-
-/// The highest row a text-row font can draw at: its ascent `7 - row` may not exceed the 8 px glyph height.
-const MIN_TEXT_ROW: i32 = -1;
 
 pub(super) fn compile_hud(
     ctx: &mut CompileContext<'_>,
@@ -61,9 +59,10 @@ fn pane(h: &LaidOutHud) -> Pane<'_> {
 
 /// The rows a shader-placed HUD is baked below its source origin, which its shader rule subtracts again, so the
 /// offset moves nothing on screen. It is the offset whose text rows need the fewest text-row fonts that are not
-/// registered yet, and the smallest such offset; `0` for any other HUD.
+/// registered yet, and the smallest such offset; `0` for any other HUD, and for a HUD with underlined, strikethrough
+/// or italic text, which Minecraft positions from the unshifted baseline or the glyph ascent.
 fn row_offset(ctx: &CompileContext<'_>, h: &LaidOutHud, layers: &Layers) -> i32 {
-    if h.shader.is_none() {
+    if h.shader.is_none() || h.slots.iter().any(|slot| slot.italic || slot.underlined || slot.strikethrough) {
         return 0;
     }
     let rows: BTreeSet<(Option<&str>, i32)> = h
@@ -71,7 +70,8 @@ fn row_offset(ctx: &CompileContext<'_>, h: &LaidOutHud, layers: &Layers) -> i32 
         .iter()
         .flat_map(|slot| slot_rows(slot, slot.rect.y).map(move |row| (slot.font.as_deref(), row)))
         .collect();
-    let Some(top) = rows.iter().map(|&(_, row)| row).min() else {
+    let (Some(top), Some(bottom)) = (rows.iter().map(|&(_, row)| row).min(), rows.iter().map(|&(_, row)| row).max())
+    else {
         return 0;
     };
     let registered: BTreeSet<(Option<&str>, i32)> = ctx
@@ -81,19 +81,22 @@ fn row_offset(ctx: &CompileContext<'_>, h: &LaidOutHud, layers: &Layers) -> i32 
         .chain(ctx.text_font_offsets.iter().map(|&(font, row)| (Some(font), row)))
         .collect();
 
-    // Text may not rise above `MIN_TEXT_ROW`, and art may not be padded past the glyph size limit.
+    // Text rows and art ascents must stay within what fonts and 256 px glyph pages accept.
+    let (mut lowest, mut highest) = (MIN_TEXT_ROW - top, MAX_TEXT_ROW - bottom);
     let art = std::iter::once(&layers.base).chain(layers.cases.iter().flatten()).filter(|comp| comp.has_content);
-    let lowest = art
-        .map(|comp| 7 - comp.bounds.y - MAX_GLYPH_SIZE as i32)
-        .chain(std::iter::once(MIN_TEXT_ROW - top))
-        .max()
-        .unwrap_or(0);
+    for comp in art {
+        lowest = lowest.max(7 - comp.bounds.y - MAX_GLYPH_SIZE as i32);
+        highest = highest.min(7 - comp.bounds.y - MIN_ASCENT);
+    }
+    if lowest > highest {
+        return 0;
+    }
     let new_fonts =
         |offset: i32| rows.iter().filter(|&&(font, row)| !registered.contains(&(font, row + offset))).count();
     rows.iter()
         .flat_map(|&(font, row)| registered.iter().filter(move |taken| taken.0 == font).map(move |taken| taken.1 - row))
         .chain(std::iter::once(0))
-        .map(|offset| offset.max(lowest))
+        .map(|offset| offset.clamp(lowest, highest))
         .min_by_key(|&offset| (new_fonts(offset), offset.abs(), offset))
         .unwrap_or(0)
 }

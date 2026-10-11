@@ -1,6 +1,7 @@
 use super::*;
 use crate::authoring::CoreShaders;
-use crate::ir::{HudChannel, HudShader};
+use crate::font::MAX_TEXT_ROW;
+use crate::ir::{HudChannel, HudShader, SwitchCaseIr, SwitchIr};
 
 const SHADER: HudShader = HudShader {
     source_bottom: 59,
@@ -101,4 +102,36 @@ fn shader_placed_huds_share_text_rows_without_moving() {
     let shader = find(&out, "assets/minecraft/shaders/core/text.vsh").contents.as_bytes();
     let shader = std::str::from_utf8(shader).unwrap();
     assert!(shader.contains("const int WINDOW_HUD_SOURCE_BOTTOMS[WINDOW_HUD_RULES] = int[](59, 62, 63);"), "{shader}");
+}
+
+#[test]
+fn styled_text_keeps_its_hud_unshifted() {
+    for style in ["italic", "underlined", "strikethrough"] {
+        let mut styled = hud("b", Some(SHADER), &[3, 13], 20);
+        let label = &mut styled.slots[0];
+        match style {
+            "italic" => label.italic = true,
+            "underlined" => label.underlined = true,
+            _ => label.strikethrough = true,
+        }
+        // The styled text sits in a switch case, as it would anywhere in the tree.
+        styled.switches = vec![SwitchIr {
+            name: "mode".into(),
+            source: None,
+            cases: vec![SwitchCaseIr { value: "on".into(), slots: vec![label.name.clone()], ..Default::default() }],
+        }];
+        let out = compile_huds(&[hud("a", Some(SHADER), &[0, 10], 0), styled], true).unwrap();
+
+        assert_eq!(out.manifest.huds["b"].shader.as_ref().unwrap().row_offset, 0, "{style}");
+        assert_eq!(text_row_fonts(&out), ["0", "10", "13", "3"], "{style}");
+    }
+}
+
+#[test]
+fn row_offsets_stay_within_the_font_limits() {
+    let huds = [hud("a", Some(SHADER), &[32760, 32765], 0), hud("b", Some(SHADER), &[0, 5, 100], 0)];
+    let out = compile_huds(&huds, true).expect("no chosen offset leaves the supported text rows");
+
+    let offset = out.manifest.huds["b"].shader.as_ref().unwrap().row_offset;
+    assert!((-1..=MAX_TEXT_ROW - 100).contains(&offset), "{offset}");
 }
