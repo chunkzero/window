@@ -1,8 +1,8 @@
-import { Hud, Region, Section, Text, Window } from "plugin:window/ui";
+import { Hud, Region, Section, Text, Window, shape } from "plugin:window/ui";
 import { action, text } from "plugin:window/bind";
 import { Button } from "plugin:window/theme/industrial";
 
-// Outlined and plain regions beside a shader-placed HUD, so both core shader features share the text shaders.
+// Outlined, art-hovered and plain regions beside a shader-placed HUD, so both core shader features share the text shaders.
 export default (
     <>
         <Window name="menu" container="generic_9x3">
@@ -18,6 +18,16 @@ export default (
                 </Button>
                 <Region tooltip="Info" span={2} />
                 <Region tooltip="Help" span={2} hover />
+                {/* Art that stretches over its region, and tinted art drawn at its own size around it. */}
+                <Region onClick={action("lit")} span={2} hover={shape({ kind: "panel", fill: "#ffcc00", radius: 3 })} />
+                <Region
+                    onClick={action("ring")}
+                    hover={{
+                        art: shape({ kind: "panel", fill: "#ffffff", radius: 4, width: 20, height: 20 }),
+                        fit: "center",
+                        tint: "#ff5555",
+                    }}
+                />
             </Section>
         </Window>
 

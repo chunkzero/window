@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 
 use serde::Deserialize;
 
-use super::art::{ArtRefDto, ArtUse, intern};
+use super::art::{ArtRefDto, ArtUse, HoverDto, intern};
 use super::flex::{FlexStyleDto, ItemLayoutDto};
 use super::insets::InsetsDto;
 use super::parse::json_object_fields;
@@ -46,7 +46,7 @@ pub(super) struct ElementDto {
     color: Option<ColorDto>,
     tint: Option<ColorDto>,
     tooltip: Option<TooltipDto>,
-    hover: Option<bool>,
+    hover: Option<HoverDto>,
     shadow: bool,
     bold: bool,
     italic: bool,
@@ -99,7 +99,7 @@ struct ElementShapeDto {
     color: Option<ColorDto>,
     tint: Option<ColorDto>,
     tooltip: Option<TooltipDto>,
-    hover: Option<bool>,
+    hover: Option<HoverDto>,
     #[serde(default)]
     shadow: bool,
     #[serde(default)]
@@ -204,6 +204,15 @@ pub(super) fn intern_art(children: &mut [ElementDto], table: &mut Art) -> Result
         intern(table, &mut child.track, ArtUse::Frame)?;
         intern(table, &mut child.art, ArtUse::Image)?;
         intern(table, &mut child.selected_sprite, ArtUse::Sprite)?;
+        if let Some(hover) = &mut child.hover {
+            hover.intern(table).map_err(|error| {
+                let region = match &child.on_click {
+                    Some(click) => format!("region `{}`", click.id()),
+                    None => "region".to_string(),
+                };
+                Error::Validation(format!("{region} `hover`: {error}")).with_debug_name(child.debug_name.as_deref())
+            })?;
+        }
         intern_art(&mut child.children, table)?;
     }
     Ok(())

@@ -69,6 +69,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             None => format!("region `{name}`"),
         };
         self.check_inside_bounds(rect, &source)?;
+        let hover = region.hover.as_ref().map(|hover| self.hover_ir(hover, rect, &source)).transpose()?;
         let hitbox = (region.tooltip.is_some() || region.item_model.is_some())
             .then(|| Hitbox { item_model: region.item_model.clone(), tooltip: region.tooltip.clone() });
         self.regions.push(RegionIr {
@@ -79,7 +80,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
             unowned: false,
             default_action: region.default_action.clone(),
             hitbox,
-            hover: region.hover,
+            hover,
             source,
         });
         Ok(())

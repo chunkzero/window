@@ -439,7 +439,7 @@ pub struct RegionEntry {
     /// The hitbox item filling [`Self::filled_slots`]; absent leaves them empty unless [`Self::hover`] is present.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hitbox: Option<Hitbox>,
-    /// The outline drawn around the region while one of its filled slots is hovered. Present only with
+    /// The outline or art drawn over the region while one of its filled slots is hovered. Present only with
     /// `coreShaders.hover`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hover: Option<HoverEntry>,
@@ -448,15 +448,15 @@ pub struct RegionEntry {
     pub source: Option<String>,
 }
 
-/// A region's hover outline: what the runtime adds to its hitbox item's tooltip title, which the core text shader
-/// then moves onto the region.
+/// A region's hover, an outline or art: what the runtime adds to its hitbox item's tooltip title, which the core
+/// text shader then moves onto the region.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HoverEntry {
-    /// The outline glyph and the spacers returning the cursor to its start, in [`Manifest::font`].
+    /// The hover glyph and the spacers returning the cursor to its start, in [`Manifest::font`].
     pub text: String,
-    /// The region's left edge relative to the GUI center, in GUI pixels, within `-128..=127`.
+    /// The left edge of what is drawn relative to the GUI center, in GUI pixels, within `-128..=127`.
     pub x: i32,
-    /// The region's top edge relative to the GUI center, in GUI pixels, within `-128..=127`.
+    /// The top edge of what is drawn relative to the GUI center, in GUI pixels, within `-128..=127`.
     pub y: i32,
 }
 

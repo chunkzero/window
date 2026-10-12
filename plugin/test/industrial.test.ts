@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import * as industrial from "../src/theme/industrial/index.ts";
-import { containerLayout, createTheme } from "../src/ui/index.ts";
+import { containerLayout, createTheme, shape } from "../src/ui/index.ts";
 import { action, collection, flag, input, items, selection, toggle } from "../src/bind/index.ts";
 import { Image, Window } from "../src/ui/components.ts";
 import { resolveTokens } from "../src/ui/tokens.ts";
@@ -65,6 +65,12 @@ test("a disabled button shows its disabled state and takes no clicks", () => {
     assert.deepEqual(
         ofType(quiet, "region").map((node) => node.hover),
         [false, undefined],
+    );
+    const lit = { art: shape({ kind: "panel", fill: "#ffffff" }), tint: "#ff0000" } as const;
+    const art = industrial.Button({ onClick: action("buy"), enabled: flag("can_buy"), hover: lit });
+    assert.deepEqual(
+        ofType(art, "region").map((node) => node.hover),
+        [lit, undefined],
     );
     assert.throws(() => industrial.Button({ onClick: action("x"), disabled: {} }), /enabled/);
 });

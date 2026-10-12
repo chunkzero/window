@@ -55,6 +55,8 @@ export default defineWindows({
         upgradesPreview({ scale: 3 }),
         // The same window with its regions outlined.
         upgradesPreview({ name: "upgrades_regions", outlines: true }),
+        // And with every region's hover drawn at once.
+        upgradesPreview({ name: "upgrades_hovers", scale: 3, hovers: true }),
         preview(
             topLeft,
             [

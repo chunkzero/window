@@ -25,6 +25,7 @@ use crate::{Error, Result, text_font};
 
 use super::bars::columns;
 use super::glyphs::{Layers, compose_layers};
+use super::hover::Shown;
 use super::metrics::{GlyphMetrics, bitmap_metrics};
 use super::sprites::texture_source_path;
 use super::{CompileInput, OutputFile, anvil, decode_textures};
@@ -40,6 +41,8 @@ const MAX_SCALE: u32 = 16;
 /// The most pixels a finished preview image may hold, the area of 4096 x 4096.
 const MAX_PIXELS: u64 = 4096 * 4096;
 const ITEM_OUTLINE: [u8; 4] = [0xff, 0x40, 0xff, 0xc0];
+/// The text shader that draws hovers discards fragments with alpha below 0.1.
+const HOVER_MIN_ALPHA: u8 = 26;
 const REGION_OUTLINE: [u8; 4] = [0x60, 0xff, 0x20, 0xc0];
 /// Where the client draws the anvil's rename text inside the text field.
 const ANVIL_TEXT_INSET: Point = Point::new(3, 4);
@@ -61,6 +64,10 @@ pub struct PreviewRequest {
     /// Whether to outline the active regions, which otherwise draw nothing.
     #[serde(default)]
     pub outlines: bool,
+    /// Whether to draw every region's hover at once, as the pack draws it. Draws nothing without
+    /// `coreShaders.hover`.
+    #[serde(default)]
+    pub hovers: bool,
 }
 
 /// The surface a preview draws.
@@ -234,6 +241,7 @@ fn fail(preview: &str, message: String) -> Error {
 struct Pane<'a> {
     /// `window` or `HUD`, then the name, for error messages.
     label: String,
+    name: &'a str,
     /// The surface rect in GUI space.
     rect: Rect,
     /// The shadow of slot text.
@@ -257,6 +265,7 @@ impl<'a> Pane<'a> {
         let Surface::Container(kind) = w.surface;
         Self {
             label: format!("window `{}`", w.name),
+            name: &w.name,
             rect: Rect::from_parts(Point::new(0, 0), kind.gui_size()),
             shadow: Shadow::Slot,
             container: Some(kind),
@@ -277,6 +286,7 @@ impl<'a> Pane<'a> {
     fn hud(h: &'a LaidOutHud) -> Self {
         Self {
             label: format!("HUD `{}`", h.name),
+            name: &h.name,
             rect: Rect::new(0, 0, h.width, h.height),
             shadow: if h.shader.is_some() { Shadow::ShaderHud } else { Shadow::Slot },
             container: None,
@@ -617,6 +627,18 @@ impl Scene<'_> {
         for placement in placements.iter().flatten() {
             placement.include_in(&mut bounds);
         }
+        let mut hovers: Vec<Shown<'_>> = Vec::new();
+        if request.hovers && self.project.options.core_shaders.hover {
+            for region in pane.regions.iter().filter(|region| hidden.shows(Member::Region, &region.name)) {
+                if let Some(shown) = Shown::of(region) {
+                    shown.check_limits(pane.name, region, pane.rect.size())?;
+                    hovers.push(shown);
+                }
+            }
+        }
+        for Shown { rect, .. } in &hovers {
+            bounds.include(i64::from(rect.x), i64::from(rect.y), rect.width, rect.height);
+        }
         let mut canvas = Canvas::new(bounds.into_rect(&request.name, request.scale.unwrap_or(1))?);
         let field = ContainerKind::ANVIL_TEXT_FIELD;
         if pane.container == Some(ContainerKind::Anvil)
@@ -677,6 +699,17 @@ impl Scene<'_> {
             let content = state.text(HandleRole::Input, &input.name).unwrap_or(&input.initial);
             let at = Point::new(field.x + ANVIL_TEXT_INSET.x, field.y + ANVIL_TEXT_INSET.y);
             self.painter.draw_line(&mut canvas, None, content, at, Rgb::new(0xff, 0xff, 0xff), Shadow::Vanilla, false);
+        }
+        for shown in &hovers {
+            let texture = shown.texture(pane.name, self.textures)?;
+            for y in 0..texture.height {
+                for x in 0..texture.width {
+                    let rgba = texture.get(x, y);
+                    if rgba[3] >= HOVER_MIN_ALPHA {
+                        canvas.blend(shown.rect.x + x as i32, shown.rect.y + y as i32, rgba);
+                    }
+                }
+            }
         }
         if request.outlines {
             for region in pane.regions.iter().filter(|region| hidden.shows(Member::Region, &region.name)) {

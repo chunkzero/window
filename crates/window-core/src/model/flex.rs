@@ -2,7 +2,7 @@
 
 use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
-use crate::ir::Tooltip;
+use crate::ir::{Rgb, Tooltip};
 
 use super::{Element, Tint};
 
@@ -68,12 +68,40 @@ pub struct Region {
     /// Fixed size; `None` fills the parent box.
     pub size: Option<Size>,
     pub tooltip: Option<Tooltip>,
-    /// Whether it is outlined while hovered; `None` outlines a region that takes clicks. Needs `coreShaders.hover`.
-    pub hover: Option<bool>,
+    /// What it draws while hovered; `None` outlines a region that takes clicks. Needs `coreShaders.hover`.
+    pub hover: Option<Hover>,
     /// Item model of the hitbox item filling its slots.
     pub item_model: Option<String>,
     /// Authored name shown in errors and as the region's diagnostic source.
     pub debug_name: Option<String>,
+}
+
+/// What a [`Region`] draws over itself while one of its slots is hovered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Hover {
+    None,
+    /// The generated 1px white outline of its rect.
+    Outline,
+    Art(HoverArt),
+}
+
+/// Authored art a [`Region`] draws while hovered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HoverArt {
+    /// The art's interned name: a frame for [`HoverFit::Stretch`], a sprite for [`HoverFit::Center`].
+    pub name: String,
+    pub fit: HoverFit,
+    /// The color the art is multiplied by, baked in at compile time.
+    pub tint: Option<Rgb>,
+}
+
+/// How hover art is placed on its region.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HoverFit {
+    /// Stretched over the region's rect, as a frame.
+    Stretch,
+    /// At its own size, centered on the region's rect, which it may overhang.
+    Center,
 }
 
 /// One case of a [`Switch`]: a box that fills the switch.

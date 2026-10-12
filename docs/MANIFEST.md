@@ -161,9 +161,9 @@ switch on its handle with one region per state.
             "item_model": "example:gui/buy", // absent ⇒ the pack's invisible hitbox model
             "tooltip": { "title": "Buy", "lines": ["Spend coins"] },
           },
-          // Optional hover outline (`coreShaders.hover`): the outline glyph and its net-zero spacers in the main
-          // font, and the region's top-left relative to the GUI center. The runtime leads the hitbox tooltip's title
-          // with it, filling the slots even without "hitbox".
+          // Optional hover (`coreShaders.hover`): the glyph of the outline or art and its net-zero spacers in the
+          // main font, and the top-left of where it is drawn relative to the GUI center. The runtime leads the hitbox
+          // tooltip's title with it, filling the slots even without "hitbox".
           "hover": { "text": "\uE040\uDB80\uDC0A", "x": -36, "y": 79 },
           "source": "region `buy`", // the authored element, for diagnostics
         },

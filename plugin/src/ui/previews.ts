@@ -58,6 +58,11 @@ export interface PreviewOptions {
     scale?: number;
     /** Outline the active regions, which otherwise draw nothing. */
     outlines?: boolean;
+    /**
+     * Draw every region's hover at once, as the pack draws it in game. Draws nothing unless the pack sets
+     * `coreShaders.hover`.
+     */
+    hovers?: boolean;
 }
 
 /** A preview as the compiler reads it. */
@@ -67,6 +72,7 @@ export interface Preview {
     readonly state: readonly { readonly handle: string; readonly at?: readonly number[]; readonly value: unknown }[];
     readonly scale?: number;
     readonly outlines?: boolean;
+    readonly hovers?: boolean;
 }
 
 type Fields = Record<string, unknown>;
@@ -134,5 +140,6 @@ export function preview<const T extends readonly StateEntry[]>(
         state: entries,
         ...(options.scale === undefined ? {} : { scale: options.scale }),
         ...(options.outlines === undefined ? {} : { outlines: options.outlines }),
+        ...(options.hovers === undefined ? {} : { hovers: options.hovers }),
     };
 }

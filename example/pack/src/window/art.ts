@@ -1,4 +1,5 @@
 import { derive, shape, texture } from "plugin:window/ui";
+import type { Hover } from "plugin:window/ui";
 import { art } from "plugin:window/theme/industrial";
 
 export const coin = shape(
@@ -79,6 +80,15 @@ export const ranks = {
     rank_2: texture("window/icons/rank_2.png"),
     rank_3: texture("window/icons/rank_3.png"),
 };
+
+/** A white ring, which a hover's tint colors exactly. */
+const ring = texture("window/hover/ring.png", { insets: 2 });
+
+/** Hover art, stretched over the control: a gold ring for what can be bought and a red one for leaving. */
+export const hovers = {
+    ring: { art: ring, tint: "#ffd731" },
+    exit: { art: ring, tint: "#ed171b" },
+} satisfies Record<string, Hover>;
 
 export const icons = {
     back: texture("window/icons/back.png"),

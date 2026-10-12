@@ -29,7 +29,7 @@ import {
     colors,
 } from "plugin:window/theme/industrial";
 
-import { barTrack, coin, maxedPlate, toneFill } from "./art.ts";
+import { barTrack, coin, hovers, maxedPlate, toneFill } from "./art.ts";
 import {
     UPGRADES,
     amount,
@@ -84,8 +84,8 @@ function Cost(props: { index: number }) {
 }
 
 /**
- * One face of upgrade `index`'s card: its name and level above `children`. `buy` makes the face take clicks, which
- * also outlines it on hover; a face without it only shows its tooltip.
+ * One face of upgrade `index`'s card: its name and level above `children`. `buy` makes the face take clicks and
+ * draw a gold ring on hover; a face without it only shows its tooltip.
  */
 function Face(props: { index: number; tooltip: string; buy?: boolean; children: Child }) {
     const i = props.index;
@@ -95,7 +95,11 @@ function Face(props: { index: number; tooltip: string; buy?: boolean; children: 
         <Column height={19} justify="between" align="center">
             {props.children}
         </Column>,
-        <Region onClick={props.buy === true ? upgrade.at(i) : undefined} tooltip={props.tooltip} />,
+        props.buy === true ? (
+            <Region onClick={upgrade.at(i)} tooltip={props.tooltip} hover={hovers.ring} />
+        ) : (
+            <Region tooltip={props.tooltip} />
+        ),
     ];
 }
 
@@ -181,7 +185,7 @@ export default (
                 Shop
             </Button>
             <Spacer span={3} />
-            <Button close span={3}>
+            <Button close span={3} hover={hovers.exit}>
                 Exit
             </Button>
         </Hotbar>

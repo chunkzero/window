@@ -24,6 +24,7 @@ import type {
     ArtRef,
     ContainerKind,
     GridFlow,
+    Hover,
     HudChannel,
     Insets,
     SlotList,
@@ -138,10 +139,11 @@ export interface RegionProps extends ItemProps, DebugProps {
     onClick?: ClickAction;
     tooltip?: string | Tooltip;
     /**
-     * Whether hovering outlines the region. Only for packs with `coreShaders.hover`, where it defaults to whether
-     * the region has an `onClick`.
+     * What the region draws while one of its slots is hovered: `true` for a 1px white outline, `false` for nothing,
+     * art stretched over the region in its own colors, or `{ art, fit, tint }` to center or tint it. Only for packs
+     * with `coreShaders.hover`, where it defaults to whether the region has an `onClick`.
      */
-    hover?: boolean;
+    hover?: Hover;
     /** Item model of the hitbox item filling its slots. */
     itemModel?: string;
     width?: number;

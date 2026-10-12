@@ -6,7 +6,8 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use super::style::{FrameDto, SpriteDto};
-use crate::model::{Art, SpriteDef};
+use crate::ir::Rgb;
+use crate::model::{Art, HoverFit, SpriteDef};
 use crate::{Error, Result};
 
 /// The prefix of every interned art name. Catalog sprite names cannot contain `/`, so interned names never clash
@@ -86,6 +87,87 @@ pub(super) fn intern(table: &mut Art, art: &mut Option<ArtRefDto>, usage: ArtUse
     let name = intern_inline(table, inline, usage)?;
     *art = Some(ArtRefDto::Interned(name));
     Ok(())
+}
+
+/// A region's `hover`: whether it gets the generated outline, or the art it draws instead.
+#[derive(Clone, Debug)]
+pub(super) enum HoverDto {
+    Outline(bool),
+    Art { art: Option<ArtRefDto>, fit: HoverFit, tint: Option<Rgb> },
+}
+
+/// The object form of `hover`.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HoverArtDto {
+    art: ArtRefDto,
+    fit: Option<String>,
+    tint: Option<serde_json::Value>,
+}
+
+impl<'de> Deserialize<'de> for HoverDto {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error as _;
+        let value = match serde_json::Value::deserialize(deserializer)? {
+            serde_json::Value::Bool(outline) => return Ok(Self::Outline(outline)),
+            value => value,
+        };
+        // An art value names its kind in `art`; the object form holds an art value there.
+        if !value.get("art").is_some_and(serde_json::Value::is_object) {
+            let art = serde_json::from_value(value)
+                .map_err(|_| D::Error::custom("`hover` must be a boolean, an art value, or `{ art, fit, tint }`"))?;
+            return Ok(Self::Art { art: Some(art), fit: HoverFit::Stretch, tint: None });
+        }
+        let hover: HoverArtDto =
+            serde_json::from_value(value).map_err(|error| D::Error::custom(format!("`hover`: {error}")))?;
+        let fit = match hover.fit.as_deref() {
+            None | Some("stretch") => HoverFit::Stretch,
+            Some("center") => HoverFit::Center,
+            Some(other) => {
+                return Err(D::Error::custom(format!(
+                    "`hover` has unknown `fit` `{other}`; expected \"stretch\" or \"center\""
+                )));
+            }
+        };
+        let tint =
+            match hover.tint {
+                None => None,
+                Some(serde_json::Value::String(color)) => Some(Rgb::parse_hex(&color).ok_or_else(|| {
+                    D::Error::custom(format!("`hover` has invalid `tint` `{color}`; expected #rrggbb"))
+                })?),
+                Some(_) => {
+                    return Err(D::Error::custom(
+                        "`hover` takes a fixed #rrggbb `tint`; a `tint(...)` handle is not supported on a hover",
+                    ));
+                }
+            };
+        Ok(Self::Art { art: Some(hover.art), fit, tint })
+    }
+}
+
+impl HoverDto {
+    /// Interns hover art into `table`, as a frame when it stretches and as an image when it is centered.
+    pub(super) fn intern(&mut self, table: &mut Art) -> Result<()> {
+        match self {
+            Self::Outline(_) => Ok(()),
+            Self::Art { art, fit: HoverFit::Stretch, .. } => intern(table, art, ArtUse::Frame),
+            Self::Art { art, fit: HoverFit::Center, .. } => {
+                if let Some(ArtRefDto::Inline(inline)) = art
+                    && inline.art == "shape"
+                    && !(inline.def.contains_key("width") && inline.def.contains_key("height"))
+                {
+                    return Err(Error::Validation(
+                        "`fit: \"center\"` draws the art at its own size, so its shape needs a `width` and `height`"
+                            .into(),
+                    ));
+                }
+                intern(table, art, ArtUse::Image)
+            }
+        }
+    }
 }
 
 fn intern_inline(table: &mut Art, inline: &InlineArtDto, usage: ArtUse) -> Result<String> {

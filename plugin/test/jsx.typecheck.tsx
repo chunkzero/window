@@ -128,9 +128,20 @@ const setterCondition = Switch({ bind: category.set("all"), children: [] });
 const comparedClick = <Region onClick={category.is("all")} />;
 const quietRegion = <Region onClick={category.set("all")} hover={false} />;
 const quietButton = <Button onClick={action("buy")} hover={false} />;
-// @ts-expect-error `hover` is a boolean, not an outline style.
+const artRegion = <Region onClick={category.set("all")} hover={texture("ui/hover.png", { insets: 2 })} />;
+const artButton = <Button onClick={action("buy")} hover={shape({ kind: "panel", fill: "#ff0000" })} />;
+const fitButton = (
+    <Button onClick={action("buy")} hover={{ art: texture("ui/hover.png"), fit: "center", tint: "#ffcc00" }} />
+);
+// @ts-expect-error `hover` is a boolean or art, not a color.
 const styledHover = <Region onClick={category.set("all")} hover="#ffffff" />;
-void [comparedSwitch, setterCondition, comparedClick, quietRegion, quietButton, styledHover];
+const hoverTone = tint("hover_tone", { ok: "#3ddc84" });
+// @ts-expect-error A hover's tint is baked in, so it is a color and not a `tint` handle.
+const handleHover = <Region onClick={category.set("all")} hover={{ art: texture("ui/hover.png"), tint: hoverTone }} />;
+// @ts-expect-error The object form names its art.
+const artlessHover = <Region onClick={category.set("all")} hover={{ tint: "#ffcc00" }} />;
+void [comparedSwitch, setterCondition, comparedClick, quietRegion, quietButton, artRegion, artButton, fitButton];
+void [styledHover, handleHover, artlessHover];
 
 const tone = tint("tone", { ok: "#3ddc84", warn: "#ffb020" });
 const tinted = (
