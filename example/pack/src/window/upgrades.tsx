@@ -185,7 +185,6 @@ export default (
                 Shop
             </Button>
             <Spacer span={3} />
-            {/* The art is 2px larger than the button on every side, so it is centered around it. */}
             <Button close span={3} hover={hovers.exit}>
                 Exit
             </Button>

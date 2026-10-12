@@ -4038,7 +4038,7 @@ internal object WindowEntries {
                             ),
                             source = "region `upgrade[0]`",
                             hover = HoverEntry(
-                                text = "\uE3A6\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                text = "\uE8EF\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
                                 x = -80,
                                 y = -66,
                             ),
@@ -4098,7 +4098,7 @@ internal object WindowEntries {
                             ),
                             source = "region `upgrade[0]~2`",
                             hover = HoverEntry(
-                                text = "\uE3A6\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                text = "\uE8EF\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
                                 x = -80,
                                 y = -66,
                             ),
@@ -4158,7 +4158,7 @@ internal object WindowEntries {
                             ),
                             source = "region `upgrade[1]`",
                             hover = HoverEntry(
-                                text = "\uE3A6\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                text = "\uE8EF\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
                                 x = -26,
                                 y = -66,
                             ),
@@ -4218,7 +4218,7 @@ internal object WindowEntries {
                             ),
                             source = "region `upgrade[1]~2`",
                             hover = HoverEntry(
-                                text = "\uE3A6\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                text = "\uE8EF\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
                                 x = -26,
                                 y = -66,
                             ),
@@ -4278,7 +4278,7 @@ internal object WindowEntries {
                             ),
                             source = "region `upgrade[2]`",
                             hover = HoverEntry(
-                                text = "\uE3A6\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                text = "\uE8EF\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
                                 x = 28,
                                 y = -66,
                             ),
@@ -4338,7 +4338,7 @@ internal object WindowEntries {
                             ),
                             source = "region `upgrade[2]~2`",
                             hover = HoverEntry(
-                                text = "\uE3A6\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                text = "\uE8EF\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
                                 x = 28,
                                 y = -66,
                             ),
@@ -4368,9 +4368,9 @@ internal object WindowEntries {
                             hitbox = null,
                             source = "region `window:close`",
                             hover = HoverEntry(
-                                text = "\uE23C\uDB80\uDC05\uDB80\uDC06\uDB80\uDC07\uDB80\uDC0A",
-                                x = 26,
-                                y = 57,
+                                text = "\uF14E\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                x = 28,
+                                y = 59,
                             ),
                         ),
                     ),

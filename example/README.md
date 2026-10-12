@@ -48,9 +48,9 @@ catalog filtered by the query, which the catalog's clear button resets and reope
 
 The workshop, under its own theme, sells three upgrades for the same coins: a click on a card buys the chosen amount of
 levels, each card shows its level as text and is marked new, shows a bar, or is marked maxed, and the rank badge takes
-the shared tone. A card that can be bought draws a gold ring while hovered, the exit button a red one around it, and the
-other controls the default white outline. A maxed card takes no clicks, so hovering it shows "Fully upgraded" and no
-hover. Its levels last until the server stops.
+the shared tone. A card that can be bought draws a gold ring while hovered, the exit button a red one, both one white
+texture tinted at build time, and the other controls the default white outline. A maxed card takes no clicks, so
+hovering it shows "Fully upgraded" and no hover. Its levels last until the server stops.
 
 The actionbar-backed HUD demo is disabled by default so the inventory examples stay visually focused. Enable it with
 `-Dwindow.hud.enabled=true`; use `-Dwindow.hud.spriteDebug=true` to print each HUD's static art to chat. The pack blanks
