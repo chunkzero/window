@@ -41,6 +41,8 @@ const MAX_SCALE: u32 = 16;
 /// The most pixels a finished preview image may hold, the area of 4096 x 4096.
 const MAX_PIXELS: u64 = 4096 * 4096;
 const ITEM_OUTLINE: [u8; 4] = [0xff, 0x40, 0xff, 0xc0];
+/// The text shader that draws hovers discards fragments with alpha below 0.1.
+const HOVER_MIN_ALPHA: u8 = 26;
 const REGION_OUTLINE: [u8; 4] = [0x60, 0xff, 0x20, 0xc0];
 /// Where the client draws the anvil's rename text inside the text field.
 const ANVIL_TEXT_INSET: Point = Point::new(3, 4);
@@ -625,12 +627,15 @@ impl Scene<'_> {
         for placement in placements.iter().flatten() {
             placement.include_in(&mut bounds);
         }
-        let hovers: Vec<Shown<'_>> = if request.hovers && self.project.options.core_shaders.hover {
-            let regions = pane.regions.iter().filter(|region| hidden.shows(Member::Region, &region.name));
-            regions.filter_map(Shown::of).collect()
-        } else {
-            Vec::new()
-        };
+        let mut hovers: Vec<Shown<'_>> = Vec::new();
+        if request.hovers && self.project.options.core_shaders.hover {
+            for region in pane.regions.iter().filter(|region| hidden.shows(Member::Region, &region.name)) {
+                if let Some(shown) = Shown::of(region) {
+                    shown.check_limits(pane.name, region, pane.rect.size())?;
+                    hovers.push(shown);
+                }
+            }
+        }
         for Shown { rect, .. } in &hovers {
             bounds.include(i64::from(rect.x), i64::from(rect.y), rect.width, rect.height);
         }
@@ -696,7 +701,15 @@ impl Scene<'_> {
             self.painter.draw_line(&mut canvas, None, content, at, Rgb::new(0xff, 0xff, 0xff), Shadow::Vanilla, false);
         }
         for shown in &hovers {
-            canvas.blit(&shown.texture(pane.name, self.textures)?, shown.rect.origin());
+            let texture = shown.texture(pane.name, self.textures)?;
+            for y in 0..texture.height {
+                for x in 0..texture.width {
+                    let rgba = texture.get(x, y);
+                    if rgba[3] >= HOVER_MIN_ALPHA {
+                        canvas.blend(shown.rect.x + x as i32, shown.rect.y + y as i32, rgba);
+                    }
+                }
+            }
         }
         if request.outlines {
             for region in pane.regions.iter().filter(|region| hidden.shows(Member::Region, &region.name)) {

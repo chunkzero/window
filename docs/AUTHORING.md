@@ -174,8 +174,8 @@ of several), a list of `[handle, value]` entries, and:
   pixel per GUI pixel.
 - `outlines`: outline the active [regions](#primitives), which otherwise draw nothing.
 - `hovers`: draw the [hover](#hover) of every active region at once, each where and as the pack draws it in game,
-  without the tooltip cut-out. A region that draws no hover in game draws none, and nothing is drawn unless the pack
-  sets `coreShaders.hover`.
+  without the tooltip cut-out. A region that draws no hover in game draws none, a hover outside the pack's size and
+  offset limits fails the preview, and nothing is drawn unless the pack sets `coreShaders.hover`.
 
 An image may hold at most 16,777,216 pixels (4096 x 4096) after scaling; a larger one fails the build naming the
 preview, its size, and its scale.

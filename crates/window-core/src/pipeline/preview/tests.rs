@@ -432,3 +432,28 @@ fn hovers_draw_what_each_region_draws_in_the_pack_where_it_draws_it() {
     assert_ne!(plain.get(8, 18), white);
     assert_eq!(render(false, true).rgba, render(false, false).rgba, "nothing is drawn without `coreShaders.hover`");
 }
+
+#[test]
+fn hovers_skip_faint_pixels_and_obey_the_pack_limits() {
+    // Columns alternate between alpha 25 and 26.
+    let rgba = (0..16u8).flat_map(|i| [0xff, 0xff, 0xff, 25 + i % 2]).collect();
+    let icon = Texture { width: 4, height: 4, rgba };
+    let render = |art: Value| {
+        let hover = json!({ "art": art, "fit": "center", "tint": "#ff0000" });
+        let region = json!({ "type": "region", "width": 16, "height": 16, "on_click": { "kind": "action", "id": "a" },
+            "hover": hover });
+        let children = json!([{ "type": "flex", "x": 8, "y": 18, "children": [region] }]);
+        let window = json!({ "name": "shop", "container": "generic_9x1", "children": children });
+        let project = json!({ "windows": [window], "options": { "core_shaders": { "hover": true } } });
+        let target = json!({ "kind": "window", "name": "shop" });
+        let request = json!({ "name": "shot", "target": target, "hovers": true });
+        render_with(project, request, vec![("icon.png", icon.clone())])
+    };
+
+    let shot = render(json!({ "art": "texture", "texture": "icon.png" })).unwrap();
+    assert_eq!(shot.get(14, 24)[3], 0, "the text shader discards alpha below 0.1");
+    assert_eq!(shot.get(15, 24), [0xff, 0, 0, 26]);
+    let wide = json!({ "art": "texture", "texture": "icon.png", "width": 300, "height": 20 });
+    let error = render(wide).unwrap_err().to_string();
+    assert!(error.starts_with("window `shop`: ") && error.contains("300x20 px hover art"), "{error}");
+}

@@ -110,6 +110,30 @@ impl Shown<'_> {
         }
     }
 
+    /// Checks that its glyph fits the size limits and its origin the offset range, and returns the origin relative to
+    /// the center of a `gui`-sized GUI. `window` names the window in errors.
+    pub(super) fn check_limits(&self, window: &str, region: &RegionIr, gui: Size) -> Result<(i32, i32)> {
+        let (rect, size) = (self.rect, self.rect.size());
+        let (what, fix) = match self.art {
+            Some(_) => ("hover art", "resize the art or set `hover` to false on it"),
+            None => ("hover outline", "set `hover` to false on it"),
+        };
+        let err = |message: String| Error::Validation(format!("window `{window}`: {} {message}; {fix}", region.source));
+        if !(MIN_WIDTH..=MAX_GLYPH_SIZE).contains(&size.width) || !(1..=MAX_HEIGHT).contains(&size.height) {
+            return Err(err(format!(
+                "has a {}x{} px {what}, which must be {MIN_WIDTH} to {MAX_GLYPH_SIZE} px wide and 1 to {MAX_HEIGHT} \
+                 px tall",
+                size.width, size.height
+            )));
+        }
+        // The runtime sends each offset plus 128 as one color channel.
+        let (x, y) = (rect.x - (gui.width / 2) as i32, rect.y - (gui.height / 2) as i32);
+        if !(-128..=127).contains(&x) || !(-128..=127).contains(&y) {
+            return Err(err(format!("has a {what} that starts more than 128 px from the GUI center")));
+        }
+        Ok((x, y))
+    }
+
     /// Its pixels, which cover `rect`. `window` names the window in errors.
     pub(super) fn texture(&self, window: &str, textures: &BTreeMap<String, Texture>) -> Result<Texture> {
         Ok(match self.art {
@@ -137,26 +161,7 @@ impl CompileContext<'_> {
         let Some(shown) = Shown::of(region).filter(|_| self.hover) else {
             return Ok(None);
         };
-        let (rect, size) = (shown.rect, shown.rect.size());
-        let (what, fix) = match shown.art {
-            Some(_) => ("hover art", "resize the art or set `hover` to false on it"),
-            None => ("hover outline", "set `hover` to false on it"),
-        };
-        let err =
-            |message: String| Error::Validation(format!("window `{}`: {} {message}; {fix}", w.name, region.source));
-        if !(MIN_WIDTH..=MAX_GLYPH_SIZE).contains(&size.width) || !(1..=MAX_HEIGHT).contains(&size.height) {
-            return Err(err(format!(
-                "has a {}x{} px {what}, which must be {MIN_WIDTH} to {MAX_GLYPH_SIZE} px wide and 1 to {MAX_HEIGHT} \
-                 px tall",
-                size.width, size.height
-            )));
-        }
-        // The runtime sends each offset plus 128 as one color channel.
-        let gui = w.surface.gui_size();
-        let (x, y) = (rect.x - (gui.width / 2) as i32, rect.y - (gui.height / 2) as i32);
-        if !(-128..=127).contains(&x) || !(-128..=127).contains(&y) {
-            return Err(err(format!("has a {what} that starts more than 128 px from the GUI center")));
-        }
+        let (x, y) = shown.check_limits(&w.name, region, w.surface.gui_size())?;
 
         let key = shown.glyph_key();
         let glyph = char::from_u32(self.codepoints[&key]).expect("hover codepoint is a valid char");
@@ -168,7 +173,7 @@ impl CompileContext<'_> {
             self.push(Part::Hover, OutputFile::binary(path, texture.encode_png()?));
         }
         // A bitmap glyph advances by its width plus 1; the data rows are opaque at both ends.
-        let text = format!("{glyph}{}", spacers_for(-(size.width as i32 + 1)));
+        let text = format!("{glyph}{}", spacers_for(-(shown.rect.width as i32 + 1)));
         Ok(Some(HoverEntry { text, x, y }))
     }
 
