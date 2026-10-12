@@ -2,7 +2,7 @@
 
 use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
-use crate::ir::Tooltip;
+use crate::ir::{Rgb, Tooltip};
 
 use super::{Element, Tint};
 
@@ -82,10 +82,26 @@ pub enum Hover {
     None,
     /// The generated 1px white outline of its rect.
     Outline,
-    /// The named frame stretched over its rect.
-    Frame(String),
-    /// The named sprite at its own size, centered on its rect.
-    Image(String),
+    Art(HoverArt),
+}
+
+/// Authored art a [`Region`] draws while hovered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HoverArt {
+    /// The art's interned name: a frame for [`HoverFit::Stretch`], a sprite for [`HoverFit::Center`].
+    pub name: String,
+    pub fit: HoverFit,
+    /// The color the art is multiplied by, baked in at compile time.
+    pub tint: Option<Rgb>,
+}
+
+/// How hover art is placed on its region.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HoverFit {
+    /// Stretched over the region's rect, as a frame.
+    Stretch,
+    /// At its own size, centered on the region's rect, which it may overhang.
+    Center,
 }
 
 /// One case of a [`Switch`]: a box that fills the switch.

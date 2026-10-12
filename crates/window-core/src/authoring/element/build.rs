@@ -3,7 +3,7 @@ use crate::authoring::art::{ArtRefDto, HoverDto};
 use crate::authoring::flex::parse_auto_flow;
 use crate::authoring::parse::validate_name;
 use crate::inventory::{InventorySlotSection, SlotRectClaim};
-use crate::model::{Bar, Element, FlexBox, Hover, Region, SlotSection, Switch, SwitchCase};
+use crate::model::{Bar, Element, FlexBox, Hover, HoverArt, Region, SlotSection, Switch, SwitchCase};
 use crate::{Error, Result};
 
 /// The widest and tallest a bar may be: one font atlas page, which its largest fill glyph must fit.
@@ -204,8 +204,9 @@ impl ElementDto {
             None => None,
             Some(HoverDto::Outline(false)) => Some(Hover::None),
             Some(HoverDto::Outline(true)) => Some(Hover::Outline),
-            Some(HoverDto::Art { art, stretch: true }) => art_name(art)?.map(Hover::Frame),
-            Some(HoverDto::Art { art, stretch: false }) => art_name(art)?.map(Hover::Image),
+            Some(HoverDto::Art { art, fit, tint }) => {
+                art_name(art)?.map(|name| Hover::Art(HoverArt { name, fit: *fit, tint: *tint }))
+            }
         };
         Ok(Element::Region(Box::new(Region {
             size: self.optional_size()?,

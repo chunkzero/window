@@ -8,7 +8,7 @@ import type { ClickAction, Condition, Selection, Toggle } from "../../bind/handl
 import type { Element } from "../../ui/document.ts";
 import type { Child, DebugProps } from "../../ui/components.ts";
 import type { BoxStyle, CaseStyle, ItemStyle, StyleValue } from "../../ui/styles.ts";
-import type { ArtRef, Tooltip } from "../../ui/types.ts";
+import type { ArtRef, Hover, Tooltip } from "../../ui/types.ts";
 import { FACE_KEYS, face, flat, placement } from "./face.ts";
 import type { ControlProps, FaceProps, Layer, StateProps, VariantStyle } from "./face.ts";
 import { styles } from "./styles.ts";
@@ -229,7 +229,7 @@ export function Tabs<V extends string>(props: TabsProps<V>): Element[] {
 export interface HotspotProps extends ItemStyle, DebugProps {
     tooltip: string | Tooltip;
     /** What hovering draws over its slots; see `<Region hover>`. */
-    hover?: boolean | ArtRef;
+    hover?: Hover;
     itemModel?: string;
 }
 

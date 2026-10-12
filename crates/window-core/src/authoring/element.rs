@@ -205,7 +205,13 @@ pub(super) fn intern_art(children: &mut [ElementDto], table: &mut Art) -> Result
         intern(table, &mut child.art, ArtUse::Image)?;
         intern(table, &mut child.selected_sprite, ArtUse::Sprite)?;
         if let Some(hover) = &mut child.hover {
-            hover.intern(table)?;
+            hover.intern(table).map_err(|error| {
+                let region = match &child.on_click {
+                    Some(click) => format!("region `{}`", click.id()),
+                    None => "region".to_string(),
+                };
+                Error::Validation(format!("{region} `hover`: {error}")).with_debug_name(child.debug_name.as_deref())
+            })?;
         }
         intern_art(&mut child.children, table)?;
     }

@@ -84,6 +84,8 @@ test("handle props serialize the handle in place of a name", () => {
     assert.equal("hover" in fields(Region({ onClick: builtin("window:close") })), false);
     const art = texture("ui/hover.png", { insets: 2 });
     assert.equal(fields(Region({ onClick: builtin("window:close"), hover: art }))["hover"], art);
+    const centered = { art, fit: "center", tint: "#ffcc00" } as const;
+    assert.equal(fields(Region({ onClick: builtin("window:close"), hover: centered }))["hover"], centered);
 });
 
 test("selection helpers carry the compared or assigned value", () => {

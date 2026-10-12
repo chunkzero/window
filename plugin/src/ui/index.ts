@@ -12,6 +12,8 @@ export type {
     GeneratedKind,
     GridFlow,
     GridLine,
+    Hover,
+    HoverArt,
     HudChannel,
     HudShader,
     HudShaderPoint,

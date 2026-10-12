@@ -11,7 +11,7 @@ use crate::compose::{Texture, compose_draws};
 use crate::font::{bitmap_provider, spacers_for};
 use crate::geometry::{Rect, Size};
 use crate::hud::{HOVER_GLYPH_ID, HOVER_SIZE_MARK};
-use crate::ir::{Draw, HoverIr, LaidOutWindow, RegionIr};
+use crate::ir::{Draw, HoverIr, LaidOutWindow, RegionIr, Rgb};
 use crate::manifest::HoverEntry;
 use crate::size::Part;
 use crate::{Error, Result};
@@ -80,16 +80,16 @@ pub(super) fn check_disabled(windows: &[&LaidOutWindow]) -> Result<()> {
 }
 
 /// What a hovered region draws: authored art, or else the generated outline.
-struct Shown<'a> {
+pub(super) struct Shown<'a> {
     /// Where it is drawn, in GUI space.
-    rect: Rect,
+    pub(super) rect: Rect,
     /// The art's name among hover art and its draw over `rect`.
     art: Option<(&'a str, &'a Draw)>,
 }
 
 impl Shown<'_> {
     /// What `region` draws while hovered: as it says, else the outline when it takes clicks.
-    fn of(region: &RegionIr) -> Option<Shown<'_>> {
+    pub(super) fn of(region: &RegionIr) -> Option<Shown<'_>> {
         match &region.hover {
             Some(HoverIr::None) => None,
             Some(HoverIr::Art { name, draw }) => Some(Shown { rect: *draw.dest(), art: Some((name, draw)) }),
@@ -102,9 +102,20 @@ impl Shown<'_> {
     fn glyph_key(&self) -> String {
         let Size { width, height } = self.rect.size();
         match self.art {
+            Some((name, Draw::Tinted { color: Rgb { r, g, b }, .. })) => {
+                format!("hover/{name}/{r:02x}{g:02x}{b:02x}/{width}x{height}")
+            }
             Some((name, _)) => format!("hover/{name}/{width}x{height}"),
             None => format!("hover/{width}x{height}"),
         }
+    }
+
+    /// Its pixels, which cover `rect`. `window` names the window in errors.
+    pub(super) fn texture(&self, window: &str, textures: &BTreeMap<String, Texture>) -> Result<Texture> {
+        Ok(match self.art {
+            Some((_, draw)) => compose_draws(std::slice::from_ref(draw), window, textures)?.texture,
+            None => outline_texture(self.rect.size()),
+        })
     }
 }
 
@@ -150,11 +161,7 @@ impl CompileContext<'_> {
         let key = shown.glyph_key();
         let glyph = char::from_u32(self.codepoints[&key]).expect("hover codepoint is a valid char");
         if self.hover_glyphs.insert(glyph) {
-            let art = match shown.art {
-                Some((_, draw)) => compose_draws(std::slice::from_ref(draw), &w.name, self.textures)?.texture,
-                None => outline_texture(size),
-            };
-            let texture = glyph_texture(&art);
+            let texture = glyph_texture(&shown.texture(&w.name, self.textures)?);
             // The text shader assumes ascent 0 when it finds the tooltip from the glyph's position.
             self.bitmap_providers.push(bitmap_provider(self.namespace, &key, texture.height, 0, glyph)?);
             let path = format!("assets/{}/textures/font/{key}.png", self.namespace);

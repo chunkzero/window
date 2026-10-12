@@ -2,7 +2,7 @@
 import type { Child, DebugProps } from "../../ui/components.ts";
 import { assign } from "../../ui/styles.ts";
 import type { ContainerStyle, ItemStyle, StyleFor, StyleValue, TextProps, Variants } from "../../ui/styles.ts";
-import type { ArtRef, FixedLength, Tooltip } from "../../ui/types.ts";
+import type { ArtRef, FixedLength, Hover, Tooltip } from "../../ui/types.ts";
 
 export type Layer = StyleValue<ContainerStyle>;
 
@@ -24,7 +24,7 @@ export interface FaceProps {
     frame?: ArtRef;
     tooltip?: string | Tooltip;
     /** What hovering draws over the control where it takes clicks; see `<Region hover>`. */
-    hover?: boolean | ArtRef;
+    hover?: Hover;
     itemModel?: string;
     /** Inset of the content from the face's edges. */
     padding?: number;

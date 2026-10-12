@@ -421,7 +421,7 @@ pub enum HoverIr {
     Art {
         /// The art's interned name under `frame/` or `image/`, the table it is interned in.
         name: String,
-        /// The art at its place in GUI space, which may extend past the region.
+        /// The art at its place in GUI space, which may extend past the region; [`Draw::Tinted`] when it is tinted.
         draw: Draw,
     },
 }

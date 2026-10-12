@@ -1,4 +1,4 @@
-//! Hover outlines: which regions get one, what the pack gains for them, and the vanilla slot highlight override.
+//! Hovers: which regions draw an outline or art, what the pack gains for them, and the vanilla slot highlight override.
 
 use std::collections::BTreeMap;
 
@@ -11,7 +11,9 @@ use window_core::pipeline::{CompileInput, CompileOutput, compile_project_json};
 fn compile(children: Value, options: Value, pack_format: u32) -> window_core::Result<CompileOutput> {
     let window = json!({ "name": "shop", "container": "generic_9x3", "children": children });
     let project = json!({ "windows": [window], "options": options, "target": { "pack_format": pack_format } });
-    compile_project_json(project.to_string().as_bytes(), &CompileInput::new(BTreeMap::new()))
+    let white = Texture { width: 4, height: 4, rgba: vec![0xff; 64] }.encode_png().unwrap();
+    let files = BTreeMap::from([("white.png".to_string(), white)]);
+    compile_project_json(project.to_string().as_bytes(), &CompileInput::new(files))
 }
 
 /// A 16x16 region over the container slot in column `column` of the first row, with `fields` added.
@@ -116,48 +118,62 @@ fn hover_needs_its_core_shader_option_and_a_supported_pack_format() {
     assert!(err.contains("region `thin` has a 3x16 px hover outline, which must be 4 to 256 px wide"), "{err}");
 }
 
+/// A flat `fill` shape, `size` px square when it has a size of its own.
+fn shape(fill: &str, size: Option<u32>) -> Value {
+    let mut shape =
+        json!({ "art": "shape", "kind": "panel", "fill": fill, "border_width": 0, "radius": 0, "inset_depth": 0 });
+    if let Some(size) = size {
+        shape.as_object_mut().unwrap().extend([("width".into(), json!(size)), ("height".into(), json!(size))]);
+    }
+    shape
+}
+
 #[test]
-fn hover_art_keeps_its_colors_and_is_stretched_or_centered_on_its_region() {
-    let shape = |fill: &str, size: Option<u32>| {
-        let mut shape = json!({ "art": "shape", "kind": "panel", "fill": fill, "border_width": 0, "radius": 0,
-            "inset_depth": 0 });
-        if let Some(size) = size {
-            shape.as_object_mut().unwrap().extend([("width".into(), json!(size)), ("height".into(), json!(size))]);
-        }
-        shape
-    };
+fn hover_art_stretches_over_its_region_unless_it_is_centered() {
     let children = json!([
         region(0, json!({ "on_click": click("frame"), "hover": shape("#ff0000", None) })),
-        region(1, json!({ "on_click": click("image"), "hover": shape("#00ff00", Some(19)) })),
-        region(2, json!({ "on_click": click("same"), "hover": shape("#00ff00", Some(19)) })),
-        region(3, json!({ "on_click": click("plain") })),
+        region(1, json!({ "on_click": click("sized"), "hover": shape("#ff0000", Some(19)) })),
+        region(2, json!({ "on_click": click("texture"), "hover": { "art": "texture", "texture": "white.png" } })),
+        region(
+            3,
+            json!({ "on_click": click("center"), "hover": { "art": shape("#00ff00", Some(19)), "fit": "center" } })
+        ),
+        region(
+            4,
+            json!({ "on_click": click("same"), "hover": { "art": shape("#00ff00", Some(19)), "fit": "center" } })
+        ),
+        region(5, json!({ "on_click": click("plain") })),
     ]);
     let output = compile(children, json!({ "core_shaders": { "hover": true } }), 88).unwrap();
     window_core::validation::validate_compile_output(&output).assert_valid();
     let regions = &output.manifest.windows["shop"].regions;
     let hover = |name: &str| regions[name].hover.as_ref().unwrap();
 
-    // Art without a size of its own stretches over the region, so it starts where the region does.
+    // Stretched art starts where its region does, whatever size of its own it has.
     assert_eq!((hover("frame").x, hover("frame").y), (-80, -66));
     assert_ne!(hover("frame").text, hover("plain").text, "art of the outline's size is another glyph");
-    // The 19x19 image is centered on its 16x16 region, the odd pixel toward the top-left.
-    assert_eq!((hover("image").x, hover("image").y), (-64, -68));
-    let glyph = hover("image").text.chars().next().unwrap();
-    assert_eq!(hover("image").text, format!("{glyph}{}", spacers_for(-20)));
-    assert_eq!(hover("same").text, hover("image").text, "regions with the same art share its glyph");
-    assert_eq!(hover("same").x, -46);
+    assert_eq!(hover("sized").text, hover("frame").text, "a stretched shape's own size does not apply");
+    assert_eq!((hover("texture").x, hover("texture").text.len()), (-44, hover("frame").text.len()));
+    // The 19x19 art is centered on its 16x16 region, the odd pixel toward the top-left.
+    assert_eq!((hover("center").x, hover("center").y), (-28, -68));
+    let glyph = hover("center").text.chars().next().unwrap();
+    assert_eq!(hover("center").text, format!("{glyph}{}", spacers_for(-20)));
+    assert_eq!(hover("same").text, hover("center").text, "regions with the same art share its glyph");
+    assert_eq!(hover("same").x, -10);
 
     let glyphs: Vec<&str> = paths(&output).into_iter().filter(|path| path.contains("/font/hover/")).collect();
-    let [outline, frame, image] = glyphs[..] else { panic!("expected three hover glyphs: {glyphs:?}") };
+    let [outline, frame, texture, image] = glyphs[..] else { panic!("expected four hover glyphs: {glyphs:?}") };
     assert_eq!(outline, "assets/window/textures/font/hover/16x16.png");
     assert!(
         image.starts_with("assets/window/textures/font/hover/image/art/") && image.ends_with("/19x19.png"),
         "{image}"
     );
-    assert!(
-        frame.starts_with("assets/window/textures/font/hover/frame/art/") && frame.ends_with("/16x16.png"),
-        "{frame}"
-    );
+    for stretched in [frame, texture] {
+        assert!(
+            stretched.starts_with("assets/window/textures/font/hover/frame/art/") && stretched.ends_with("/16x16.png"),
+            "{stretched}"
+        );
+    }
 
     let file = output.files.iter().find(|file| file.path == frame).unwrap();
     let texture = Texture::decode_png(file.contents.as_bytes()).unwrap();
@@ -167,12 +183,53 @@ fn hover_art_keeps_its_colors_and_is_stretched_or_centered_on_its_region() {
     assert_eq!(pixel(15, 16), [0xff, 0, 0, 0xff]);
     assert_eq!(pixel(1, 0), [15, 15, 0xa9, 0xff], "a data row holds the art's size minus one");
     assert_eq!(pixel(8, 17)[3], 0);
+}
 
-    let thin = json!([region(0, json!({ "on_click": click("thin"), "hover": shape("#ff0000", Some(3)) }))]);
-    let err = compile(thin, json!({ "core_shaders": { "hover": true } }), 88).unwrap_err().to_string();
-    assert!(err.contains("region `thin` has a 3x3 px hover art, which must be 4 to 256 px wide"), "{err}");
-    let err = compile(json!([region(0, json!({ "hover": "#ffffff" }))]), json!({}), 88).unwrap_err().to_string();
-    assert!(err.contains("`hover` must be a boolean or an art value"), "{err}");
+#[test]
+fn hover_tint_is_baked_into_the_glyph_and_told_apart_by_color() {
+    let white = json!({ "art": "texture", "texture": "white.png" });
+    let tinted = |name: &str, column: i32, tint: &str| {
+        region(column, json!({ "on_click": click(name), "hover": { "art": white, "tint": tint } }))
+    };
+    let children = json!([
+        region(0, json!({ "on_click": click("white"), "hover": white })),
+        tinted("gold", 1, "#ffcc00"),
+        tinted("gold_too", 2, "#ffcc00"),
+        tinted("red", 3, "#ff0000"),
+    ]);
+    let output = compile(children, json!({ "core_shaders": { "hover": true } }), 88).unwrap();
+    let regions = &output.manifest.windows["shop"].regions;
+    let glyph = |name: &str| regions[name].hover.as_ref().unwrap().text.clone();
+    assert_eq!(glyph("gold"), glyph("gold_too"), "the same art in the same tint is one glyph");
+    assert_ne!(glyph("gold"), glyph("red"));
+    assert_ne!(glyph("gold"), glyph("white"));
+
+    let gold = output.files.iter().find(|file| file.path.ends_with("/ffcc00/16x16.png")).expect("a gold glyph");
+    let texture = Texture::decode_png(gold.contents.as_bytes()).unwrap();
+    assert_eq!(texture.rgba[16 * 4..][..4], [0xff, 0xcc, 0, 0xff], "the art's white is multiplied by the tint");
+}
+
+#[test]
+fn invalid_hovers_fail_naming_what_is_wrong() {
+    let options = || json!({ "core_shaders": { "hover": true } });
+    let err = |hover: Value| {
+        let children = json!([region(0, json!({ "on_click": click("bad"), "hover": hover }))]);
+        compile(children, options(), 88).unwrap_err().to_string()
+    };
+
+    let thin = err(json!({ "art": shape("#ff0000", Some(3)), "fit": "center" }));
+    assert!(thin.contains("region `bad` has a 3x3 px hover art, which must be 4 to 256 px wide"), "{thin}");
+    let unsized_art = err(json!({ "art": shape("#ff0000", None), "fit": "center" }));
+    assert!(
+        unsized_art.contains("region `bad` `hover`: `fit: \"center\"` draws the art at its own size"),
+        "{unsized_art}"
+    );
+    let handle = err(json!({ "art": shape("#ff0000", None), "tint": { "id": "tone", "kind": "tint" } }));
+    assert!(handle.contains("a `tint(...)` handle is not supported on a hover"), "{handle}");
+    let fit = err(json!({ "art": shape("#ff0000", None), "fit": "cover" }));
+    assert!(fit.contains("`hover` has unknown `fit` `cover`"), "{fit}");
+    let color = err(json!("#ffffff"));
+    assert!(color.contains("`hover` must be a boolean, an art value, or `{ art, fit, tint }`"), "{color}");
 }
 
 #[test]

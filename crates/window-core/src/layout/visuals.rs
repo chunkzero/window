@@ -3,7 +3,7 @@ use super::target::LayoutTarget;
 use crate::Result;
 use crate::geometry::{Point, Rect, Size};
 use crate::ir::{Align, ArtIr, Draw, HoverIr, Layer, SlotIr, SpriteSlotIr, TextureKey};
-use crate::model::{Bar, Frame, Hover, SpriteDef, TextFit, TextStyle, Tint};
+use crate::model::{Bar, Frame, Hover, HoverArt, HoverFit, SpriteDef, TextFit, TextStyle, Tint};
 use crate::pipeline::texture_source_path;
 
 impl<T: LayoutTarget> Solver<'_, T> {
@@ -74,33 +74,33 @@ impl<T: LayoutTarget> Solver<'_, T> {
     /// What `hover` draws over a region at `rect`. Art need not stay inside the pane: the client draws it over the
     /// whole screen.
     pub(super) fn hover_ir(&mut self, hover: &Hover, rect: Rect, referenced_by: &str) -> Result<HoverIr> {
-        Ok(match hover {
-            Hover::None => HoverIr::None,
-            Hover::Outline => HoverIr::Outline,
-            Hover::Frame(name) => {
+        let Hover::Art(HoverArt { name, fit, tint }) = hover else {
+            return Ok(if *hover == Hover::None { HoverIr::None } else { HoverIr::Outline });
+        };
+        let (name, draw) = match fit {
+            HoverFit::Stretch => {
                 let project = self.project;
                 let def = project
                     .art
                     .frames
                     .get(name)
                     .ok_or_else(|| self.target.layout_err(format!("unknown frame `{name}`")))?;
-                HoverIr::Art {
-                    name: format!("frame/{name}"),
-                    draw: self.frame_def_draw(name, def, rect, referenced_by)?,
-                }
+                (format!("frame/{name}"), self.frame_def_draw(name, def, rect, referenced_by)?)
             }
-            Hover::Image(name) => {
+            HoverFit::Center => {
                 let def = self.sprite_def(name)?;
                 let size = self.sprite_size(name, def)?;
                 // An odd difference in size leaves the art half a pixel off center, toward the top-left.
                 let x = rect.x + (rect.width as i32 - size.width as i32).div_euclid(2);
                 let y = rect.y + (rect.height as i32 - size.height as i32).div_euclid(2);
-                HoverIr::Art {
-                    name: format!("image/{name}"),
-                    draw: sprite_draw(def, Rect::new(x, y, size.width, size.height)),
-                }
+                (format!("image/{name}"), sprite_draw(def, Rect::new(x, y, size.width, size.height)))
             }
-        })
+        };
+        let draw = match tint {
+            Some(color) => Draw::Tinted { draw: Box::new(draw), color: *color },
+            None => draw,
+        };
+        Ok(HoverIr::Art { name, draw })
     }
 
     /// Adds `draw` to the pane or switch case being emitted.

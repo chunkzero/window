@@ -173,6 +173,9 @@ of several), a list of `[handle, value]` entries, and:
 - `scale`: an integer from 1 to 16 that upscales the image with nearest-neighbour sampling. Defaults to 1, one image
   pixel per GUI pixel.
 - `outlines`: outline the active [regions](#primitives), which otherwise draw nothing.
+- `hovers`: draw the [hover](#hover) of every active region at once, each where and as the pack draws it in game,
+  without the tooltip cut-out. A region that draws no hover in game draws none, and nothing is drawn unless the pack
+  sets `coreShaders.hover`.
 
 An image may hold at most 16,777,216 pixels (4096 x 4096) after scaling; a larger one fails the build naming the
 preview, its size, and its scale.
@@ -395,27 +398,40 @@ the cursor is over one of its slots. Vanilla highlights only the single hovered 
 `vanilla: { slotHighlight: false }` removes.
 
 ```tsx
+const ring = texture("ui/ring.png", { insets: 2 }); // a white ring
+
 <Button onClick={buy} span={6}>Buy</Button> // a 1px white outline: it takes clicks
 <Button onClick={sort} span={3} hover={false}>Sort</Button> // nothing
 <Hotspot tooltip="Balance" span={3} hover /> // outlined although it takes no clicks
-<Button onClick={close} hover={texture("ui/close_hover.png")}>X</Button> // this art, in its own colors
+<Button onClick={close} hover={ring}>X</Button> // the ring stretched over the button
+<Button onClick={sell} hover={{ art: ring, tint: "#ffd731" }}>Sell</Button> // the same ring in gold
+<Button onClick={help} hover={{ art: texture("ui/glow.png"), fit: "center" }}>?</Button> // art at its own size
 ```
 
 - A region draws the white outline of its rectangle by default when it has an `onClick`. `hover` overrides that on
   `<Region>` and on the industrial controls built on one (`Button`, `Toggle`, `Choice`, `Tabs`, `Repeater`, `Hotspot`):
-  `true` for the outline, `false` for nothing, or [inline art](#inline-art). A control passes it only to the states that
-  take clicks. Setting `hover` while `coreShaders.hover` is off is a build error.
-- Hover art is drawn in its own colors and alpha, over everything else in the window. Art that stretches, which is a
-  texture with `insets` or a shape without `width` and `height`, covers the region's rectangle as a `frame` would. Other
-  art is drawn at its own size and centered on the region, so art 2px wider and taller than the region surrounds it by
-  1px; when the sizes differ by an odd amount the art sits the odd pixel toward the top-left. Art may extend past the
-  region and the window. Pixels under 10% alpha are not drawn, and a texture id from another pack cannot be hover art.
+  `true` for the outline, `false` for nothing, [inline art](#inline-art), or `{ art, fit, tint }`. Its type is exported
+  as `Hover`. A control passes it only to the states that take clicks. Setting `hover` while `coreShaders.hover` is off
+  is a build error.
+- Hover art is drawn in its own colors and alpha, over everything else in the window. Pixels under 10% alpha are not
+  drawn, and a texture id from another pack cannot be hover art.
+- `fit` places the art. `"stretch"`, the default and what `hover={art}` means, stretches it over the region's rectangle
+  exactly as `frame={art}` would: a texture's `insets` nine-slice it, and the art's own `width` and `height` do not
+  apply. `"center"` draws the art at its own size, centered on the region; when the sizes differ by an odd amount the
+  art sits the odd pixel toward the top-left. A texture's own size is its image's unless it sets `width` and `height`; a
+  shape has none without them, so centering one is a build error naming the region.
+- To draw a hover around a control instead of over it, center art larger than the control: art 4px wider and taller than
+  the region overhangs it by 2px on every side. Centered art may extend past the region and the window.
+- `tint` multiplies the art's colors by a `#rrggbb` color or a [var](#vars-and-themes) resolving to one, so one white
+  texture serves hovers of several colors. The color is baked into the pack at build time; a `tint(...)` handle is a
+  type error and a build error. The white outline takes no tint; tint art instead.
 - The hover is drawn with the region's hitbox item, so a region with a hover and no tooltip still fills its slots; its
   tooltip box is hidden. Slots where an `<Items>` or `<Collection>` shows a stack show that stack's tooltip and no
   hover.
 - An outline or hover art is 4 to 256 px wide, at most 254 px tall, and starts within 128 px of the GUI's center; a
   region outside those limits fails the build until its art is resized or its `hover` is `false`.
-- The outline's color and thickness are fixed; use art for anything else. [Previews](#previews) do not draw hovers.
+- The outline's color and thickness are fixed; use art for anything else. A [preview](#previews) draws hovers with
+  `hovers: true`.
 - It needs pack format 85 through 88 (Minecraft 26.2 is 88), shares `core/text` with `coreShaders.hud`, and like it
   depends on the client version. Where the hover crosses the region's own tooltip it is cut out, using the tooltip size
   the server measures; advanced tooltips (F3+H) add lines the server cannot see, so the hover may show through them. A

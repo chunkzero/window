@@ -20,6 +20,7 @@ import type {
     FixedLength,
     FlexAlign,
     FlexJustify,
+    Hover,
     GridFlow,
     GridLine,
     HudChannel,
@@ -199,7 +200,7 @@ export interface RegionOptions extends FlexItemOptions, DebugName {
     on_click?: ClickAction;
     tooltip?: string | Tooltip;
     /** What the region draws while hovered: an outline, nothing, or art; see `RegionProps.hover`. */
-    hover?: boolean | ArtRef;
+    hover?: Hover;
     /** Item model of the hitbox item filling its slots. */
     item_model?: string;
     /** Fixed size, set together; omit both to fill the parent box. */

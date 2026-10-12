@@ -1,4 +1,4 @@
-import type { Color, Var } from "./tokens.ts";
+import type { Color, Token, Var } from "./tokens.ts";
 
 export type TextAlign = "left" | "center" | "right";
 export type ContainerKind =
@@ -209,6 +209,24 @@ export type Art = TextureArt | ShapeArt;
 
 /** Inline art, or art `derive`d from tokens. */
 export type ArtRef = Art | Var<Art>;
+
+/** Art a region draws while hovered, with its placement and color. */
+export interface HoverArt {
+    art: ArtRef;
+    /**
+     * `"stretch"`, the default, stretches the art over the region as a `frame` would. `"center"` draws it at its own
+     * size centered on the region, which it may overhang; a shape then needs a `width` and `height`.
+     */
+    fit?: "stretch" | "center";
+    /** Multiplies the art's colors, baked in at build time. A `tint` handle is not supported. */
+    tint?: Token<Color>;
+}
+
+/**
+ * What a region draws while one of its slots is hovered: `true` for a 1px white outline, `false` for nothing, art
+ * stretched over the region, or a `HoverArt` that also sets its `fit` and `tint`.
+ */
+export type Hover = boolean | ArtRef | HoverArt;
 
 /**
  * A bitmap text font: a glyph sheet of 8px-tall cells that each `chars` row maps, left to right. Cells sit on the text

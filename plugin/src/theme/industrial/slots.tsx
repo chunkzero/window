@@ -4,7 +4,7 @@ import type { Action, Indexed, Items as ItemsHandle } from "../../bind/handles.t
 import type { Element } from "../../ui/document.ts";
 import type { Child, CollectionProps as CollectionPrimitiveProps, DebugProps } from "../../ui/components.ts";
 import type { BoxStyle, ItemStyle, StyleValue, TextProps } from "../../ui/styles.ts";
-import type { ArtRef, Tooltip } from "../../ui/types.ts";
+import type { ArtRef, Hover, Tooltip } from "../../ui/types.ts";
 import { placement } from "./face.ts";
 import type { Layer, VariantStyle } from "./face.ts";
 import { styles } from "./styles.ts";
@@ -57,7 +57,7 @@ export interface RepeaterProps extends ItemStyle, DebugProps {
     onClick?: Indexed<Action, readonly [number]>;
     tooltip?: string | Tooltip | ((i: number) => string | Tooltip);
     /** What hovering draws over a cell; see `<Region hover>`. */
-    hover?: boolean | ArtRef;
+    hover?: Hover;
     /** Items indexed by cell, shown in each cell's `itemSlot`; clicks on it still call `onClick`. */
     item?: Indexed<ItemsHandle, readonly [number]>;
     /** One-based slot of the cell `item` fills; defaults to 1. */

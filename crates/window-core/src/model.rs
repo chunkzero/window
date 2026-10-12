@@ -11,7 +11,7 @@ use crate::surface::ContainerKind;
 mod flex;
 mod generated;
 
-pub use flex::{FlexBox, Hover, ItemLayout, LayoutChild, Region, SlotSection, Switch, SwitchCase};
+pub use flex::{FlexBox, Hover, HoverArt, HoverFit, ItemLayout, LayoutChild, Region, SlotSection, Switch, SwitchCase};
 pub use generated::{GeneratedKind, GeneratedStyle};
 
 /// The art a project draws, by interned name: inline art values and the runtime sprite catalog.

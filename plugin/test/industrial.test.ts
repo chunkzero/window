@@ -66,7 +66,7 @@ test("a disabled button shows its disabled state and takes no clicks", () => {
         ofType(quiet, "region").map((node) => node.hover),
         [false, undefined],
     );
-    const lit = shape({ kind: "panel", fill: "#ff0000" });
+    const lit = { art: shape({ kind: "panel", fill: "#ffffff" }), tint: "#ff0000" } as const;
     const art = industrial.Button({ onClick: action("buy"), enabled: flag("can_buy"), hover: lit });
     assert.deepEqual(
         ofType(art, "region").map((node) => node.hover),

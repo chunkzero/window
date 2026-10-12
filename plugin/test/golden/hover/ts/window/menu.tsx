@@ -18,11 +18,15 @@ export default (
                 </Button>
                 <Region tooltip="Info" span={2} />
                 <Region tooltip="Help" span={2} hover />
-                {/* Art that stretches over its region, and art drawn at its own size around it. */}
+                {/* Art that stretches over its region, and tinted art drawn at its own size around it. */}
                 <Region onClick={action("lit")} span={2} hover={shape({ kind: "panel", fill: "#ffcc00", radius: 3 })} />
                 <Region
                     onClick={action("ring")}
-                    hover={shape({ kind: "panel", fill: "#ff5555", radius: 4, width: 20, height: 20 })}
+                    hover={{
+                        art: shape({ kind: "panel", fill: "#ffffff", radius: 4, width: 20, height: 20 }),
+                        fit: "center",
+                        tint: "#ff5555",
+                    }}
                 />
             </Section>
         </Window>
