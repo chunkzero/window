@@ -3,7 +3,6 @@ package com.chunkzero.window.minestom
 import com.chunkzero.window.FullscreenClick
 import com.chunkzero.window.FullscreenDefinition
 import com.chunkzero.window.FullscreenScope
-import com.chunkzero.window.FullscreenSession
 import com.chunkzero.window.FullscreenView
 import com.chunkzero.window.manifest.ControlEntry
 import com.chunkzero.window.manifest.CursorEntry
@@ -32,6 +31,7 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.EventListener
+import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerPacketOutEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
@@ -395,18 +395,36 @@ class MinestomFullscreenTest :
                     )
                 fixture.clear()
                 player.setInstance(other, elsewhere).join()
-                fixture.tick()
 
-                menu.closed shouldBe true
+                menu.closes shouldBe 1
                 player.gameMode shouldBe GameMode.SURVIVAL
                 player.position shouldBe elsewhere
                 fixture.sent<RespawnPacket>().size shouldBe if (dimension == "overworld") 0 else 1
                 fixture.sent<CameraPacket>().single().cameraId() shouldBe player.entityId
                 fixture.sent<DestroyEntitiesPacket>().flatMap { it.entityIds() }.size shouldBe 5
+
+                // The close already happened, so leaving the server right after it does not report another.
+                EventDispatcher.call(PlayerDisconnectEvent(player))
+                menu.closes shouldBe 1
             }
         }
 
-        "a respawn closes the window at the destination, so a window opened by the close callback restores there" {
+        "changing instance in the tick the window opened ends it" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            menu.open()
+            val elsewhere = Pos(100.0, 80.0, 100.0)
+
+            player.setInstance(MinecraftServer.getInstanceManager().createInstanceContainer(), elsewhere).join()
+            fixture.tick()
+
+            menu.closes shouldBe 1
+            player.gameMode shouldBe GameMode.SURVIVAL
+            player.position shouldBe elsewhere
+        }
+
+        "death ends the window where the player died, and the respawn that follows leaves it ended" {
             val fixture = FullscreenFixture()
             val player = fixture.player
             val menu = Menu(player)
@@ -414,19 +432,16 @@ class MinestomFullscreenTest :
             fixture.tick()
             val destination = Pos(100.0, 80.0, 100.0)
             player.respawnPoint = destination
-            var reopened: FullscreenSession? = null
-            menu.afterClose = { reopened = Menu(player).open() }
 
             player.kill()
-            fixture.clear()
-            player.respawn()
+            menu.closes shouldBe 1
             player.gameMode shouldBe GameMode.SURVIVAL
-            menu.closed shouldBe false
-            fixture.tick()
+            player.position shouldBe Pos(0.0, 42.0, 0.0)
+            shouldThrow<IllegalStateException> { Menu(player).open() }
 
-            menu.closed shouldBe true
-            player.position shouldBe destination
-            reopened!!.close()
+            player.respawn()
+            fixture.tick()
+            menu.closes shouldBe 1
             player.position shouldBe destination
             player.gameMode shouldBe GameMode.SURVIVAL
         }
@@ -449,9 +464,8 @@ class MinestomFullscreenTest :
 
             player.setInstance(MinecraftServer.getInstanceManager().createInstanceContainer(), elsewhere).join()
             MinecraftServer.getGlobalEventHandler().removeListener(opener)
-            fixture.tick()
 
-            menu.closed shouldBe false
+            menu.closes shouldBe 0
             player.gameMode shouldBe GameMode.SPECTATOR
             player.position shouldBe elsewhere.withView(0f, 0f)
         }
@@ -466,16 +480,15 @@ private class Menu(
     mode: FullscreenMode = FullscreenMode.UNLOCKED,
 ) : FullscreenView(FullscreenDefinition(manifest(mode), "menu"), MinestomFullscreenHost(player)) {
     val clicks = mutableListOf<FullscreenClick>()
-    var closed = false
-    var afterClose: () -> Unit = {}
+    var closes = 0
+    val closed get() = closes > 0
 
     override fun FullscreenScope.bind() {
         button("press") { clicks += it }
     }
 
     override fun onClose() {
-        closed = true
-        afterClose()
+        closes++
     }
 }
 

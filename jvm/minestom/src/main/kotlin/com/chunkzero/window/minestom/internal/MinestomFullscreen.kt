@@ -20,11 +20,11 @@ import net.minestom.server.entity.metadata.display.TextDisplayMeta
 import net.minestom.server.entity.metadata.other.InteractionMeta
 import net.minestom.server.event.EventFilter
 import net.minestom.server.event.EventNode
+import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerPacketOutEvent
-import net.minestom.server.event.player.PlayerRespawnEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
@@ -79,10 +79,10 @@ import net.minestom.server.world.clock.WorldClock
  * snapshots, so every packet that changes the world age carries the real clock values, or the hidden age would move
  * the clocks with it.
  *
- * The window ends, restoring the player where they now are, if they change instance or respawn, since the client then
- * drops its client-only entities and camera. Only transitions from the tick after opening count, so a window opened by
- * a spawn or respawn listener is not ended by the event that is still being dispatched. The close callback of such an
- * end runs on the next tick, once the respawn has moved the player to its destination.
+ * The window ends, restoring the player where they died, when they die, so the respawn that follows finds a client
+ * with nothing left to lose. It also ends when they spawn into a different instance than the one it opened in, since
+ * the client then drops its client-only entities and camera; the player is already at the destination then, so they are
+ * not teleported back. A window opened by a spawn listener is in the spawn's instance and stays open.
  *
  * In horse mode, [MinestomFullscreenHorse] also locks the view. The client then draws no hearts, since its camera is
  * not a player, so their max health and absorption are left alone.
@@ -115,7 +115,7 @@ internal class MinestomFullscreen private constructor(
     private val abilities = PlayerAbilitiesPacket(ABILITY_FLAGS, 0f, WALKING_SPEED)
     private val lock = Any()
     private var open = false
-    private var watchingTransitions = false
+    private val instance = player.instance
     private val horse =
         if (definition.surface.mode == FullscreenMode.HORSE) {
             MinestomFullscreenHorse(player, checkNotNull(canvas.horse) { "The pack has no horse for horse mode" })
@@ -151,7 +151,8 @@ internal class MinestomFullscreen private constructor(
 
     private fun start(content: Component) {
         check(!player.hasTag(ACTIVE)) { "${player.username} already has a full-screen window open" }
-        checkNotNull(player.instance) { "${player.username} is in no instance" }
+        checkNotNull(instance) { "${player.username} is in no instance" }
+        check(!player.isDead) { "${player.username} is dead or respawning" }
         check(player.setGameMode(GameMode.SPECTATOR)) {
             "Opening a full-screen window for ${player.username} was cancelled by a game mode listener"
         }
@@ -166,7 +167,6 @@ internal class MinestomFullscreen private constructor(
         // follows, so a spectator client never draws the invisible horse as a translucent ghost.
         player.scheduler().scheduleNextTick {
             whileOpen {
-                watchingTransitions = true
                 fakeSurvival()
                 horse?.lock(anchor.add(0.0, player.eyeHeight, 0.0))
             }
@@ -275,15 +275,12 @@ internal class MinestomFullscreen private constructor(
             if (!next.samePoint(anchor)) event.newPosition = anchor.withView(next.yaw(), next.pitch())
         }
         node.addListener(PlayerDisconnectEvent::class.java) { end(restore = false) }
-        // Both send the client a respawn packet, which clears its client-only entities and camera, so the window ends
-        // where the player now is rather than where it began.
-        node.addListener(PlayerSpawnEvent::class.java) { onTransition() }
-        node.addListener(PlayerRespawnEvent::class.java) { onTransition() }
+        node.addListener(PlayerDeathEvent::class.java) { end(restore = true) }
+        // The client clears its client-only entities and camera when it changes world.
+        node.addListener(PlayerSpawnEvent::class.java) { event ->
+            if (event.instance != instance) end(restore = true, moved = true)
+        }
         player.eventNode().addChild(node)
-    }
-
-    private fun onTransition() {
-        if (watchingTransitions) end(restore = true, moved = true)
     }
 
     private fun onPacket(event: PlayerPacketEvent) {
@@ -433,8 +430,7 @@ internal class MinestomFullscreen private constructor(
 
     /**
      * Ends the window after the player left it, restoring them unless they disconnected. A [moved] player was placed
-     * elsewhere by an instance change or respawn, so they are not teleported back, and the listener hears of the close
-     * on the next tick, since a respawn teleports the player to its destination after its event.
+     * elsewhere by an instance change, so they are not teleported back.
      */
     private fun end(
         restore: Boolean,
@@ -442,7 +438,7 @@ internal class MinestomFullscreen private constructor(
     ) {
         if (!stop()) return
         if (restore) restore(returnToStart = !moved)
-        if (moved) player.scheduler().scheduleNextTick { listener.onClose() } else listener.onClose()
+        listener.onClose()
     }
 
     /** Stops listening; false when already stopped. */
@@ -502,8 +498,9 @@ internal class MinestomFullscreen private constructor(
         /**
          * Shows [definition] drawn by [content] to [player], then listens.
          *
-         * @throws IllegalStateException if the player already has a full-screen window open, or a game mode listener
-         *   cancelled the switch to spectator mode.
+         * @throws IllegalStateException if the player already has a full-screen window open, is dead or respawning
+         *   (a respawn listener should open on the next tick), or a game mode listener cancelled the switch to spectator
+         *   mode.
          */
         fun open(
             player: Player,
