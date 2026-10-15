@@ -10,7 +10,6 @@ import com.chunkzero.window.internal.Reactivity
 import com.chunkzero.window.internal.RenderKey
 import com.chunkzero.window.internal.RenderScheduler
 import com.chunkzero.window.internal.RuntimeAction
-import com.chunkzero.window.manifest.FullscreenMode
 import net.kyori.adventure.text.Component
 
 /** A live full-screen window opened by [FullscreenView.open]. */
@@ -68,9 +67,6 @@ internal class FullscreenWindowSession(
 
     fun open() {
         try {
-            check(entry.surface.mode == FullscreenMode.UNLOCKED) {
-                "Fullscreen '${definition.name}' uses horse mode, which this runtime cannot show"
-            }
             view.attach(this, reactivity)
             view.invokeBind(bindings)
             bindings.sealed = true

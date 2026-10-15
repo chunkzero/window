@@ -9,7 +9,7 @@ use crate::fullscreen::{
     self, BACKDROP_LAYER, CURSOR_LAYER, MAX_COLORS, MAX_CONTENT_LAYER, Marker, MarkerKind, OVERLAY_LAYER, STATIC_LAYER,
 };
 use crate::geometry::{Point, Rect, Size};
-use crate::ir::{LaidOutFullscreen, Layer, RegionIr, Rgb, tint_palette, tint_palettes};
+use crate::ir::{FullscreenMode, LaidOutFullscreen, Layer, RegionIr, Rgb, tint_palette, tint_palettes};
 use crate::manifest::{
     ControlEntry, CursorEntry, FullscreenCanvasEntry, FullscreenEntry, FullscreenSurfaceEntry, SlotEntry,
 };
@@ -22,6 +22,8 @@ use super::metrics::bitmap_metrics;
 use super::window::slot_entry;
 use super::{CompileContext, OutputFile};
 
+mod horse;
+
 const WHITE: Rgb = Rgb::new(0xff, 0xff, 0xff);
 
 /// The item model, under the pack namespace, that draws nothing: the runtime fills the hotbar with it while a
@@ -32,11 +34,13 @@ const BLANK_ITEM: &str = "fullscreen/blank";
 pub(super) struct Contract {
     colors: Vec<Rgb>,
     controls: Vec<Rect>,
+    /// Whether a horse-mode window was compiled.
+    horse: bool,
 }
 
 impl Default for Contract {
     fn default() -> Self {
-        Self { colors: vec![WHITE], controls: Vec::new() }
+        Self { colors: vec![WHITE], controls: Vec::new(), horse: false }
     }
 }
 
@@ -66,6 +70,7 @@ pub(super) fn compile_fullscreen(
     contract: &mut Contract,
 ) -> Result<FullscreenEntry> {
     ctx.warnings.extend(f.warnings.iter().cloned());
+    contract.horse |= f.mode == FullscreenMode::Horse;
     let pane = Pane { kind: PaneKind::Fullscreen, name: &f.name };
     let origin = Point::new(0, 0);
     let file_base = format!("fullscreen/window/{}", f.name);
@@ -175,7 +180,8 @@ pub(super) fn compile_fullscreen(
     })
 }
 
-/// Emits the built-in cursor and backdrop glyphs and the include, and returns the canvas entry.
+/// Emits the built-in cursor and backdrop glyphs, the include, and with a horse-mode window the horse's files, and
+/// returns the canvas entry.
 pub(super) fn emit_contract(ctx: &mut CompileContext<'_>, mut contract: Contract) -> Result<FullscreenCanvasEntry> {
     let cursor_texture = fullscreen::cursor_texture();
     let cursor_size = Size::new(cursor_texture.width, cursor_texture.height);
@@ -187,6 +193,7 @@ pub(super) fn emit_contract(ctx: &mut CompileContext<'_>, mut contract: Contract
     ctx.push(Part::Fullscreen, OutputFile::text(fullscreen::INCLUDE_PATH, include));
     let blank = to_json(&serde_json::json!({ "model": { "type": "minecraft:empty" } }))?;
     ctx.push(Part::Fullscreen, OutputFile::text(format!("assets/{}/items/{BLANK_ITEM}.json", ctx.namespace), blank));
+    let horse = if contract.horse { Some(horse::emit(ctx, &cursor_texture)?) } else { None };
     Ok(FullscreenCanvasEntry {
         width: fullscreen::CANVAS.width,
         height: fullscreen::CANVAS.height,
@@ -209,6 +216,7 @@ pub(super) fn emit_contract(ctx: &mut CompileContext<'_>, mut contract: Contract
         hud_strip_height: fullscreen::HUD_STRIP_HEIGHT,
         hud_strip_half_width: fullscreen::HUD_STRIP_HALF_WIDTH,
         hud_max_health: fullscreen::HUD_MAX_HEALTH,
+        horse,
     })
 }
 

@@ -10,16 +10,20 @@ import com.chunkzero.window.manifest.FullscreenCanvasEntry
 import com.chunkzero.window.manifest.FullscreenEntry
 import com.chunkzero.window.manifest.FullscreenMode
 import com.chunkzero.window.manifest.FullscreenSurfaceEntry
+import com.chunkzero.window.manifest.HorseEntry
 import com.chunkzero.window.manifest.WindowManifest
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
+import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Metadata
 import net.minestom.server.entity.MetadataDef
@@ -40,14 +44,17 @@ import net.minestom.server.network.packet.client.play.ClientInputPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.ServerPacket
+import net.minestom.server.network.packet.server.play.CameraPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
 import net.minestom.server.network.packet.server.play.EntityAttributesPacket
+import net.minestom.server.network.packet.server.play.EntityEquipmentPacket
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
 import net.minestom.server.network.packet.server.play.OpenWindowPacket
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
+import net.minestom.server.network.packet.server.play.SetPassengersPacket
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
 import net.minestom.server.network.packet.server.play.SetSlotPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
@@ -302,6 +309,49 @@ class MinestomFullscreenTest :
             fixture.receive(ClientCloseWindowPacket(second))
             fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
         }
+
+        "horse mode locks the view next tick, leaves max health alone, and unlocks it on close" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val session = Menu(player, FullscreenMode.HORSE).open()
+
+            fixture.sent<SpawnEntityPacket>().map { it.type() } shouldContainExactly
+                listOf(EntityType.TEXT_DISPLAY, EntityType.INTERACTION)
+            fixture.sent<EntityAttributesPacket>() shouldBe emptyList()
+            fixture.clear()
+            fixture.tick()
+
+            val spawns = fixture.sent<SpawnEntityPacket>()
+            spawns.map { it.type() } shouldContainExactly listOf(EntityType.BAT, EntityType.HORSE)
+            val (bat, horse) = spawns
+            bat.position().y() shouldBe player.position.y() + player.eyeHeight - Entity(EntityType.BAT).eyeHeight
+            horse.position() shouldBe player.position.add(0.0, player.eyeHeight - 1.75, 3.0)
+            val armor =
+                fixture
+                    .sent<EntityEquipmentPacket>()
+                    .single()
+                    .equipments()
+                    .getValue(EquipmentSlot.BODY)
+            armor.get(DataComponents.EQUIPPABLE)?.assetId() shouldBe "window:fullscreen/horse_cursor"
+            fixture.sent<SetPassengersPacket>().single() shouldBe
+                SetPassengersPacket(horse.entityId(), listOf(player.entityId))
+            fixture.sent<CameraPacket>().single().cameraId() shouldBe bat.entityId()
+
+            fixture.clear()
+            fixture.send(
+                EntityAttributesPacket(
+                    player.entityId,
+                    listOf(EntityAttributesPacket.Property(Attribute.MAX_HEALTH, 40.0, emptyList())),
+                ),
+            )
+            fixture.sent<EntityAttributesPacket>().size shouldBe 1
+
+            fixture.clear()
+            session.close()
+            fixture.sent<CameraPacket>().single().cameraId() shouldBe player.entityId
+            fixture.sent<SetPassengersPacket>().single().passengersId() shouldBe emptyList()
+            fixture.sent<DestroyEntitiesPacket>().flatMap { it.entityIds() } shouldContain horse.entityId()
+        }
     }) {
     private companion object {
         const val HIDDEN_AGE = -1_000_000_001L
@@ -310,7 +360,8 @@ class MinestomFullscreenTest :
 
 private class Menu(
     player: Player,
-) : FullscreenView(FullscreenDefinition(manifest(), "menu"), MinestomFullscreenHost(player)) {
+    mode: FullscreenMode = FullscreenMode.UNLOCKED,
+) : FullscreenView(FullscreenDefinition(manifest(mode), "menu"), MinestomFullscreenHost(player)) {
     val clicks = mutableListOf<FullscreenClick>()
     var closed = false
 
@@ -421,7 +472,7 @@ private class PacketLog : PlayerConnection() {
     override fun getRemoteAddress(): SocketAddress = InetSocketAddress("127.0.0.1", 25565)
 }
 
-private fun manifest(): WindowManifest {
+private fun manifest(mode: FullscreenMode): WindowManifest {
     val magnitudes = (0..10).map { 1 shl it }
     val advances = magnitudes.reversed().map { -it } + magnitudes
     val canvas =
@@ -442,6 +493,7 @@ private fun manifest(): WindowManifest {
             hudStripHeight = 56,
             hudStripHalfWidth = 96,
             hudMaxHealth = 20,
+            horse = HorseEntry(listOf(0.0, -1.75, 3.0), "window:fullscreen/horse_cursor"),
         )
     return WindowManifest(
         version = WindowManifest.VERSION,
@@ -454,7 +506,7 @@ private fun manifest(): WindowManifest {
             mapOf(
                 "menu" to
                     FullscreenEntry(
-                        surface = FullscreenSurfaceEntry("fullscreen", FullscreenMode.UNLOCKED, listOf(480, 270)),
+                        surface = FullscreenSurfaceEntry("fullscreen", mode, listOf(480, 270)),
                         static = "S",
                         staticMarker = "#a00400",
                         controls = mapOf("press" to ControlEntry(0, 5, 5, 20, 10, action = "press", hover = false)),

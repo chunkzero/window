@@ -3,6 +3,7 @@ package com.chunkzero.window.minestom.internal
 import com.chunkzero.window.FullscreenDefinition
 import com.chunkzero.window.host.FullscreenListener
 import com.chunkzero.window.host.OpenFullscreen
+import com.chunkzero.window.manifest.FullscreenMode
 import net.kyori.adventure.text.Component
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
@@ -75,6 +76,9 @@ import net.minestom.server.world.clock.WorldClock
  * The client advances every world clock by the world age delta of each time packet before applying the packet's clock
  * snapshots, so every packet that changes the world age carries the real clock values, or the hidden age would move
  * the clocks with it.
+ *
+ * In horse mode, [MinestomFullscreenHorse] also locks the view. The client then draws no hearts, since its camera is
+ * not a player, so their max health and absorption are left alone.
  */
 internal class MinestomFullscreen private constructor(
     private val player: Player,
@@ -104,6 +108,12 @@ internal class MinestomFullscreen private constructor(
     private val abilities = PlayerAbilitiesPacket(ABILITY_FLAGS, 0f, WALKING_SPEED)
     private val lock = Any()
     private var open = false
+    private val horse =
+        if (definition.surface.mode == FullscreenMode.HORSE) {
+            MinestomFullscreenHorse(player, checkNotNull(canvas.horse) { "The pack has no horse for horse mode" })
+        } else {
+            null
+        }
 
     /** The window id of the server container the client has open, or [NO_CONTAINER]. */
     private var containerWindowId = NO_CONTAINER
@@ -144,8 +154,14 @@ internal class MinestomFullscreen private constructor(
         player.setTag(ACTIVE, true)
         player.flyingSpeed = 0f
         player.teleport(anchor)
-        // The game mode change also updated the client's own tab-list entry, so survival is faked after it.
-        player.scheduler().scheduleNextTick { whileOpen { fakeSurvival() } }
+        // The game mode change also updated the client's own tab-list entry, so survival is faked after it. The horse
+        // follows, so a spectator client never draws the invisible horse as a translucent ghost.
+        player.scheduler().scheduleNextTick {
+            whileOpen {
+                fakeSurvival()
+                horse?.lock(anchor.add(0.0, player.eyeHeight, 0.0))
+            }
+        }
         spawn(content)
         if (!containerOpen) blankHotbar()
         hideHud()
@@ -219,7 +235,7 @@ internal class MinestomFullscreen private constructor(
     private fun hideHud() {
         if (!containerOpen) hideTime(realTime().clocks())
         capMaxHealth()
-        player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to ZERO)))
+        if (horse == null) player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to ZERO)))
     }
 
     private fun hideTime(clocks: Map<RegistryKey<WorldClock>, SetTimePacket.ClockState>) {
@@ -232,10 +248,13 @@ internal class MinestomFullscreen private constructor(
         cappedMaxHealth()?.let { player.sendPacket(EntityAttributesPacket(player.entityId, listOf(it))) }
     }
 
-    /** The modifier-free max health the client is told while the HUD is hidden, or `null` when the real one fits. */
+    /**
+     * The modifier-free max health the client is told while the HUD is hidden, or `null` when the real one fits or the
+     * hearts are not drawn.
+     */
     private fun cappedMaxHealth(): EntityAttributesPacket.Property? {
         val cap = canvas.hudMaxHealth.toDouble()
-        if (player.getAttribute(Attribute.MAX_HEALTH).value <= cap) return null
+        if (horse != null || player.getAttribute(Attribute.MAX_HEALTH).value <= cap) return null
         return EntityAttributesPacket.Property(Attribute.MAX_HEALTH, cap, emptyList())
     }
 
@@ -301,7 +320,7 @@ internal class MinestomFullscreen private constructor(
                 }
 
                 is EntityMetaDataPacket -> {
-                    val absorption = packet.entries()[ABSORPTION]?.value()
+                    val absorption = packet.entries()[ABSORPTION]?.value()?.takeIf { horse == null }
                     if (packet.entityId() == player.entityId && absorption != null && absorption != 0f) {
                         player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to ZERO)))
                     }
@@ -413,6 +432,7 @@ internal class MinestomFullscreen private constructor(
         }
 
     private fun restore() {
+        horse?.unlock()
         player.sendPacket(DestroyEntitiesPacket(listOf(display.entityId, clickTarget.entityId)))
         // A mode the server set while the window was open replaces the one it began with.
         val mode = player.gameMode.takeUnless { it == GameMode.SPECTATOR } ?: gameMode

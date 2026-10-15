@@ -30,7 +30,7 @@ public abstract class FullscreenView(
      * A failed open still consumes the view: [onOpen] and [onClose] never run.
      *
      * @throws IllegalStateException if this view was already opened, a dynamic slot, switch, tint, or bar is unbound, an
-     *   action lacks both a handler and a default, the window uses horse mode, or the host could not show it.
+     *   action lacks both a handler and a default, or the host could not show it.
      * @throws IllegalArgumentException for unknown names referenced in [bind].
      */
     public fun open(): FullscreenSession {

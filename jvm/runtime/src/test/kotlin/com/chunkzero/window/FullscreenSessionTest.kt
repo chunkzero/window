@@ -5,7 +5,6 @@ import com.chunkzero.window.host.FullscreenListener
 import com.chunkzero.window.host.OpenFullscreen
 import com.chunkzero.window.internal.Turn
 import com.chunkzero.window.manifest.FullscreenMode
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -130,10 +129,16 @@ class FullscreenSessionTest :
             host.turns shouldContainExactly listOf(Turn(-5f, 0f), Turn(-5f, 0f))
         }
 
-        "horse mode is refused" {
+        "horse mode sends no cursor run, since the entity shader draws the cursor, and hit-tests the same rotation" {
             val host = FakeFullscreenHost()
-            shouldThrow<IllegalStateException> { Menu(host, FullscreenMode.HORSE).open() }
-            host.shown shouldBe emptyList()
+            val menu = Menu(host, FullscreenMode.HORSE).also { it.open() }
+
+            host.look(110, 110)
+            host.listener.onClick()
+
+            host.shown.forEach { text(it) shouldNotContain "CURSOR" }
+            text(host.shown.last()) shouldContain "OUTLINE"
+            menu.plays shouldBe 1
         }
     })
 
