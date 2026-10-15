@@ -24,6 +24,8 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerPacketOutEvent
+import net.minestom.server.event.player.PlayerRespawnEvent
+import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.client.play.ClientAnimationPacket
@@ -76,6 +78,9 @@ import net.minestom.server.world.clock.WorldClock
  * The client advances every world clock by the world age delta of each time packet before applying the packet's clock
  * snapshots, so every packet that changes the world age carries the real clock values, or the hidden age would move
  * the clocks with it.
+ *
+ * The window ends, restoring the player where they now are, if they change instance or respawn, since the client then
+ * drops its client-only entities and camera.
  *
  * In horse mode, [MinestomFullscreenHorse] also locks the view. The client then draws no hearts, since its camera is
  * not a player, so their max health and absorption are left alone.
@@ -138,7 +143,7 @@ internal class MinestomFullscreen private constructor(
     }
 
     override fun close() {
-        if (stop()) restore()
+        if (stop()) restore(returnToStart = true)
     }
 
     private fun start(content: Component) {
@@ -266,6 +271,10 @@ internal class MinestomFullscreen private constructor(
             if (!next.samePoint(anchor)) event.newPosition = anchor.withView(next.yaw(), next.pitch())
         }
         node.addListener(PlayerDisconnectEvent::class.java) { end(restore = false) }
+        // Both send the client a respawn packet, which clears its client-only entities and camera, so the window ends
+        // where the player now is rather than where it began.
+        node.addListener(PlayerSpawnEvent::class.java) { end(restore = true, moved = true) }
+        node.addListener(PlayerRespawnEvent::class.java) { end(restore = true, moved = true) }
         player.eventNode().addChild(node)
     }
 
@@ -414,10 +423,16 @@ internal class MinestomFullscreen private constructor(
         synchronized(lock) { if (open) action() }
     }
 
-    /** Ends the window after the player left it, restoring them unless they disconnected. */
-    private fun end(restore: Boolean) {
+    /**
+     * Ends the window after the player left it, restoring them unless they disconnected. A [moved] player was placed
+     * elsewhere by an instance change or respawn, so they are not teleported back.
+     */
+    private fun end(
+        restore: Boolean,
+        moved: Boolean = false,
+    ) {
         if (!stop()) return
-        if (restore) restore()
+        if (restore) restore(returnToStart = !moved)
         listener.onClose()
     }
 
@@ -431,7 +446,7 @@ internal class MinestomFullscreen private constructor(
             true
         }
 
-    private fun restore() {
+    private fun restore(returnToStart: Boolean) {
         horse?.unlock()
         player.sendPacket(DestroyEntitiesPacket(listOf(display.entityId, clickTarget.entityId)))
         // A mode the server set while the window was open replaces the one it began with.
@@ -444,7 +459,7 @@ internal class MinestomFullscreen private constructor(
             player.isInstantBreak = instantBreak
         }
         player.flyingSpeed = flyingSpeed
-        player.teleport(position)
+        if (returnToStart) player.teleport(position)
         player.sendPacket(realTime())
         val maxHealth = player.getAttribute(Attribute.MAX_HEALTH)
         val property = EntityAttributesPacket.Property(Attribute.MAX_HEALTH, maxHealth.baseValue, maxHealth.modifiers())

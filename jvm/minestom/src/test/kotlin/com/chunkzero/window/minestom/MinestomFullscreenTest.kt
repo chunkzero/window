@@ -358,6 +358,40 @@ class MinestomFullscreenTest :
             fixture.sent<DestroyEntitiesPacket>().flatMap { it.entityIds() } shouldContainAll
                 listOf(bat.entityId(), horse.entityId(), seat.entityId())
         }
+        "a player riding a vehicle is put back on it when horse mode closes" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val cart = Entity(EntityType.MINECART)
+            cart.setInstance(player.instance, player.position).join()
+            cart.addPassenger(player)
+            val session = Menu(player, FullscreenMode.HORSE).open()
+            fixture.tick()
+
+            fixture.clear()
+            session.close()
+
+            fixture.sent<SetPassengersPacket>().last() shouldBe
+                SetPassengersPacket(cart.entityId, listOf(player.entityId))
+        }
+
+        "changing instance ends the window without teleporting the player back" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player, FullscreenMode.HORSE)
+            menu.open()
+            fixture.tick()
+
+            val elsewhere = Pos(100.0, 80.0, 100.0)
+            val other = MinecraftServer.getInstanceManager().createInstanceContainer()
+            fixture.clear()
+            player.setInstance(other, elsewhere).join()
+
+            menu.closed shouldBe true
+            player.gameMode shouldBe GameMode.SURVIVAL
+            player.position shouldBe elsewhere
+            fixture.sent<CameraPacket>().single().cameraId() shouldBe player.entityId
+            fixture.sent<DestroyEntitiesPacket>().flatMap { it.entityIds() }.size shouldBe 5
+        }
     }) {
     private companion object {
         const val HIDDEN_AGE = -1_000_000_001L

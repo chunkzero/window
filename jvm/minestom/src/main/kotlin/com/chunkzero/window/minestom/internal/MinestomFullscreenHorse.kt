@@ -82,10 +82,16 @@ internal class MinestomFullscreenHorse(
         player.sendPacket(CameraPacket(camera.entityId))
     }
 
-    /** Returns the camera to the player, dismounts them, and removes the bat, horse, and seat. */
+    /**
+     * Returns the camera to the player, dismounts them, and removes the bat, horse, and seat. A player who was riding a
+     * real vehicle is put back on it, since mounting the horse made their client leave it.
+     */
     fun unlock() {
         player.sendPacket(CameraPacket(player.entityId))
         player.sendPacket(SetPassengersPacket(mount.entityId, emptyList()))
+        player.vehicle?.let { vehicle ->
+            player.sendPacket(SetPassengersPacket(vehicle.entityId, vehicle.passengers.map { it.entityId }))
+        }
         player.sendPacket(DestroyEntitiesPacket(listOf(camera.entityId, mount.entityId, seat.entityId)))
     }
 
