@@ -1,7 +1,8 @@
 //! Per-full-screen-window compilation and the full-screen canvas contract: its include and built-in glyphs.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
+use crate::authoring::HudGroup;
 use crate::compose::Texture;
 use crate::font::bitmap_provider;
 use crate::fullscreen::{
@@ -195,6 +196,16 @@ pub(super) fn emit_contract(ctx: &mut CompileContext<'_>, mut contract: Contract
         hud_strip_half_width: fullscreen::HUD_STRIP_HALF_WIDTH,
         hud_max_health: fullscreen::HUD_MAX_HEALTH,
     })
+}
+
+/// Emits the crosshair sprite override the HUD-hiding fragment shader discards, unless `vanilla.hud` already blanks
+/// the crosshair.
+pub(super) fn emit_crosshair_marker(ctx: &mut CompileContext<'_>, blank_hud: &BTreeSet<HudGroup>) -> Result<()> {
+    if !blank_hud.contains(&HudGroup::Crosshair) {
+        let texture = fullscreen::crosshair_marker_texture();
+        ctx.push(Part::Fullscreen, OutputFile::binary(fullscreen::CROSSHAIR_SPRITE_PATH, texture.encode_png()?));
+    }
+    Ok(())
 }
 
 /// Emits `texture` as the main-font glyph of `key`, stored as the built-in texture `name` apart from authored

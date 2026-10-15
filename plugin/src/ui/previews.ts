@@ -1,4 +1,4 @@
-/** Previews: a window or HUD rendered to a PNG from handle values. See docs/AUTHORING.md. */
+/** Previews: a window, HUD, or full-screen window rendered to a PNG from handle values. See docs/AUTHORING.md. */
 import type { Ref, Sprite } from "../bind/handles.ts";
 
 /** A collection's previewed cells. */
@@ -52,7 +52,7 @@ type Checked<T extends readonly StateEntry[]> = {
 };
 
 export interface PreviewOptions {
-    /** The file stem of the PNG. Defaults to the window's or HUD's name. */
+    /** The file stem of the PNG. Defaults to the target's name. */
     name?: string;
     /** Integer nearest-neighbour upscale from 1 to 16. Defaults to 1: one image pixel per GUI pixel. */
     scale?: number;
@@ -63,7 +63,7 @@ export interface PreviewOptions {
 /** A preview as the compiler reads it. */
 export interface Preview {
     readonly name: string;
-    readonly target: { readonly kind: "window" | "hud"; readonly name: string };
+    readonly target: { readonly kind: "window" | "hud" | "fullscreen"; readonly name: string };
     readonly state: readonly { readonly handle: string; readonly at?: readonly number[]; readonly value: unknown }[];
     readonly scale?: number;
     readonly outlines?: boolean;
@@ -75,12 +75,16 @@ function isFields(value: unknown): value is Fields {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** The one window or HUD `value` defines: a `<Window>`, `<Hud>`, `ui()` or `hud()` document, or a bare definition. */
+/**
+ * The one window, HUD, or full-screen window `value` defines: a `<Window>`, `<Hud>`, `<Fullscreen>`, `ui()`, `hud()` or
+ * `fullscreen()` document, or a bare window or HUD definition.
+ */
 function target(value: unknown): Preview["target"] {
     if (isFields(value)) {
         for (const [list, kind] of [
             ["windows", "window"],
             ["huds", "hud"],
+            ["fullscreens", "fullscreen"],
         ] as const) {
             const defs = value[list];
             if (Array.isArray(defs) && defs.length === 1 && isFields(defs[0]) && typeof defs[0]["name"] === "string") {
@@ -91,7 +95,10 @@ function target(value: unknown): Preview["target"] {
             return { kind: "container" in value ? "window" : "hud", name: value["name"] };
         }
     }
-    throw new Error("preview() takes one window or HUD: a <Window>, <Hud>, ui() or hud() document, or a definition");
+    throw new Error(
+        "preview() takes one window, HUD, or full-screen window: a <Window>, <Hud>, <Fullscreen>, ui(), hud() or " +
+            "fullscreen() document, or a window or HUD definition",
+    );
 }
 
 /** The member values of an indexed handle, in `shape` order. */
@@ -108,7 +115,7 @@ function members(id: string, shape: readonly number[], values: unknown, at: read
 }
 
 /**
- * A PNG of `target`, a window or HUD, drawn with the handle values of `state`. List it in `defineWindows({ previews })`;
+ * A PNG of `target`, a window, HUD, or full-screen window, drawn with the handle values of `state`. List it in `defineWindows({ previews })`;
  * a build writes `<name>.png` into the plugin's `previews.output` directory. A handle without a value takes its
  * default: a toggle's or selection's `initial`, the first value of a `value`, the first palette entry of a `tint`,
  * `false` for a flag, 1 for a fraction, no text, and no sprite. Item slots draw as outlined placeholders.

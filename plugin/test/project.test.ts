@@ -327,7 +327,8 @@ test("previews are rendered into the previews output only when it is configured"
 
     assert.throws(() => checkOptions({ previews: {} }), /`previews.output` is required/);
     assert.throws(() => checkOptions({ previews: { output: "a", scale: 2 } }), /`previews.scale` is unknown/);
-    assert.throws(() => preview([shop, status]), /preview\(\) takes one window or HUD/);
+    assert.throws(() => preview([shop, status]), /preview\(\) takes one window, HUD, or full-screen window/);
+    assert.deepEqual(preview(raw.fullscreen({ name: "menu" })).target, { kind: "fullscreen", name: "menu" });
 });
 
 test("previews of a target no document lists are rendered against an empty project", (t) => {

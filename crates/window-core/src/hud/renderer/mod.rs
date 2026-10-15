@@ -1,5 +1,6 @@
 mod background;
 mod fragment;
+mod fullscreen;
 mod glsl;
 mod hover;
 mod text;
@@ -14,6 +15,7 @@ pub(super) use fragment::{
     render_dynamic_text_intensity_fragment, render_v150_text_intensity_fragment,
     render_v330_define_variant_text_fragment,
 };
+pub(super) use fullscreen::{render_position_tex_color_fragment, render_position_tex_color_vertex};
 pub(super) use text::{
     render_v150_dynamic_text_shader, render_v150_text_shader, render_v330_define_variant_text_shader,
     render_v330_text_shader,

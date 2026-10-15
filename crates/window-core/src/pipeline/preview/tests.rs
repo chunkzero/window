@@ -259,6 +259,19 @@ fn a_preview_of_an_unknown_target_names_the_preview_and_target() {
 }
 
 #[test]
+fn a_full_screen_preview_draws_the_canvas_over_its_backdrop() {
+    let red = json!({ "type": "sprite", "art": { "art": "texture", "texture": "red.png" }, "x": 100, "y": 50 });
+    let project = json!({ "fullscreens": [{ "name": "menu", "backdrop": "#102030", "children": [red] }] });
+    let request = json!({ "name": "shot", "target": { "kind": "fullscreen", "name": "menu" } });
+    let texture = render_one(project, request).unwrap();
+
+    assert_eq!((texture.width, texture.height), (480, 270));
+    assert_eq!(texture.get(0, 0), [0x10, 0x20, 0x30, 0xff]);
+    assert_eq!(texture.get(100, 50), RED);
+    assert_eq!(texture.get(104, 50), [0x10, 0x20, 0x30, 0xff]);
+}
+
+#[test]
 fn long_text_ellipsizes_to_the_longest_fitting_prefix() {
     let slot = json!([{ "type": "slot", "handle": { "kind": "text", "id": "title" }, "x": 20, "y": 30, "width": 40,
                         "color": "#ff0000", "shadow": false, "overflow": "ellipsis" }]);
