@@ -62,13 +62,12 @@ pub(super) fn compile_fullscreen(
     ctx.warnings.extend(f.warnings.iter().cloned());
     let pane = Pane { kind: PaneKind::Fullscreen, name: &f.name };
     let origin = Point::new(0, 0);
-    let file_base = format!("fullscreen_{}", f.name);
+    let file_base = format!("fullscreen/window/{}", f.name);
     let prefix = fullscreen_key_prefix(&f.name);
     let base = &layers.base;
     let static_text = if base.has_content {
         let key = format!("{prefix}/static");
-        let glyph = ctx.emit_static_glyph(base, 7 - base.bounds.y, pane, &file_base, key, Part::static_art(pane))?;
-        bake::bake_static_with_advance(glyph.glyph, &base.bounds, origin, glyph.advance)
+        ctx.bake_composite(base, origin, pane, &file_base, key, Part::static_art(pane))?
     } else {
         bake::bake_empty()
     };
@@ -76,6 +75,13 @@ pub(super) fn compile_fullscreen(
     let mut art = ctx.art_entries(pane, &prefix, &file_base, &f.art, &layers.art, origin)?;
     let mut slots = BTreeMap::new();
     for slot in &f.slots {
+        if slot.shadow {
+            return Err(Error::Validation(format!(
+                "fullscreen `{}` slot `{}` sets `shadow`, but full-screen text is drawn without shadows: a shadow \
+                 recolors the glyph and breaks marker detection",
+                f.name, slot.name
+            )));
+        }
         slots.insert(slot.name.clone(), slot_entry(ctx, slot, slot.rect.y, None)?);
     }
 
@@ -160,8 +166,8 @@ pub(super) fn compile_fullscreen(
 pub(super) fn emit_contract(ctx: &mut CompileContext<'_>, mut contract: Contract) -> Result<FullscreenCanvasEntry> {
     let cursor_texture = fullscreen::cursor_texture();
     let cursor_size = Size::new(cursor_texture.width, cursor_texture.height);
-    let cursor = builtin_glyph(ctx, FULLSCREEN_CURSOR_KEY, &cursor_texture)?;
-    let backdrop = builtin_glyph(ctx, FULLSCREEN_BACKDROP_KEY, &fullscreen::backdrop_texture())?;
+    let cursor = builtin_glyph(ctx, FULLSCREEN_CURSOR_KEY, "cursor", &cursor_texture)?;
+    let backdrop = builtin_glyph(ctx, FULLSCREEN_BACKDROP_KEY, "backdrop", &fullscreen::backdrop_texture())?;
     let cursor_marker = contract.marker(MarkerKind::Cursor, CURSOR_LAYER, WHITE)?;
     let overlay_marker = contract.marker(MarkerKind::Content, OVERLAY_LAYER, WHITE)?;
     let include = fullscreen::include(&contract.colors, &contract.controls, cursor_size);
@@ -191,11 +197,13 @@ pub(super) fn emit_contract(ctx: &mut CompileContext<'_>, mut contract: Contract
     })
 }
 
-/// Emits `texture` as the main-font glyph of `key` with its top on the line's top, and returns its net-zero text.
-fn builtin_glyph(ctx: &mut CompileContext<'_>, key: &str, texture: &Texture) -> Result<String> {
+/// Emits `texture` as the main-font glyph of `key`, stored as the built-in texture `name` apart from authored
+/// full-screen textures, with its top on the line's top, and returns its net-zero text.
+fn builtin_glyph(ctx: &mut CompileContext<'_>, key: &str, name: &str, texture: &Texture) -> Result<String> {
     let glyph = char::from_u32(ctx.codepoints[key]).expect("glyph codepoint is a valid char");
-    ctx.bitmap_providers.push(bitmap_provider(ctx.namespace, key, texture.height, 7, glyph)?);
-    let path = format!("assets/{}/textures/font/{key}.png", ctx.namespace);
+    let file = format!("fullscreen/builtin/{name}");
+    ctx.bitmap_providers.push(bitmap_provider(ctx.namespace, &file, texture.height, 7, glyph)?);
+    let path = format!("assets/{}/textures/font/{file}.png", ctx.namespace);
     ctx.push(Part::Fullscreen, OutputFile::binary(path, texture.encode_png()?));
     let advance = bitmap_metrics(texture, Size::new(texture.width, texture.height)).advance;
     let bounds = Rect::new(0, 0, texture.width, texture.height);

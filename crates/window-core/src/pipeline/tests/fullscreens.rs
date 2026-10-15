@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use serde_json::json;
 
+use crate::compose::Texture;
 use crate::fullscreen::{self, INCLUDE_PATH};
 use crate::ir::FullscreenMode;
 use crate::manifest::Manifest;
@@ -116,4 +117,67 @@ fn a_region_filling_a_box_becomes_a_control_without_slots() {
     let out = compile(json!({ "name": "menu", "children": [row] })).unwrap();
     let play = &out.manifest.fullscreens["menu"].controls["play"];
     assert_eq!((play.x, play.y, play.width, play.height), (100, 50, 64, 24));
+}
+
+fn shape(width: u32, height: u32) -> serde_json::Value {
+    json!({ "art": "shape", "kind": "panel", "fill": "#123456", "border_width": 0, "radius": 0, "inset_depth": 0,
+            "width": width, "height": height })
+}
+
+/// The sizes of the full-screen texture PNGs under `directory`, by file name.
+fn texture_sizes(out: &CompileOutput, directory: &str) -> BTreeMap<String, (u32, u32)> {
+    let prefix = format!("assets/window/textures/font/{directory}/");
+    out.files
+        .iter()
+        .filter_map(|file| {
+            let name = file.path.strip_prefix(&prefix)?;
+            let texture = Texture::decode_png(file.contents.as_bytes()).unwrap();
+            Some((name.to_string(), (texture.width, texture.height)))
+        })
+        .collect()
+}
+
+#[test]
+fn tiles_a_canvas_sized_frame_into_glyphs_within_the_atlas_page() {
+    let frame = json!({ "type": "sprite", "art": shape(480, 270) });
+    let out = compile(json!({ "name": "menu", "children": [frame] })).unwrap();
+    let sizes = texture_sizes(&out, "fullscreen/window");
+    let tiles = [("menu_0_0.png", (256, 256)), ("menu_1_0.png", (224, 256)), ("menu_0_1.png", (256, 14))];
+    assert_eq!(sizes.len(), 4, "{sizes:?}");
+    assert!(tiles.iter().all(|(name, size)| sizes[*name] == *size), "{sizes:?}");
+    assert_eq!(sizes["menu_1_1.png"], (224, 14));
+}
+
+#[test]
+fn tiles_dispersed_art_and_skips_empty_tiles() {
+    let tone = json!({ "kind": "tint", "id": "tone", "values": ["a", "b"], "colors": ["#3ddc84", "#ff4d4d"] });
+    let sprite = |x: u32, y: u32| json!({ "type": "sprite", "art": shape(8, 8), "tint": tone, "x": x, "y": y });
+    let out = compile(json!({ "name": "menu", "children": [sprite(0, 0), sprite(470, 250)] })).unwrap();
+    let sizes = texture_sizes(&out, "fullscreen/window");
+    let names: Vec<&str> = sizes.keys().map(String::as_str).collect();
+    assert_eq!(names, ["menu_art/0_0_0.png", "menu_art/0_1_0.png", "menu_art/0_1_1.png"], "{sizes:?}");
+    assert!(sizes.values().all(|&(width, height)| width <= 256 && height <= 256), "{sizes:?}");
+}
+
+#[test]
+fn full_screen_textures_do_not_collide_with_window_textures() {
+    let art = json!({ "type": "sprite", "art": shape(8, 8) });
+    let project = json!({
+        "windows": [{ "name": "fullscreen_menu", "container": "generic_9x3", "children": [art.clone()] }],
+        "fullscreens": [{ "name": "menu", "children": [art] }],
+    })
+    .to_string();
+    let out = compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
+    let paths: Vec<&str> = out.files.iter().map(|file| file.path.as_str()).collect();
+    let font = "assets/window/textures/font";
+    assert!(paths.contains(&format!("{font}/fullscreen_menu.png").as_str()), "{paths:?}");
+    assert!(paths.contains(&format!("{font}/fullscreen/window/menu_0_0.png").as_str()), "{paths:?}");
+    assert!(paths.contains(&format!("{font}/fullscreen/builtin/cursor.png").as_str()), "{paths:?}");
+}
+
+#[test]
+fn rejects_shadowed_text() {
+    let label = json!({ "type": "slot", "handle": { "kind": "text", "id": "title" }, "width": 60, "shadow": true });
+    let error = compile(json!({ "name": "menu", "children": [label] })).unwrap_err().to_string();
+    assert!(error.contains("fullscreen `menu` slot `title` sets `shadow`"), "{error}");
 }

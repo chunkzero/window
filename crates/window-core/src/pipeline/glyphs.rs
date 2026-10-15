@@ -4,10 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::compose::{Composite, RasterCache, Texture, compose_draws_cached};
 use crate::font::{allocate, bitmap_provider};
-use crate::geometry::Size;
+use crate::geometry::{Point, Rect, Size};
 use crate::ir::{ArtIr, Draw, LaidOutFullscreen, LaidOutHud, LaidOutWindow, SwitchIr};
-use crate::size::{Pane, Part};
-use crate::{Error, Result};
+use crate::size::{Pane, PaneKind, Part};
+use crate::{Error, Result, bake};
 
 use super::bars::clip_keys;
 use super::metrics::bitmap_metrics;
@@ -89,13 +89,13 @@ pub(super) fn allocate_codepoints(
 ) -> Result<BTreeMap<String, u32>> {
     let mut keys: BTreeSet<String> = hover.collect();
     for (w, layers) in windows.iter().zip(&composites.windows) {
-        layer_keys(&mut keys, &window_key_prefix(&w.name), &w.switches, &w.art, layers);
+        layer_keys(&mut keys, &window_key_prefix(&w.name), &w.switches, &w.art, layers, false);
     }
     for (h, layers) in huds.iter().zip(&composites.huds) {
-        layer_keys(&mut keys, &hud_key_prefix(&h.name), &h.switches, &h.art, layers);
+        layer_keys(&mut keys, &hud_key_prefix(&h.name), &h.switches, &h.art, layers, false);
     }
     for (f, layers) in fullscreens.iter().zip(&composites.fullscreens) {
-        layer_keys(&mut keys, &fullscreen_key_prefix(&f.name), &f.switches, &f.art, layers);
+        layer_keys(&mut keys, &fullscreen_key_prefix(&f.name), &f.switches, &f.art, layers, true);
     }
     if !fullscreens.is_empty() {
         keys.extend([FULLSCREEN_CURSOR_KEY.to_string(), FULLSCREEN_BACKDROP_KEY.to_string()]);
@@ -106,14 +106,22 @@ pub(super) fn allocate_codepoints(
     allocate(&keys)
 }
 
-fn layer_keys(keys: &mut BTreeSet<String>, prefix: &str, switches: &[SwitchIr], art: &[ArtIr], layers: &Layers) {
+/// Inserts the keys of every composite with content; `tiled` composites get one key per [`tiles`] glyph.
+fn layer_keys(
+    keys: &mut BTreeSet<String>,
+    prefix: &str,
+    switches: &[SwitchIr],
+    art: &[ArtIr],
+    layers: &Layers,
+    tiled: bool,
+) {
     if layers.base.has_content {
-        keys.insert(format!("{prefix}/static"));
+        composite_keys(keys, format!("{prefix}/static"), &layers.base, tiled);
     }
     for (switch, cases) in switches.iter().zip(&layers.cases) {
         for (case, comp) in switch.cases.iter().zip(cases) {
             if comp.has_content {
-                keys.insert(case_key(prefix, &switch.name, &case.value));
+                composite_keys(keys, case_key(prefix, &switch.name, &case.value), comp, tiled);
             }
         }
     }
@@ -122,8 +130,16 @@ fn layer_keys(keys: &mut BTreeSet<String>, prefix: &str, switches: &[SwitchIr], 
         if art.bar.is_some() {
             keys.extend(clip_keys(&key, &comp.texture));
         } else if comp.has_content {
-            keys.insert(key);
+            composite_keys(keys, key, comp, tiled);
         }
+    }
+}
+
+fn composite_keys(keys: &mut BTreeSet<String>, key: String, comp: &Composite, tiled: bool) {
+    if tiled {
+        keys.extend(tiles(comp).iter().map(|tile| tile_key(&key, tile)));
+    } else {
+        keys.insert(key);
     }
 }
 
@@ -183,6 +199,33 @@ pub(super) struct StaticGlyph {
 pub(super) const MAX_GLYPH_SIZE: u32 = 256;
 
 impl CompileContext<'_> {
+    /// Emits `comp` and returns its text, net-zero from `origin`. Window and HUD composites are one glyph, which must
+    /// fit [`MAX_GLYPH_SIZE`]; a full-screen composite is split into tiles of at most that size, each glyph placed at
+    /// its own ascent and the empty tiles skipped.
+    pub(super) fn bake_composite(
+        &mut self,
+        comp: &Composite,
+        origin: Point,
+        pane: Pane<'_>,
+        file_base: &str,
+        key: String,
+        part: Part,
+    ) -> Result<String> {
+        if pane.kind != PaneKind::Fullscreen {
+            let ascent = origin.y + 7 - comp.bounds.y;
+            let glyph = self.emit_static_glyph(comp, ascent, pane, file_base, key, part)?;
+            return Ok(bake::bake_static_with_advance(glyph.glyph, &comp.bounds, origin, glyph.advance));
+        }
+        let mut text = String::new();
+        for tile in tiles(comp) {
+            let ascent = origin.y + 7 - tile.comp.bounds.y;
+            let file = format!("{file_base}_{}_{}", tile.col, tile.row);
+            let glyph = self.emit_static_glyph(&tile.comp, ascent, pane, &file, tile_key(&key, &tile), part.clone())?;
+            text.push_str(&bake::bake_static_with_advance(glyph.glyph, &tile.comp.bounds, origin, glyph.advance));
+        }
+        Ok(text)
+    }
+
     /// Emit `comp` as a bitmap glyph texture and main-font provider at `ascent`.
     ///
     /// Fails when the glyph exceeds [`MAX_GLYPH_SIZE`] in either direction.
@@ -220,6 +263,49 @@ impl CompileContext<'_> {
         self.push(part, file);
         Ok(StaticGlyph { glyph, advance })
     }
+}
+
+/// A piece of a composite no larger than [`MAX_GLYPH_SIZE`], `col` pieces right and `row` pieces down from its
+/// top-left.
+struct Tile {
+    col: u32,
+    row: u32,
+    comp: Composite,
+}
+
+/// The pieces of `comp` that draw anything, in row-major order.
+fn tiles(comp: &Composite) -> Vec<Tile> {
+    let texture = &comp.texture;
+    let mut tiles = Vec::new();
+    for row in 0..texture.height.div_ceil(MAX_GLYPH_SIZE) {
+        for col in 0..texture.width.div_ceil(MAX_GLYPH_SIZE) {
+            let (x, y) = (col * MAX_GLYPH_SIZE, row * MAX_GLYPH_SIZE);
+            let piece =
+                crop(texture, x, y, MAX_GLYPH_SIZE.min(texture.width - x), MAX_GLYPH_SIZE.min(texture.height - y));
+            if piece.rgba.as_chunks::<4>().0.iter().all(|pixel| pixel[3] == 0) {
+                continue;
+            }
+            let bounds = Rect::new(comp.bounds.x + x as i32, comp.bounds.y + y as i32, piece.width, piece.height);
+            tiles.push(Tile { col, row, comp: Composite { texture: piece, bounds, has_content: true } });
+        }
+    }
+    tiles
+}
+
+/// The `width`x`height` pixels of `texture` from `(x, y)`.
+fn crop(texture: &Texture, x: u32, y: u32, width: u32, height: u32) -> Texture {
+    let mut out = Texture::transparent(width, height);
+    let row = width as usize * 4;
+    for dy in 0..height as usize {
+        let from = ((y as usize + dy) * texture.width as usize + x as usize) * 4;
+        out.rgba[dy * row..(dy + 1) * row].copy_from_slice(&texture.rgba[from..from + row]);
+    }
+    out
+}
+
+/// The codepoint allocation key of `tile` of the composite under `key`.
+fn tile_key(key: &str, tile: &Tile) -> String {
+    format!("{key}/{}/{}", tile.col, tile.row)
 }
 
 /// Pad the composite downward so its height covers `ascent`.
