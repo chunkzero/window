@@ -213,7 +213,7 @@ class MinestomFullscreenTest :
             menu.edits shouldContainExactly listOf("hey", full, full + "b")
 
             fixture.clear()
-            fixture.receive(fixture.click(anvil.windowId(), 0))
+            fixture.receive(fixture.click(anvil.windowId(), 0, changed = inputChanged))
             fixture.seed(anvil.windowId()) shouldBe "b"
             fixture.receive(fixture.click(anvil.windowId(), 2))
             menu.prompts shouldContainExactly listOf(full + "b")
@@ -245,6 +245,22 @@ class MinestomFullscreenTest :
             menu.prompts shouldContainExactly listOf("heya")
         }
 
+        "a click that cannot change the input slot keeps accepting renames while the slots are resent" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.prompt("hey")
+            val anvil = fixture.sent<OpenWindowPacket>().single().windowId()
+            fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
+
+            fixture.clear()
+            fixture.receive(fixture.click(anvil, 0))
+            fixture.sent<PingPacket>() shouldBe emptyList()
+            fixture.receive(ClientNameItemPacket("heya"))
+            fixture.receive(fixture.click(anvil, 2))
+            menu.prompts shouldContainExactly listOf("heya")
+        }
+
         "a click that changes the input slot reseeds it behind a ping, and renames before the pong are dropped" {
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
@@ -255,7 +271,7 @@ class MinestomFullscreenTest :
             fixture.receive(ClientNameItemPacket("hey!"))
 
             fixture.clear()
-            fixture.receive(fixture.click(anvil, 0))
+            fixture.receive(fixture.click(anvil, 0, changed = inputChanged))
             fixture.seed(anvil) shouldBe "hey!"
             fixture.receive(ClientNameItemPacket("stale"))
             fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
@@ -264,7 +280,7 @@ class MinestomFullscreenTest :
 
             // A shift-click that moved the input paper out reports it among the changed slots.
             fixture.clear()
-            fixture.receive(fixture.click(anvil, 3, changed = mapOf(0.toShort() to ItemStack.Hash.AIR)))
+            fixture.receive(fixture.click(anvil, 3, changed = inputChanged))
             fixture.seed(anvil) shouldBe "hey!!"
             fixture.sent<PingPacket>().size shouldBe 1
         }
@@ -282,7 +298,7 @@ class MinestomFullscreenTest :
             fixture.receive(ClientNameItemPacket(almost + "a"))
             val reopen = fixture.sent<PingPacket>().single()
             fixture.clear()
-            fixture.receive(fixture.click(anvil, 0))
+            fixture.receive(fixture.click(anvil, 0, changed = inputChanged))
             val reseed = fixture.sent<PingPacket>().single()
             fixture.receive(ClientNameItemPacket(almost))
             fixture.receive(ClientPongPacket(reopen.id()))
@@ -540,6 +556,9 @@ private class Menu(
         closed = true
     }
 }
+
+/** The changed slots a click reports when it moved the input paper. */
+private val inputChanged = mapOf(0.toShort() to ItemStack.Hash.AIR)
 
 /** A player in an instance, with 40 max health, whose connection records every packet that reaches its client. */
 private class FullscreenFixture {

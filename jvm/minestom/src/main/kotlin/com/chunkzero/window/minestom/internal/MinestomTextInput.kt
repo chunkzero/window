@@ -114,7 +114,7 @@ internal class MinestomTextInput(
                     close()
                     submitted?.onSubmit()
                 } else {
-                    resync(current, reseed = packet.slot() == INPUT_SLOT || INPUT_SLOT in packet.changedSlots())
+                    resync(current, reseed = INPUT_SLOT in packet.changedSlots())
                 }
             }
 
