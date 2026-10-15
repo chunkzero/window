@@ -208,10 +208,11 @@ pub(super) fn generate_fullscreen_entries(manifest: &Manifest, package_name: &st
     let switches = any(&|f| !f.switches.is_empty());
     let layers = any(&|f| !f.layers.is_empty());
     let imports = [
-        (any(&|f| !f.slots.is_empty()), "Align"),
+        (any(&|f| !f.slots.is_empty() || f.controls.values().any(|control| control.tooltip.is_some())), "Align"),
         (any(&|f| !f.art.is_empty()), "ArtEntry"),
         (any(&|f| f.art.values().any(|art| art.bar.is_some())), "BarEntry"),
         (any(&|f| !f.controls.is_empty()), "ControlEntry"),
+        (any(&|f| f.controls.values().any(|control| control.tooltip.is_some())), "ControlTooltipEntry"),
         (true, "CursorEntry"),
         (true, "FullscreenCanvasEntry"),
         (true, "FullscreenEntry"),
@@ -219,7 +220,7 @@ pub(super) fn generate_fullscreen_entries(manifest: &Manifest, package_name: &st
         (true, "FullscreenSurfaceEntry"),
         (layers, "LayerEntry"),
         (layers, "LayerKind"),
-        (any(&|f| !f.slots.is_empty()), "SlotEntry"),
+        (any(&|f| !f.slots.is_empty() || f.controls.values().any(|control| control.tooltip.is_some())), "SlotEntry"),
         (any_slot(&|slot| slot.lines.is_some()), "SlotLinesEntry"),
         (switches, "SwitchCaseEntry"),
         (switches, "SwitchEntry"),

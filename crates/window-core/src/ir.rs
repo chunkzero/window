@@ -645,10 +645,23 @@ pub struct LaidOutFullscreen {
     pub art: Vec<ArtIr>,
     /// Runtime layers in authored tree order.
     pub layers: Vec<Layer>,
+    /// The tooltips of [`Self::regions`], each drawn while its region is hovered.
+    pub tooltips: Vec<TooltipIr>,
     /// Typed handles by id.
     pub handles: BTreeMap<String, Handle>,
     /// Non-fatal findings to surface to the user.
     pub warnings: Vec<String>,
+}
+
+/// A full-screen region's tooltip, laid out on the canvas beside the region.
+#[derive(Clone, Debug)]
+pub struct TooltipIr {
+    /// The region's index in [`LaidOutFullscreen::regions`].
+    pub region: usize,
+    /// The panel drawn behind the text.
+    pub panel: Rect,
+    /// The title, then each line, as static labels over the panel.
+    pub lines: Vec<SlotIr>,
 }
 
 #[cfg(test)]

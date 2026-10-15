@@ -79,8 +79,21 @@ public data class ControlEntry(
      * is over the control; present when [hover] is set.
      */
     val outline: String? = null,
+    /** The tooltip sent while the cursor is over the control. */
+    val tooltip: ControlTooltipEntry? = null,
     /** The authored element this control comes from, for diagnostics. */
     val source: String? = null,
+)
+
+/** A full-screen control's tooltip: a panel the compiler placed beside the control, and its plain-text lines. */
+@Serializable
+public data class ControlTooltipEntry(
+    /** The panel, net-zero from the line origin. */
+    val panel: String,
+    /** The marker color [panel] is sent in. */
+    val marker: String,
+    /** The title, then each line: static labels, each sent in its [SlotEntry.shaderMarker]. */
+    val lines: List<SlotEntry>,
 )
 
 /**

@@ -1,17 +1,20 @@
 //! Per-full-screen-window compilation and the full-screen canvas contract: its include and built-in glyphs.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::hash_map::Entry;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::authoring::HudGroup;
 use crate::compose::{Composite, Texture};
 use crate::font::bitmap_provider;
 use crate::fullscreen::{
     self, BACKDROP_LAYER, CURSOR_LAYER, MAX_COLORS, MAX_CONTENT_LAYER, Marker, MarkerKind, OVERLAY_LAYER, STATIC_LAYER,
+    TOOLTIP_LAYER, TOOLTIP_TEXT_LAYER,
 };
 use crate::geometry::{Point, Rect, Size};
 use crate::ir::{LaidOutFullscreen, Layer, RegionIr, Rgb, tint_palette, tint_palettes};
 use crate::manifest::{
-    ControlEntry, CursorEntry, FullscreenCanvasEntry, FullscreenEntry, FullscreenSurfaceEntry, SlotEntry,
+    ControlEntry, ControlTooltipEntry, CursorEntry, FullscreenCanvasEntry, FullscreenEntry, FullscreenSurfaceEntry,
+    SlotEntry,
 };
 use crate::size::{Pane, PaneKind, Part};
 use crate::{Error, Result, bake};
@@ -134,6 +137,28 @@ pub(super) fn compile_fullscreen(
         let text = ctx.bake_composite(&outline, origin, pane, &file, key, Part::Hover)?;
         outline_texts.insert(index, text);
     }
+    let mut tooltips = BTreeMap::new();
+    if !f.tooltips.is_empty() {
+        let marker = contract.marker(MarkerKind::Content, TOOLTIP_LAYER, WHITE)?;
+        let mut panels: HashMap<Rect, String> = HashMap::new();
+        for (tooltip, (key, panel)) in f.tooltips.iter().zip(tooltip_panels(f)) {
+            let panel = match panels.entry(tooltip.panel) {
+                Entry::Occupied(baked) => baked.get().clone(),
+                Entry::Vacant(entry) => {
+                    let Rect { x, y, width, height } = tooltip.panel;
+                    let file = format!("{file_base}_tooltip_{x}_{y}_{width}x{height}");
+                    entry.insert(ctx.bake_composite(&panel, origin, pane, &file, key, Part::Hover)?).clone()
+                }
+            };
+            let mut lines = Vec::with_capacity(tooltip.lines.len());
+            for line in &tooltip.lines {
+                let mut entry = slot_entry(ctx, line, line.rect.y, None)?;
+                entry.shader_marker = Some(contract.marker(MarkerKind::Content, TOOLTIP_TEXT_LAYER, line.color)?);
+                lines.push(entry);
+            }
+            tooltips.insert(tooltip.region, ControlTooltipEntry { panel, marker: marker.clone(), lines });
+        }
+    }
     let mut controls = BTreeMap::new();
     for (index, region) in f.regions.iter().enumerate() {
         let rect = region.rect;
@@ -147,6 +172,7 @@ pub(super) fn compile_fullscreen(
             default_action: region.default_action.clone(),
             hover: outlined(region),
             outline: outline_texts.remove(&index).filter(|text| !text.is_empty()),
+            tooltip: tooltips.remove(&index),
             source: Some(region.source.clone()),
         };
         contract.controls.push(rect);
@@ -238,6 +264,37 @@ fn builtin_glyph(ctx: &mut CompileContext<'_>, key: &str, name: &str, texture: &
 /// Whether `region` is outlined while hovered: as it says, else when it takes clicks.
 fn outlined(region: &RegionIr) -> bool {
     region.hover.unwrap_or(region.action.is_some())
+}
+
+/// The tooltip panel of each tooltip of `f`, in order, with its codepoint allocation key, which panels with the same
+/// rect share: a vanilla-styled box with cut corners, a purple border, and a dark translucent fill.
+pub(super) fn tooltip_panels(f: &LaidOutFullscreen) -> impl Iterator<Item = (String, Composite)> + '_ {
+    let prefix = fullscreen_key_prefix(&f.name);
+    f.tooltips.iter().map(move |tooltip| {
+        let Rect { width, height, .. } = tooltip.panel;
+        let mut texture = Texture::transparent(width, height);
+        for y in 0..height {
+            let shade = |top: u8, bottom: u8| {
+                let t = f64::from(y) / f64::from(height.max(2) - 1);
+                (f64::from(top) + (f64::from(bottom) - f64::from(top)) * t).round() as u8
+            };
+            for x in 0..width {
+                let rim = x == 0 || y == 0 || x == width - 1 || y == height - 1;
+                let corner = (x == 0 || x == width - 1) && (y == 0 || y == height - 1);
+                let border = !rim && (x == 1 || y == 1 || x == width - 2 || y == height - 2);
+                if corner {
+                    continue;
+                }
+                let rgba =
+                    if border { [shade(0x24, 0x18), 0x00, shade(0x5b, 0x33), 0xf0] } else { [0x10, 0x00, 0x10, 0xf0] };
+                let at = ((y * width + x) * 4) as usize;
+                texture.rgba[at..at + 4].copy_from_slice(&rgba);
+            }
+        }
+        let Rect { x, y, .. } = tooltip.panel;
+        let key = format!("{prefix}/tooltip/{x}_{y}_{width}x{height}");
+        (key, Composite { texture, bounds: tooltip.panel, has_content: true })
+    })
 }
 
 /// The hover outline of each outlined region of `f`, with the region's index and its codepoint allocation key: a 1px

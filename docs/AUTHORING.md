@@ -610,6 +610,26 @@ HUD is not limited by where the actionbar sits: with the default `sourceBottom` 
 bottom of the GUI (59 plus Minecraft's 13 px actionbar inset), and rows from 72 on are baked below the screen edge,
 which the client still draws once the shader has moved them.
 
+### Full-screen windows
+
+`<Fullscreen name mode? backdrop?>` lays its children out on a 480x270 canvas drawn over the whole screen with no screen
+open; the player aims a cursor by turning. It takes the same elements as a window, except those that need a container:
+
+- **Supported**: art, static and bound text, switches and conditions, tints, bars, regions and the industrial controls
+  built on them (with hover outlines), `toggle` and `selection` state, and indexed handles. A `<Repeater>`'s cells are
+  separate controls: each is hit-tested and outlined on its own, and a click calls the indexed action's handler with the
+  cell's index, such as `onPickEntry(index, click)`. Page a list through the cells with `FullscreenView.list(...)`,
+  which works like `WindowView.list(...)`.
+- **Tooltips**: the server sends a control's tooltip while the cursor is over it, as a vanilla-styled panel centered
+  below the control, or above it where the canvas ends first. The title is white and the lines gray, in plain text: a
+  MiniMessage tag is a build error. Each line is a [text row](#what-things-cost), and panels with the same size and
+  place share a texture.
+- **Build errors**: real items (`<Items>`, `<Collection>`, a `<Repeater item>`) and `<Section>`s need inventory slots,
+  so they stay in container windows; runtime sprites (`<Image bind>`; switch between images instead), `<Input>`, a
+  region's `itemModel`, and text `shadow` are also rejected.
+- `span` and `at` count grid tracks, which are slots only in a section. A repeater's `cell` is 18px per slot anywhere;
+  give other industrial controls a size or a grid to fill on a full-screen window.
+
 ## Industrial
 
 `plugin:window/theme/industrial` is Window's default look as plain components built from the [primitives](#primitives)

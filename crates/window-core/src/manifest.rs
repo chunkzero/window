@@ -15,7 +15,9 @@ use crate::{Error, Result};
 mod fullscreen;
 mod hud;
 
-pub use fullscreen::{ControlEntry, CursorEntry, FullscreenCanvasEntry, FullscreenEntry, FullscreenSurfaceEntry};
+pub use fullscreen::{
+    ControlEntry, ControlTooltipEntry, CursorEntry, FullscreenCanvasEntry, FullscreenEntry, FullscreenSurfaceEntry,
+};
 pub use hud::{HudEntry, HudShaderEntry, HudSurfaceEntry};
 
 /// Current compiled definition schema version.

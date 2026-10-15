@@ -49,7 +49,7 @@ export function Slots(props: SlotsProps): Element {
 }
 
 export interface RepeaterProps extends ItemStyle, DebugProps {
-    /** Size of one cell in slots. */
+    /** Size of one cell in slots: 18px each, also outside a section, as in a full-screen window. */
     cell: [number, number];
     columns: number;
     rows: number;
@@ -127,7 +127,15 @@ export function Repeater(props: RepeaterProps): Element {
         );
     });
     return (
-        <Box span={[columns * width, rows * height]} {...placed} display="grid" columns={columns} rows={rows}>
+        <Box
+            span={[columns * width, rows * height]}
+            width={columns * width * SLOT}
+            height={rows * height * SLOT}
+            {...placed}
+            display="grid"
+            columns={columns}
+            rows={rows}
+        >
             {cells}
         </Box>
     ) as Element;

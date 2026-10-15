@@ -81,9 +81,23 @@ pub struct ControlEntry {
     /// while the cursor is over the control. Present when [`Self::hover`] is set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub outline: Option<String>,
+    /// The control's tooltip, which the runtime sends while the cursor is over the control.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tooltip: Option<ControlTooltipEntry>,
     /// The authored element this control comes from, such as ``region `buy` ``, for diagnostics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+}
+
+/// A full-screen control's tooltip: a panel beside the control and its plain-text lines.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ControlTooltipEntry {
+    /// The panel, net-zero from the line origin.
+    pub panel: String,
+    /// The marker color [`Self::panel`] is sent in.
+    pub marker: String,
+    /// The title, then each line, as static labels sent in their `shader_marker`.
+    pub lines: Vec<SlotEntry>,
 }
 
 /// The full-screen canvas contract of [`crate::fullscreen`], which the runtime and the generated shaders share.

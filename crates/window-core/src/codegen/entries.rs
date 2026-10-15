@@ -4,10 +4,10 @@ use std::collections::BTreeMap;
 
 use crate::ir::{FullscreenMode, Hitbox, Layer, Tooltip};
 use crate::manifest::{
-    AnvilInputEntry, ArtEntry, BarEntry, CollectionEntry, ControlEntry, FontMetricsEntry, FullscreenCanvasEntry,
-    FullscreenSurfaceEntry, HoverEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry, RegionEntry, SlotAreaEntry,
-    SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry, SwitchEntry,
-    TextOverflow,
+    AnvilInputEntry, ArtEntry, BarEntry, CollectionEntry, ControlEntry, ControlTooltipEntry, FontMetricsEntry,
+    FullscreenCanvasEntry, FullscreenSurfaceEntry, HoverEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry, RegionEntry,
+    SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry,
+    SwitchCaseEntry, SwitchEntry, TextOverflow,
 };
 
 use super::literals::{
@@ -46,7 +46,7 @@ pub(super) fn fullscreen_surface_entry_expr(surface: &FullscreenSurfaceEntry, le
 }
 
 pub(super) fn control_entry_expr(control: &ControlEntry, level: usize) -> String {
-    Call::new("ControlEntry", level)
+    let call = Call::new("ControlEntry", level)
         .arg("index", control.index)
         .arg("x", control.x)
         .arg("y", control.y)
@@ -55,8 +55,20 @@ pub(super) fn control_entry_expr(control: &ControlEntry, level: usize) -> String
         .arg("action", optional_string_expr(control.action.as_ref()))
         .arg("defaultAction", optional_string_expr(control.default_action.as_ref()))
         .arg("hover", control.hover)
-        .arg("outline", optional_string_expr(control.outline.as_ref()))
-        .arg("source", optional_string_expr(control.source.as_ref()))
+        .arg("outline", optional_string_expr(control.outline.as_ref()));
+    let call = match &control.tooltip {
+        Some(tooltip) => call.arg("tooltip", control_tooltip_entry_expr(tooltip, level + 1)),
+        None => call,
+    };
+    call.arg("source", optional_string_expr(control.source.as_ref())).finish()
+}
+
+fn control_tooltip_entry_expr(tooltip: &ControlTooltipEntry, level: usize) -> String {
+    let lines = tooltip.lines.iter().map(|line| slot_entry_expr(line, level + 2));
+    Call::new("ControlTooltipEntry", level)
+        .arg("panel", kt_string(&tooltip.panel))
+        .arg("marker", kt_string(&tooltip.marker))
+        .arg("lines", list_of(lines, level + 1))
         .finish()
 }
 

@@ -16,6 +16,7 @@ mod flex;
 mod measure;
 mod slots;
 mod target;
+mod tooltips;
 mod visuals;
 
 use std::collections::HashSet;
@@ -180,6 +181,14 @@ fn solve_fullscreen(
     let mut solver = Solver::new(project, texture_size, fonts, target);
     solver.place_children(&fullscreen.children, canvas)?;
     let Solved { draws, slots, regions, switches, art, layers, warnings, .. } = solver.finish();
+    let tooltips = regions
+        .iter()
+        .enumerate()
+        .filter_map(|(index, region)| {
+            let tooltip = region.hitbox.as_ref()?.tooltip.as_ref()?;
+            Some(tooltips::tooltip(&target, index, region, tooltip))
+        })
+        .collect::<Result<_>>()?;
 
     Ok(LaidOutFullscreen {
         name: fullscreen.name.clone(),
@@ -191,6 +200,7 @@ fn solve_fullscreen(
         switches,
         art,
         layers,
+        tooltips,
         handles: fullscreen.handles.clone(),
         warnings,
     })

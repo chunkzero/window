@@ -24,7 +24,7 @@ public sealed class FullscreenSession {
 
 /**
  * A full-screen window shown through [host]: maps the player's rotation to the canvas cursor, hit-tests clicks, draws
- * the hovered control's outline, and re-sends the runs when reactive state or the hovered control changes.
+ * the hovered control's outline and tooltip, and re-sends the runs when reactive state or the hovered control changes.
  *
  * A player turned more than a degree past a canvas edge is turned back to it, at most once per round trip: rotations
  * the client sent before applying a correction still carry the overshoot.
@@ -156,12 +156,18 @@ internal class FullscreenWindowSession(
             .firstOrNull { (key, control) -> layers.switches.regionActive(key) && mapping.hits(control, point) }
             ?.key
 
-    /** The backdrop, the window's layers, the hovered control's outline, and the cursor. */
+    /** The backdrop, the window's layers, the hovered control's tooltip and outline, and the cursor. */
     private fun content(): Component =
         Component
             .text()
             .append(
-                listOfNotNull(definition.backdrop, layout, hovered?.let(definition.outlines::get), definition.cursor),
+                listOfNotNull(
+                    definition.backdrop,
+                    layout,
+                    hovered?.let(definition.tooltips::get),
+                    hovered?.let(definition.outlines::get),
+                    definition.cursor,
+                ),
             ).build()
 
     private fun show() {

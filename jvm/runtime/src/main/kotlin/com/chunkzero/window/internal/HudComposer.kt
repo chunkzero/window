@@ -152,8 +152,19 @@ internal class HudComposer(
         hudName: String,
         layers: List<HudLayer>,
     ): ComposedRender {
-        val base = if (shaderHud) 0 else originX
         val traces = arrayListOf(staticTrace("hud/$hudName/static", hud.static, originX, staticColor))
+        return ComposedRender(staticComponent.appendAll(composeParts(layers, traces)), traces)
+    }
+
+    /** [layers] composed as [compose] composes them, without the static segment. */
+    fun composeLayers(layers: List<HudLayer>): Component =
+        Component.empty().appendAll(composeParts(layers, ArrayList()))
+
+    private fun composeParts(
+        layers: List<HudLayer>,
+        traces: MutableList<RenderLayerTrace>,
+    ): List<Component> {
+        val base = if (shaderHud) 0 else originX
         val parts = ArrayList<Component>()
         var cursor = base
         for (layer in layers) {
@@ -180,7 +191,7 @@ internal class HudComposer(
             }
         }
         parts.addSpacer(base - cursor)
-        return ComposedRender(staticComponent.appendAll(parts), traces)
+        return parts
     }
 
     /** A static layer sent in [color], starting at the HUD's left edge, whose cursor ends at [end]. */

@@ -395,10 +395,9 @@ impl<T: LayoutTarget> Solver<'_, T> {
     /// Lays a section's children out on a grid with one track per slot, then places each child on its area.
     pub(super) fn place_section(&mut self, section: &SlotSection) -> Result<Size> {
         let label = section_name(section);
-        let kind = self
-            .target
-            .container_kind()
-            .ok_or_else(|| self.target.layout_err(format!("{label} sections are only available in windows")))?;
+        let kind = self.target.container_kind().ok_or_else(|| {
+            self.target.layout_err(format!("{label} sections are only available in container windows"))
+        })?;
         let dims = kind.section_size(section.section);
         let bounds = kind.section_bounds(section.section);
         if let Some(frame) = &section.frame {
