@@ -29,6 +29,11 @@ import net.minestom.server.network.packet.server.play.SpawnEntityPacket
  * it steers to the player's yaw and half their pitch, and the pack's entity shader draws the cursor from the armour. As
  * a passenger, the client still sends the player's rotation every tick, which the server hit-tests as usual. The
  * client does not draw its own player, or its hotbar and hearts, while another entity is the camera.
+ *
+ * The shader reads the horse's rotation from where its head corners are, so the horse must stay exactly at its offset.
+ * The client moves a ridden horse itself, and fluids still push and float it however still its attributes are. So the
+ * horse rides an item display, which nothing moves: the client puts a passenger back on its vehicle after every tick of
+ * its own.
  */
 internal class MinestomFullscreenHorse(
     private val player: Player,
@@ -40,6 +45,7 @@ internal class MinestomFullscreenHorse(
             isSilent = true
             setNoGravity(true)
         }
+    private val seat = Entity(EntityType.ITEM_DISPLAY)
     private val mount =
         Entity(EntityType.HORSE).apply {
             isInvisible = true
@@ -52,10 +58,15 @@ internal class MinestomFullscreenHorse(
             }
         }
 
-    /** Spawns the bat at [eye] and the horse at its offset, both facing yaw and pitch 0, then locks the view. */
+    /**
+     * Spawns the bat at [eye] and the horse and its seat at the horse's offset, all facing yaw and pitch 0, then locks
+     * the view.
+     */
     fun lock(eye: Pos) {
+        val standing = eye.add(horse.offset[0], horse.offset[1], horse.offset[2])
         spawn(camera, eye.sub(0.0, camera.eyeHeight, 0.0))
-        spawn(mount, eye.add(horse.offset[0], horse.offset[1], horse.offset[2]))
+        spawn(seat, standing)
+        spawn(mount, standing)
         val equipment = mapOf(EquipmentSlot.SADDLE to SADDLE, EquipmentSlot.BODY to armor(horse.armor))
         player.sendPacket(EntityEquipmentPacket(mount.entityId, equipment))
         // The client steers the horse, so it must not move it.
@@ -64,17 +75,18 @@ internal class MinestomFullscreenHorse(
                 EntityAttributesPacket.Property(it, 0.0, emptyList())
             }
         player.sendPacket(EntityAttributesPacket(mount.entityId, still))
+        player.sendPacket(SetPassengersPacket(seat.entityId, listOf(mount.entityId)))
         player.sendPacket(SetPassengersPacket(mount.entityId, listOf(player.entityId)))
         // Replaces the dismount hint the client shows on mounting.
         player.sendPacket(ActionBarPacket(Component.empty()))
         player.sendPacket(CameraPacket(camera.entityId))
     }
 
-    /** Returns the camera to the player, dismounts them, and removes the bat and horse. */
+    /** Returns the camera to the player, dismounts them, and removes the bat, horse, and seat. */
     fun unlock() {
         player.sendPacket(CameraPacket(player.entityId))
         player.sendPacket(SetPassengersPacket(mount.entityId, emptyList()))
-        player.sendPacket(DestroyEntitiesPacket(listOf(camera.entityId, mount.entityId)))
+        player.sendPacket(DestroyEntitiesPacket(listOf(camera.entityId, mount.entityId, seat.entityId)))
     }
 
     private fun spawn(

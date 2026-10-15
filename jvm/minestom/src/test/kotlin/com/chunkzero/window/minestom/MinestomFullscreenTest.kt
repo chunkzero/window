@@ -14,7 +14,7 @@ import com.chunkzero.window.manifest.HorseEntry
 import com.chunkzero.window.manifest.WindowManifest
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import net.kyori.adventure.text.Component
@@ -322,10 +322,12 @@ class MinestomFullscreenTest :
             fixture.tick()
 
             val spawns = fixture.sent<SpawnEntityPacket>()
-            spawns.map { it.type() } shouldContainExactly listOf(EntityType.BAT, EntityType.HORSE)
-            val (bat, horse) = spawns
+            spawns.map { it.type() } shouldContainExactly
+                listOf(EntityType.BAT, EntityType.ITEM_DISPLAY, EntityType.HORSE)
+            val (bat, seat, horse) = spawns
             bat.position().y() shouldBe player.position.y() + player.eyeHeight - Entity(EntityType.BAT).eyeHeight
             horse.position() shouldBe player.position.add(0.0, player.eyeHeight - 1.75, 3.0)
+            seat.position() shouldBe horse.position()
             val armor =
                 fixture
                     .sent<EntityEquipmentPacket>()
@@ -333,8 +335,11 @@ class MinestomFullscreenTest :
                     .equipments()
                     .getValue(EquipmentSlot.BODY)
             armor.get(DataComponents.EQUIPPABLE)?.assetId() shouldBe "window:fullscreen/horse_cursor"
-            fixture.sent<SetPassengersPacket>().single() shouldBe
-                SetPassengersPacket(horse.entityId(), listOf(player.entityId))
+            fixture.sent<SetPassengersPacket>() shouldContainExactly
+                listOf(
+                    SetPassengersPacket(seat.entityId(), listOf(horse.entityId())),
+                    SetPassengersPacket(horse.entityId(), listOf(player.entityId)),
+                )
             fixture.sent<CameraPacket>().single().cameraId() shouldBe bat.entityId()
 
             fixture.clear()
@@ -350,7 +355,8 @@ class MinestomFullscreenTest :
             session.close()
             fixture.sent<CameraPacket>().single().cameraId() shouldBe player.entityId
             fixture.sent<SetPassengersPacket>().single().passengersId() shouldBe emptyList()
-            fixture.sent<DestroyEntitiesPacket>().flatMap { it.entityIds() } shouldContain horse.entityId()
+            fixture.sent<DestroyEntitiesPacket>().flatMap { it.entityIds() } shouldContainAll
+                listOf(bat.entityId(), horse.entityId(), seat.entityId())
         }
     }) {
     private companion object {

@@ -12,7 +12,8 @@ use crate::compose::Texture;
 
 /// Where the horse stands relative to the camera, in blocks, with the camera facing yaw and pitch 0 (+Z). It stays in
 /// view at every FOV, so it is not frustum-culled, and below the camera's line of sight, so clicks reach the
-/// interaction entity around the eye instead of the horse.
+/// interaction entity around the eye instead of the horse. The shader reads a corner's position as rotation, so the
+/// horse must never leave it: the runtime seats it on an item display, which the client keeps it on through fluids.
 pub const OFFSET: [f64; 3] = [0.0, -1.75, 3.0];
 
 /// Texel (0, 0) of the armour texture, as RGBA. The entity shader treats every armour texture that starts with it as
