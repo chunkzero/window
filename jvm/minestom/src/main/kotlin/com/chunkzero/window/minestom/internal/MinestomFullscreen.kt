@@ -80,7 +80,9 @@ import net.minestom.server.world.clock.WorldClock
  * the clocks with it.
  *
  * The window ends, restoring the player where they now are, if they change instance or respawn, since the client then
- * drops its client-only entities and camera.
+ * drops its client-only entities and camera. Only transitions from the tick after opening count, so a window opened by
+ * a spawn or respawn listener is not ended by the event that is still being dispatched. The close callback of such an
+ * end runs on the next tick, once the respawn has moved the player to its destination.
  *
  * In horse mode, [MinestomFullscreenHorse] also locks the view. The client then draws no hearts, since its camera is
  * not a player, so their max health and absorption are left alone.
@@ -113,6 +115,7 @@ internal class MinestomFullscreen private constructor(
     private val abilities = PlayerAbilitiesPacket(ABILITY_FLAGS, 0f, WALKING_SPEED)
     private val lock = Any()
     private var open = false
+    private var watchingTransitions = false
     private val horse =
         if (definition.surface.mode == FullscreenMode.HORSE) {
             MinestomFullscreenHorse(player, checkNotNull(canvas.horse) { "The pack has no horse for horse mode" })
@@ -163,6 +166,7 @@ internal class MinestomFullscreen private constructor(
         // follows, so a spectator client never draws the invisible horse as a translucent ghost.
         player.scheduler().scheduleNextTick {
             whileOpen {
+                watchingTransitions = true
                 fakeSurvival()
                 horse?.lock(anchor.add(0.0, player.eyeHeight, 0.0))
             }
@@ -273,9 +277,13 @@ internal class MinestomFullscreen private constructor(
         node.addListener(PlayerDisconnectEvent::class.java) { end(restore = false) }
         // Both send the client a respawn packet, which clears its client-only entities and camera, so the window ends
         // where the player now is rather than where it began.
-        node.addListener(PlayerSpawnEvent::class.java) { end(restore = true, moved = true) }
-        node.addListener(PlayerRespawnEvent::class.java) { end(restore = true, moved = true) }
+        node.addListener(PlayerSpawnEvent::class.java) { onTransition() }
+        node.addListener(PlayerRespawnEvent::class.java) { onTransition() }
         player.eventNode().addChild(node)
+    }
+
+    private fun onTransition() {
+        if (watchingTransitions) end(restore = true, moved = true)
     }
 
     private fun onPacket(event: PlayerPacketEvent) {
@@ -425,7 +433,8 @@ internal class MinestomFullscreen private constructor(
 
     /**
      * Ends the window after the player left it, restoring them unless they disconnected. A [moved] player was placed
-     * elsewhere by an instance change or respawn, so they are not teleported back.
+     * elsewhere by an instance change or respawn, so they are not teleported back, and the listener hears of the close
+     * on the next tick, since a respawn teleports the player to its destination after its event.
      */
     private fun end(
         restore: Boolean,
@@ -433,7 +442,7 @@ internal class MinestomFullscreen private constructor(
     ) {
         if (!stop()) return
         if (restore) restore(returnToStart = !moved)
-        listener.onClose()
+        if (moved) player.scheduler().scheduleNextTick { listener.onClose() } else listener.onClose()
     }
 
     /** Stops listening; false when already stopped. */
