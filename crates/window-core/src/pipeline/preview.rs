@@ -1,4 +1,4 @@
-//! Previews: a window or HUD rendered to a PNG from supplied handle state.
+//! Previews: a window, HUD, or full-screen window rendered to a PNG from supplied handle state.
 //!
 //! A preview draws the laid-out surface the way the client composes it: the static composite, the active case of
 //! every switch, art layers and runtime sprites in the color their tint is at, and text fitted as the runtime fits
@@ -16,12 +16,12 @@ use crate::compose::{Composite, Texture, blit_sprite, multiply};
 use crate::geometry::{Point, Rect, Size};
 use crate::inventory::InventorySlotRef;
 use crate::ir::{
-    Align, AnvilInputIr, ArtIr, CollectionIr, Draw, Handle, HandleKind, HandleRole, HandleUse, ItemIr, LaidOutHud,
-    LaidOutWindow, Layer, RegionIr, Rgb, SlotIr, SpriteSlotIr, SwitchIr, bar_columns,
+    Align, AnvilInputIr, ArtIr, CollectionIr, Draw, Handle, HandleKind, HandleRole, HandleUse, ItemIr,
+    LaidOutFullscreen, LaidOutHud, LaidOutWindow, Layer, RegionIr, Rgb, SlotIr, SpriteSlotIr, SwitchIr, bar_columns,
 };
 use crate::model::{GeneratedStyle, SpriteDef};
 use crate::surface::{ContainerKind, Surface};
-use crate::{Error, Result, text_font};
+use crate::{Error, Result, fullscreen, text_font};
 
 use super::bars::columns;
 use super::glyphs::{Layers, compose_layers};
@@ -50,7 +50,7 @@ const ANVIL_TEXT_INSET: Point = Point::new(3, 4);
 pub struct PreviewRequest {
     /// The output file stem.
     pub name: String,
-    /// The window or HUD to draw.
+    /// The window, HUD, or full-screen window to draw.
     pub target: PreviewTarget,
     /// Handle values; a handle without one takes its default.
     #[serde(default)]
@@ -69,6 +69,7 @@ pub struct PreviewRequest {
 pub enum PreviewTarget {
     Window(String),
     Hud(String),
+    Fullscreen(String),
 }
 
 /// The value of one handle, or of one member of an indexed handle.
@@ -149,9 +150,22 @@ pub fn render(project: &ParsedProject, input: &CompileInput, requests: &[Preview
     let textures = decode_textures(&input.files)?;
     let texture_size = |path: &str| -> Option<Size> { textures.get(path).map(|t| Size::new(t.width, t.height)) };
     let text_fonts = text_font::resolve(&project.fonts, &textures)?;
-    let wants = |hud: bool| requests.iter().any(|r| matches!(r.target, PreviewTarget::Hud(_)) == hud);
-    let windows = if wants(false) { crate::layout::solve(project, &texture_size, &text_fonts)? } else { Vec::new() };
-    let huds = if wants(true) { crate::layout::solve_huds(project, &texture_size, &text_fonts)? } else { Vec::new() };
+    let wants = |kind: fn(&PreviewTarget) -> bool| requests.iter().any(|r| kind(&r.target));
+    let windows = if wants(|t| matches!(t, PreviewTarget::Window(_))) {
+        crate::layout::solve(project, &texture_size, &text_fonts)?
+    } else {
+        Vec::new()
+    };
+    let huds = if wants(|t| matches!(t, PreviewTarget::Hud(_))) {
+        crate::layout::solve_huds(project, &texture_size, &text_fonts)?
+    } else {
+        Vec::new()
+    };
+    let fullscreens = if wants(|t| matches!(t, PreviewTarget::Fullscreen(_))) {
+        crate::layout::solve_fullscreens(project, &texture_size, &text_fonts)?
+    } else {
+        Vec::new()
+    };
 
     let scene = Scene { project, textures: &textures, painter: TextPainter::new(&text_fonts) };
     let mut files = Vec::with_capacity(requests.len());
@@ -180,6 +194,16 @@ pub fn render(project: &ParsedProject, input: &CompileInput, requests: &[Preview
                 pane.bounds().into_rect(preview, scale)?;
                 let mut composites = compose_layers(&[], &[hud], &[], &textures)?;
                 scene.draw(request, &pane, &composites.huds.remove(0))?
+            }
+            PreviewTarget::Fullscreen(name) => {
+                let fullscreen = fullscreens
+                    .iter()
+                    .find(|f| &f.name == name)
+                    .ok_or_else(|| fail(preview, format!("there is no full-screen window `{name}`")))?;
+                let pane = Pane::fullscreen(fullscreen);
+                pane.bounds().into_rect(preview, scale)?;
+                let mut composites = compose_layers(&[], &[], &[fullscreen], &textures)?;
+                scene.draw(request, &pane, &composites.fullscreens.remove(0))?
             }
         };
         let image = resize(&canvas.texture, canvas.texture.width * scale, canvas.texture.height * scale);
@@ -230,12 +254,14 @@ fn fail(preview: &str, message: String) -> Error {
     Error::Validation(format!("preview `{preview}`: {message}"))
 }
 
-/// The parts of a laid-out window or HUD a preview draws.
+/// The parts of a laid-out window, HUD, or full-screen window a preview draws.
 struct Pane<'a> {
-    /// `window` or `HUD`, then the name, for error messages.
+    /// `window`, `HUD`, or `full-screen window`, then the name, for error messages.
     label: String,
-    /// The surface rect in GUI space.
+    /// The surface rect in GUI space, or in canvas pixels for a full-screen window.
     rect: Rect,
+    /// The color filling the whole image behind everything else.
+    backdrop: Option<Rgb>,
     /// The shadow of slot text.
     shadow: Shadow,
     container: Option<ContainerKind>,
@@ -258,6 +284,7 @@ impl<'a> Pane<'a> {
         Self {
             label: format!("window `{}`", w.name),
             rect: Rect::from_parts(Point::new(0, 0), kind.gui_size()),
+            backdrop: None,
             shadow: Shadow::Slot,
             container: Some(kind),
             slots: &w.slots,
@@ -278,6 +305,7 @@ impl<'a> Pane<'a> {
         Self {
             label: format!("HUD `{}`", h.name),
             rect: Rect::new(0, 0, h.width, h.height),
+            backdrop: None,
             shadow: if h.shader.is_some() { Shadow::ShaderHud } else { Shadow::Slot },
             container: None,
             slots: &h.slots,
@@ -288,6 +316,27 @@ impl<'a> Pane<'a> {
             layers: &h.layers,
             handles: &h.handles,
             regions: &[],
+            items: &[],
+            collections: &[],
+            input: None,
+        }
+    }
+
+    fn fullscreen(f: &'a LaidOutFullscreen) -> Self {
+        Self {
+            label: format!("full-screen window `{}`", f.name),
+            rect: Rect::from_parts(Point::new(0, 0), fullscreen::CANVAS),
+            backdrop: f.backdrop,
+            shadow: Shadow::None,
+            container: None,
+            slots: &f.slots,
+            sprite_slots: &[],
+            switches: &f.switches,
+            art: &f.art,
+            draws: &f.draws,
+            layers: &f.layers,
+            handles: &f.handles,
+            regions: &f.regions,
             items: &[],
             collections: &[],
             input: None,
@@ -618,6 +667,9 @@ impl Scene<'_> {
             placement.include_in(&mut bounds);
         }
         let mut canvas = Canvas::new(bounds.into_rect(&request.name, request.scale.unwrap_or(1))?);
+        if let Some(Rgb { r, g, b }) = pane.backdrop {
+            canvas.texture.rgba.as_chunks_mut::<4>().0.fill([r, g, b, 0xff]);
+        }
         let field = ContainerKind::ANVIL_TEXT_FIELD;
         if pane.container == Some(ContainerKind::Anvil)
             && let Replacement::Sprite(sprite) = &self.project.options.vanilla.anvil.field

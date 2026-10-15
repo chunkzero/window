@@ -1,8 +1,9 @@
-//! HUD core-shader generation.
+//! Core-shader generation.
 //!
 //! This module owns shader-backed HUD emission: marker allocation, relocation
 //! rules, version-profile selection, and version-specific core text shader
-//! rendering. The pack_format 85-88 text shaders also draw hover outlines.
+//! rendering. The pack_format 85-88 text shaders also draw hover outlines and
+//! full-screen windows.
 
 use crate::ir::{LaidOutHud, Rgb};
 use crate::{Error, Result};
@@ -38,18 +39,27 @@ pub const HOVER_GLYPH_ID: Rgb = Rgb { r: 0x57, g: 0x48, b: 0x56 };
 pub const HOVER_SIZE_MARK: u8 = 0xa9;
 
 /// Emits core text shaders that relocate shader-placed HUDs, where `row_offsets` holds the rows each of `huds` is
-/// baked below its source origin, and that with `hover` move hover outline glyphs out of tooltips onto their regions.
+/// baked below its source origin, that with `hover` move hover outline glyphs out of tooltips onto their regions, and
+/// that with `fullscreen` draw full-screen windows on their canvas and hide the HUD strip while one is open.
 ///
-/// Fails when shader-placed HUDs exist or `hover` is set but `pack_format` is unknown or has no shader profile,
-/// since baked marker colors, HUD placement, and hover glyphs only render correctly through these shaders.
-/// `hover` needs the pack_format 85-88 profile.
-pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud], row_offsets: &[i32], hover: bool) -> Result<ShaderOutput> {
+/// Fails when shader-placed HUDs exist, `hover` is set, or `fullscreen` is set but `pack_format` is unknown or has
+/// no shader profile, since baked marker colors, HUD placement, hover glyphs, and full-screen canvases only render
+/// correctly through these shaders. `hover` and `fullscreen` need the pack_format 85-88 profile.
+pub fn emit(
+    pack_format: Option<u32>,
+    huds: &[&LaidOutHud],
+    row_offsets: &[i32],
+    hover: bool,
+    fullscreen: bool,
+) -> Result<ShaderOutput> {
     let markers = segment_markers(huds)?;
     let rules = rules(huds, row_offsets, &markers);
-    if rules.is_empty() && !hover {
+    if rules.is_empty() && !hover && !fullscreen {
         return Ok(ShaderOutput::default());
     }
-    let (option, remedy) = if rules.is_empty() {
+    let (option, remedy) = if fullscreen {
+        ("the project has full-screen windows", "remove the full-screen windows")
+    } else if rules.is_empty() {
         ("`coreShaders.hover` is enabled", "turn `coreShaders.hover` off")
     } else {
         ("`coreShaders.hud` is enabled with shader-placed HUDs", "remove the HUD `shader` placement")
@@ -68,6 +78,13 @@ pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud], row_offsets: &[i32],
         )));
     };
 
+    if fullscreen && profile != ShaderProfile::Pack85To88DefineVariants {
+        return Err(Error::Validation(format!(
+            "full-screen windows are drawn by a core text shader Window generates only for pack_format 85 through \
+             88, but the pack targets pack_format {pack_format}; target pack_format 85 through 88 or remove the \
+             full-screen windows"
+        )));
+    }
     if hover && profile != ShaderProfile::Pack85To88DefineVariants {
         return Err(Error::Validation(format!(
             "`coreShaders.hover` needs pack_format 85 through 88, but the pack targets pack_format {pack_format}; \
@@ -77,7 +94,7 @@ pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud], row_offsets: &[i32],
 
     let fallback = if rules.is_empty() { "" } else { ", so keep actionbar/bossbar/sidebar fallback enabled" };
     Ok(ShaderOutput {
-        files: shader_files(profile, &rules, hover),
+        files: shader_files(profile, &rules, hover, fullscreen),
         warnings: vec![format!(
             "emitted generated core text shaders for {profile}; core shader overrides are \
              client-version-sensitive{fallback}"
@@ -85,8 +102,8 @@ pub fn emit(pack_format: Option<u32>, huds: &[&LaidOutHud], row_offsets: &[i32],
     })
 }
 
-fn shader_files(profile: ShaderProfile, rules: &[HudShaderRule], hover: bool) -> Vec<ShaderFile> {
-    profile.sources(rules, hover).into_iter().map(|(name, contents)| shader_file(name, contents)).collect()
+fn shader_files(profile: ShaderProfile, rules: &[HudShaderRule], hover: bool, fullscreen: bool) -> Vec<ShaderFile> {
+    profile.sources(rules, hover, fullscreen).into_iter().map(|(name, contents)| shader_file(name, contents)).collect()
 }
 
 fn shader_file(name: &str, contents: String) -> ShaderFile {

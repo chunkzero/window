@@ -100,6 +100,27 @@ pub const HUD_STRIP_HALF_WIDTH: u32 = 96;
 /// The most max health the client is told while the HUD is hidden, so its hearts fit in one row inside the strip.
 pub const HUD_MAX_HEALTH: u32 = 20;
 
+/// The alpha of the opaque texels in the pack's override of the vanilla crosshair sprite. While the HUD is hidden,
+/// `core/position_tex_color` discards GUI texels with this alpha, which removes the crosshair without cutting
+/// anything else. With the crosshair's inverting blend, 254 draws the same as 255.
+pub const CROSSHAIR_MARKER_ALPHA: u8 = 254;
+
+/// The sprite the crosshair pipeline draws, relative to the pack root.
+pub const CROSSHAIR_SPRITE_PATH: &str = "assets/minecraft/textures/gui/sprites/hud/crosshair.png";
+
+/// The distance in normalized device depth between adjacent layers: 2^-20, sixteen ulps of the 32-bit float depth
+/// buffer just below 1.0, so every layer's depth is exact in f32 and distinct once stored.
+pub const LAYER_DEPTH_STEP: f64 = 1.0 / 1_048_576.0;
+
+/// The normalized device depth of a layer, written to `gl_Position.z` with `w` of 1. The level projection is
+/// reversed, with the near plane at 1.0 and the far plane at or below 0.0, so depth is about near / distance. All
+/// layers sit within 256 steps below the near plane, covering only geometry within about 1e-5 blocks of it, and at
+/// least one step below it, so the camera's tilt, bobbing, nausea, and FOV, which only transform what the projection
+/// maps, cannot clip them. Higher layers are nearer.
+pub fn layer_depth(layer: u8) -> f64 {
+    1.0 - (f64::from(CURSOR_LAYER - layer) + 1.0) * LAYER_DEPTH_STEP
+}
+
 /// Where the include is emitted; core shaders import it as `#moj_import <minecraft:window_fullscreen.glsl>`.
 pub const INCLUDE_PATH: &str = "assets/minecraft/shaders/include/window_fullscreen.glsl";
 
@@ -167,6 +188,24 @@ pub(crate) fn cursor_texture() -> Texture {
             };
             let at = (y * texture.width as usize + x) * 4;
             texture.rgba[at..at + 4].copy_from_slice(&[rgb, rgb, rgb, 0xff]);
+        }
+    }
+    texture
+}
+
+const CROSSHAIR_CENTER: u32 = 7;
+const CROSSHAIR_ARM: u32 = 4;
+
+/// The vanilla crosshair sprite, a 15x15 white plus, with its opaque texels at [`CROSSHAIR_MARKER_ALPHA`].
+pub(crate) fn crosshair_marker_texture() -> Texture {
+    let mut texture = Texture::transparent(15, 15);
+    for y in 0..texture.height {
+        for x in 0..texture.width {
+            let (dx, dy) = (x.abs_diff(CROSSHAIR_CENTER), y.abs_diff(CROSSHAIR_CENTER));
+            if (dx == 0 && dy <= CROSSHAIR_ARM) || (dy == 0 && dx <= CROSSHAIR_ARM) {
+                let at = (y * texture.width + x) as usize * 4;
+                texture.rgba[at..at + 4].copy_from_slice(&[0xff, 0xff, 0xff, CROSSHAIR_MARKER_ALPHA]);
+            }
         }
     }
     texture

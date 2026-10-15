@@ -1,5 +1,6 @@
 use crate::hud::rule::HudShaderRule;
 
+use super::fullscreen::{FULLSCREEN_VERTEX_APPLY, FULLSCREEN_VERTEX_IMPORT, render_fullscreen_vertex_helpers};
 use super::glsl::{
     DynamicFog, ScreenSizeSource, V150Fog, dynamic_fog, format_glsl_float, join_rule_values, render_gui_size_helper,
     rgb_vec3, segment_table, texture_mode, texture_mode_snippets, v150_fog,
@@ -287,8 +288,13 @@ void main() {{
 }
 
 /// Renders `core/text.vsh`, which vanilla compiles once per pipeline with `IS_GUI`,
-/// `IS_SEE_THROUGH`, and `IS_GRAYSCALE` defines; each variant keeps vanilla's inputs and bindings.
-pub(in crate::hud) fn render_v330_define_variant_text_shader(rules: &[HudShaderRule], hover: bool) -> String {
+/// `IS_SEE_THROUGH`, and `IS_GRAYSCALE` defines; each variant keeps vanilla's inputs and bindings. With `fullscreen`,
+/// the world variant places full-screen markers on the canvas before anything else runs.
+pub(in crate::hud) fn render_v330_define_variant_text_shader(
+    rules: &[HudShaderRule],
+    hover: bool,
+    fullscreen: bool,
+) -> String {
     let helpers = if rules.is_empty() {
         render_gui_size_helper(ScreenSizeSource::Globals).to_string() + NO_RULE_HELPERS
     } else {
@@ -296,6 +302,11 @@ pub(in crate::hud) fn render_v330_define_variant_text_shader(rules: &[HudShaderR
     };
     let (hover_helpers, hover_apply) =
         if hover { (render_hover_vertex_helpers(), HOVER_VERTEX_APPLY) } else { (String::new(), "") };
+    let (fullscreen_import, fullscreen_helpers, fullscreen_apply) = if fullscreen {
+        (FULLSCREEN_VERTEX_IMPORT, render_fullscreen_vertex_helpers(), FULLSCREEN_VERTEX_APPLY)
+    } else {
+        ("", String::new(), "")
+    };
 
     format!(
         r#"#version 330
@@ -307,7 +318,7 @@ pub(in crate::hud) fn render_v330_define_variant_text_shader(rules: &[HudShaderR
 
 #moj_import <minecraft:globals.glsl>
 #moj_import <minecraft:dynamictransforms.glsl>
-#moj_import <minecraft:projection.glsl>
+#moj_import <minecraft:projection.glsl>{fullscreen_import}
 
 in vec3 Position;
 in vec4 Color;
@@ -326,8 +337,8 @@ out vec2 texCoord0;
 #ifdef IS_GRAYSCALE
 flat out int windowHudTextureMode;
 #endif
-{helpers}{hover_helpers}
-void main() {{
+{helpers}{hover_helpers}{fullscreen_helpers}
+void main() {{{fullscreen_apply}
     vec3 pos = Position;
     window_hud_apply(pos, Color);
     gl_Position = ProjMat * ModelViewMat * vec4(pos, 1.0);
