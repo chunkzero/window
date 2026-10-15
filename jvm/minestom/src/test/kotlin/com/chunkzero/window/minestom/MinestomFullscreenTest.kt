@@ -58,11 +58,13 @@ import net.minestom.server.network.packet.server.play.HeldItemChangePacket
 import net.minestom.server.network.packet.server.play.OpenWindowPacket
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
+import net.minestom.server.network.packet.server.play.SetExperiencePacket
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
 import net.minestom.server.network.packet.server.play.SetSlotPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.network.packet.server.play.SpawnEntityPacket
 import net.minestom.server.network.packet.server.play.WindowItemsPacket
+import net.minestom.server.network.packet.server.play.WindowPropertyPacket
 import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
 import java.net.InetSocketAddress
@@ -151,7 +153,7 @@ class MinestomFullscreenTest :
             val menu = Menu(fixture.player)
             menu.open()
 
-            fixture.receive(ClientHeldItemChangePacket(1))
+            fixture.receive(ClientHeldItemChangePacket(1)).isCancelled shouldBe true
             fixture.receive(ClientHeldItemChangePacket(8))
             fixture.send(HeldItemChangePacket(5))
             fixture.receive(ClientHeldItemChangePacket(6))
@@ -165,7 +167,7 @@ class MinestomFullscreenTest :
             val menu = Menu(fixture.player)
             menu.open()
 
-            fixture.receive(ClientInteractEntityPacket(0, PlayerHand.MAIN, Vec.ZERO, false))
+            fixture.receive(ClientInteractEntityPacket(0, PlayerHand.MAIN, Vec.ZERO, false)).isCancelled shouldBe true
             fixture.receive(ClientInteractEntityPacket(0, PlayerHand.OFF, Vec.ZERO, false))
             fixture.receive(ClientPlayerRotationPacket(-44f, -24.375f, 0.toByte()))
             fixture.player.scheduler().processTickEnd()
@@ -173,9 +175,10 @@ class MinestomFullscreenTest :
             menu.rightClicks shouldContainExactly listOf(FullscreenClick(5, 5))
         }
 
-        "a text input opens an anvil, ignores renames until its ping returns, and submits from the result slot" {
+        "a text input opens a blank anvil, ignores renames until its ping returns, and submits from the result slot" {
             val fixture = FullscreenFixture()
             val player = fixture.player
+            player.inventory.setItemStack(2, ItemStack.of(Material.DIAMOND))
             val menu = Menu(player)
             menu.open()
             fixture.tick()
@@ -184,8 +187,14 @@ class MinestomFullscreenTest :
             menu.prompt("hi")
             val anvil = fixture.sent<OpenWindowPacket>().single()
             anvil.windowType() shouldBe InventoryType.ANVIL.windowType
-            fixture.sent<SetTimePacket>().single() shouldBe player.instance.createTimePacket()
+            // The HUD stays hidden, the hotbar stays blank, and the anvil shows no cost.
+            fixture.sent<SetTimePacket>() shouldBe emptyList()
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
             fixture.seed(anvil.windowId()) shouldBe "hi"
+            val paper = fixture.seedItem(anvil.windowId())
+            paper.get(DataComponents.ITEM_MODEL) shouldBe "window:fullscreen/blank"
+            paper.has(DataComponents.ENCHANTMENTS) shouldBe false
+            fixture.sent<WindowPropertyPacket>().single().value() shouldBe 0
             fixture.receive(ClientNameItemPacket("earlier"))
             fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
             fixture.receive(ClientNameItemPacket("hi"))
@@ -211,7 +220,52 @@ class MinestomFullscreenTest :
             player.openInventory shouldBe null
             fixture.clear()
             fixture.tick()
-            fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
+            fixture.sent<SetTimePacket>() shouldBe emptyList()
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
+        }
+
+        "a click resyncs the anvil behind a ping, and text typed before the resync arrived is kept" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.prompt("hey")
+            val anvil = fixture.sent<OpenWindowPacket>().single().windowId()
+            fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
+
+            fixture.clear()
+            fixture.receive(fixture.click(anvil, 0))
+            val resync = fixture.sent<PingPacket>().single()
+            fixture.seed(anvil) shouldBe "hey"
+            fixture.sent<WindowPropertyPacket>().single().value() shouldBe 0
+            // The player typed "heya" before the resync reached the client, which then echoed its seed.
+            fixture.receive(ClientNameItemPacket("heya"))
+            fixture.receive(ClientNameItemPacket("hey"))
+            menu.edits shouldBe emptyList()
+
+            fixture.clear()
+            fixture.receive(ClientPongPacket(resync.id()))
+            menu.edits shouldContainExactly listOf("heya")
+            fixture.seed(anvil) shouldBe "heya"
+            val rebased = fixture.sent<PingPacket>().single()
+            fixture.receive(ClientNameItemPacket("heya"))
+            fixture.receive(ClientPongPacket(rebased.id()))
+            fixture.receive(ClientNameItemPacket("heyab"))
+            menu.edits shouldContainExactly listOf("heya", "heyab")
+        }
+
+        "taking the result resyncs the player's experience" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            player.level = 3
+            val menu = Menu(player)
+            menu.open()
+            menu.prompt("hi")
+            val anvil = fixture.sent<OpenWindowPacket>().single().windowId()
+
+            fixture.clear()
+            fixture.receive(fixture.click(anvil, 2))
+
+            fixture.sent<SetExperiencePacket>().single().level() shouldBe 3
         }
 
         "closing the anvil cancels the prompt on the next tick, and closing the window closes the anvil" {
@@ -461,7 +515,7 @@ private class FullscreenFixture {
 
     fun tick() = player.scheduler().processTick()
 
-    fun receive(packet: ClientPacket) = EventDispatcher.call(PlayerPacketEvent(player, packet))
+    fun receive(packet: ClientPacket) = PlayerPacketEvent(player, packet).also(EventDispatcher::call)
 
     fun click(
         windowId: Int,
@@ -476,13 +530,17 @@ private class FullscreenFixture {
         ItemStack.Hash.AIR,
     )
 
-    /** The name of the paper in the first slot of window [windowId] as last sent. */
-    fun seed(windowId: Int): String? =
+    /** The paper in the first slot of window [windowId] as last sent. */
+    fun seedItem(windowId: Int): ItemStack =
         sent<WindowItemsPacket>()
             .last { it.windowId() == windowId }
             .items()[0]
-            .get(DataComponents.CUSTOM_NAME)
-            ?.let { PlainTextComponentSerializer.plainText().serialize(it) }
+
+    /** The name of the paper in the first slot of window [windowId] as last sent. */
+    fun seed(windowId: Int): String? {
+        val name = seedItem(windowId).get(DataComponents.CUSTOM_NAME) ?: return null
+        return PlainTextComponentSerializer.plainText().serialize(name)
+    }
 
     /** Queues [packets] back to back, then writes them out the way the connection's writer thread does. */
     fun send(vararg packets: ServerPacket) {

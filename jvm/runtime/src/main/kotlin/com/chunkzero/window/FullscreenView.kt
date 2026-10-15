@@ -79,7 +79,7 @@ public abstract class FullscreenView(
      *
      * [onEdit] receives the whole text after each edit. [onDone] receives it once the player clicks the anvil's result
      * slot, or `null` once they close the anvil; the canvas is back by then. Neither runs after the window closes. While
-     * the anvil is open, the player sees their real hotbar and HUD, and the cursor stays where it was.
+     * the anvil is open, the HUD stays hidden and the cursor stays where it was.
      *
      * The anvil's rename field holds 50 characters. When it fills, its text is kept and a fresh anvil opens with an empty
      * field, so the text can grow past 50 characters, but only the part after the last 50-character boundary is shown

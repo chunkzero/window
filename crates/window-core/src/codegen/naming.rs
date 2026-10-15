@@ -103,6 +103,9 @@ pub(super) fn is_valid_identifier(name: &str) -> bool {
 /// Members `HudView` declares beyond the shared set.
 pub(super) const HUD_RESERVED_MEMBERS: &[&str] = &["render", "channel"];
 
+/// Members `FullscreenView` generated classes declare beyond the shared set.
+pub(super) const FULLSCREEN_RESERVED_MEMBERS: &[&str] = &["onScroll", "onRightClick"];
+
 const RESERVED_MEMBERS: &[&str] = &[
     "player",
     "host",

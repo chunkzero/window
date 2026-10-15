@@ -42,8 +42,8 @@ public interface OpenFullscreen {
 
     /**
      * Opens an anvil titled [title] over the canvas, with [text] in its rename field, and reports its input to
-     * [listener] until it closes. While it is open, the client has its real world age and hotbar; the HUD is hidden
-     * again once it closes.
+     * [listener] until it closes. The HUD stays hidden and the hotbar blank while it is open; the anvil
+     * shows no items and no cost.
      *
      * Called while an anvil is open, it opens a fresh one in its place reporting to [listener], without reporting the
      * old one's end. Edits made on an earlier anvil, and the client's echo of [text], are not reported.

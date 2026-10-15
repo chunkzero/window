@@ -69,7 +69,9 @@ import net.minestom.server.world.clock.WorldClock
  * The HUD is hidden: the hotbar holds blank items, which also hide the hand, and the client's world age is held
  * negative, which the pack's GUI shader reads as "clip the bottom-centre HUD strip". So the hearts fit that strip, the
  * client is told its max health is at most the canvas's `hudMaxHealth` and its absorption is 0. While the server has a
- * container open, the client gets the real world age back and its real hotbar so the strip and slots show.
+ * container open, the client gets the real world age back and its real hotbar so the strip and slots show. The text
+ * prompt's anvil is this window's own UI rather than a server container, so it keeps the HUD hidden and the hotbar
+ * blank.
  *
  * While the window is open, a server update to the game mode, abilities, hotbar, time, max health, or absorption passes
  * through unchanged and is followed by a packet that puts the hidden state back. Replacing the update instead would
@@ -112,7 +114,7 @@ internal class MinestomFullscreen private constructor(
 
     /** The held slot the client has selected, which held-slot changes are measured from. Requires [lock]. */
     private var clientSlot = heldSlot.toInt()
-    private val textInput = MinestomTextInput(player, ::deferWhileOpen)
+    private val textInput = MinestomTextInput(player, blank, ::deferWhileOpen)
 
     /** The window id of the server container the client has open, or [NO_CONTAINER]. */
     private var containerWindowId = NO_CONTAINER
@@ -376,11 +378,13 @@ internal class MinestomFullscreen private constructor(
                 }
 
                 is OpenWindowPacket -> {
-                    containerWindowId = packet.windowId()
-                    containerGeneration++
-                    player.sendPacket(realTime())
-                    // Opening a container does not resync the player inventory, whose hotbar still holds the blanks.
-                    player.inventory.update(player)
+                    if (!textInput.owns(packet.windowId())) {
+                        containerWindowId = packet.windowId()
+                        containerGeneration++
+                        player.sendPacket(realTime())
+                        // Opening a container does not resync the player inventory, whose hotbar still holds the blanks.
+                        player.inventory.update(player)
+                    }
                 }
 
                 is CloseWindowPacket -> {
