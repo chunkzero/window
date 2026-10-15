@@ -164,6 +164,16 @@ class MinestomFullscreenTest :
             fixture.send(SetTimePacket(100, emptyMap()))
             fixture.sent<SetTimePacket>().map { it.gameTime() } shouldContainExactly listOf(100L, HIDDEN_AGE)
             fixture.clear()
+            val clock =
+                player.instance
+                    .createTimePacket()
+                    .clocks()
+                    .keys
+                    .first()
+            val daylight = mapOf(clock to SetTimePacket.ClockState(6000, 0f, 1f))
+            fixture.send(SetTimePacket(10_000, daylight))
+            fixture.sent<SetTimePacket>().map { it.clocks() } shouldContainExactly listOf(daylight, daylight)
+            fixture.clear()
             val uncapped = EntityAttributesPacket.Property(Attribute.MAX_HEALTH, 40.0, emptyList())
             fixture.send(EntityAttributesPacket(player.entityId, listOf(uncapped)))
             fixture
@@ -178,7 +188,7 @@ class MinestomFullscreenTest :
 
             fixture.clear()
             fixture.send(OpenWindowPacket(1, InventoryType.CHEST_1_ROW.ordinal, Component.empty()))
-            fixture.sent<SetTimePacket>().single().gameTime() shouldBe player.instance.worldAge
+            fixture.sent<SetTimePacket>().single() shouldBe player.instance.createTimePacket()
             // Opening a container leaves the hotbar blank unless the real one is resent.
             fixture
                 .sent<WindowItemsPacket>()
@@ -273,6 +283,14 @@ class MinestomFullscreenTest :
             fixture.sent<SetPlayerInventorySlotPacket>() shouldBe emptyList()
 
             fixture.send(CloseWindowPacket(first))
+            fixture.send(OpenWindowPacket(second, InventoryType.CHEST_1_ROW.ordinal, Component.empty()))
+            fixture.clear()
+            fixture.tick()
+            fixture.sent<SetTimePacket>() shouldBe emptyList()
+            fixture.sent<SetPlayerInventorySlotPacket>() shouldBe emptyList()
+
+            // Reopening the same inventory reuses its window id, so the earlier close must not act next tick.
+            fixture.send(CloseWindowPacket(second))
             fixture.send(OpenWindowPacket(second, InventoryType.CHEST_1_ROW.ordinal, Component.empty()))
             fixture.clear()
             fixture.tick()

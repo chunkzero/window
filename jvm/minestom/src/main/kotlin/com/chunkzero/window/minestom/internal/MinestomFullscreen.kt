@@ -49,7 +49,9 @@ import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.network.packet.server.play.SpawnEntityPacket
 import net.minestom.server.network.packet.server.play.UpdateHealthPacket
 import net.minestom.server.network.packet.server.play.WindowItemsPacket
+import net.minestom.server.registry.RegistryKey
 import net.minestom.server.tag.Tag
+import net.minestom.server.world.clock.WorldClock
 
 /**
  * A full-screen window shown to [player] as a client-only text display at their eye, reporting their input through a
@@ -69,6 +71,10 @@ import net.minestom.server.tag.Tag
  * queue the replacement behind every packet already waiting, such as an older hotbar snapshot overwriting a newer
  * slot. The follow-ups run on the connection's writer thread, so [lock] guards the lifecycle and container state:
  * once the window stops, none can enqueue a packet after the restoring ones.
+ *
+ * The client advances every world clock by the world age delta of each time packet before applying the packet's clock
+ * snapshots, so every packet that changes the world age carries the real clock values, or the hidden age would move
+ * the clocks with it.
  */
 internal class MinestomFullscreen private constructor(
     private val player: Player,
@@ -102,6 +108,9 @@ internal class MinestomFullscreen private constructor(
     /** The window id of the server container the client has open, or [NO_CONTAINER]. */
     private var containerWindowId = NO_CONTAINER
     private val containerOpen get() = containerWindowId != NO_CONTAINER
+
+    /** Changes whenever a container opens or closes, so a callback deferred past a tick can tell it is outdated. */
+    private var containerGeneration = 0
 
     override val latencyMillis: Int
         get() = player.latency
@@ -208,14 +217,16 @@ internal class MinestomFullscreen private constructor(
     }
 
     private fun hideHud() {
-        if (!containerOpen) hideTime()
+        if (!containerOpen) hideTime(realTime().clocks())
         capMaxHealth()
         player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to ZERO)))
     }
 
-    private fun hideTime() {
-        player.sendPacket(SetTimePacket(canvas.hudHiddenWorldAge, emptyMap()))
+    private fun hideTime(clocks: Map<RegistryKey<WorldClock>, SetTimePacket.ClockState>) {
+        player.sendPacket(SetTimePacket(canvas.hudHiddenWorldAge, clocks))
     }
+
+    private fun realTime() = player.instance.createTimePacket()
 
     private fun capMaxHealth() {
         cappedMaxHealth()?.let { player.sendPacket(EntityAttributesPacket(player.entityId, listOf(it))) }
@@ -280,7 +291,7 @@ internal class MinestomFullscreen private constructor(
         whileOpen {
             when (val packet = event.packet) {
                 is SetTimePacket -> {
-                    if (!containerOpen && packet.gameTime() >= 0) hideTime()
+                    if (!containerOpen && packet.gameTime() >= 0) hideTime(packet.clocks())
                 }
 
                 is EntityAttributesPacket -> {
@@ -319,21 +330,20 @@ internal class MinestomFullscreen private constructor(
 
                 is OpenWindowPacket -> {
                     containerWindowId = packet.windowId()
-                    player.sendPacket(SetTimePacket(player.instance.worldAge, emptyMap()))
+                    containerGeneration++
+                    player.sendPacket(realTime())
                     // Opening a container does not resync the player inventory, whose hotbar still holds the blanks.
                     player.inventory.update(player)
                 }
 
                 is CloseWindowPacket -> {
                     // The close packet is sent after this event, so the hidden time must follow it.
+                    // Minestom reuses an inventory's window id, so a reopen is told apart by the generation.
                     val window = packet.windowId()
+                    val generation = ++containerGeneration
                     player.scheduler().scheduleNextTick {
                         whileOpen {
-                            if (window ==
-                                containerWindowId
-                            ) {
-                                containerClosed()
-                            }
+                            if (generation == containerGeneration && window == containerWindowId) containerClosed()
                         }
                     }
                 }
@@ -372,9 +382,10 @@ internal class MinestomFullscreen private constructor(
     /** Hides the HUD again once the server's container is gone. Requires [lock]. */
     private fun containerClosed() {
         containerWindowId = NO_CONTAINER
-        hideTime()
+        val generation = ++containerGeneration
+        hideTime(realTime().clocks())
         // Closing a container resyncs the real hotbar after this tick's packets, unless another container opened since.
-        player.scheduler().scheduleNextTick { whileOpen { if (!containerOpen) blankHotbar() } }
+        player.scheduler().scheduleNextTick { whileOpen { if (generation == containerGeneration) blankHotbar() } }
     }
 
     private fun isOpen() = synchronized(lock) { open }
@@ -414,7 +425,7 @@ internal class MinestomFullscreen private constructor(
         }
         player.flyingSpeed = flyingSpeed
         player.teleport(position)
-        player.sendPacket(SetTimePacket(player.instance.worldAge, emptyMap()))
+        player.sendPacket(realTime())
         val maxHealth = player.getAttribute(Attribute.MAX_HEALTH)
         val property = EntityAttributesPacket.Property(Attribute.MAX_HEALTH, maxHealth.baseValue, maxHealth.modifiers())
         player.sendPacket(EntityAttributesPacket(player.entityId, listOf(property)))
