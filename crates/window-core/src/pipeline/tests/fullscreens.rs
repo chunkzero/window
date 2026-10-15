@@ -151,6 +151,24 @@ fn rejects_items_runtime_sprites_and_hitbox_models() {
     let region = json!({ "type": "region", "width": 8, "height": 8, "tooltip": "<red>Hot" });
     let error = reject(region).to_string();
     assert!(error.contains("full-screen tooltips draw plain text, without MiniMessage tags"), "{error}");
+
+    let region =
+        json!({ "type": "region", "width": 8, "height": 8, "tooltip": { "title": "Hot", "lines": ["§cDanger"] } });
+    let error = reject(region).to_string();
+    assert!(error.contains("full-screen tooltips draw plain text, without formatting codes"), "{error}");
+}
+
+#[test]
+fn splits_embedded_newlines_into_tooltip_lines() {
+    let region = json!({ "type": "flex", "x": 100, "y": 50, "style": { "width": 40, "height": 20 }, "children": [
+        { "type": "region", "on_click": { "kind": "action", "id": "play" },
+          "tooltip": { "title": "First\nSecond", "lines": ["Third\n\nFifth"] } }
+    ] });
+    let out = compile(json!({ "name": "menu", "children": [region] })).unwrap();
+    let tooltip = out.manifest.fullscreens["menu"].controls["play"].tooltip.as_ref().unwrap();
+    let rows: Vec<(&str, i32)> = tooltip.lines.iter().map(|line| (line.text.as_deref().unwrap(), line.y)).collect();
+    assert_eq!(rows, [("First", 76), ("Second", 88), ("Third", 98), ("Fifth", 118)]);
+    assert!(tooltip.lines.iter().all(|line| !line.text.as_deref().unwrap().contains('\n')));
 }
 
 #[test]

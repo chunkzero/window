@@ -627,8 +627,8 @@ open; the player aims a cursor by turning. It takes the same elements as a windo
 - **Build errors**: real items (`<Items>`, `<Collection>`, a `<Repeater item>`) and `<Section>`s need inventory slots,
   so they stay in container windows; runtime sprites (`<Image bind>`; switch between images instead), `<Input>`, a
   region's `itemModel`, and text `shadow` are also rejected.
-- `span` and `at` count grid tracks, which are slots only in a section. A repeater's `cell` is 18px per slot anywhere;
-  give other industrial controls a size or a grid to fill on a full-screen window.
+- `span` and `at` count grid tracks, which are slots only in a section. A `<Repeater fixed>` sizes its `cell`s at 18px
+  per slot; give other industrial controls a size or a grid to fill on a full-screen window.
 
 ## Industrial
 

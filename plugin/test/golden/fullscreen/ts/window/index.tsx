@@ -38,7 +38,7 @@ const menu = (
                 <Region onClick={builtin("window:close")} hover={false} />
                 <Text color="#ffffff">Quit</Text>
             </Box>
-            <Repeater cell={[2, 1]} columns={3} rows={1} onClick={pick} tooltip={(i) => `Save ${i + 1}`}>
+            <Repeater fixed cell={[2, 1]} columns={3} rows={1} onClick={pick} tooltip={(i) => `Save ${i + 1}`}>
                 {(i) => <Text bind={slotName.at(i)} width={30} align="center" />}
             </Repeater>
             <Switch bind={flag("ready")}>

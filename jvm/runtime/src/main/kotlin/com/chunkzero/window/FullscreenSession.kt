@@ -193,7 +193,7 @@ internal class FullscreenWindowSession(
             render: () -> Component,
         ) {
             requireBindable(name)
-            layers.slots.bind(name, render)
+            layers.slots.bind(name) { render().replaceText { config -> config.matchLiteral("\n").replacement(" ") } }
         }
 
         override fun switch(

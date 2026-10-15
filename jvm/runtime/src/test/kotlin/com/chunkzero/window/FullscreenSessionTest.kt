@@ -168,6 +168,17 @@ class FullscreenSessionTest :
             host.turns shouldContainExactly listOf(Turn(-5f, 0f), Turn(-5f, 0f))
         }
 
+        "a newline in bound slot text is sent as a space" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+
+            menu.suffix = "a\nb"
+            host.scheduler.tick()
+
+            text(host.shown.last()) shouldContain "N0a b"
+            text(host.shown.last()) shouldNotContain "\n"
+        }
+
         "horse mode is refused" {
             val host = FakeFullscreenHost()
             shouldThrow<IllegalStateException> { Menu(host, FullscreenMode.HORSE).open() }
@@ -180,6 +191,7 @@ private class Menu(
     mode: FullscreenMode = FullscreenMode.UNLOCKED,
 ) : FullscreenView(FullscreenDefinition(FullscreenManifests.manifest(mode), "menu"), host) {
     var count by state(0)
+    var suffix by state("")
     var mode by state("off")
     var plays = 0
     var secrets = 0
@@ -188,7 +200,7 @@ private class Menu(
     private val names = list(2, { it: String -> it }) { listOf("a", "b", "c") }
 
     override fun FullscreenScope.bind() {
-        slot("count") { Component.text("N$count") }
+        slot("count") { Component.text("N$count$suffix") }
         switch("mode") { mode }
         button("play") {
             plays++

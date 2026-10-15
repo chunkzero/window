@@ -27,14 +27,21 @@ pub(super) fn tooltip(
     region: &RegionIr,
     tooltip: &Tooltip,
 ) -> Result<TooltipIr> {
-    let texts: Vec<&str> =
-        std::iter::once(tooltip.title.as_str()).chain(tooltip.lines.iter().map(String::as_str)).collect();
-    if texts.iter().any(|text| text.contains('<')) {
+    let authored = std::iter::once(tooltip.title.as_str()).chain(tooltip.lines.iter().map(String::as_str));
+    if authored.clone().any(|text| text.contains('<')) {
         return Err(target.layout_err(format!(
             "{} has a tooltip with `<`: full-screen tooltips draw plain text, without MiniMessage tags",
             region.source
         )));
     }
+    if authored.clone().any(|text| text.contains('§')) {
+        return Err(target.layout_err(format!(
+            "{} has a tooltip with `§`: full-screen tooltips draw plain text, without formatting codes",
+            region.source
+        )));
+    }
+    // An embedded newline starts another tooltip line, as in vanilla; the display itself never sees one.
+    let texts: Vec<&str> = authored.flat_map(|text| text.split('\n')).collect();
     let measure = |text: &str| vanilla::visible_width(text, false, vanilla::advance, vanilla::glyph_width);
     let text_width = texts.iter().map(|text| measure(text)).max().unwrap_or(0);
     let extra = texts.len() as u32 - 1;
@@ -60,6 +67,7 @@ pub(super) fn tooltip(
     let lines = texts
         .iter()
         .enumerate()
+        .filter(|(_, text)| !text.is_empty())
         .map(|(line, text)| {
             let top = if line == 0 { 0 } else { TITLE_GAP + line as u32 * LINE_PITCH };
             let origin = Point::new(panel.x + INSET as i32, panel.y + (INSET + top) as i32);

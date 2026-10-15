@@ -108,6 +108,13 @@ test("a repeater cell's region covers the whole cell, including its item slot", 
     }
 });
 
+test("a repeater leaves its section area to size it unless fixed", () => {
+    const grid = (fixed?: boolean) =>
+        ofType(industrial.Repeater({ cell: [2, 1], columns: 3, rows: 2, fixed }), "flex")[0]?.style as Node;
+    assert.deepEqual([grid().width, grid().height], [undefined, undefined]);
+    assert.deepEqual([grid(true).width, grid(true).height], [108, 36]);
+});
+
 test("a theme over the rivet colors recolors the rivet", () => {
     const rivet = (overrides: object) =>
         JSON.stringify(
