@@ -67,6 +67,8 @@ class MinestomFullscreenTest :
             val start = Pos(4.0, 42.0, 4.0, 90f, 10f)
             player.teleport(start).join()
             player.setHeldItemSlot(3)
+            player.isInvulnerable = true
+            player.isInstantBreak = true
             val session = Menu(player).open()
 
             player.gameMode shouldBe GameMode.SPECTATOR
@@ -85,7 +87,7 @@ class MinestomFullscreenTest :
                 .single()
                 .value() shouldBe 20.0
             fixture.sent<ChangeGameStatePacket>().map { it.value() } shouldBe
-                listOf(GameMode.SPECTATOR.ordinal.toFloat())
+                listOf(GameMode.SPECTATOR.ordinal.toFloat(), 0f)
 
             fixture.clear()
             fixture.tick()
@@ -104,6 +106,8 @@ class MinestomFullscreenTest :
             player.position shouldBe start
             player.heldSlot shouldBe 3.toByte()
             player.flyingSpeed shouldBe 0.05f
+            player.isInvulnerable shouldBe true
+            player.isInstantBreak shouldBe true
             fixture
                 .sent<DestroyEntitiesPacket>()
                 .single()
@@ -150,44 +154,51 @@ class MinestomFullscreenTest :
             shouldThrow<IllegalStateException> { Menu(fixture.player).open() }
         }
 
-        "outgoing time, max health, and absorption keep the HUD hidden, and a container gets the real time" {
+        "time, max health, and absorption are followed by the hidden value, and a container gets the real ones" {
             val fixture = FullscreenFixture()
             val player = fixture.player
+            player.inventory.setItemStack(2, ItemStack.of(Material.DIAMOND))
             Menu(player).open()
             fixture.clear()
 
-            fixture.sendOut(SetTimePacket(100, emptyMap())) shouldBe false
-            fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
+            fixture.send(SetTimePacket(100, emptyMap()))
+            fixture.sent<SetTimePacket>().map { it.gameTime() } shouldContainExactly listOf(100L, HIDDEN_AGE)
+            fixture.clear()
             val uncapped = EntityAttributesPacket.Property(Attribute.MAX_HEALTH, 40.0, emptyList())
-            fixture.sendOut(EntityAttributesPacket(player.entityId, listOf(uncapped))) shouldBe false
-            val capped = fixture.sent<EntityAttributesPacket>().single()
-            capped.properties().single().value() shouldBe 20.0
-            fixture.sendOut(capped) shouldBe true
+            fixture.send(EntityAttributesPacket(player.entityId, listOf(uncapped)))
+            fixture
+                .sent<EntityAttributesPacket>()
+                .map { it.properties().single().value() } shouldContainExactly listOf(40.0, 20.0)
+            fixture.clear()
             val absorption = MetadataDef.Player.ADDITIONAL_HEARTS.index()
-            val hearts = EntityMetaDataPacket(player.entityId, mapOf(absorption to Metadata.Float(4f)))
-            fixture.sendOut(hearts) shouldBe false
+            fixture.send(EntityMetaDataPacket(player.entityId, mapOf(absorption to Metadata.Float(4f))))
             fixture
                 .sent<EntityMetaDataPacket>()
-                .single()
-                .entries()[absorption]
-                ?.value() shouldBe 0f
+                .map { it.entries()[absorption]?.value() } shouldContainExactly listOf(4f, 0f)
 
             fixture.clear()
-            fixture.sendOut(OpenWindowPacket(1, InventoryType.CHEST_1_ROW.ordinal, Component.empty())) shouldBe true
+            fixture.send(OpenWindowPacket(1, InventoryType.CHEST_1_ROW.ordinal, Component.empty()))
             fixture.sent<SetTimePacket>().single().gameTime() shouldBe player.instance.worldAge
-            fixture.sendOut(SetTimePacket(100, emptyMap())) shouldBe true
+            // Opening a container leaves the hotbar blank unless the real one is resent.
+            fixture
+                .sent<WindowItemsPacket>()
+                .single()
+                .items()[38]
+                .material() shouldBe Material.DIAMOND
+            fixture.clear()
+            fixture.send(SetTimePacket(100, emptyMap()))
+            fixture.sent<SetTimePacket>().map { it.gameTime() } shouldContainExactly listOf(100L)
         }
 
-        "game mode, abilities, and hotbar updates are rewritten while open, and a changed mode survives closing" {
+        "game mode, abilities, and hotbar updates are followed by hidden state, and a changed mode survives" {
             val fixture = FullscreenFixture()
             val player = fixture.player
             val session = Menu(player).open()
             fixture.clear()
 
-            fixture.sendOut(ChangeGameStatePacket(ChangeGameStatePacket.Reason.CHANGE_GAMEMODE, 1f)) shouldBe false
-            val survival = fixture.sent<ChangeGameStatePacket>().single()
-            survival.value() shouldBe 0f
-            fixture.sendOut(survival) shouldBe true
+            fixture.send(ChangeGameStatePacket(ChangeGameStatePacket.Reason.CHANGE_GAMEMODE, 1f))
+            fixture.sent<ChangeGameStatePacket>().map { it.value() } shouldContainExactly listOf(1f, 0f)
+            fixture.clear()
             val creative =
                 PlayerInfoUpdatePacket.Entry(
                     player.uuid,
@@ -201,62 +212,76 @@ class MinestomFullscreenTest :
                     0,
                     false,
                 )
-            fixture.sendOut(PlayerInfoUpdatePacket(PlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, creative)) shouldBe
-                false
+            fixture.send(PlayerInfoUpdatePacket(PlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, creative))
             fixture
                 .sent<PlayerInfoUpdatePacket>()
-                .single()
-                .entries()
-                .single()
-                .gameMode() shouldBe GameMode.SURVIVAL
-            fixture.sendOut(PlayerAbilitiesPacket(0x0F, 0.05f, 0.1f)) shouldBe false
-            fixture.sent<PlayerAbilitiesPacket>().single().flyingSpeed() shouldBe 0f
+                .map { it.entries().single().gameMode() } shouldContainExactly
+                listOf(GameMode.CREATIVE, GameMode.SURVIVAL)
+            fixture.clear()
+            fixture.send(PlayerAbilitiesPacket(0x0F, 0.05f, 0.1f))
+            fixture.sent<PlayerAbilitiesPacket>().map { it.flyingSpeed() } shouldContainExactly listOf(0.05f, 0f)
 
             fixture.clear()
             val diamond = ItemStack.of(Material.DIAMOND)
-            fixture.sendOut(SetPlayerInventorySlotPacket(2, diamond)) shouldBe false
-            fixture
-                .sent<SetPlayerInventorySlotPacket>()
-                .single()
-                .itemStack()
-                .material() shouldBe Material.PAPER
-            fixture.sendOut(SetSlotPacket(0, 1, 38, diamond)) shouldBe false
-            fixture
-                .sent<SetSlotPacket>()
-                .single()
-                .itemStack()
-                .material() shouldBe Material.PAPER
-            fixture.sendOut(WindowItemsPacket(0, 1, List(46) { diamond }, ItemStack.AIR)) shouldBe false
-            fixture
-                .sent<WindowItemsPacket>()
-                .single()
-                .items()
-                .map { it.material() } shouldBe List(46) { if (it in 36..44) Material.PAPER else Material.DIAMOND }
+            fixture.send(SetPlayerInventorySlotPacket(2, diamond))
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
+            fixture.clear()
+            fixture.send(SetSlotPacket(0, 1, 38, diamond))
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
 
             player.setGameMode(GameMode.CREATIVE)
             session.close()
             player.gameMode shouldBe GameMode.CREATIVE
-            fixture.sendOut(SetTimePacket(100, emptyMap())) shouldBe true
-            fixture.sendOut(SetPlayerInventorySlotPacket(2, diamond)) shouldBe true
+            fixture.clear()
+            fixture.send(SetTimePacket(100, emptyMap()))
+            fixture.send(SetPlayerInventorySlotPacket(2, diamond))
+            fixture.sent<SetTimePacket>().map { it.gameTime() } shouldContainExactly listOf(100L)
+            fixture.sent<SetPlayerInventorySlotPacket>().map { it.itemStack() } shouldContainExactly listOf(diamond)
         }
 
-        "a deferred container close is dropped once another container has opened" {
+        "rewrites keep the order of queued packets, so an old inventory snapshot cannot overwrite a newer slot" {
+            val fixture = FullscreenFixture()
+            Menu(fixture.player).open()
+            fixture.clear()
+            val diamond = ItemStack.of(Material.DIAMOND)
+            val stick = ItemStack.of(Material.STICK)
+
+            fixture.send(
+                WindowItemsPacket(0, 1, List(46) { diamond }, ItemStack.AIR),
+                SetSlotPacket(0, 2, 38, ItemStack.of(Material.EMERALD)),
+                SetSlotPacket(-1, 2, -1, stick),
+            )
+
+            val delivered = fixture.delivered
+            delivered.take(3).map { it::class } shouldContainExactly
+                listOf(WindowItemsPacket::class, SetSlotPacket::class, SetSlotPacket::class)
+            (delivered[0] as WindowItemsPacket).items()[10] shouldBe diamond
+            (delivered[1] as SetSlotPacket).itemStack().material() shouldBe Material.EMERALD
+            (delivered[2] as SetSlotPacket).itemStack() shouldBe stick
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
+        }
+
+        "a container close for a window that is not open does not hide the newer container" {
             val fixture = FullscreenFixture()
             val player = fixture.player
             player.openInventory(Inventory(InventoryType.CHEST_1_ROW, Component.empty()))
+            val first = player.openInventory!!.windowId.toInt()
+            val second = first + 1
             fixture.clear()
             Menu(player).open()
             fixture.sent<SetTimePacket>() shouldBe emptyList()
             fixture.sent<SetPlayerInventorySlotPacket>() shouldBe emptyList()
 
-            fixture.sendOut(CloseWindowPacket(1)) shouldBe true
-            fixture.sendOut(OpenWindowPacket(2, InventoryType.CHEST_1_ROW.ordinal, Component.empty())) shouldBe true
+            fixture.send(CloseWindowPacket(first))
+            fixture.send(OpenWindowPacket(second, InventoryType.CHEST_1_ROW.ordinal, Component.empty()))
             fixture.clear()
             fixture.tick()
             fixture.sent<SetTimePacket>() shouldBe emptyList()
             fixture.sent<SetPlayerInventorySlotPacket>() shouldBe emptyList()
 
-            fixture.receive(ClientCloseWindowPacket(2))
+            fixture.receive(ClientCloseWindowPacket(first))
+            fixture.sent<SetTimePacket>() shouldBe emptyList()
+            fixture.receive(ClientCloseWindowPacket(second))
             fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
         }
     }) {
@@ -280,7 +305,7 @@ private class Menu(
     }
 }
 
-/** A player in an instance, with 40 max health, whose connection records every packet sent to it. */
+/** A player in an instance, with 40 max health, whose connection records every packet that reaches its client. */
 private class FullscreenFixture {
     private val connection = PacketLog()
     val player = Player(connection, GameProfile(UUID.randomUUID(), "Fullscreen"))
@@ -289,23 +314,39 @@ private class FullscreenFixture {
         val instance = MinecraftServer.getInstanceManager().createInstanceContainer()
         player.setInstance(instance, Pos(0.0, 42.0, 0.0)).join()
         player.getAttribute(Attribute.MAX_HEALTH).baseValue = 40.0
-        connection.packets.clear()
+        clear()
     }
 
-    inline fun <reified T : ServerPacket> sent(): List<T> = connection.packets.filterIsInstance<T>()
+    val delivered: List<ServerPacket>
+        get() = connection.delivered
 
-    fun clear() = connection.packets.clear()
+    inline fun <reified T : ServerPacket> sent(): List<T> {
+        flush()
+        return delivered.filterIsInstance<T>()
+    }
+
+    /** The materials the client shows in its hotbar, replaying every packet delivered since the player spawned. */
+    fun hotbar(): List<Material> {
+        flush()
+        return connection.hotbar.toList()
+    }
+
+    fun clear() {
+        flush()
+        connection.delivered.clear()
+    }
 
     fun tick() = player.scheduler().processTick()
 
     fun receive(packet: ClientPacket) = EventDispatcher.call(PlayerPacketEvent(player, packet))
 
-    /** Sends [packet] through the outgoing packet event, as a real connection does; false when it was cancelled. */
-    fun sendOut(packet: ServerPacket): Boolean {
-        val event = PlayerPacketOutEvent(player, packet)
-        EventDispatcher.call(event)
-        return !event.isCancelled
+    /** Queues [packets] back to back, then writes them out the way the connection's writer thread does. */
+    fun send(vararg packets: ServerPacket) {
+        packets.forEach(connection::sendPacket)
+        flush()
     }
+
+    private fun flush() = connection.flush(player)
 
     private companion object {
         init {
@@ -314,11 +355,49 @@ private class FullscreenFixture {
     }
 }
 
+/** Queues packets and writes them in order, dispatching the outgoing packet event for each as a socket connection does. */
 private class PacketLog : PlayerConnection() {
-    val packets = mutableListOf<ServerPacket>()
+    private val queue = ArrayDeque<ServerPacket>()
+    val delivered = mutableListOf<ServerPacket>()
+    val hotbar = MutableList(9) { Material.AIR }
 
     override fun sendPacket(packet: SendablePacket) {
-        packets += SendablePacket.extractServerPacket(ConnectionState.PLAY, packet) ?: return
+        queue += SendablePacket.extractServerPacket(ConnectionState.PLAY, packet) ?: return
+    }
+
+    fun flush(player: Player) {
+        while (queue.isNotEmpty()) {
+            val packet = queue.removeFirst()
+            val event = PlayerPacketOutEvent(player, packet)
+            EventDispatcher.call(event)
+            if (event.isCancelled) continue
+            delivered += packet
+            when (packet) {
+                is WindowItemsPacket -> {
+                    if (packet.windowId() ==
+                        0
+                    ) {
+                        hotbar.indices.forEach { hotbar[it] = packet.items()[36 + it].material() }
+                    }
+                }
+
+                is SetSlotPacket -> {
+                    if (packet.windowId() == 0 &&
+                        packet.slot() in 36..44
+                    ) {
+                        hotbar[packet.slot() - 36] = packet.itemStack().material()
+                    }
+                }
+
+                is SetPlayerInventorySlotPacket -> {
+                    if (packet.slot() in hotbar.indices) hotbar[packet.slot()] = packet.itemStack().material()
+                }
+
+                else -> {
+                    Unit
+                }
+            }
+        }
     }
 
     override fun getRemoteAddress(): SocketAddress = InetSocketAddress("127.0.0.1", 25565)
