@@ -40,13 +40,18 @@ public interface OpenFullscreen {
         pitch: Float,
     )
 
+    /** Whether a [promptText] dialog is open and unanswered. */
+    public val promptOpen: Boolean
+
     /**
      * Shows a dialog titled [title] over the canvas with a text field holding [initial] and a Confirm and a Cancel
-     * button, and reports the outcome to [onDone] exactly once: the field's text on Confirm, `null` on Cancel, and `null`
-     * when another prompt replaces this one or the window ends. The dialog closes with the button, back to the canvas,
-     * and cannot be dismissed with Escape. The text holds at most 256 characters; [initial] is cut to fit. The HUD stays hidden while the dialog is open.
+     * button, and reports the outcome to [onDone] exactly once, on the player's thread: the field's text on Confirm,
+     * `null` on Cancel, and `null` when another prompt replaces this one, a server container opens over the dialog, or
+     * the window ends. The dialog closes with the button, back to the canvas, and cannot be dismissed with Escape. The
+     * text holds at most 256 characters; [initial] is cut to fit. The HUD stays hidden while the dialog is open.
      *
-     * @throws IllegalStateException if the window is closed.
+     * The prompt has left [promptOpen] by the time [onDone] runs, so [onDone] may open the next prompt. On a closed
+     * window this reports `null` at once.
      */
     public fun promptText(
         title: Component,
@@ -55,8 +60,9 @@ public interface OpenFullscreen {
     )
 
     /**
-     * Server-initiated close: stops listening, clears an open prompt, removes the display, and restores the player's game
-     * mode, abilities, position, held slot, and HUD. Does not call [FullscreenListener.onClose].
+     * Server-initiated close: stops listening, clears an open prompt's dialog, removes the display, restores the player's
+     * game mode, abilities, position, held slot, and HUD, and only then reports `null` to the open prompt. Does not call
+     * [FullscreenListener.onClose].
      */
     public fun close()
 }
@@ -82,8 +88,8 @@ public interface FullscreenListener {
     public fun onScroll(steps: Int)
 
     /**
-     * The player left the window, by sneaking or disconnecting. Listening has stopped, and the player is restored
-     * unless they disconnected.
+     * The player left the window, by sneaking or disconnecting. Listening has stopped, the player is restored unless
+     * they disconnected, and an open prompt has been reported `null`.
      */
     public fun onClose()
 }

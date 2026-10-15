@@ -81,6 +81,10 @@ import net.minestom.server.world.clock.WorldClock
  * The client advances every world clock by the world age delta of each time packet before applying the packet's clock
  * snapshots, so every packet that changes the world age carries the real clock values, or the hidden age would move
  * the clocks with it.
+ *
+ * A prompt's callback runs on the player's thread after the state it reports has changed, never under [lock]: a server
+ * container opening over the dialog cancels it on the next tick, and a window ending cancels it once the player is
+ * restored, just before [FullscreenListener.onClose].
  */
 internal class MinestomFullscreen private constructor(
     private val player: Player,
@@ -137,17 +141,24 @@ internal class MinestomFullscreen private constructor(
         player.sendPacket(PlayerRotationPacket(yaw, true, pitch, true))
     }
 
+    override val promptOpen: Boolean
+        get() = textPrompt.current != null
+
     override fun promptText(
         title: Component,
         initial: String,
         onDone: (String?) -> Unit,
     ) {
-        check(isOpen()) { "The full-screen window of ${player.username} is closed" }
-        textPrompt.open(title, initial, onDone)
+        if (isOpen()) textPrompt.open(title, initial, onDone) else onDone(null)
     }
 
     override fun close() {
-        if (stop()) restore()
+        if (!stop()) return
+        try {
+            restore()
+        } finally {
+            textPrompt.cancel()
+        }
     }
 
     private fun start(content: Component) {
@@ -380,6 +391,10 @@ internal class MinestomFullscreen private constructor(
                 is OpenWindowPacket -> {
                     containerWindowId = packet.windowId()
                     containerGeneration++
+                    // The container replaces the client's dialog without any answer.
+                    textPrompt.current?.let { covered ->
+                        player.scheduler().scheduleNextTick { textPrompt.cancel(covered) }
+                    }
                     player.sendPacket(realTime())
                     // Opening a container does not resync the player inventory, whose hotbar still holds the blanks.
                     player.inventory.update(player)
@@ -447,8 +462,15 @@ internal class MinestomFullscreen private constructor(
     /** Ends the window after the player left it, restoring them unless they disconnected. */
     private fun end(restore: Boolean) {
         if (!stop()) return
-        if (restore) restore() else textPrompt.close(clear = false)
-        listener.onClose()
+        try {
+            if (restore) restore()
+        } finally {
+            try {
+                textPrompt.cancel()
+            } finally {
+                listener.onClose()
+            }
+        }
     }
 
     /** Stops listening; false when already stopped. */
@@ -462,7 +484,7 @@ internal class MinestomFullscreen private constructor(
         }
 
     private fun restore() {
-        textPrompt.close(clear = true)
+        textPrompt.clear()
         player.sendPacket(DestroyEntitiesPacket(listOf(display.entityId, clickTarget.entityId)))
         // A mode the server set while the window was open replaces the one it began with.
         val mode = player.gameMode.takeUnless { it == GameMode.SPECTATOR } ?: gameMode

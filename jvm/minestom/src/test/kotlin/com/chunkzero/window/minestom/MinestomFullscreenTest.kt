@@ -225,7 +225,26 @@ class MinestomFullscreenTest :
             menu.prompts shouldContainExactly listOf(null, "now")
         }
 
-        "closing the window with a prompt open resolves it with null once and clears the dialog" {
+        "a container opening over the dialog cancels the prompt on the next tick and re-enables the canvas" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.prompt("hi")
+            val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
+
+            fixture.clickCanvas()
+            menu.clicks shouldBe emptyList()
+            fixture.send(OpenWindowPacket(1, InventoryType.CHEST_1_ROW.ordinal, Component.empty()))
+            menu.prompts shouldBe emptyList()
+            fixture.tick()
+            fixture.click(dialog, 0, "text" to "late")
+            fixture.clickCanvas()
+
+            menu.prompts shouldContainExactly listOf(null)
+            menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
+        }
+
+        "closing with a prompt open restores first, then reports null and onClose, even if the callback fails" {
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             val session = menu.open()
@@ -236,8 +255,29 @@ class MinestomFullscreenTest :
             session.close()
             fixture.sent<ClearDialogPacket>().size shouldBe 1
             fixture.click(dialog, 0, "text" to "late")
-
             menu.prompts shouldContainExactly listOf(null)
+
+            val sneaking = FullscreenFixture()
+            val other = Menu(sneaking.player)
+            other.open()
+            var mode: GameMode? = null
+            other.prompt("hi") {
+                mode = sneaking.player.gameMode
+                other.prompt("again")
+            }
+            sneaking.receive(ClientInputPacket(false, false, false, false, false, true, false))
+            mode shouldBe GameMode.SURVIVAL
+            other.prompts shouldContainExactly listOf(null, null)
+            other.closed shouldBe true
+            sneaking.sent<ShowDialogPacket>().size shouldBe 1
+
+            val failing = FullscreenFixture()
+            val broken = Menu(failing.player)
+            val failed = broken.open()
+            broken.prompt("hi") { error("boom") }
+            shouldThrow<IllegalStateException> { failed.close() }
+            failing.player.gameMode shouldBe GameMode.SURVIVAL
+            broken.closed shouldBe true
         }
 
         "sneaking leaves the window and restores the player" {
@@ -427,7 +467,13 @@ private class Menu(
         scroll { scrolls += it }
     }
 
-    fun prompt(initial: String) = promptText(initial = initial) { prompts += it }
+    fun prompt(
+        initial: String,
+        then: () -> Unit = {},
+    ) = promptText(initial = initial) {
+        prompts += it
+        then()
+    }
 
     override fun onClose() {
         closed = true
@@ -466,6 +512,13 @@ private class FullscreenFixture {
     }
 
     fun tick() = player.scheduler().processTick()
+
+    /** Clicks the menu's button, at canvas pixel (5, 5), and runs the end of the player's tick. */
+    fun clickCanvas() {
+        receive(ClientAttackPacket(0))
+        receive(ClientPlayerRotationPacket(-44f, -24.375f, 0.toByte()))
+        player.scheduler().processTickEnd()
+    }
 
     fun receive(packet: ClientPacket) = PlayerPacketEvent(player, packet).also(EventDispatcher::call)
 

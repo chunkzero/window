@@ -80,8 +80,10 @@ public abstract class FullscreenView(
      * the canvas is back. The text holds at most 256 characters, and [initial] is cut to fit. Escape does not dismiss
      * the dialog. While it is open the HUD stays hidden and canvas input is ignored, so the cursor stays where it was.
      *
-     * Opening a prompt while one is open replaces it, and the replaced prompt's [onDone] receives `null`. When the
-     * window closes with a prompt open, its [onDone] receives `null` as well.
+     * Opening a prompt while one is open replaces it, and the replaced prompt's [onDone] receives `null`. When a server
+     * container opens over the dialog or the window closes, the open prompt's [onDone] receives `null` as well, once the
+     * player is restored. [onDone] runs after its prompt has ended, so it may open another one; on a closed window it
+     * receives `null` at once.
      *
      * To prompt on a click, call this from the control's click handler:
      * ```
@@ -90,7 +92,7 @@ public abstract class FullscreenView(
      * }
      * ```
      *
-     * @throws IllegalStateException if the view is not open.
+     * @throws IllegalStateException if the view was never opened.
      */
     protected fun promptText(
         title: Component = Component.empty(),

@@ -21,13 +21,18 @@ import java.util.concurrent.atomic.AtomicLong
  * report through custom click actions whose ids are unique to the prompt, so responses to any other dialog are ignored.
  *
  * The client closes the dialog when a button is pressed, and Escape does nothing, so a prompt ends with a button, with
- * another prompt replacing it, or with [close]. Each of those reports to its callback once. The buttons sit in the
- * dialog's body, clear of the footer, which falls inside the strip the pack's shader clips while the HUD is hidden.
+ * another prompt replacing it, or with [cancel]. Each of those reports to its callback once, after the prompt has left
+ * [current], so a callback may open the next prompt. The buttons sit in the dialog's body, clear of the footer, which
+ * falls inside the strip the pack's shader clips while the HUD is hidden.
  */
 internal class MinestomTextPrompt(
     private val player: Player,
 ) {
+    @Volatile
     private var pending: Pending? = null
+
+    /** The prompt awaiting an answer, if any. */
+    val current: Pending? get() = pending
 
     /** Shows the dialog, first reporting `null` to the prompt it replaces. */
     fun open(
@@ -65,11 +70,16 @@ internal class MinestomTextPrompt(
         current.onDone(text)
     }
 
-    /** Reports `null` to the open prompt, if any, and takes its dialog off the client's screen when [clear]. */
-    fun close(clear: Boolean) {
+    /** Takes the open prompt's dialog, if any, off the client's screen; the prompt itself ends with [cancel]. */
+    fun clear() {
+        if (pending != null) player.sendPacket(ClearDialogPacket())
+    }
+
+    /** Reports `null` to the open prompt, if any; with [only], just when that prompt is still the open one. */
+    fun cancel(only: Pending? = null) {
         val current = pending ?: return
+        if (only != null && only !== current) return
         pending = null
-        if (clear) player.sendPacket(ClearDialogPacket())
         current.onDone(null)
     }
 
@@ -98,10 +108,10 @@ internal class MinestomTextPrompt(
         id: Key,
     ) = DialogActionButton(Component.text(label), null, BUTTON_WIDTH, DialogAction.DynamicCustom(id, null))
 
-    private class Pending(
-        val confirm: Key,
-        val cancel: Key,
-        val onDone: (String?) -> Unit,
+    class Pending internal constructor(
+        internal val confirm: Key,
+        internal val cancel: Key,
+        internal val onDone: (String?) -> Unit,
     )
 
     private companion object {

@@ -48,7 +48,6 @@ internal class FullscreenWindowSession(
     private var yaw = 0f
     private var pitch = 0f
     private var pullBackAfter = Long.MIN_VALUE
-    private var prompt: Any? = null
     private var closed = false
 
     private val listener =
@@ -78,7 +77,7 @@ internal class FullscreenWindowSession(
         }
 
     /** Whether canvas input counts: the window is open and no prompt covers it. */
-    private val listening get() = !closed && prompt == null
+    private val listening get() = !closed && !screen.promptOpen
 
     fun open() {
         try {
@@ -103,8 +102,11 @@ internal class FullscreenWindowSession(
     override fun close() {
         if (closed) return
         closed = true
-        view.invokeOnClose()
-        screen.close()
+        try {
+            screen.close()
+        } finally {
+            view.invokeOnClose()
+        }
     }
 
     fun promptText(
@@ -112,13 +114,7 @@ internal class FullscreenWindowSession(
         initial: String,
         onDone: (String?) -> Unit,
     ) {
-        check(!closed) { "Fullscreen view is not open" }
-        val token = Any()
-        screen.promptText(title, initial) { text ->
-            if (prompt === token) prompt = null
-            onDone(text)
-        }
-        prompt = token
+        if (closed) onDone(null) else screen.promptText(title, initial, onDone)
     }
 
     fun refreshAll() {
