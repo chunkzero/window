@@ -1,6 +1,6 @@
 use crate::hud::rule::HudShaderRule;
 
-use super::fullscreen::{FULLSCREEN_VERTEX_APPLY, FULLSCREEN_VERTEX_HELPERS, FULLSCREEN_VERTEX_IMPORT};
+use super::fullscreen::{FULLSCREEN_VERTEX_APPLY, FULLSCREEN_VERTEX_IMPORT, render_fullscreen_vertex_helpers};
 use super::glsl::{
     DynamicFog, ScreenSizeSource, V150Fog, dynamic_fog, format_glsl_float, join_rule_values, render_gui_size_helper,
     rgb_vec3, segment_table, texture_mode, texture_mode_snippets, v150_fog,
@@ -303,9 +303,9 @@ pub(in crate::hud) fn render_v330_define_variant_text_shader(
     let (hover_helpers, hover_apply) =
         if hover { (render_hover_vertex_helpers(), HOVER_VERTEX_APPLY) } else { (String::new(), "") };
     let (fullscreen_import, fullscreen_helpers, fullscreen_apply) = if fullscreen {
-        (FULLSCREEN_VERTEX_IMPORT, FULLSCREEN_VERTEX_HELPERS, FULLSCREEN_VERTEX_APPLY)
+        (FULLSCREEN_VERTEX_IMPORT, render_fullscreen_vertex_helpers(), FULLSCREEN_VERTEX_APPLY)
     } else {
-        ("", "", "")
+        ("", String::new(), "")
     };
 
     format!(

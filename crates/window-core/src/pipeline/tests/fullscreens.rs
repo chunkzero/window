@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::json;
 
@@ -99,6 +99,7 @@ fn packs_without_fullscreens_emit_no_contract_or_shaders() {
     let out = compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
     assert!(out.manifest.fullscreen_canvas.is_none());
     assert!(out.files.iter().all(|file| !file.path.contains("fullscreen") && !file.path.contains("/shaders/core/")));
+    assert!(out.files.iter().all(|file| file.path != fullscreen::CROSSHAIR_SPRITE_PATH));
 }
 
 #[test]
@@ -108,6 +109,19 @@ fn full_screen_windows_emit_their_shaders_and_need_the_define_variant_profile() 
     let shaders: Vec<&str> =
         out.files.iter().filter_map(|file| file.path.strip_prefix("assets/minecraft/shaders/core/")).collect();
     assert_eq!(shaders, ["position_tex_color.fsh", "position_tex_color.vsh", "text.fsh", "text.vsh"]);
+
+    let crosshair = out.files.iter().find(|file| file.path == fullscreen::CROSSHAIR_SPRITE_PATH).unwrap();
+    let crosshair = Texture::decode_png(crosshair.contents.as_bytes()).unwrap();
+    let alphas: BTreeSet<u8> = crosshair.rgba.chunks(4).map(|texel| texel[3]).collect();
+    assert_eq!((crosshair.width, crosshair.height), (15, 15));
+    assert_eq!(alphas, BTreeSet::from([0, fullscreen::CROSSHAIR_MARKER_ALPHA]));
+
+    let blanked = json!({ "options": { "vanilla": { "hud": { "crosshair": false } } }, "fullscreens": [menu.clone()],
+                          "target": { "pack_format": 88 } });
+    let out = compile_project_json(blanked.to_string().as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
+    let sprites: Vec<_> = out.files.iter().filter(|file| file.path == fullscreen::CROSSHAIR_SPRITE_PATH).collect();
+    assert_eq!(sprites.len(), 1);
+    assert_eq!(Texture::decode_png(sprites[0].contents.as_bytes()).unwrap().rgba, Texture::transparent(15, 15).rgba);
 
     let error = compile_at(menu.clone(), json!(84)).unwrap_err().to_string();
     assert!(error.contains("full-screen windows are drawn by a core text shader"), "{error}");

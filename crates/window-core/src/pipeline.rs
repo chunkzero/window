@@ -239,8 +239,12 @@ fn compile_layouts(
     for (f, comp) in fullscreens.iter().zip(&composites.fullscreens) {
         fullscreen_entries.insert(f.name.clone(), fullscreen::compile_fullscreen(&mut ctx, f, comp, &mut contract)?);
     }
-    let fullscreen_canvas =
-        if fullscreens.is_empty() { None } else { Some(fullscreen::emit_contract(&mut ctx, contract)?) };
+    let fullscreen_canvas = if fullscreens.is_empty() {
+        None
+    } else {
+        fullscreen::emit_crosshair_marker(&mut ctx, &options.vanilla.blank_hud)?;
+        Some(fullscreen::emit_contract(&mut ctx, contract)?)
+    };
 
     fonts::emit_fonts(&mut ctx)?;
     // Shader-placed HUDs were rejected above unless `coreShaders.hud` is on, so without it `huds` holds no rule.

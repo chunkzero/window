@@ -1,11 +1,11 @@
 //! Full-screen snippets of the pack_format 85-88 `core/text` vertex shader, and the `core/position_tex_color`
-//! shaders that hide the HUD while a full-screen window is open.
+//! shaders that hide the HUD and the vanilla crosshair while a full-screen window is open.
 //!
 //! The text shader moves every vertex of a full-screen marker (see [`crate::fullscreen`]) in the world pass straight
 //! into clip space on the letterboxed canvas, so the projection, FOV, and view bobbing never move it. Unmarked text
 //! takes the vanilla path.
 
-use crate::fullscreen::{HUD_STRIP_HALF_WIDTH, HUD_STRIP_HEIGHT};
+use crate::fullscreen::{CROSSHAIR_MARKER_ALPHA, HUD_STRIP_HALF_WIDTH, HUD_STRIP_HEIGHT, LAYER_DEPTH_STEP};
 
 /// Imports the canvas contract into the world variant of the text vertex shader.
 pub(super) const FULLSCREEN_VERTEX_IMPORT: &str = "
@@ -22,13 +22,12 @@ pub(super) const FULLSCREEN_VERTEX_APPLY: &str = "
     }
 #endif";
 
-pub(super) const FULLSCREEN_VERTEX_HELPERS: &str = r#"
+const VERTEX_HELPERS: &str = r#"
 #if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)
 // The top-left of the text display's single zero-width line in its text space, where a shifted font's row 0 draws.
 const vec2 WINDOW_FS_LINE_ORIGIN = vec2(1.0, -9.0);
-// The view distance of the cursor layer, just past the 0.05-block near plane, and the distance between layers.
-const float WINDOW_FS_NEAR_DISTANCE = 0.051;
-const float WINDOW_FS_LAYER_DISTANCE = 0.0001;
+// The depth distance between adjacent layers.
+const float WINDOW_FS_LAYER_DEPTH_STEP = @DEPTH_STEP@;
 // Below every fog start, so marked glyphs are never fogged.
 const float WINDOW_FS_NO_FOG_DISTANCE = -1.0e30;
 
@@ -49,12 +48,11 @@ vec2 window_fs_ndc(vec2 canvas) {
     return vec2(unit.x, -unit.y) * fit;
 }
 
-// The depth of a layer: a point on the view axis just past the near plane, nearer for higher layers, projected by
-// ProjMat so the depth convention (reversed or not) is the device's.
+// The depth of a layer in normalized device coordinates, nearer for higher layers. The level projection is reversed,
+// with the near plane at 1.0, and the cursor layer sits one step below it. ProjMat is not consulted, since it carries
+// the hurt tilt, view bobbing, and nausea, which can move a projected point past the near plane and clip it.
 float window_fs_depth(int layer) {
-    float distance = WINDOW_FS_NEAR_DISTANCE + float(WINDOW_FS_CURSOR_LAYER - layer) * WINDOW_FS_LAYER_DISTANCE;
-    vec4 clip = ProjMat * vec4(0.0, 0.0, -distance, 1.0);
-    return clip.z / clip.w;
+    return 1.0 - float(WINDOW_FS_CURSOR_LAYER - layer + 1) * WINDOW_FS_LAYER_DEPTH_STEP;
 }
 
 void window_fs_apply() {
@@ -84,6 +82,10 @@ void window_fs_apply() {
 }
 #endif
 "#;
+
+pub(super) fn render_fullscreen_vertex_helpers() -> String {
+    VERTEX_HELPERS.replace("@DEPTH_STEP@", &format!("{LAYER_DEPTH_STEP:?}"))
+}
 
 /// Renders `core/position_tex_color.vsh`, vanilla's GUI sprite shader plus the HUD strip inputs. Like vanilla, it
 /// declares its uniform blocks inline, since the shader is also compiled before resource packs load.
@@ -133,8 +135,9 @@ void main() {
     .to_string()
 }
 
-/// Renders `core/position_tex_color.fsh`, which discards GUI sprite fragments inside the HUD strip while the HUD is
-/// hidden. Clipping per fragment cuts sprites crossing the strip's edge instead of distorting them.
+/// Renders `core/position_tex_color.fsh`, which while the HUD is hidden discards GUI sprite fragments inside the HUD
+/// strip, and texels carrying the crosshair marker alpha, which the pack's crosshair sprite override sets on its
+/// opaque texels. Clipping per fragment cuts sprites crossing the strip's edge instead of distorting them.
 pub(in crate::hud) fn render_position_tex_color_fragment() -> String {
     format!(
         r#"#version 330
@@ -148,6 +151,7 @@ layout(std140) uniform DynamicTransforms {{
 
 // The bottom-center strip holding the hotbar, XP bar, hearts, armour, and hunger: (half width, height) in GUI pixels.
 const vec2 WINDOW_FS_HUD_STRIP = vec2({half_width}.0, {height}.0);
+const int WINDOW_FS_CROSSHAIR_ALPHA = {crosshair_alpha};
 
 uniform sampler2D Sampler0;
 
@@ -162,7 +166,11 @@ void main() {{
     if (windowHudHidden == 1 && abs(windowHudPos.x) < WINDOW_FS_HUD_STRIP.x && windowHudPos.y < WINDOW_FS_HUD_STRIP.y) {{
         discard;
     }}
-    vec4 color = texture(Sampler0, texCoord0) * vertexColor;
+    vec4 texel = texture(Sampler0, texCoord0);
+    if (windowHudHidden == 1 && int(round(texel.a * 255.0)) == WINDOW_FS_CROSSHAIR_ALPHA) {{
+        discard;
+    }}
+    vec4 color = texel * vertexColor;
     if (color.a == 0.0) {{
         discard;
     }}
@@ -171,5 +179,6 @@ void main() {{
 "#,
         half_width = HUD_STRIP_HALF_WIDTH,
         height = HUD_STRIP_HEIGHT,
+        crosshair_alpha = CROSSHAIR_MARKER_ALPHA,
     )
 }

@@ -150,6 +150,25 @@ fn fullscreen_branch_joins_the_text_shader_and_hides_the_hud_strip() {
 }
 
 #[test]
+fn fullscreen_depth_ignores_the_camera_projection() {
+    let alone = emit(Some(88), &[], &[], false, true).unwrap();
+    let vertex = &alone.files[0].contents;
+    let depth = &vertex[vertex.find("float window_fs_depth(int layer)").unwrap()..];
+    let depth = &depth[..depth.find("\n}").unwrap()];
+    assert!(!depth.contains("ProjMat"), "{depth}");
+    assert!(vertex.contains("const float WINDOW_FS_LAYER_DEPTH_STEP = 0.0001;"), "{vertex}");
+
+    // A tilted level projection can pull the near plane in front of a point just past it, so a projected layer
+    // clips. Every layer's depth is a fixed offset from the near plane, which no camera effect moves.
+    let (near, tilt) = (0.05_f64, 14.0_f64.to_radians());
+    let tilted_near_depth = near / (0.051 * tilt.cos());
+    assert!(tilted_near_depth > 1.0);
+    let depths: Vec<f64> = (0..=255).map(crate::fullscreen::layer_depth).collect();
+    assert!(depths.windows(2).all(|pair| pair[0] < pair[1]), "layers are strictly ordered, nearer when higher");
+    assert!(depths[0] > 0.9 && depths[255] < 1.0, "{depths:?}");
+}
+
+#[test]
 fn marker_color_uses_green_zero_and_red_blue_id() {
     assert_eq!(marker_color(0x1234), Rgb { r: 0x12, g: 0, b: 0x34 });
     assert_eq!(renderer::marker_id(marker_color(0xabcd)), 0xabcd);
