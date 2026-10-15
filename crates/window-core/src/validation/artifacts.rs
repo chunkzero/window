@@ -77,6 +77,14 @@ pub(super) fn validate_manifest_paths(
             }
         }
     }
+    for (name, fullscreen) in &manifest.fullscreens {
+        for (slot_name, slot) in &fullscreen.slots {
+            for (font, _) in slot.fonts() {
+                let location = format!("manifest.fullscreens.{name}.slots.{slot_name}.font");
+                validate_font_reference(font, files, report, location);
+            }
+        }
+    }
 }
 
 fn validate_font_reference(font: &str, files: &BTreeMap<&str, &[u8]>, report: &mut ValidationReport, location: String) {

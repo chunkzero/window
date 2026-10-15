@@ -22,6 +22,8 @@ fn manifest(windows: BTreeMap<String, WindowEntry>, huds: BTreeMap<String, HudEn
         sprites: BTreeMap::new(),
         windows,
         huds,
+        fullscreens: BTreeMap::new(),
+        fullscreen_canvas: None,
     }
 }
 

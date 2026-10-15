@@ -20,6 +20,7 @@ import type {
     FixedLength,
     FlexAlign,
     FlexJustify,
+    FullscreenMode,
     GridFlow,
     GridLine,
     HudChannel,
@@ -381,6 +382,19 @@ export interface Hud {
     debug_name?: string;
 }
 
+/** A full-screen window: drawn over the whole screen with no screen open, its children laid out on a 480x270 canvas. */
+export interface Fullscreen {
+    name: string;
+    /** Defaults to `"unlocked"`. */
+    mode?: FullscreenMode;
+    /** Hex color filling the whole screen behind the canvas, letterbox included; omit to show the world. */
+    backdrop?: string;
+    /** Overrides vars for the whole full-screen window. */
+    theme?: VarTheme;
+    children?: Element[];
+    debug_name?: string;
+}
+
 export interface WindowDocument {
     /** Text fonts by name, which text selects with `font`. */
     fonts?: Record<string, TextFont>;
@@ -388,6 +402,8 @@ export interface WindowDocument {
     sprites?: Record<string, Art>;
     windows?: Window[];
     huds?: Hud[];
+    fullscreens?: Fullscreen[];
     window?: Window;
     hud?: Hud;
+    fullscreen?: Fullscreen;
 }

@@ -2,11 +2,12 @@
 
 use std::collections::BTreeMap;
 
-use crate::ir::{Hitbox, Layer, Tooltip};
+use crate::ir::{FullscreenMode, Hitbox, Layer, Tooltip};
 use crate::manifest::{
-    AnvilInputEntry, ArtEntry, BarEntry, CollectionEntry, FontMetricsEntry, HoverEntry, HudShaderEntry,
-    HudSurfaceEntry, ItemEntry, RegionEntry, SlotAreaEntry, SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry,
-    SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry, SwitchEntry, TextOverflow,
+    AnvilInputEntry, ArtEntry, BarEntry, CollectionEntry, ControlEntry, FontMetricsEntry, FullscreenCanvasEntry,
+    FullscreenSurfaceEntry, HoverEntry, HudShaderEntry, HudSurfaceEntry, ItemEntry, RegionEntry, SlotAreaEntry,
+    SlotEntry, SlotLinesEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry, SwitchEntry,
+    TextOverflow,
 };
 
 use super::literals::{
@@ -29,6 +30,59 @@ pub(super) fn hud_surface_entry_expr(surface: &HudSurfaceEntry, level: usize) ->
         .arg("channel", kt_string(&surface.channel))
         .arg("width", surface.width)
         .arg("height", surface.height)
+        .finish()
+}
+
+pub(super) fn fullscreen_surface_entry_expr(surface: &FullscreenSurfaceEntry, level: usize) -> String {
+    let mode = match surface.mode {
+        FullscreenMode::Unlocked => "FullscreenMode.UNLOCKED",
+        FullscreenMode::Horse => "FullscreenMode.HORSE",
+    };
+    Call::new("FullscreenSurfaceEntry", level)
+        .arg("kind", kt_string(&surface.kind))
+        .arg("mode", mode)
+        .arg("size", format!("listOf({}, {})", surface.size[0], surface.size[1]))
+        .finish()
+}
+
+pub(super) fn control_entry_expr(control: &ControlEntry, level: usize) -> String {
+    Call::new("ControlEntry", level)
+        .arg("index", control.index)
+        .arg("x", control.x)
+        .arg("y", control.y)
+        .arg("width", control.width)
+        .arg("height", control.height)
+        .arg("action", optional_string_expr(control.action.as_ref()))
+        .arg("defaultAction", optional_string_expr(control.default_action.as_ref()))
+        .arg("hover", control.hover)
+        .arg("source", optional_string_expr(control.source.as_ref()))
+        .finish()
+}
+
+pub(super) fn fullscreen_canvas_entry_expr(canvas: &FullscreenCanvasEntry, level: usize) -> String {
+    let cursor = Call::new("CursorEntry", level + 1)
+        .arg("text", kt_string(&canvas.cursor.text))
+        .arg("marker", kt_string(&canvas.cursor.marker))
+        .arg("width", canvas.cursor.width)
+        .arg("height", canvas.cursor.height)
+        .finish();
+    Call::new("FullscreenCanvasEntry", level)
+        .arg("width", canvas.width)
+        .arg("height", canvas.height)
+        .arg("degreesPerPixel", format!("{:?}", canvas.degrees_per_pixel))
+        .arg("edgeYaw", format!("{:?}", canvas.edge_yaw))
+        .arg("edgePitch", format!("{:?}", canvas.edge_pitch))
+        .arg("snapEpsilon", format!("{:?}", canvas.snap_epsilon))
+        .arg("hitMargin", canvas.hit_margin)
+        .arg("displayScale", format!("{:?}", canvas.display_scale))
+        .arg("markerAlpha", canvas.marker_alpha)
+        .arg("cursor", cursor)
+        .arg("backdrop", kt_string(&canvas.backdrop))
+        .arg("overlayMarker", kt_string(&canvas.overlay_marker))
+        .arg("hudHiddenWorldAge", format!("{}L", canvas.hud_hidden_world_age))
+        .arg("hudStripHeight", canvas.hud_strip_height)
+        .arg("hudStripHalfWidth", canvas.hud_strip_half_width)
+        .arg("hudMaxHealth", canvas.hud_max_health)
         .finish()
 }
 

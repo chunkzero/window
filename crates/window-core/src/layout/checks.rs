@@ -13,6 +13,12 @@ impl<T: LayoutTarget> Solver<'_, T> {
         if self.target.allows_interaction() { Ok(()) } else { Err(self.target.interaction_err(name)) }
     }
 
+    /// Requires inventory slots for `name`, which only container windows have.
+    pub(super) fn require_inventory(&self, name: &str) -> Result<()> {
+        self.require_interaction(name)?;
+        if self.target.container_kind().is_some() { Ok(()) } else { Err(self.target.inventory_err(name)) }
+    }
+
     pub(super) fn require_slot_patterns(&self, name: &str) -> Result<()> {
         if self.target.allows_interaction() { Ok(()) } else { Err(self.target.slot_pattern_err(name)) }
     }

@@ -99,7 +99,8 @@ fn runtime_sprites_are_duplicated_by_y_font_not_texture() {
     let runtime_sprites = pickaxe_sprite();
 
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &TextFonts::new() };
-    let out = compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
+    let out =
+        compile_layouts(&[w], &[], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
     let paths: Vec<&str> = out.files.iter().map(|f| f.path.as_str()).collect();
     assert!(paths.contains(&"assets/window/font/sprite_y0.json"));
     assert!(paths.contains(&"assets/window/font/sprite_y18.json"));
@@ -133,7 +134,8 @@ fn collection_selection_places_its_sprite_over_each_cell_box() {
 
     let runtime_sprites = pickaxe_sprite();
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &TextFonts::new() };
-    let out = compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
+    let out =
+        compile_layouts(&[w], &[], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap();
     let cells = &out.manifest.windows["shop"].collections["products"].selection;
     let boxes: Vec<_> = cells.iter().map(|cell| (cell.x, cell.y, cell.width, cell.height)).collect();
     assert_eq!(boxes, [(7, 35, 18, 18), (25, 35, 18, 18)]);
@@ -173,7 +175,7 @@ fn compile_tool_window() -> CompileOutput {
     ]);
     let runtime_sprites = tool_sprites();
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &TextFonts::new() };
-    compile_layouts(&[w], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap()
+    compile_layouts(&[w], &[], &[], &assets, "window", &PackTarget::default(), &BuildOptions::default()).unwrap()
 }
 
 fn font_files(out: &CompileOutput, font: &str) -> Vec<String> {

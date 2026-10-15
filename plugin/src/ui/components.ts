@@ -1,6 +1,6 @@
 import type { Child as JsxChild } from "rpp:jsx";
 
-import { hud, region, ui } from "./elements.ts";
+import { fullscreen, hud, region, ui } from "./elements.ts";
 import { isRef, refJson } from "../bind/handles.ts";
 import { STYLE_KEYS, cascade, flexStyle, layout, textFields, withStyle } from "./styles.ts";
 import type {
@@ -19,10 +19,17 @@ import type { Color, Token, VarTheme } from "./tokens.ts";
 import type { ClickAction, Collection, Condition, Flag, Ref } from "../bind/handles.ts";
 import type { Fraction as FractionHandle, Input as InputHandle, Items as ItemsHandle } from "../bind/handles.ts";
 import type { Sprite as SpriteHandle, Text as TextHandle, Tint, Toggle as ToggleHandle } from "../bind/handles.ts";
-import type { CaseElement, Element, Hud as HudDef, Window as WindowDef } from "./document.ts";
+import type {
+    CaseElement,
+    Element,
+    Fullscreen as FullscreenDef,
+    Hud as HudDef,
+    Window as WindowDef,
+} from "./document.ts";
 import type {
     ArtRef,
     ContainerKind,
+    FullscreenMode,
     GridFlow,
     HudChannel,
     Insets,
@@ -37,6 +44,7 @@ import type {
 
 export type Window = WindowDef;
 export type Hud = HudDef;
+export type Fullscreen = FullscreenDef;
 
 type Fields = Record<string, unknown>;
 
@@ -283,7 +291,24 @@ export interface HudProps extends Omit<
     sourceBottom?: number;
 }
 
-type RenderNode = Element | { windows: WindowDef[] } | { huds: HudDef[] } | CaseElement;
+export interface FullscreenProps extends Omit<
+    BoxProps,
+    keyof ItemProps | "x" | "y" | "frame" | "tint" | "width" | "height" | "style"
+> {
+    style?: StyleValue<HudStyle>;
+    name: string;
+    /** Defaults to `"unlocked"`. */
+    mode?: FullscreenMode;
+    /** Hex color filling the whole screen behind the canvas, letterbox included; omit to show the world. */
+    backdrop?: string;
+}
+
+type RenderNode =
+    | Element
+    | { windows: WindowDef[] }
+    | { huds: HudDef[] }
+    | { fullscreens: FullscreenDef[] }
+    | CaseElement;
 
 function flatten(child: Child, out: (RenderNode | string)[]): void {
     if (child === null || child === undefined || typeof child === "boolean") {
@@ -320,7 +345,7 @@ function renderNodes(children: Child): RenderNode[] {
 function nodes(children: Child): Element[] {
     return renderNodes(children).map((node) => {
         if (!("type" in node) || node.type === "case") {
-            throw new Error("Window/Hud roots belong in fragments, and <Case> inside <Switch>");
+            throw new Error("Window/Hud/Fullscreen roots belong in fragments, and <Case> inside <Switch>");
         }
         return node;
     });
@@ -674,4 +699,18 @@ export function Hud(input: HudProps): { huds: HudDef[] } {
         ...debug(named),
     }) as HudDef;
     return hud(def);
+}
+
+/**
+ * A full-screen window, drawn over the whole screen with no screen open. Its children lay out as a column by default
+ * in a root box filling the 480x270 canvas. Regions are clickable; inventory elements are not available.
+ */
+export function Fullscreen(input: FullscreenProps): { fullscreens: FullscreenDef[] } {
+    const props = withStyle(input, STYLE_KEYS.hud!, "Fullscreen");
+    requireName(props.name, "Fullscreen");
+    const { name, mode, backdrop, theme, debugName, ...box } = props;
+    const named = debugName === undefined ? {} : { debugName };
+    const root = Box({ ...named, ...box, direction: box.direction ?? "column" });
+    const def = clean({ name, mode, backdrop, theme, children: [root], ...debug(named) }) as FullscreenDef;
+    return fullscreen(def);
 }

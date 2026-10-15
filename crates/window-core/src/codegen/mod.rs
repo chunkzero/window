@@ -42,7 +42,8 @@ impl KotlinTarget {
     }
 }
 
-/// Generate typed Kotlin view subclasses, one file per manifest window/HUD.
+/// Generate typed Kotlin view subclasses, one file per manifest window/HUD, and the pack data they bind to. Full-screen
+/// windows get entries and typed definitions.
 pub fn generate_kotlin(manifest: &Manifest, package_name: &str, target: KotlinTarget) -> Result<Vec<OutputFile>> {
     naming::validate_package(package_name)?;
     let mut files = Vec::with_capacity(8 + manifest.windows.len() + manifest.huds.len());
@@ -55,6 +56,10 @@ pub fn generate_kotlin(manifest: &Manifest, package_name: &str, target: KotlinTa
     files.push(definitions::generate_hud_entries(manifest, package_name));
     files.push(definitions::generate_window_definitions(manifest, package_name)?);
     files.push(definitions::generate_hud_definitions(manifest, package_name)?);
+    if let Some(entries) = definitions::generate_fullscreen_entries(manifest, package_name) {
+        files.push(entries);
+        files.push(definitions::generate_fullscreen_definitions(manifest, package_name)?);
+    }
     for (name, window) in &manifest.windows {
         files.push(view::generate_window(name, window, package_name, target)?);
     }

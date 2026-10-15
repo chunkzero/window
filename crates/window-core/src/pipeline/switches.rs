@@ -30,11 +30,9 @@ impl CompileContext<'_> {
             let mut out = Vec::with_capacity(switch.cases.len());
             for (case, comp) in switch.cases.iter().zip(comps) {
                 let static_text = if comp.has_content {
-                    let ascent = origin.y + 7 - comp.bounds.y;
                     let file = format!("{file_base}_switch/{}/{}", path_segment(&switch.name), case.value);
                     let key = case_key(key_prefix, &switch.name, &case.value);
-                    let glyph = self.emit_static_glyph(comp, ascent, pane, &file, key, Part::switch_case(pane))?;
-                    bake::bake_static_with_advance(glyph.glyph, &comp.bounds, origin, glyph.advance)
+                    self.bake_composite(comp, origin, pane, &file, key, Part::switch_case(pane))?
                 } else {
                     bake::bake_empty()
                 };
@@ -70,7 +68,6 @@ impl CompileContext<'_> {
     ) -> Result<BTreeMap<String, ArtEntry>> {
         let mut entries = BTreeMap::new();
         for (art, comp) in art.iter().zip(comps) {
-            let ascent = origin.y + 7 - comp.bounds.y;
             let file = format!("{file_base}_{}", art.name);
             let key = art_key(key_prefix, &art.name);
             let (static_text, bar) = match &art.bar {
@@ -78,10 +75,7 @@ impl CompileContext<'_> {
                     let bar = self.bar_entry(bar, comp, pane, &key, &file, origin)?;
                     (bar.compose(bar.width), Some(bar))
                 }
-                None => {
-                    let glyph = self.emit_static_glyph(comp, ascent, pane, &file, key, Part::art_layer(pane))?;
-                    (bake::bake_static_with_advance(glyph.glyph, &comp.bounds, origin, glyph.advance), None)
-                }
+                None => (self.bake_composite(comp, origin, pane, &file, key, Part::art_layer(pane))?, None),
             };
             let entry = ArtEntry { static_text, bar, tint: art.tint.clone(), tint_markers: BTreeMap::new() };
             entries.insert(art.name.clone(), entry);

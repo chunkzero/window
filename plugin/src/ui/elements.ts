@@ -15,6 +15,7 @@ import type {
     CollectionOptions,
     FlexElement,
     FlexStyle,
+    Fullscreen,
     HandleJson,
     Hud,
     ItemElement,
@@ -134,7 +135,7 @@ function element(
 }
 
 /** A root definition with its `style` applied and its vars resolved. */
-export function root<T extends Window | Hud>(def: T, label: string): T {
+export function root<T extends Window | Hud | Fullscreen>(def: T, label: string): T {
     return resolveTokens(applyStyle({ ...def }, "section", label)) as T;
 }
 
@@ -158,6 +159,14 @@ export function hud(def: Hud): { huds: Hud[] } {
         throw new Error("hud requires both `width` and `height`, or neither");
     }
     return { huds: [root(def, "hud")] };
+}
+
+export function fullscreen(def: Fullscreen): { fullscreens: Fullscreen[] } {
+    requireObject(def, "fullscreen definition");
+    if (def.name === undefined) {
+        throw new Error("fullscreen requires field `name`");
+    }
+    return { fullscreens: [root(def, "fullscreen")] };
 }
 
 /** A flexbox or grid whose `style` is built from the same styles as `<Box>`. */

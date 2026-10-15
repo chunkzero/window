@@ -42,6 +42,13 @@ fn shifted_font_offsets(manifest: &Manifest) -> BTreeMap<&str, i32> {
             }
         }
     }
+    for fullscreen in manifest.fullscreens.values() {
+        for slot in fullscreen.slots.values() {
+            for (font, dy) in slot.fonts() {
+                expected.insert(font, slot.y + dy);
+            }
+        }
+    }
     expected
 }
 

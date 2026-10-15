@@ -351,16 +351,22 @@ impl<T: LayoutTarget> Solver<'_, T> {
                 self.place_slot(name, Some(rect.width), style, *fit, Point::new(rect.x, centered_y(fit.height())))?;
             }
             Element::Region(region) => {
-                let slots = self.slots_under("region", rect)?;
-                self.place_region(region, rect, Some(slots))?;
+                let slots = match self.target.container_kind() {
+                    Some(_) => Some(self.slots_under("region", rect)?),
+                    None => {
+                        self.require_interaction("region")?;
+                        None
+                    }
+                };
+                self.place_region(region, rect, slots)?;
             }
             Element::Item { name, .. } if fills_box(el) => {
-                self.require_interaction(name)?;
+                self.require_inventory(name)?;
                 let slots = self.slots_under(name, rect)?;
                 self.place_item(name, slots)?;
             }
             Element::Collection { name, frame, selected_sprite, action, .. } if fills_box(el) => {
-                self.require_interaction(name)?;
+                self.require_inventory(name)?;
                 let slots = self.slots_under(name, rect)?;
                 self.place_collection(name, slots, frame.as_deref(), selected_sprite.clone(), *action)?;
             }

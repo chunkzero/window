@@ -15,6 +15,7 @@ pub mod compose;
 pub mod debug;
 pub mod error;
 pub mod font;
+pub mod fullscreen;
 pub mod geometry;
 mod hud;
 pub mod inventory;

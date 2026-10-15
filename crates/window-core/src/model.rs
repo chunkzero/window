@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern};
-use crate::ir::{Align, Handle, HudChannel, HudShader, Rgb};
+use crate::ir::{Align, FullscreenMode, Handle, HudChannel, HudShader, Rgb};
 use crate::surface::ContainerKind;
 
 mod flex;
@@ -115,6 +115,24 @@ pub struct Hud {
     pub shader: Option<HudShader>,
     /// The root elements. HUDs share the same visual primitives as windows, but
     /// slot-bound elements are rejected during layout.
+    pub children: Vec<Element>,
+    /// Typed handles by id; their elements carry the entry names of their uses.
+    pub handles: BTreeMap<String, Handle>,
+    /// Authored name shown in errors and diagnostics.
+    pub debug_name: Option<String>,
+}
+
+/// One authored full-screen window: a UI drawn over the whole screen with no screen open, laid out on the fixed
+/// canvas of [`crate::fullscreen`].
+#[derive(Clone, Debug)]
+pub struct Fullscreen {
+    /// Full-screen window name (manifest key).
+    pub name: String,
+    /// How the cursor follows the mouse.
+    pub mode: FullscreenMode,
+    /// The color filling the whole screen behind the canvas, letterbox included; `None` shows the world.
+    pub backdrop: Option<Rgb>,
+    /// The root elements, laid out in the canvas rect. Inventory elements are rejected during layout.
     pub children: Vec<Element>,
     /// Typed handles by id; their elements carry the entry names of their uses.
     pub handles: BTreeMap<String, Handle>,

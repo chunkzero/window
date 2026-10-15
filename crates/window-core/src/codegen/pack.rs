@@ -12,6 +12,7 @@ pub(super) fn generate_pack_data(manifest: &Manifest, package_name: &str) -> Out
     let mut w = KotlinWriter::file(package_name, ["com.chunkzero.window.manifest.WindowManifest"]);
     w.doc("Compiled Window pack manifest.");
     w.open("internal object WindowPackData {");
+    let fullscreens = !manifest.fullscreens.is_empty();
     let manifest = Call::new("WindowManifest", 2)
         .arg("version", manifest.version)
         .arg("namespace", kt_string(&manifest.namespace))
@@ -22,8 +23,14 @@ pub(super) fn generate_pack_data(manifest: &Manifest, package_name: &str) -> Out
         .arg("fontMetrics", "WindowFonts.metrics")
         .arg("sprites", "WindowSprites.all")
         .arg("windows", "WindowEntries.all")
-        .arg("huds", "WindowHudEntries.all")
-        .finish();
+        .arg("huds", "WindowHudEntries.all");
+    let manifest = if fullscreens {
+        let manifest = manifest.arg("fullscreens", "WindowFullscreenEntries.all");
+        manifest.arg("fullscreenCanvas", "WindowFullscreenEntries.canvas")
+    } else {
+        manifest
+    }
+    .finish();
     w.property("val manifest: WindowManifest", manifest);
     w.close("}");
     OutputFile::text("WindowPackData.kt", w.finish())

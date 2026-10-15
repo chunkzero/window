@@ -18,6 +18,17 @@ pub(super) fn validate_static_segments(manifest: &Manifest, metrics: &FontAdvanc
         validate_cases(&hud.switches, metrics, report, &location);
         validate_art(&hud.art, metrics, report, &location);
     }
+    for (name, fullscreen) in &manifest.fullscreens {
+        let location = format!("manifest.fullscreens.{name}");
+        validate_segment(&fullscreen.static_text, 0, metrics, report, format!("{location}.static"));
+        validate_cases(&fullscreen.switches, metrics, report, &location);
+        validate_art(&fullscreen.art, metrics, report, &location);
+    }
+    if let Some(canvas) = &manifest.fullscreen_canvas {
+        let location = "manifest.fullscreen_canvas";
+        validate_segment(&canvas.cursor.text, 0, metrics, report, format!("{location}.cursor.text"));
+        validate_segment(&canvas.backdrop, 0, metrics, report, format!("{location}.backdrop"));
+    }
 }
 
 /// Art layer segments are net-zero.

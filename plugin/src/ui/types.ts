@@ -10,6 +10,11 @@ export type ContainerKind =
     | "generic_9x6"
     | "anvil";
 export type HudChannel = "actionbar" | "bossbar" | "sidebar";
+/**
+ * How a full-screen window's cursor follows the mouse. `"unlocked"` keeps the camera on the player, so the world turns
+ * behind the UI as they aim; `"horse"` locks the view.
+ */
+export type FullscreenMode = "unlocked" | "horse";
 export type SlotArea = "container" | "player";
 export type SlotSection = "container" | "player" | "hotbar";
 export type SlotRectClaim = "none" | "all" | "unowned";

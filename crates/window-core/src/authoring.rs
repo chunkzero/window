@@ -1,13 +1,14 @@
 //! TypeScript-authored project model.
 //!
 //! The rpp plugin loads `window/**/*.ts` definitions, merges their exported values,
-//! JSON-encodes the result, and hands it to this module. Windows and HUDs carry a
+//! JSON-encodes the result, and hands it to this module. Windows, HUDs, and full-screen windows carry a
 //! tree of typed elements whose art is authored inline; the project adds the
 //! runtime sprite catalog and the text fonts.
 
 pub(crate) mod art;
 mod element;
 mod flex;
+mod fullscreen;
 mod hud;
 mod insets;
 mod parse;
@@ -22,7 +23,7 @@ mod tests;
 use std::collections::{BTreeMap, BTreeSet};
 
 use self::project::ProjectDto;
-use crate::model::{Art, FontDef, Hud, Window};
+use crate::model::{Art, FontDef, Fullscreen, Hud, Window};
 use crate::{Error, Result};
 pub(crate) use parse::sprite_key;
 
@@ -37,6 +38,8 @@ pub struct ParsedProject {
     pub windows: Vec<Window>,
     /// All HUDs (duplicate HUD names are errors).
     pub huds: Vec<Hud>,
+    /// All full-screen windows (duplicate full-screen names are errors).
+    pub fullscreens: Vec<Fullscreen>,
     /// Build/runtime options supplied by the rpp host.
     pub options: BuildOptions,
     /// Target Minecraft/resource-pack version metadata supplied by the rpp host.

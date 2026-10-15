@@ -10,10 +10,37 @@ use std::fmt::Write as _;
 use crate::manifest::{Manifest, SwitchEntry};
 use crate::pipeline::{CompileOutput, OutputFile};
 
-/// The window or HUD a file draws.
+/// The kind of surface a pane is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum PaneKind {
+    Window,
+    Hud,
+    Fullscreen,
+}
+
+impl PaneKind {
+    /// The noun naming this kind in errors.
+    pub(crate) fn noun(self) -> &'static str {
+        match self {
+            Self::Window => "window",
+            Self::Hud => "HUD",
+            Self::Fullscreen => "full-screen window",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Window => "win",
+            Self::Hud => "hud",
+            Self::Fullscreen => "full",
+        }
+    }
+}
+
+/// The window, HUD, or full-screen window a file draws.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Pane<'a> {
-    pub(crate) hud: bool,
+    pub(crate) kind: PaneKind,
     pub(crate) name: &'a str,
 }
 
@@ -22,17 +49,17 @@ pub(crate) struct Pane<'a> {
 pub(crate) enum Part {
     /// A pane's static art texture.
     Static {
-        hud: bool,
+        kind: PaneKind,
         pane: String,
     },
     /// One baked switch case of a pane.
     SwitchCase {
-        hud: bool,
+        kind: PaneKind,
         pane: String,
     },
     /// One art layer of a pane.
     ArtLayer {
-        hud: bool,
+        kind: PaneKind,
         pane: String,
     },
     /// A sprite font document, labelled by its font name such as `sprite_y12`.
@@ -46,21 +73,23 @@ pub(crate) enum Part {
     Vanilla,
     Hitbox,
     Hover,
+    /// The full-screen canvas include and the built-in cursor and backdrop glyphs.
+    Fullscreen,
     Debug,
     Kotlin,
 }
 
 impl Part {
     pub(crate) fn static_art(pane: Pane<'_>) -> Self {
-        Self::Static { hud: pane.hud, pane: pane.name.into() }
+        Self::Static { kind: pane.kind, pane: pane.name.into() }
     }
 
     pub(crate) fn switch_case(pane: Pane<'_>) -> Self {
-        Self::SwitchCase { hud: pane.hud, pane: pane.name.into() }
+        Self::SwitchCase { kind: pane.kind, pane: pane.name.into() }
     }
 
     pub(crate) fn art_layer(pane: Pane<'_>) -> Self {
-        Self::ArtLayer { hud: pane.hud, pane: pane.name.into() }
+        Self::ArtLayer { kind: pane.kind, pane: pane.name.into() }
     }
 }
 
@@ -160,14 +189,19 @@ fn case_count(switches: &BTreeMap<String, SwitchEntry>) -> usize {
 }
 
 fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u64>) -> String {
-    let mut panes: BTreeMap<(bool, &str), PaneSizes> = BTreeMap::new();
+    let mut panes: BTreeMap<(PaneKind, &str), PaneSizes> = BTreeMap::new();
     for (name, window) in &manifest.windows {
         let sizes = PaneSizes { cases: case_count(&window.switches), art: window.art.len(), ..Default::default() };
-        panes.insert((false, name), sizes);
+        panes.insert((PaneKind::Window, name), sizes);
     }
     for (name, hud) in &manifest.huds {
         let sizes = PaneSizes { cases: case_count(&hud.switches), art: hud.art.len(), ..Default::default() };
-        panes.insert((true, name), sizes);
+        panes.insert((PaneKind::Hud, name), sizes);
+    }
+    for (name, fullscreen) in &manifest.fullscreens {
+        let sizes =
+            PaneSizes { cases: case_count(&fullscreen.switches), art: fullscreen.art.len(), ..Default::default() };
+        panes.insert((PaneKind::Fullscreen, name), sizes);
     }
     let mut sprite_fonts = Group::default();
     let mut text_row_fonts = Group::default();
@@ -177,16 +211,16 @@ fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u
         let bytes = *bytes;
         attributed += bytes;
         let category = match part {
-            Part::Static { hud, pane } => {
-                panes.entry((*hud, pane)).or_default().static_bytes += bytes;
+            Part::Static { kind, pane } => {
+                panes.entry((*kind, pane)).or_default().static_bytes += bytes;
                 continue;
             }
-            Part::SwitchCase { hud, pane } => {
-                panes.entry((*hud, pane)).or_default().case_bytes += bytes;
+            Part::SwitchCase { kind, pane } => {
+                panes.entry((*kind, pane)).or_default().case_bytes += bytes;
                 continue;
             }
-            Part::ArtLayer { hud, pane } => {
-                panes.entry((*hud, pane)).or_default().art_bytes += bytes;
+            Part::ArtLayer { kind, pane } => {
+                panes.entry((*kind, pane)).or_default().art_bytes += bytes;
                 continue;
             }
             Part::SpriteFont(label) => {
@@ -204,6 +238,7 @@ fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u
             Part::Vanilla => "vanilla overrides",
             Part::Hitbox => "hitbox item",
             Part::Hover => "hover outlines",
+            Part::Fullscreen => "full-screen contract",
             Part::Debug => "debug descriptor",
             Part::Kotlin => "kotlin",
         };
@@ -214,7 +249,7 @@ fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u
     pane_rows.sort_by_key(|(_, sizes)| std::cmp::Reverse(sizes.bytes()));
     let mut rows: Vec<Row> = pane_rows
         .into_iter()
-        .map(|((hud, name), sizes)| {
+        .map(|((kind, name), sizes)| {
             let plural = |count: usize| if count == 1 { "" } else { "s" };
             let mut detail = format!(
                 "static {} · {} switch case{} {}",
@@ -226,7 +261,7 @@ fn render(ledger: &SizeLedger, manifest: &Manifest, total: u64, budget: Option<u
             if sizes.art > 0 {
                 let _ = write!(detail, " · {} art layer{} {}", sizes.art, plural(sizes.art), size(sizes.art_bytes));
             }
-            Row { label: format!("{} {name}", if hud { "hud" } else { "win" }), bytes: sizes.bytes(), detail }
+            Row { label: format!("{} {name}", kind.label()), bytes: sizes.bytes(), detail }
         })
         .collect();
     for (label, group) in [("sprite fonts", sprite_fonts), ("text-row fonts", text_row_fonts)] {

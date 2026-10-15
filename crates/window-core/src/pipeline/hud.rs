@@ -8,7 +8,7 @@ use crate::geometry::Point;
 use crate::hud::{SegmentMarkers, TintedSegment, tinted_segments};
 use crate::ir::{HudShader, LaidOutHud, Rgb, tint_palettes};
 use crate::manifest::{HudEntry, HudShaderEntry, HudSurfaceEntry};
-use crate::size::{Pane, Part};
+use crate::size::{Pane, PaneKind, Part};
 use crate::{Result, bake};
 
 use super::glyphs::{Layers, MAX_GLYPH_SIZE, hud_key_prefix, hud_static_key};
@@ -70,7 +70,7 @@ pub(super) fn compile_hud(
 }
 
 fn pane(h: &LaidOutHud) -> Pane<'_> {
-    Pane { hud: true, name: &h.name }
+    Pane { kind: PaneKind::Hud, name: &h.name }
 }
 
 /// The rows a shader-placed HUD is baked below its source origin, which its shader rule subtracts again, so the
