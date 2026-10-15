@@ -224,7 +224,7 @@ class MinestomFullscreenTest :
             fixture.hotbar() shouldBe List(9) { Material.PAPER }
         }
 
-        "a click resyncs the anvil behind a ping, and text typed before the resync arrived is kept" {
+        "a click that leaves the input slot alone resends the slots without a ping, and later renames are kept" {
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             menu.open()
@@ -233,24 +233,83 @@ class MinestomFullscreenTest :
             fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
 
             fixture.clear()
-            fixture.receive(fixture.click(anvil, 0))
-            val resync = fixture.sent<PingPacket>().single()
+            fixture.receive(fixture.click(anvil, 1))
+            fixture.sent<PingPacket>() shouldBe emptyList()
             fixture.seed(anvil) shouldBe "hey"
             fixture.sent<WindowPropertyPacket>().single().value() shouldBe 0
-            // The player typed "heya" before the resync reached the client, which then echoed its seed.
+
+            // Text typed while the resync was in flight is reported, and a submit sees it.
             fixture.receive(ClientNameItemPacket("heya"))
-            fixture.receive(ClientNameItemPacket("hey"))
-            menu.edits shouldBe emptyList()
+            menu.edits shouldContainExactly listOf("heya")
+            fixture.receive(fixture.click(anvil, 2))
+            menu.prompts shouldContainExactly listOf("heya")
+        }
+
+        "a click that changes the input slot reseeds it behind a ping, and renames before the pong are dropped" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.prompt("hey")
+            val anvil = fixture.sent<OpenWindowPacket>().single().windowId()
+            fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
+            fixture.receive(ClientNameItemPacket("hey!"))
 
             fixture.clear()
-            fixture.receive(ClientPongPacket(resync.id()))
-            menu.edits shouldContainExactly listOf("heya")
-            fixture.seed(anvil) shouldBe "heya"
-            val rebased = fixture.sent<PingPacket>().single()
-            fixture.receive(ClientNameItemPacket("heya"))
-            fixture.receive(ClientPongPacket(rebased.id()))
-            fixture.receive(ClientNameItemPacket("heyab"))
-            menu.edits shouldContainExactly listOf("heya", "heyab")
+            fixture.receive(fixture.click(anvil, 0))
+            fixture.seed(anvil) shouldBe "hey!"
+            fixture.receive(ClientNameItemPacket("stale"))
+            fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
+            fixture.receive(ClientNameItemPacket("hey!!"))
+            menu.edits shouldContainExactly listOf("hey!", "hey!!")
+
+            // A shift-click that moved the input paper out reports it among the changed slots.
+            fixture.clear()
+            fixture.receive(fixture.click(anvil, 3, changed = mapOf(0.toShort() to ItemStack.Hash.AIR)))
+            fixture.seed(anvil) shouldBe "hey!!"
+            fixture.sent<PingPacket>().size shouldBe 1
+        }
+
+        "a click during a reopen does not admit the old field's renames into the new segment" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            val almost = "a".repeat(49)
+            menu.prompt(almost)
+            val anvil = fixture.sent<OpenWindowPacket>().single().windowId()
+            fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
+
+            fixture.clear()
+            fixture.receive(ClientNameItemPacket(almost + "a"))
+            val reopen = fixture.sent<PingPacket>().single()
+            fixture.clear()
+            fixture.receive(fixture.click(anvil, 0))
+            val reseed = fixture.sent<PingPacket>().single()
+            fixture.receive(ClientNameItemPacket(almost))
+            fixture.receive(ClientPongPacket(reopen.id()))
+            fixture.receive(ClientNameItemPacket(almost))
+            fixture.receive(ClientPongPacket(reseed.id()))
+            fixture.receive(ClientNameItemPacket("b"))
+
+            menu.edits shouldContainExactly listOf(almost + "a", almost + "ab")
+        }
+
+        "a submit in flight after a reopen and a click submits the kept text" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            val almost = "a".repeat(49)
+            menu.prompt(almost)
+            val anvil = fixture.sent<OpenWindowPacket>().single().windowId()
+            fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
+
+            fixture.clear()
+            fixture.receive(ClientNameItemPacket(almost + "a"))
+            fixture.receive(fixture.click(anvil, 1))
+            fixture.receive(ClientNameItemPacket(almost))
+            fixture.receive(fixture.click(anvil, 2))
+
+            menu.prompts shouldContainExactly listOf(almost + "a")
+            fixture.player.openInventory shouldBe null
         }
 
         "taking the result resyncs the player's experience" {
@@ -520,13 +579,14 @@ private class FullscreenFixture {
     fun click(
         windowId: Int,
         slot: Int,
+        changed: Map<Short, ItemStack.Hash> = emptyMap(),
     ) = ClientClickWindowPacket(
         windowId,
         0,
         slot.toShort(),
         0,
         ClientClickWindowPacket.ClickType.PICKUP,
-        emptyMap(),
+        changed,
         ItemStack.Hash.AIR,
     )
 

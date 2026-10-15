@@ -21,12 +21,15 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * The anvil holds a paper named after the field's text, which vanilla copies into the field. The paper is [blank] with
  * its enchantments removed, so it draws nothing and the client computes no result and no repair cost; the cost is
- * sent as 0 anyway. Every open, including a reopen over the current anvil, and every resync after a refused click is
- * bundled with a ping: the client answers it after echoing the paper's name, so rename packets before the pong come
- * from an earlier anvil or are the echo, and are dropped. The exception is text typed before a resync reached the
- * client: the latest such rename is applied as an edit once the pong arrives, and the field is resynced to it. Every
- * click on the anvil is refused; one on the result slot submits. [defer] runs a task on the next tick while the window
- * is open, since an anvil can be replaced while Minestom is still closing it.
+ * sent as 0 anyway.
+ *
+ * The client resets its field only when the stack in the input slot changes, and the paper is never updated as the
+ * player types. A seeding send, which is an open (including a reopen over the current anvil) or a resync after a click
+ * that changed the input slot, is bundled with a ping. The client answers it after echoing the paper's name, so rename
+ * packets before the latest pong come from an earlier anvil or are the echo, and are dropped. Every click on the anvil
+ * is refused and the slots are resent; a click that leaves the input slot alone resends the same paper, which does not
+ * touch the field, so renames keep flowing. One on the result slot submits. [defer] runs a task on the next tick while
+ * the window is open, since an anvil can be replaced while Minestom is still closing it.
  */
 internal class MinestomTextInput(
     private val player: Player,
@@ -39,12 +42,8 @@ internal class MinestomTextInput(
     /** The rename field's text as of the latest edit reported, or the text the anvil opened with. */
     private var field = ""
 
-    /** The ping that settles the latest open or resync, until its pong arrives. */
+    /** The ping that settles the latest seeding send, until its pong arrives. */
     private var awaiting: Int? = null
-
-    /** The latest rename that differs from the seed of the resync awaiting its pong, which the player typed first. */
-    private var typed: String? = null
-    private var rebasing = false
 
     /** The window id of the open anvil; read by the connection's writer thread. */
     @Volatile
@@ -69,7 +68,7 @@ internal class MinestomTextInput(
         anvil = target
         window = target.windowId.toInt()
         try {
-            synced(rebase = false) {
+            synced(seeding = true) {
                 if (current != null) {
                     target.setTitle(title)
                 } else {
@@ -97,16 +96,12 @@ internal class MinestomTextInput(
         val current = anvil ?: return
         when (val packet = event.packet) {
             is ClientPongPacket -> {
-                if (packet.id() == awaiting) settled(current)
+                if (packet.id() == awaiting) awaiting = null
             }
 
             is ClientNameItemPacket -> {
                 event.isCancelled = true
-                if (awaiting == null) {
-                    edit(packet.itemName())
-                } else if (rebasing && packet.itemName() != field) {
-                    typed = packet.itemName()
-                }
+                if (awaiting == null) edit(packet.itemName())
             }
 
             is ClientClickWindowPacket -> {
@@ -119,7 +114,7 @@ internal class MinestomTextInput(
                     close()
                     submitted?.onSubmit()
                 } else {
-                    resync(current)
+                    resync(current, reseed = packet.slot() == INPUT_SLOT || INPUT_SLOT in packet.changedSlots())
                 }
             }
 
@@ -135,40 +130,33 @@ internal class MinestomTextInput(
         listener?.onEdit(text)
     }
 
-    /** Applies the text typed before the resync that just settled reached the client, then shows it there. */
-    private fun settled(current: PromptAnvil) {
-        awaiting = null
-        val pending = typed
-        typed = null
-        if (pending == null) return
-        edit(pending)
-        // An edit can reopen or close the anvil, which settles its own text.
-        if (awaiting == null && anvil === current) resync(current)
-    }
-
-    /** Restores the anvil's slots and the cursor after a refused click, with the paper named after the field. */
-    private fun resync(current: PromptAnvil) {
-        current.setItemStack(0, seed(field), false)
-        synced(rebase = true) {
+    /**
+     * Restores the anvil's slots and the cursor after a refused click. The input slot is reseeded, with the paper named
+     * after the field, only when the click changed it on the client, which clears the field.
+     */
+    private fun resync(
+        current: PromptAnvil,
+        reseed: Boolean,
+    ) {
+        if (reseed) current.setItemStack(0, seed(field), false)
+        synced(seeding = reseed) {
             current.update(player)
             player.inventory.update(player)
             sendCost(current)
         }
     }
 
-    /** Runs [send] in a bundle ending in the ping that settles it. */
+    /** Runs [send] in a bundle, ending in the ping that settles it when [seeding]. */
     private inline fun synced(
-        rebase: Boolean,
+        seeding: Boolean,
         send: () -> Unit,
     ) {
-        val id = PINGS.getAndIncrement()
-        awaiting = id
-        rebasing = rebase
-        if (!rebase) typed = null
+        val id = if (seeding) PINGS.getAndIncrement() else null
+        if (id != null) awaiting = id
         player.sendPacket(BundlePacket())
         try {
             send()
-            player.sendPacket(PingPacket(id))
+            if (id != null) player.sendPacket(PingPacket(id))
         } finally {
             player.sendPacket(BundlePacket())
         }
@@ -189,7 +177,6 @@ internal class MinestomTextInput(
         anvil = null
         listener = null
         awaiting = null
-        typed = null
         window = NO_WINDOW
     }
 
@@ -209,6 +196,7 @@ internal class MinestomTextInput(
     }
 
     private companion object {
+        const val INPUT_SLOT: Short = 0
         const val RESULT_SLOT: Short = 2
 
         /** The anvil window property carrying the repair cost. */
