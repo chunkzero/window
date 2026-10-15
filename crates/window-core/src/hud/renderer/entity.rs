@@ -6,6 +6,13 @@ use crate::fullscreen::horse::{ARMOR_CURSOR_X, ARMOR_SIGNATURE, OFFSET};
 
 use super::fullscreen::CANVAS_PLACEMENT;
 
+/// Where the armour model's head parts pivot, in the horse's unturned space (facing -Z, Y up), in blocks: the part's
+/// pose offset of (0, 4, -12) texels, scaled by 1.1 about the feet.
+const HEAD_PIVOT: [f64; 3] = [0.0, 1.3761, -0.825];
+
+/// The head cube's top face in the head parts' texels, before the model's Y flip: its box top of -11, inflated by 0.1.
+const HEAD_TOP: f64 = -11.1;
+
 const ENTITY_VERTEX: &str = r#"#version 330
 
 #if defined(PER_FACE_LIGHTING) || !defined(NO_CARDINAL_LIGHTING)
@@ -76,10 +83,10 @@ const vec4 WINDOW_FS_HIDDEN = vec4(2.0, 2.0, 2.0, 1.0);
 // horse's unturned space (facing -Z, Y up, in blocks), the head parts pivot at WINDOW_FS_HEAD_PIVOT and pitch about X
 // by 30 degrees plus the horse's pitch. WINDOW_FS_HEAD_TOP is the head cube's top face in the head parts' pixels,
 // before the model's Y flip.
-const vec3 WINDOW_FS_HEAD_PIVOT = vec3(0.0, 1.3761, -0.825);
+const vec3 WINDOW_FS_HEAD_PIVOT = vec3(@HEAD_PIVOT@);
 const float WINDOW_FS_HORSE_SCALE = 1.1 / 16.0;
 const float WINDOW_FS_HEAD_REST_PITCH = 30.0;
-const float WINDOW_FS_HEAD_TOP = -11.1;
+const float WINDOW_FS_HEAD_TOP = @HEAD_TOP@;
 
 @PLACEMENT@
 
@@ -89,7 +96,8 @@ bool window_fs_is_cursor_armor() {
 
 // Draws the head cube's top face as the cursor and hides every other vertex of the cursor armour. Each corner recovers
 // the horse's yaw and pitch from its own position relative to the camera: the horse stands at WINDOW_FS_HORSE_OFFSET
-// and only turns about its origin, and the client sets its yaw to the rider's and its pitch to half the rider's.
+// and only turns about its origin, and the client sets its yaw to the rider's and its pitch to half the rider's. The
+// session keeps the horse at that offset, since a corner's position alone cannot tell the horse moving from it turning.
 void window_fs_horse_cursor() {
     gl_Position = WINDOW_FS_HIDDEN;
     sphericalVertexDistance = WINDOW_FS_NO_FOG_DISTANCE;
@@ -179,6 +187,124 @@ pub(in crate::hud) fn render_horse_entity_vertex() -> String {
         .replace("@PLACEMENT@", CANVAS_PLACEMENT)
         .replace("@SIGNATURE@", &join(&mut ARMOR_SIGNATURE.iter().map(u8::to_string)))
         .replace("@CURSOR_X@", &ARMOR_CURSOR_X.to_string())
+        .replace("@HEAD_PIVOT@", &join(&mut HEAD_PIVOT.iter().map(|value| format!("{value:?}"))))
+        .replace("@HEAD_TOP@", &format!("{HEAD_TOP:?}"))
         .replace("@OFFSET@", &join(&mut OFFSET.iter().map(|value| format!("{value:?}"))))
         .replace("@DEPTH_STEP@", &format!("{LAYER_DEPTH_STEP:?}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fullscreen::{DEGREES_PER_PIXEL, cursor};
+
+    const SCALE: f32 = 1.1 / 16.0;
+    const REST_PITCH: f32 = 30.0;
+
+    /// The top face's corners in the head parts' texels: (x, z) of each, with the face at `HEAD_TOP`.
+    const CORNERS: [[f32; 2]; 4] = [[3.1, 5.1], [-3.1, 5.1], [3.1, -2.1], [-3.1, -2.1]];
+
+    /// A corner's position relative to the camera for a horse at `OFFSET` turned to `yaw` with its head pitched to
+    /// `head_pitch`, as the client's model transforms place it. It is the inverse of `recover`.
+    fn place(yaw: f64, head_pitch: f64, [x, z]: [f32; 2]) -> [f32; 3] {
+        let (x, z) = (f64::from(x), f64::from(z));
+        let scale = f64::from(SCALE);
+        let tilt = head_pitch.to_radians();
+        let down = HEAD_TOP * tilt.cos() - z * tilt.sin();
+        let forward = HEAD_TOP * tilt.sin() + z * tilt.cos();
+        let (local_x, local_y, local_z) = (-scale * x, HEAD_PIVOT[1] - scale * down, HEAD_PIVOT[2] + scale * forward);
+        let turn = (180.0 - yaw).to_radians();
+        let turned_x = local_x * turn.cos() + local_z * turn.sin();
+        let turned_z = -local_x * turn.sin() + local_z * turn.cos();
+        [(turned_x + OFFSET[0]) as f32, (local_y + OFFSET[1]) as f32, (turned_z + OFFSET[2]) as f32]
+    }
+
+    /// The shader's recovery in single precision: a corner's yaw and head pitch from its position alone.
+    fn recover(position: [f32; 3], [x, z]: [f32; 2]) -> (f32, f32) {
+        let local = [position[0] - OFFSET[0] as f32, position[1] - OFFSET[1] as f32, position[2] - OFFSET[2] as f32];
+        let unturned_x = -SCALE * x;
+        let unturned_z = -(local[0] * local[0] + local[2] * local[2] - unturned_x * unturned_x).max(0.0).sqrt();
+        let down = (HEAD_PIVOT[1] as f32 - local[1]) / SCALE;
+        let forward = (unturned_z - HEAD_PIVOT[2] as f32) / SCALE;
+        let head_pitch = (forward.atan2(down) - z.atan2(HEAD_TOP as f32)).to_degrees();
+        let head_pitch = head_pitch - 360.0 * ((head_pitch + 180.0) / 360.0).floor();
+        let yaw = 180.0 - local[0].atan2(local[2]).to_degrees() + unturned_x.atan2(unturned_z).to_degrees();
+        (yaw - 360.0 * ((yaw + 180.0) / 360.0).floor(), head_pitch)
+    }
+
+    /// The cursor the shader draws for a corner, from `recover` and the include's mapping.
+    fn drawn(position: [f32; 3], corner: [f32; 2]) -> (f64, f64) {
+        let (yaw, head_pitch) = recover(position, corner);
+        (f64::from(yaw), 2.0 * f64::from(head_pitch - REST_PITCH))
+    }
+
+    #[test]
+    fn recovers_the_rotation_from_the_positions_vanilla_gives_the_head_corners() {
+        // Each pose's corners were taken from the client's own armour model and render transforms, as
+        // (yaw, rider pitch) and the camera-relative positions of the (+x, +z), (-x, +z), (+x, -z), (-x, -z) corners.
+        let poses = [
+            (
+                (-33.66, 17.9),
+                [
+                    [0.749422, 0.439996, 3.740893],
+                    [0.394637, 0.439996, 3.977148],
+                    [0.962791, 0.128818, 4.061310],
+                    [0.608005, 0.128818, 4.297565],
+                ],
+            ),
+            (
+                (45.0, 45.0),
+                [
+                    [-0.709833, 0.368831, 4.011238],
+                    [-1.011238, 0.368831, 3.709833],
+                    [-0.922911, -0.023879, 4.224315],
+                    [-1.224315, -0.023879, 3.922910],
+                ],
+            ),
+            (
+                (-120.0, 80.0),
+                [
+                    [1.125084, 0.216584, 2.104337],
+                    [1.338209, 0.216584, 2.473481],
+                    [1.271702, -0.248564, 2.019687],
+                    [1.484827, -0.248564, 2.388831],
+                ],
+            ),
+        ];
+        for ((yaw, rider_pitch), corners) in poses {
+            for (position, corner) in corners.into_iter().zip(CORNERS) {
+                let (got_yaw, head_pitch) = recover(position.map(|value| value as f32), corner);
+                assert!((got_yaw - yaw).abs() < 0.002, "yaw {yaw}: {got_yaw}");
+                let want = REST_PITCH + rider_pitch / 2.0;
+                assert!((head_pitch - want).abs() < 0.002, "pitch {rider_pitch}: {}", head_pitch * 2.0 - 60.0);
+            }
+        }
+    }
+
+    #[test]
+    fn the_drawn_cursor_is_the_servers_across_the_whole_canvas() {
+        // Each pixel's center, from the edges in: well clear of the boundaries the snap epsilon decides.
+        let (width, height) = (480, 270);
+        for y in (0..height).step_by(13).chain([height - 1]) {
+            for x in (0..width).step_by(17).chain([width - 1]) {
+                let yaw = (f64::from(x) + 0.5 - f64::from(width) / 2.0) * DEGREES_PER_PIXEL;
+                let pitch = (f64::from(y) + 0.5 - f64::from(height) / 2.0) * DEGREES_PER_PIXEL;
+                let want = cursor(yaw, pitch);
+                for corner in CORNERS {
+                    let (got_yaw, got_pitch) = drawn(place(yaw, REST_PITCH as f64 + pitch / 2.0, corner), corner);
+                    assert_eq!(cursor(got_yaw, got_pitch), want, "{x}, {y} via {corner:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_horse_off_its_offset_reads_as_turned() {
+        // Why the session pins the horse: a rise of 0.04 blocks alone moves the cursor several pixels.
+        let corner = CORNERS[1];
+        let mut position = place(0.0, REST_PITCH as f64, corner);
+        position[1] += 0.04;
+        let (_, pitch) = drawn(position, corner);
+        assert!(pitch.abs() > 2.0 * DEGREES_PER_PIXEL, "{pitch}");
+    }
 }
