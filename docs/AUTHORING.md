@@ -142,9 +142,9 @@ requires) no longer hits, but a budget keeps growth visible before it reaches a 
 
 ## Previews
 
-A preview is a PNG of one window or HUD, drawn by the compiler from the same layout and art as the pack, with the handle
-values you give it. Declare previews next to the UI and set `previews.output`; every `rpp build` then writes
-`<name>.png` into that directory.
+A preview is a PNG of one window, HUD, or full-screen window, drawn by the compiler from the same layout and art as the
+pack, with the handle values you give it. Declare previews next to the UI and set `previews.output`; every `rpp build`
+then writes `<name>.png` into that directory.
 
 ```ts
 import { defineWindows, preview } from "plugin:window/ui";
@@ -165,14 +165,17 @@ export default defineWindows({
 });
 ```
 
-`preview(target, state?, options?)` takes a window or HUD as `windows` and `huds` list it (one document, not a fragment
-of several), a list of `[handle, value]` entries, and:
+`preview(target, state?, options?)` takes a window, HUD, or full-screen window as `windows`, `huds`, and `fullscreens`
+list it (one document, not a fragment of several), a list of `[handle, value]` entries, and:
 
-- `name`: the file stem, lowercase letters, digits, `_`, and `-`. Defaults to the window's or HUD's name, so two
-  previews of one target need a `name`.
+- `name`: the file stem, lowercase letters, digits, `_`, and `-`. Defaults to the target's name, so two previews of one
+  target need a `name`.
 - `scale`: an integer from 1 to 16 that upscales the image with nearest-neighbour sampling. Defaults to 1, one image
   pixel per GUI pixel.
 - `outlines`: outline the active [regions](#primitives), which otherwise draw nothing.
+
+A full-screen window's preview is its canvas, one image pixel per canvas pixel, filled with its `backdrop` if it has
+one; it draws no cursor.
 
 An image may hold at most 16,777,216 pixels (4096 x 4096) after scaling; a larger one fails the build naming the
 preview, its size, and its scale.

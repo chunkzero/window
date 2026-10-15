@@ -9,7 +9,11 @@ use crate::manifest::Manifest;
 use crate::pipeline::{CompileInput, CompileOutput, compile_project_json};
 
 fn compile(fullscreen: serde_json::Value) -> crate::Result<CompileOutput> {
-    let project = json!({ "fullscreens": [fullscreen] }).to_string();
+    compile_at(fullscreen, json!(88))
+}
+
+fn compile_at(fullscreen: serde_json::Value, pack_format: serde_json::Value) -> crate::Result<CompileOutput> {
+    let project = json!({ "fullscreens": [fullscreen], "target": { "pack_format": pack_format } }).to_string();
     compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new()))
 }
 
@@ -90,11 +94,25 @@ fn compiles_layers_controls_and_the_contract() {
 }
 
 #[test]
-fn packs_without_fullscreens_emit_no_contract() {
-    let project = json!({ "huds": [{ "name": "h", "children": [] }] }).to_string();
+fn packs_without_fullscreens_emit_no_contract_or_shaders() {
+    let project = json!({ "huds": [{ "name": "h", "children": [] }], "target": { "pack_format": 88 } }).to_string();
     let out = compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
     assert!(out.manifest.fullscreen_canvas.is_none());
-    assert!(out.files.iter().all(|file| !file.path.contains("fullscreen")));
+    assert!(out.files.iter().all(|file| !file.path.contains("fullscreen") && !file.path.contains("/shaders/core/")));
+}
+
+#[test]
+fn full_screen_windows_emit_their_shaders_and_need_the_define_variant_profile() {
+    let menu = json!({ "name": "menu", "children": [] });
+    let out = compile(menu.clone()).unwrap();
+    let shaders: Vec<&str> =
+        out.files.iter().filter_map(|file| file.path.strip_prefix("assets/minecraft/shaders/core/")).collect();
+    assert_eq!(shaders, ["position_tex_color.fsh", "position_tex_color.vsh", "text.fsh", "text.vsh"]);
+
+    let error = compile_at(menu.clone(), json!(84)).unwrap_err().to_string();
+    assert!(error.contains("full-screen windows are drawn by a core text shader"), "{error}");
+    let error = compile_at(menu, json!(null)).unwrap_err().to_string();
+    assert!(error.contains("the project has full-screen windows, but Window could not determine"), "{error}");
 }
 
 #[test]
@@ -165,6 +183,7 @@ fn full_screen_textures_do_not_collide_with_window_textures() {
     let project = json!({
         "windows": [{ "name": "fullscreen_menu", "container": "generic_9x3", "children": [art.clone()] }],
         "fullscreens": [{ "name": "menu", "children": [art] }],
+        "target": { "pack_format": 88 },
     })
     .to_string();
     let out = compile_project_json(project.as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();

@@ -147,15 +147,16 @@ fn shader_entry(shader: HudShader, static_marker: Rgb, row_offset: i32) -> HudSh
 }
 
 /// Emits the shaders that relocate `huds`, where `row_offsets` holds each HUD's baked row offset in the same order,
-/// and that with `hover` draw hover outlines.
+/// that with `hover` draw hover outlines, and that with `fullscreen` draw full-screen windows.
 pub(super) fn emit_shader_files(
     ctx: &mut CompileContext<'_>,
     pack_format: Option<u32>,
     huds: &[&LaidOutHud],
     row_offsets: &[i32],
     hover: bool,
+    fullscreen: bool,
 ) -> Result<()> {
-    let output = crate::hud::emit(pack_format, huds, row_offsets, hover)?;
+    let output = crate::hud::emit(pack_format, huds, row_offsets, hover, fullscreen)?;
     for file in output.files {
         ctx.push(Part::Shader, OutputFile::text(file.path, file.contents));
     }

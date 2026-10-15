@@ -243,11 +243,8 @@ fn compile_layouts(
         if fullscreens.is_empty() { None } else { Some(fullscreen::emit_contract(&mut ctx, contract)?) };
 
     fonts::emit_fonts(&mut ctx)?;
-    if options.core_shaders.hud {
-        hud::emit_shader_files(&mut ctx, target.pack_format, &huds, &row_offsets, hover)?;
-    } else if hover {
-        hud::emit_shader_files(&mut ctx, target.pack_format, &[], &[], hover)?;
-    }
+    // Shader-placed HUDs were rejected above unless `coreShaders.hud` is on, so without it `huds` holds no rule.
+    hud::emit_shader_files(&mut ctx, target.pack_format, &huds, &row_offsets, hover, !fullscreens.is_empty())?;
     let mut manifest = ctx.manifest(sprites, window_entries, hud_entries);
     manifest.fullscreens = fullscreen_entries;
     manifest.fullscreen_canvas = fullscreen_canvas;

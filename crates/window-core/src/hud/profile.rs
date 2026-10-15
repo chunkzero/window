@@ -1,9 +1,9 @@
 use std::fmt;
 
 use super::renderer::{
-    render_dynamic_text_intensity_fragment, render_v150_dynamic_text_background_shader,
-    render_v150_dynamic_text_shader, render_v150_text_background_shader, render_v150_text_intensity_fragment,
-    render_v150_text_shader, render_v330_define_variant_text_background_shader,
+    render_dynamic_text_intensity_fragment, render_position_tex_color_fragment, render_position_tex_color_vertex,
+    render_v150_dynamic_text_background_shader, render_v150_dynamic_text_shader, render_v150_text_background_shader,
+    render_v150_text_intensity_fragment, render_v150_text_shader, render_v330_define_variant_text_background_shader,
     render_v330_define_variant_text_fragment, render_v330_define_variant_text_shader,
     render_v330_text_background_shader, render_v330_text_shader,
 };
@@ -33,8 +33,8 @@ impl ShaderProfile {
     }
 
     /// Returns `(file name, source)` pairs for `assets/minecraft/shaders/core`. Only the pack_format 85-88 sources
-    /// draw hover outlines; the other profiles ignore `hover`.
-    pub(super) fn sources(self, rules: &[HudShaderRule], hover: bool) -> Vec<(&'static str, String)> {
+    /// draw hover outlines and full-screen windows; the other profiles ignore `hover` and `fullscreen`.
+    pub(super) fn sources(self, rules: &[HudShaderRule], hover: bool, fullscreen: bool) -> Vec<(&'static str, String)> {
         match self {
             Self::Pack9To13LegacyFog => rendertype_sources(
                 |mode, see| render_v150_text_shader(rules, false, true, mode, see),
@@ -63,11 +63,15 @@ impl ShaderProfile {
             ),
             Self::Pack85To88DefineVariants => {
                 let mut sources = vec![
-                    ("text.vsh", render_v330_define_variant_text_shader(rules, hover)),
+                    ("text.vsh", render_v330_define_variant_text_shader(rules, hover, fullscreen)),
                     ("text.fsh", render_v330_define_variant_text_fragment(hover)),
                 ];
                 if !rules.is_empty() {
                     sources.push(("text_background.vsh", render_v330_define_variant_text_background_shader(rules)));
+                }
+                if fullscreen {
+                    sources.push(("position_tex_color.vsh", render_position_tex_color_vertex()));
+                    sources.push(("position_tex_color.fsh", render_position_tex_color_fragment()));
                 }
                 sources
             }
