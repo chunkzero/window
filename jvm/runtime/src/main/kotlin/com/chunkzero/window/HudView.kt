@@ -3,22 +3,12 @@ package com.chunkzero.window
 import com.chunkzero.window.diagnostics.RenderCorrelation
 import com.chunkzero.window.diagnostics.RenderCursorConvention
 import com.chunkzero.window.diagnostics.RenderFrameReason
-import com.chunkzero.window.diagnostics.RenderLayerKind
-import com.chunkzero.window.diagnostics.RenderStyleTrace
 import com.chunkzero.window.diagnostics.RenderSurfaceKind
-import com.chunkzero.window.internal.Bars
 import com.chunkzero.window.internal.ComposedRender
-import com.chunkzero.window.internal.DynamicSlots
 import com.chunkzero.window.internal.FrameCursor
-import com.chunkzero.window.internal.HudLayer
-import com.chunkzero.window.internal.RenderedSegment
+import com.chunkzero.window.internal.HudLayers
 import com.chunkzero.window.internal.SessionFrames
-import com.chunkzero.window.internal.Switches
-import com.chunkzero.window.internal.Tints
 import com.chunkzero.window.internal.dynamicSlot
-import com.chunkzero.window.internal.emptySegment
-import com.chunkzero.window.internal.sourced
-import com.chunkzero.window.manifest.LayerKind
 import net.kyori.adventure.text.Component
 import org.slf4j.LoggerFactory
 
@@ -33,27 +23,7 @@ public abstract class HudView(
     private val definition: HudDefinition,
 ) {
     private val entry = definition.entry
-    private val switches = Switches("hud", definition.name, entry.switches, null)
-    private val tints = Tints("hud", definition.name, entry.tints, null)
-    private val bars = Bars("hud", definition.name, entry.art, null)
-    private val slots =
-        DynamicSlots(
-            "hud",
-            definition.name,
-            entry.slots,
-            null,
-            { id, slot, content -> definition.composer.renderSlot(id, slot, content, tints.value(slot.tint)) },
-        ) { id, slot ->
-            emptySegment(
-                id,
-                RenderLayerKind.HUD_TEXT,
-                slot.x,
-                slot.y,
-                slot.font,
-                RenderStyleTrace(slot.color, slot.shadow),
-                cursor = 0,
-            )
-        }
+    private val layers = HudLayers("hud", definition.name, entry, definition.composer, null)
 
     private val frames =
         SessionFrames(
@@ -70,11 +40,8 @@ public abstract class HudView(
             )
         }
 
-    private val contents = HashMap<String, Component>()
-    private val segments = LinkedHashMap<String, RenderedSegment>()
     private var current: Component? = null
     private var bound = false
-    private var unpublished = false
 
     /** The channel this HUD's layout was composed for; send [render]'s result only on this channel. */
     public val channel: HudChannel
@@ -92,24 +59,7 @@ public abstract class HudView(
      */
     public fun render(): Component {
         val previous = current ?: return publish(composeInitialRender(), RenderFrameReason.OPEN)
-        for (name in switches.names) unpublished = switches.update(name) || unpublished
-        for (name in tints.names) {
-            if (!tints.update(name)) continue
-            unpublished = true
-            for (slot in slots.tinted(name)) {
-                contents.remove(slot)
-                slots.label(slot)?.let { segments[slot] = it }
-            }
-        }
-        for (name in bars.names) unpublished = bars.update(name) || unpublished
-        for (name in slots.names) {
-            val content = slots.content(name)
-            if (contents[name] == content) continue
-            segments[name] = slots.segment(name, content)
-            contents[name] = content
-            unpublished = true
-        }
-        return if (unpublished) publish(compose(), RenderFrameReason.REACTIVE_UPDATE) else previous
+        return if (layers.update(null)) publish(layers.compose(), RenderFrameReason.REACTIVE_UPDATE) else previous
     }
 
     /** Registers the providers of this HUD's slots, switches, tints, and bars; runs once, on the first [render]. */
@@ -128,14 +78,12 @@ public abstract class HudView(
         slot: String,
         value: Component,
         suffix: Component = Component.empty(),
-    ): Component {
-        val entry = definition.entry
-        return definition.composer.fit(
+    ): Component =
+        definition.composer.fit(
             entry.slots.dynamicSlot(slot, "hud", definition.name),
             value,
             suffix,
         )
-    }
 
     private fun composeInitialRender(): ComposedRender {
         if (!bound) {
@@ -147,7 +95,7 @@ public abstract class HudView(
                         render: () -> Component,
                     ) {
                         check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
-                        slots.bind(name, render)
+                        layers.slots.bind(name, render)
                     }
 
                     override fun switch(
@@ -155,7 +103,7 @@ public abstract class HudView(
                         render: () -> String,
                     ) {
                         check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
-                        switches.bind(name, render)
+                        layers.switches.bind(name, render)
                     }
 
                     override fun tint(
@@ -163,7 +111,7 @@ public abstract class HudView(
                         render: () -> String,
                     ) {
                         check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
-                        tints.bind(name, render)
+                        layers.tints.bind(name, render)
                     }
 
                     override fun bar(
@@ -171,29 +119,15 @@ public abstract class HudView(
                         render: () -> Float,
                     ) {
                         check(!sealed) { "Bindings are fixed once bind() returns; declare '$name' in bind()" }
-                        bars.bind(name, render)
+                        layers.bars.bind(name, render)
                     }
                 }
             scope.bind()
             sealed = true
-            slots.validate()
-            switches.validate()
-            tints.validate()
-            bars.validate()
+            layers.validate()
             bound = true
         }
-        for (name in switches.names) switches.update(name)
-        for (name in tints.names) tints.update(name)
-        for (name in bars.names) bars.update(name)
-        slots.seed(::seedSlot) { name, segment -> segments[name] = segment }
-        return compose()
-    }
-
-    private fun seedSlot(name: String): RenderedSegment {
-        val content = slots.content(name)
-        val segment = slots.segment(name, content)
-        contents[name] = content
-        return segment
+        return layers.seed()
     }
 
     private fun publish(
@@ -201,45 +135,8 @@ public abstract class HudView(
         reason: RenderFrameReason,
     ): Component {
         current = render.component
-        unpublished = false
         frames.observe(render, reason)
         return render.component
-    }
-
-    /** Composes the HUD's layers in order, leaving out the entries of inactive switch cases. */
-    private fun compose(): ComposedRender {
-        val layers =
-            entry.layers.mapNotNull { layer ->
-                val name = layer.name
-                when (layer.kind) {
-                    LayerKind.SLOT -> {
-                        val segment = segments[name]?.takeIf { switches.slotActive(name) }
-                        segment?.let {
-                            HudLayer.Slot(
-                                it.sourced(entry.slots[name]?.source ?: switches.entrySource(name)),
-                            )
-                        }
-                    }
-
-                    LayerKind.SWITCH -> {
-                        val art = switches.activeCase(name)?.static?.takeIf { it.isNotEmpty() }
-                        art?.let { definition.composer.caseArt(switches.semanticId(name), it, switches.source(name)) }
-                    }
-
-                    LayerKind.ART -> {
-                        val art = entry.art.getValue(name).takeIf { switches.artActive(name) }
-                        art?.let {
-                            val id = "hud/${definition.name}/$name"
-                            definition.composer.art(id, it, tints.value(it.tint), bars.columns(it.bar))
-                        }
-                    }
-
-                    LayerKind.SPRITE_SLOT, LayerKind.COLLECTION -> {
-                        null
-                    }
-                }
-            }
-        return definition.composer.compose(definition.name, layers)
     }
 
     private companion object {

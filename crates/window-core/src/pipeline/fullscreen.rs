@@ -2,25 +2,30 @@
 
 use std::collections::BTreeMap;
 
-use crate::compose::Texture;
+use crate::compose::{Composite, Texture};
 use crate::font::bitmap_provider;
 use crate::fullscreen::{
     self, BACKDROP_LAYER, CURSOR_LAYER, MAX_COLORS, MAX_CONTENT_LAYER, Marker, MarkerKind, OVERLAY_LAYER, STATIC_LAYER,
 };
 use crate::geometry::{Point, Rect, Size};
-use crate::ir::{LaidOutFullscreen, Layer, Rgb, tint_palette, tint_palettes};
+use crate::ir::{LaidOutFullscreen, Layer, RegionIr, Rgb, tint_palette, tint_palettes};
 use crate::manifest::{
     ControlEntry, CursorEntry, FullscreenCanvasEntry, FullscreenEntry, FullscreenSurfaceEntry, SlotEntry,
 };
 use crate::size::{Pane, PaneKind, Part};
 use crate::{Error, Result, bake};
 
+use super::fonts::to_json;
 use super::glyphs::{FULLSCREEN_BACKDROP_KEY, FULLSCREEN_CURSOR_KEY, Layers, fullscreen_key_prefix};
 use super::metrics::bitmap_metrics;
 use super::window::slot_entry;
 use super::{CompileContext, OutputFile};
 
 const WHITE: Rgb = Rgb::new(0xff, 0xff, 0xff);
+
+/// The item model, under the pack namespace, that draws nothing: the runtime fills the hotbar with it while a
+/// full-screen window is open, which also hides the hand.
+const BLANK_ITEM: &str = "fullscreen/blank";
 
 /// What the full-screen windows compiled so far put in the include: the color table and every control rect.
 pub(super) struct Contract {
@@ -122,8 +127,14 @@ pub(super) fn compile_fullscreen(
         }
     }
 
+    let mut outline_texts = BTreeMap::new();
+    for (index, key, outline) in outlines(f) {
+        let file = format!("{file_base}_hover_{index}");
+        let text = ctx.bake_composite(&outline, origin, pane, &file, key, Part::Hover)?;
+        outline_texts.insert(index, text);
+    }
     let mut controls = BTreeMap::new();
-    for region in &f.regions {
+    for (index, region) in f.regions.iter().enumerate() {
         let rect = region.rect;
         let entry = ControlEntry {
             index: contract.controls.len() as u32,
@@ -133,7 +144,8 @@ pub(super) fn compile_fullscreen(
             height: rect.height,
             action: region.action.clone(),
             default_action: region.default_action.clone(),
-            hover: region.hover.unwrap_or(region.action.is_some()),
+            hover: outlined(region),
+            outline: outline_texts.remove(&index).filter(|text| !text.is_empty()),
             source: Some(region.source.clone()),
         };
         contract.controls.push(rect);
@@ -172,6 +184,8 @@ pub(super) fn emit_contract(ctx: &mut CompileContext<'_>, mut contract: Contract
     let overlay_marker = contract.marker(MarkerKind::Content, OVERLAY_LAYER, WHITE)?;
     let include = fullscreen::include(&contract.colors, &contract.controls, cursor_size);
     ctx.push(Part::Fullscreen, OutputFile::text(fullscreen::INCLUDE_PATH, include));
+    let blank = to_json(&serde_json::json!({ "model": { "type": "minecraft:empty" } }))?;
+    ctx.push(Part::Fullscreen, OutputFile::text(format!("assets/{}/items/{BLANK_ITEM}.json", ctx.namespace), blank));
     Ok(FullscreenCanvasEntry {
         width: fullscreen::CANVAS.width,
         height: fullscreen::CANVAS.height,
@@ -208,4 +222,29 @@ fn builtin_glyph(ctx: &mut CompileContext<'_>, key: &str, name: &str, texture: &
     let advance = bitmap_metrics(texture, Size::new(texture.width, texture.height)).advance;
     let bounds = Rect::new(0, 0, texture.width, texture.height);
     Ok(bake::bake_static_with_advance(glyph, &bounds, Point::new(0, 0), advance))
+}
+
+/// Whether `region` is outlined while hovered: as it says, else when it takes clicks.
+fn outlined(region: &RegionIr) -> bool {
+    region.hover.unwrap_or(region.action.is_some())
+}
+
+/// The hover outline of each outlined region of `f`, with the region's index and its codepoint allocation key: a 1px
+/// white border just inside the region's rect.
+pub(super) fn outlines(f: &LaidOutFullscreen) -> impl Iterator<Item = (usize, String, Composite)> + '_ {
+    let prefix = fullscreen_key_prefix(&f.name);
+    f.regions.iter().enumerate().filter(|(_, region)| outlined(region)).map(move |(index, region)| {
+        let Rect { width, height, .. } = region.rect;
+        let mut texture = Texture::transparent(width, height);
+        for y in 0..height {
+            for x in 0..width {
+                if x == 0 || y == 0 || x == width - 1 || y == height - 1 {
+                    let at = ((y * width + x) * 4) as usize;
+                    texture.rgba[at..at + 4].fill(0xff);
+                }
+            }
+        }
+        let has_content = width > 0 && height > 0;
+        (index, format!("{prefix}/hover/{index}"), Composite { texture, bounds: region.rect, has_content })
+    })
 }

@@ -4,7 +4,7 @@ use crate::codegen::writer::KotlinWriter;
 
 use super::handles::{self, HandleMember};
 
-/// The runtime base a typed view extends: `WindowView` or `HudView`.
+/// The runtime base a typed view extends: `WindowView`, `HudView`, or `FullscreenView`.
 pub(super) struct ViewBase {
     /// Prefix of the runtime `View` and `Scope` classes.
     pub(super) prefix: &'static str,
@@ -12,8 +12,19 @@ pub(super) struct ViewBase {
     pub(super) noun: &'static str,
     /// Generated object holding the typed definitions.
     pub(super) definitions: &'static str,
-    /// Whether the view takes a host and the `View` and `Scope` classes take its item type argument.
-    pub(super) hosted: bool,
+    /// The host the view takes.
+    pub(super) host: ViewHost,
+}
+
+/// The host a typed view is constructed with.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ViewHost {
+    /// None: the view only composes content.
+    None,
+    /// A `WindowHost`; the `View` and `Scope` classes take its item type argument.
+    Window,
+    /// A `FullscreenHost`.
+    Fullscreen,
 }
 
 pub(super) fn render(
@@ -26,14 +37,15 @@ pub(super) fn render(
 ) -> String {
     let prefix = base.prefix;
     let item = target.item_type();
-    let type_args = if base.hosted { format!("<{item}>") } else { String::new() };
-    let (type_params, params, host) = match target.player_host() {
-        _ if !base.hosted => ("", String::new(), String::new()),
-        Some(host) => {
+    let type_args = if base.host == ViewHost::Window { format!("<{item}>") } else { String::new() };
+    let (type_params, params, host) = match (base.host, player_host(base, target)) {
+        (ViewHost::None, _) => ("", String::new(), String::new()),
+        (_, Some(host)) => {
             let simple = host.rsplit('.').next().unwrap_or(host);
             ("", "(protected val player: Player)".to_string(), format!(", {simple}(player)"))
         }
-        None => ("<I : Any>", "(host: WindowHost<I>)".to_string(), ", host".to_string()),
+        (ViewHost::Window, None) => ("<I : Any>", "(host: WindowHost<I>)".to_string(), ", host".to_string()),
+        (ViewHost::Fullscreen, None) => ("", "(host: FullscreenHost)".to_string(), ", host".to_string()),
     };
     let definition = format!("{}.{}", base.definitions, naming::definition_member(name));
 
@@ -59,13 +71,23 @@ pub(super) fn render(
     w.finish()
 }
 
+/// The fully qualified host class the view builds from a `Player`, or `None` when the caller supplies the host.
+fn player_host(base: &ViewBase, target: KotlinTarget) -> Option<&'static str> {
+    match base.host {
+        ViewHost::None => None,
+        ViewHost::Window => target.player_host(),
+        ViewHost::Fullscreen => target.fullscreen_host(),
+    }
+}
+
 fn imports(base: &ViewBase, target: KotlinTarget, handles: &[HandleMember]) -> Vec<String> {
     let prefix = base.prefix;
-    let host = if base.hosted { target.player_host() } else { None };
+    let host = player_host(base, target);
     let mut imports: Vec<String> = [
-        (base.hosted && host.is_none(), "com.chunkzero.window.host.WindowHost"),
+        (base.host == ViewHost::Window && host.is_none(), "com.chunkzero.window.host.WindowHost"),
+        (base.host == ViewHost::Fullscreen && host.is_none(), "com.chunkzero.window.host.FullscreenHost"),
         (host.is_some(), "net.minestom.server.entity.Player"),
-        (host.is_some(), "net.minestom.server.item.ItemStack"),
+        (host.is_some() && base.host == ViewHost::Window, "net.minestom.server.item.ItemStack"),
     ]
     .into_iter()
     .filter_map(|(used, import)| used.then_some(import.to_string()))

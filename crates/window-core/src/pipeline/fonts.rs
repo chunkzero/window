@@ -141,7 +141,7 @@ fn hitbox_item(namespace: &str) -> Result<[OutputFile; 3]> {
 
 /// Serialize a JSON value deterministically (compact, trailing newline). The font documents are dominated by
 /// `chars` grids, so indentation alone is a tenth of their bytes.
-fn to_json(value: &serde_json::Value) -> Result<String> {
+pub(super) fn to_json(value: &serde_json::Value) -> Result<String> {
     let mut json = serde_json::to_string(value).map_err(|e| Error::Font(e.to_string()))?;
     json.push('\n');
     Ok(json)

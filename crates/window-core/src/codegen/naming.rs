@@ -40,6 +40,10 @@ pub(super) fn hud_class_name(hud: &str) -> String {
     format!("{}Hud", pascal(hud))
 }
 
+pub(super) fn fullscreen_class_name(fullscreen: &str) -> String {
+    format!("{}Fullscreen", pascal(fullscreen))
+}
+
 /// The nested Kotlin type name for `name`.
 pub(super) fn type_name(name: &str) -> String {
     pascal(name)
@@ -124,12 +128,17 @@ const RESERVED_TYPES: &[&str] = &[
     "Click",
     "Companion",
     "Component",
+    "FullscreenClick",
+    "FullscreenHost",
+    "FullscreenScope",
+    "FullscreenView",
     "HudScope",
     "HudView",
     "I",
     "IndexedClick",
     "Int",
     "ItemStack",
+    "MinestomFullscreenHost",
     "MinestomHost",
     "MultistomHost",
     "Player",
@@ -137,6 +146,7 @@ const RESERVED_TYPES: &[&str] = &[
     "Unit",
     "WindowCollection",
     "WindowDefinitions",
+    "WindowFullscreenDefinitions",
     "WindowHost",
     "WindowHudDefinitions",
     "WindowScope",

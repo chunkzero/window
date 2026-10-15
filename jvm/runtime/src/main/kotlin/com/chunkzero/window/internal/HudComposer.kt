@@ -27,10 +27,14 @@ internal sealed interface HudLayer {
     ) : HudLayer
 }
 
-/** Composes a HUD [Component] from baked static chrome plus layer segments in authored order. */
+/**
+ * Composes a HUD [Component] from baked static chrome plus layer segments in authored order. In a shader-placed HUD,
+ * untinted art and switch case art are sent in their layer's entry of [layerMarkers], when it has one.
+ */
 internal class HudComposer(
     manifest: WindowManifest,
     private val hud: HudEntry,
+    private val layerMarkers: Map<String, String> = emptyMap(),
 ) {
     private val font: String = manifest.font
     private val originX: Int = hud.surface.width
@@ -48,19 +52,21 @@ internal class HudComposer(
     /** The baked static HUD component, with no slot segments. */
     val staticComponent: Component = Component.text(hud.static).style(spacerStyle)
 
-    /** A switch case's [static] art. */
+    /** The [static] art of a case of switch [layer]. */
     fun caseArt(
         semanticId: String,
+        layer: String,
         static: String,
         source: String?,
-    ): HudLayer.Art = HudLayer.Art(semanticId, static, source, staticColor)
+    ): HudLayer.Art = HudLayer.Art(semanticId, static, source, layerColor(layer))
 
     /**
-     * Art layer [art], multiplied by the color of its tint's palette entry [tint]. A bar's fill is drawn up to
-     * [columns].
+     * Art layer [layer] drawing [art], multiplied by the color of its tint's palette entry [tint]. A bar's fill is
+     * drawn up to [columns].
      */
     fun art(
         semanticId: String,
+        layer: String,
         art: ArtEntry,
         tint: String?,
         columns: Int? = null,
@@ -69,8 +75,10 @@ internal class HudComposer(
             semanticId,
             art.bar?.let { it.compose(columns ?: it.width, spacers) } ?: art.static,
             null,
-            segmentColor(art.tint, tint, art.tintMarkers) ?: staticColor,
+            segmentColor(art.tint, tint, art.tintMarkers) ?: layerColor(layer),
         )
+
+    private fun layerColor(layer: String): TextColor = layerMarkers[layer]?.let(::requireColor) ?: staticColor
 
     /**
      * The color drawing palette entry [value] of [tint]: the entry's color, or in a shader-placed HUD the

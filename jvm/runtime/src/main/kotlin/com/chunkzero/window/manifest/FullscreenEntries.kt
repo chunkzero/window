@@ -74,6 +74,11 @@ public data class ControlEntry(
     @SerialName("default_action") val defaultAction: String? = null,
     /** Whether the control is outlined while the cursor is over it. */
     val hover: Boolean,
+    /**
+     * The hover outline, net-zero from the line origin, sent in [FullscreenCanvasEntry.overlayMarker] while the cursor
+     * is over the control; present when [hover] is set.
+     */
+    val outline: String? = null,
     /** The authored element this control comes from, for diagnostics. */
     val source: String? = null,
 )

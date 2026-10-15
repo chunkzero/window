@@ -77,6 +77,10 @@ pub struct ControlEntry {
     pub default_action: Option<String>,
     /// Whether the control is outlined while the cursor is over it.
     pub hover: bool,
+    /// The control's hover outline, net-zero from the line origin, which the runtime sends in the overlay marker
+    /// while the cursor is over the control. Present when [`Self::hover`] is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outline: Option<String>,
     /// The authored element this control comes from, such as ``region `buy` ``, for diagnostics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,

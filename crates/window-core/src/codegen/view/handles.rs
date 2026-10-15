@@ -9,10 +9,20 @@ use crate::ir::{Handle, HandleKind, HandleRole, HandleUse, indexed_entry};
 
 use super::Taken;
 
+/// What a click handler receives.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ClickKind {
+    /// A container slot click: `Click`, or `IndexedClick` for an indexed action.
+    Window,
+    /// A full-screen click: `FullscreenClick`, after the row-major index for an indexed action.
+    Fullscreen,
+}
+
 /// The members one handle declares.
 pub(super) struct HandleMember {
     pub(super) id: String,
     pub(super) handle: Handle,
+    pub(super) click: ClickKind,
     /// The function, property, or handler the handle declares; empty for a runtime action.
     pub(super) member: String,
     /// The generated enum of a value, selection, or tint handle.
@@ -41,11 +51,12 @@ fn jvm_accessors(property: &str) -> (String, Option<String>) {
 }
 
 impl HandleMember {
-    /// The members of every handle of a view class named `class_name`; `cells` gives a collection handle's cell
-    /// count. Rejects invalid, `reserved`, or colliding member names.
+    /// The members of every handle of a view class named `class_name`, whose click handlers receive `click`; `cells`
+    /// gives a collection handle's cell count. Rejects invalid, `reserved`, or colliding member names.
     pub(super) fn all(
         class_name: &str,
         reserved: &[&str],
+        click: ClickKind,
         handles: &BTreeMap<String, Handle>,
         cells: impl Fn(&str) -> Option<u32>,
     ) -> crate::Result<Vec<Self>> {
@@ -53,18 +64,19 @@ impl HandleMember {
         handles
             .iter()
             .map(|(id, handle)| {
-                Self::new(id, handle, cells(id), |member, source| {
+                Self::new(id, handle, click, cells(id), |member, source| {
                     naming::check_member(member, &source, class_name, reserved, &mut taken)
                 })
             })
             .collect()
     }
 
-    /// Names the members of `handle`; `cells` is a collection's cell count, and `claim` rejects invalid or colliding
-    /// names.
+    /// Names the members of `handle`, whose click handlers receive `click`; `cells` is a collection's cell count, and
+    /// `claim` rejects invalid or colliding names.
     fn new(
         id: &str,
         handle: &Handle,
+        click: ClickKind,
         cells: Option<u32>,
         mut claim: impl FnMut(&str, String) -> crate::Result<()>,
     ) -> crate::Result<Self> {
@@ -112,17 +124,18 @@ impl HandleMember {
         for (constant, _) in &constants {
             claim(constant, format!("{kind} `{id}` shape constant"))?;
         }
-        Ok(Self { id: id.into(), handle: handle.clone(), member, enum_name, sprite_enum, hook, constants })
+        Ok(Self { id: id.into(), handle: handle.clone(), click, member, enum_name, sprite_enum, hook, constants })
     }
 
     /// Whether the view needs `import` for any of `handles`.
     pub(super) fn imports(handles: &[HandleMember]) -> Vec<&'static str> {
         let has = |test: fn(&HandleMember) -> bool| handles.iter().any(test);
         [
-            (has(|h| h.handle.kind == HandleKind::Action && h.handle.shape.is_empty()), "com.chunkzero.window.Click"),
+            (has(|h| h.window_action() && h.handle.shape.is_empty()), "com.chunkzero.window.Click"),
+            (has(|h| h.window_action() && !h.handle.shape.is_empty()), "com.chunkzero.window.IndexedClick"),
             (
-                has(|h| h.handle.kind == HandleKind::Action && !h.handle.shape.is_empty()),
-                "com.chunkzero.window.IndexedClick",
+                has(|h| h.handle.kind == HandleKind::Action && h.click == ClickKind::Fullscreen),
+                "com.chunkzero.window.FullscreenClick",
             ),
             (has(|h| h.handle.kind == HandleKind::Collection), "com.chunkzero.window.WindowCollection"),
             (has(|h| h.handle.kind == HandleKind::Text), "net.kyori.adventure.text.Component"),
@@ -130,6 +143,10 @@ impl HandleMember {
         .into_iter()
         .filter_map(|(used, import)| used.then_some(import))
         .collect()
+    }
+
+    fn window_action(&self) -> bool {
+        self.handle.kind == HandleKind::Action && self.click == ClickKind::Window
     }
 
     pub(super) fn declare(&self, w: &mut KotlinWriter, item: &str) {
@@ -174,6 +191,14 @@ impl HandleMember {
             HandleKind::Items => {
                 abstract_fun(w, format!("Render the `{id}` item."), format!("{member}({params}): {item}?"))
             }
+            HandleKind::Action if self.click == ClickKind::Fullscreen && self.handle.shape.is_empty() => {
+                abstract_fun(w, format!("Handle a `{id}` click."), format!("{member}(click: FullscreenClick)"))
+            }
+            HandleKind::Action if self.click == ClickKind::Fullscreen => abstract_fun(
+                w,
+                format!("Handle a `{id}` click; `index` is the clicked entry, row-major."),
+                format!("{member}(index: Int, click: FullscreenClick)"),
+            ),
             HandleKind::Action if self.handle.shape.is_empty() => {
                 abstract_fun(w, format!("Handle a `{id}` click."), format!("{member}(click: Click)"))
             }
@@ -360,10 +385,13 @@ impl Handler {
                     ([_, columns], _) => (click.at[0] * columns + click.at[1]).to_string(),
                     _ => args.to_string(),
                 };
-                Self::Body(
-                    "click -> ",
-                    vec![format!("{member}(IndexedClick(click.slot, {index}, click.shift, click.right))")],
-                )
+                let call = match handle.click {
+                    ClickKind::Window => {
+                        format!("{member}(IndexedClick(click.slot, {index}, click.shift, click.right))")
+                    }
+                    ClickKind::Fullscreen => format!("{member}({index}, click)"),
+                };
+                Self::Body("click -> ", vec![call])
             }
             HandleKind::Toggle => {
                 Self::Body("_ -> ", vec![format!("{member} = !{member}"), format!("{hook}({member})")])

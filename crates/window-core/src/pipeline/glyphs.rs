@@ -78,7 +78,7 @@ fn layers(
 
 /// Allocate codepoints across the whole build: one key per static, case, or art layer composite
 /// with content, one per glyph of a bar's fill, one per runtime sprite when any window uses sprites, the hover
-/// outline keys `hover`, and the built-in full-screen glyphs when there are full-screen windows.
+/// outline keys `hover`, and the built-in full-screen glyphs and control outlines when there are full-screen windows.
 pub(super) fn allocate_codepoints(
     windows: &[&LaidOutWindow],
     huds: &[&LaidOutHud],
@@ -96,6 +96,9 @@ pub(super) fn allocate_codepoints(
     }
     for (f, layers) in fullscreens.iter().zip(&composites.fullscreens) {
         layer_keys(&mut keys, &fullscreen_key_prefix(&f.name), &f.switches, &f.art, layers, true);
+        for (_, key, outline) in super::fullscreen::outlines(f) {
+            composite_keys(&mut keys, key, &outline, true);
+        }
     }
     if !fullscreens.is_empty() {
         keys.extend([FULLSCREEN_CURSOR_KEY.to_string(), FULLSCREEN_BACKDROP_KEY.to_string()]);
