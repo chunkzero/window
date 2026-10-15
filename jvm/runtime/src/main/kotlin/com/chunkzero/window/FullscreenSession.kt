@@ -2,7 +2,9 @@ package com.chunkzero.window
 
 import com.chunkzero.window.host.FullscreenHost
 import com.chunkzero.window.host.FullscreenListener
+import com.chunkzero.window.host.FullscreenTextListener
 import com.chunkzero.window.host.OpenFullscreen
+import com.chunkzero.window.internal.AnvilReopenGate
 import com.chunkzero.window.internal.CanvasPoint
 import com.chunkzero.window.internal.FullscreenMapping
 import com.chunkzero.window.internal.HudLayers
@@ -48,6 +50,7 @@ internal class FullscreenWindowSession(
     private var yaw = 0f
     private var pitch = 0f
     private var pullBackAfter = Long.MIN_VALUE
+    private var prompt: TextPrompt? = null
     private var closed = false
 
     private val listener =
@@ -59,9 +62,20 @@ internal class FullscreenWindowSession(
 
             override fun onClick() = click()
 
+            override fun onRightClick() {
+                if (closed) return
+                val point = cursor()
+                bindings.rightClick?.invoke(FullscreenClick(point.x, point.y))
+            }
+
+            override fun onScroll(steps: Int) {
+                if (!closed) bindings.scroll?.invoke(steps)
+            }
+
             override fun onClose() {
                 if (closed) return
                 closed = true
+                prompt = null
                 view.invokeOnClose()
             }
         }
@@ -89,8 +103,28 @@ internal class FullscreenWindowSession(
     override fun close() {
         if (closed) return
         closed = true
+        prompt = null
         view.invokeOnClose()
         screen.close()
+    }
+
+    fun promptText(
+        title: Component,
+        initial: String,
+        onEdit: (String) -> Unit,
+        onDone: (String?) -> Unit,
+    ) {
+        check(!closed) { "Fullscreen view is not open" }
+        check(prompt == null) { "A text prompt is already open in fullscreen '${definition.name}'" }
+        val kept = initial.length - initial.length % AnvilReopenGate.MAX_NAME_LENGTH
+        val next = TextPrompt(title, initial.take(kept), onEdit, onDone)
+        prompt = next
+        try {
+            next.open(initial.drop(kept))
+        } catch (failure: Throwable) {
+            prompt = null
+            throw failure
+        }
     }
 
     fun refreshAll() {
@@ -171,10 +205,50 @@ internal class FullscreenWindowSession(
         sent = content
     }
 
+    /**
+     * A [promptText] anvil: [kept] is the text of earlier anvils whose field filled, and [field] the current anvil's.
+     */
+    private inner class TextPrompt(
+        private val title: Component,
+        private var kept: String,
+        private val edited: (String) -> Unit,
+        private val done: (String?) -> Unit,
+    ) : FullscreenTextListener {
+        private var field = ""
+
+        fun open(text: String) {
+            field = text
+            screen.openTextInput(title, text, this)
+        }
+
+        override fun onEdit(text: String) {
+            if (prompt !== this) return
+            if (text.length >= AnvilReopenGate.MAX_NAME_LENGTH) {
+                kept += text
+                open("")
+            } else {
+                field = text
+            }
+            edited(kept + field)
+        }
+
+        override fun onSubmit() = finish(kept + field)
+
+        override fun onCancel() = finish(null)
+
+        private fun finish(text: String?) {
+            if (prompt !== this) return
+            prompt = null
+            done(text)
+        }
+    }
+
     /** The [FullscreenScope] passed to `bind`, and the check that every control requiring a binding received one. */
     private inner class Bindings : FullscreenScope {
         var sealed = false
         val buttons = HashMap<String, (FullscreenClick) -> Unit>()
+        var rightClick: ((FullscreenClick) -> Unit)? = null
+        var scroll: ((Int) -> Unit)? = null
 
         /** The action ids controls name that a handler can bind; runtime actions are run by the runtime. */
         private val actions: Set<String> =
@@ -223,6 +297,18 @@ internal class FullscreenWindowSession(
                 "Unknown button '$name' in fullscreen '${definition.name}'; known buttons: ${actions.sorted()}"
             }
             require(buttons.put(name, handler) == null) { "Button '$name' bound more than once" }
+        }
+
+        override fun rightClick(handler: (FullscreenClick) -> Unit) {
+            requireBindable("rightClick")
+            require(rightClick == null) { "rightClick bound more than once" }
+            rightClick = handler
+        }
+
+        override fun scroll(handler: (steps: Int) -> Unit) {
+            requireBindable("scroll")
+            require(scroll == null) { "scroll bound more than once" }
+            scroll = handler
         }
 
         fun validate() {

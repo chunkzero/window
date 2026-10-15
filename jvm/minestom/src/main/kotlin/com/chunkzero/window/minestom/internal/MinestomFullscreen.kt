@@ -2,6 +2,7 @@ package com.chunkzero.window.minestom.internal
 
 import com.chunkzero.window.FullscreenDefinition
 import com.chunkzero.window.host.FullscreenListener
+import com.chunkzero.window.host.FullscreenTextListener
 import com.chunkzero.window.host.OpenFullscreen
 import net.kyori.adventure.text.Component
 import net.minestom.server.component.DataComponents
@@ -13,6 +14,7 @@ import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Metadata
 import net.minestom.server.entity.MetadataDef
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.entity.metadata.display.AbstractDisplayMeta
 import net.minestom.server.entity.metadata.display.TextDisplayMeta
@@ -28,6 +30,7 @@ import net.minestom.server.item.Material
 import net.minestom.server.network.packet.client.play.ClientAnimationPacket
 import net.minestom.server.network.packet.client.play.ClientAttackPacket
 import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket
+import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket
 import net.minestom.server.network.packet.client.play.ClientInputPacket
 import net.minestom.server.network.packet.client.play.ClientInteractEntityPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerActionPacket
@@ -39,6 +42,7 @@ import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
 import net.minestom.server.network.packet.server.play.EntityAttributesPacket
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
+import net.minestom.server.network.packet.server.play.HeldItemChangePacket
 import net.minestom.server.network.packet.server.play.OpenWindowPacket
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
@@ -58,8 +62,9 @@ import net.minestom.server.world.clock.WorldClock
  * child of their event node.
  *
  * The server keeps the player in spectator mode, pinned at their position facing yaw and pitch 0. Their client alone is
- * told it is in survival, flying at zero speed, so the scroll wheel and number keys change the held slot. A client-only
- * interaction entity encloses the eye, so every left click attacks it without a miss cooldown.
+ * told it is in survival, flying at zero speed, so the scroll wheel and number keys change the held slot, which is
+ * reported as steps and never applied to the server's player. A client-only interaction entity encloses the eye, so
+ * every left click attacks it without a miss cooldown, and every right click interacts with it once, with the main hand.
  *
  * The HUD is hidden: the hotbar holds blank items, which also hide the hand, and the client's world age is held
  * negative, which the pack's GUI shader reads as "clip the bottom-centre HUD strip". So the hearts fit that strip, the
@@ -105,6 +110,10 @@ internal class MinestomFullscreen private constructor(
     private val lock = Any()
     private var open = false
 
+    /** The held slot the client has selected, which held-slot changes are measured from. Requires [lock]. */
+    private var clientSlot = heldSlot.toInt()
+    private val textInput = MinestomTextInput(player, ::deferWhileOpen)
+
     /** The window id of the server container the client has open, or [NO_CONTAINER]. */
     private var containerWindowId = NO_CONTAINER
     private val containerOpen get() = containerWindowId != NO_CONTAINER
@@ -125,6 +134,15 @@ internal class MinestomFullscreen private constructor(
         pitch: Float,
     ) {
         player.sendPacket(PlayerRotationPacket(yaw, true, pitch, true))
+    }
+
+    override fun openTextInput(
+        title: Component,
+        text: String,
+        listener: FullscreenTextListener,
+    ) {
+        check(isOpen()) { "The full-screen window of ${player.username} is closed" }
+        textInput.open(title, text, listener)
     }
 
     override fun close() {
@@ -266,8 +284,21 @@ internal class MinestomFullscreen private constructor(
                 player.scheduler().scheduleEndOfTick { if (isOpen()) listener.onClick() }
             }
 
+            is ClientInteractEntityPacket -> {
+                event.isCancelled = true
+                // The interaction entity consumes a main-hand use, so the client never tries the off hand.
+                if (packet.hand() == PlayerHand.MAIN) {
+                    player.scheduler().scheduleEndOfTick { if (isOpen()) listener.onRightClick() }
+                }
+            }
+
+            is ClientHeldItemChangePacket -> {
+                event.isCancelled = true
+                scroll(packet.slot().toInt())
+            }
+
             // Dropping or swapping hands would resync the real hotbar over the blank items.
-            is ClientAnimationPacket, is ClientInteractEntityPacket, is ClientPlayerActionPacket -> {
+            is ClientAnimationPacket, is ClientPlayerActionPacket -> {
                 event.isCancelled = true
             }
 
@@ -281,9 +312,21 @@ internal class MinestomFullscreen private constructor(
             }
 
             else -> {
-                Unit
+                textInput.onPacket(event)
             }
         }
+    }
+
+    /** Reports the client selecting [slot] as steps the shortest way around the hotbar from the slot it had. */
+    private fun scroll(slot: Int) {
+        if (slot !in 0 until HOTBAR_SIZE) return
+        val steps =
+            synchronized(lock) {
+                val from = clientSlot
+                clientSlot = slot
+                Math.floorMod(slot - from + HOTBAR_SIZE / 2, HOTBAR_SIZE) - HOTBAR_SIZE / 2
+            }
+        if (steps != 0) listener.onScroll(steps)
     }
 
     /** Keeps the HUD hidden and the client in fake survival after each of the server's own updates. */
@@ -322,6 +365,10 @@ internal class MinestomFullscreen private constructor(
 
                 is PlayerAbilitiesPacket -> {
                     if (packet != abilities) player.sendPacket(abilities)
+                }
+
+                is HeldItemChangePacket -> {
+                    clientSlot = packet.slot().toInt()
                 }
 
                 is SetPlayerInventorySlotPacket, is SetSlotPacket, is WindowItemsPacket -> {
@@ -390,6 +437,10 @@ internal class MinestomFullscreen private constructor(
 
     private fun isOpen() = synchronized(lock) { open }
 
+    private fun deferWhileOpen(task: () -> Unit) {
+        player.scheduler().scheduleNextTick { if (isOpen()) task() }
+    }
+
     /** Runs [action] under [lock] unless the window has stopped, so it cannot enqueue a packet after restoring. */
     private inline fun whileOpen(action: () -> Unit) {
         synchronized(lock) { if (open) action() }
@@ -413,6 +464,7 @@ internal class MinestomFullscreen private constructor(
         }
 
     private fun restore() {
+        textInput.close()
         player.sendPacket(DestroyEntitiesPacket(listOf(display.entityId, clickTarget.entityId)))
         // A mode the server set while the window was open replaces the one it began with.
         val mode = player.gameMode.takeUnless { it == GameMode.SPECTATOR } ?: gameMode

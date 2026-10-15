@@ -2,6 +2,7 @@ package com.chunkzero.window
 
 import com.chunkzero.window.host.FullscreenHost
 import com.chunkzero.window.host.FullscreenListener
+import com.chunkzero.window.host.FullscreenTextListener
 import com.chunkzero.window.host.OpenFullscreen
 import com.chunkzero.window.internal.Turn
 import com.chunkzero.window.manifest.FullscreenMode
@@ -130,6 +131,40 @@ class FullscreenSessionTest :
             host.turns shouldContainExactly listOf(Turn(-5f, 0f), Turn(-5f, 0f))
         }
 
+        "right clicks and scroll steps reach their handlers, right clicks at the cursor" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+
+            host.look(200, 200)
+            host.listener.onRightClick()
+            host.listener.onScroll(1)
+            host.listener.onScroll(-3)
+
+            menu.rightClicks shouldContainExactly listOf(FullscreenClick(200, 200))
+            menu.scrolls shouldContainExactly listOf(1, -3)
+        }
+
+        "a text prompt keeps each full field and opens a fresh anvil, reporting the whole text" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+            val full = "a".repeat(50)
+
+            menu.prompt(full + "bc")
+            host.inputs.single().text shouldBe "bc"
+            host.text.onEdit("bcd")
+            host.text.onEdit(full)
+            host.inputs.map { it.text } shouldContainExactly listOf("bc", "")
+            host.text.onEdit("e")
+            host.text.onSubmit()
+
+            menu.edits shouldContainExactly listOf(full + "bcd", full + full, full + full + "e")
+            menu.prompts shouldContainExactly listOf(full + full + "e")
+            menu.prompt("x")
+            shouldThrow<IllegalStateException> { menu.prompt("y") }
+            host.text.onCancel()
+            menu.prompts shouldContainExactly listOf(full + full + "e", null)
+        }
+
         "horse mode is refused" {
             val host = FakeFullscreenHost()
             shouldThrow<IllegalStateException> { Menu(host, FullscreenMode.HORSE).open() }
@@ -146,6 +181,10 @@ private class Menu(
     var plays = 0
     var secrets = 0
     var closes = 0
+    val rightClicks = mutableListOf<FullscreenClick>()
+    val scrolls = mutableListOf<Int>()
+    val edits = mutableListOf<String>()
+    val prompts = mutableListOf<String?>()
 
     override fun FullscreenScope.bind() {
         slot("count") { Component.text("N$count") }
@@ -155,7 +194,11 @@ private class Menu(
             count++
         }
         button("secret") { secrets++ }
+        rightClick { rightClicks += it }
+        scroll { scrolls += it }
     }
+
+    fun prompt(initial: String) = promptText(initial = initial, onEdit = { edits += it }) { prompts += it }
 
     override fun onClose() {
         closes++
@@ -168,8 +211,13 @@ private class FakeFullscreenHost :
     val scheduler = ManualScheduler()
     val shown = mutableListOf<Component>()
     val turns = mutableListOf<Turn>()
+    val inputs = mutableListOf<TextInput>()
     var closes = 0
     lateinit var listener: FullscreenListener
+
+    /** The listener of the latest text input. */
+    val text: FullscreenTextListener
+        get() = inputs.last().listener
 
     override val latencyMillis = 50
 
@@ -196,6 +244,14 @@ private class FakeFullscreenHost :
         turns += Turn(yaw, pitch)
     }
 
+    override fun openTextInput(
+        title: Component,
+        text: String,
+        listener: FullscreenTextListener,
+    ) {
+        inputs += TextInput(text, listener)
+    }
+
     override fun close() {
         closes++
     }
@@ -209,6 +265,11 @@ private class FakeFullscreenHost :
         listener.onLook(yaw, pitch)
     }
 }
+
+private data class TextInput(
+    val text: String,
+    val listener: FullscreenTextListener,
+)
 
 private data class Run(
     val color: TextColor?,

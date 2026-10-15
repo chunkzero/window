@@ -12,8 +12,8 @@ import kotlin.properties.ReadWriteProperty
  * reacts to lifecycle events.
  *
  * A view shows [definition] to the player of [host] and is single-use: [open] it once. The player aims a cursor by
- * turning, clicks with the attack key, and leaves by sneaking. Reactive [state] cells read inside render lambdas
- * re-render the window when written.
+ * turning, clicks with the attack and use keys, scrolls, types into a [promptText] anvil, and leaves by sneaking.
+ * Reactive [state] cells read inside render lambdas re-render the window when written.
  */
 public abstract class FullscreenView(
     private val definition: FullscreenDefinition,
@@ -72,6 +72,29 @@ public abstract class FullscreenView(
      */
     protected fun refresh() {
         requireSession().refreshAll()
+    }
+
+    /**
+     * Opens an anvil titled [title] over the canvas for the player to type into, starting from [initial].
+     *
+     * [onEdit] receives the whole text after each edit. [onDone] receives it once the player clicks the anvil's result
+     * slot, or `null` once they close the anvil; the canvas is back by then. Neither runs after the window closes. While
+     * the anvil is open, the player sees their real hotbar and HUD, and the cursor stays where it was.
+     *
+     * The anvil's rename field holds 50 characters. When it fills, its text is kept and a fresh anvil opens with an empty
+     * field, so the text can grow past 50 characters, but only the part after the last 50-character boundary is shown
+     * and editable. Keys pressed before the fresh anvil arrives are lost.
+     *
+     * @throws IllegalStateException if the view is not open, a prompt is already open, or the host could not open the
+     *   anvil, for example while another container is open.
+     */
+    protected fun promptText(
+        title: Component = Component.empty(),
+        initial: String = "",
+        onEdit: (String) -> Unit = {},
+        onDone: (String?) -> Unit,
+    ) {
+        requireSession().promptText(title, initial, onEdit, onDone)
     }
 
     /**

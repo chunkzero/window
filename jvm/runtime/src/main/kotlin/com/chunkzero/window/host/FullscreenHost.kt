@@ -41,8 +41,24 @@ public interface OpenFullscreen {
     )
 
     /**
-     * Server-initiated close: stops listening, removes the display, and restores the player's game mode, abilities,
-     * position, held slot, and HUD. Does not call [FullscreenListener.onClose].
+     * Opens an anvil titled [title] over the canvas, with [text] in its rename field, and reports its input to
+     * [listener] until it closes. While it is open, the client has its real world age and hotbar; the HUD is hidden
+     * again once it closes.
+     *
+     * Called while an anvil is open, it opens a fresh one in its place reporting to [listener], without reporting the
+     * old one's end. Edits made on an earlier anvil, and the client's echo of [text], are not reported.
+     *
+     * @throws IllegalStateException if another container is open or an inventory listener cancelled the anvil.
+     */
+    public fun openTextInput(
+        title: Component,
+        text: String,
+        listener: FullscreenTextListener,
+    )
+
+    /**
+     * Server-initiated close: stops listening, closes an open anvil, removes the display, and restores the player's game
+     * mode, abilities, position, held slot, and HUD. Does not call [FullscreenListener.onClose].
      */
     public fun close()
 }
@@ -58,9 +74,33 @@ public interface FullscreenListener {
     /** A left click, reported after every rotation the client sent in the same tick. */
     public fun onClick()
 
+    /** A right click, reported after every rotation the client sent in the same tick. */
+    public fun onRightClick()
+
+    /**
+     * The client's held slot moved by [steps], from -4 to 4 and never 0, taken the shortest way around the hotbar;
+     * positive steps move right. The scroll wheel and the number keys both move it, at most once per tick.
+     */
+    public fun onScroll(steps: Int)
+
     /**
      * The player left the window, by sneaking or disconnecting. Listening has stopped, and the player is restored
      * unless they disconnected.
      */
     public fun onClose()
+}
+
+/** Input from the anvil that [OpenFullscreen.openTextInput] opened. */
+public interface FullscreenTextListener {
+    /** The player changed the rename field to [text]. */
+    public fun onEdit(text: String)
+
+    /** The player clicked the anvil's result slot. The anvil has closed. */
+    public fun onSubmit()
+
+    /**
+     * The anvil closed without a submit: the player closed it, or another inventory replaced it. Reported on the next
+     * tick, and only while the full-screen window is open.
+     */
+    public fun onCancel()
 }

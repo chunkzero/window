@@ -16,14 +16,17 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Metadata
 import net.minestom.server.entity.MetadataDef
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.player.PlayerPacketEvent
@@ -34,17 +37,24 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.ConnectionState
 import net.minestom.server.network.packet.client.ClientPacket
+import net.minestom.server.network.packet.client.common.ClientPongPacket
 import net.minestom.server.network.packet.client.play.ClientAttackPacket
+import net.minestom.server.network.packet.client.play.ClientClickWindowPacket
 import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket
+import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket
 import net.minestom.server.network.packet.client.play.ClientInputPacket
+import net.minestom.server.network.packet.client.play.ClientInteractEntityPacket
+import net.minestom.server.network.packet.client.play.ClientNameItemPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.ServerPacket
+import net.minestom.server.network.packet.server.common.PingPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
 import net.minestom.server.network.packet.server.play.EntityAttributesPacket
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
+import net.minestom.server.network.packet.server.play.HeldItemChangePacket
 import net.minestom.server.network.packet.server.play.OpenWindowPacket
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
@@ -134,6 +144,93 @@ class MinestomFullscreenTest :
             fixture.player.scheduler().processTickEnd()
 
             menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
+        }
+
+        "held-slot changes are steps the shortest way around the hotbar, from the slot the client last had" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+
+            fixture.receive(ClientHeldItemChangePacket(1))
+            fixture.receive(ClientHeldItemChangePacket(8))
+            fixture.send(HeldItemChangePacket(5))
+            fixture.receive(ClientHeldItemChangePacket(6))
+
+            menu.scrolls shouldContainExactly listOf(1, -2, 1)
+            fixture.player.heldSlot shouldBe 0.toByte()
+        }
+
+        "a main-hand right click is reported at the end of the player's tick" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+
+            fixture.receive(ClientInteractEntityPacket(0, PlayerHand.MAIN, Vec.ZERO, false))
+            fixture.receive(ClientInteractEntityPacket(0, PlayerHand.OFF, Vec.ZERO, false))
+            fixture.receive(ClientPlayerRotationPacket(-44f, -24.375f, 0.toByte()))
+            fixture.player.scheduler().processTickEnd()
+
+            menu.rightClicks shouldContainExactly listOf(FullscreenClick(5, 5))
+        }
+
+        "a text input opens an anvil, ignores renames until its ping returns, and submits from the result slot" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            menu.open()
+            fixture.tick()
+            fixture.clear()
+
+            menu.prompt("hi")
+            val anvil = fixture.sent<OpenWindowPacket>().single()
+            anvil.windowType() shouldBe InventoryType.ANVIL.windowType
+            fixture.sent<SetTimePacket>().single() shouldBe player.instance.createTimePacket()
+            fixture.seed(anvil.windowId()) shouldBe "hi"
+            fixture.receive(ClientNameItemPacket("earlier"))
+            fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
+            fixture.receive(ClientNameItemPacket("hi"))
+            fixture.receive(ClientNameItemPacket("hey"))
+            menu.edits shouldContainExactly listOf("hey")
+
+            // A full field reopens the same anvil with an empty one.
+            val full = "a".repeat(50)
+            fixture.clear()
+            fixture.receive(ClientNameItemPacket(full))
+            fixture.sent<OpenWindowPacket>().single().windowId() shouldBe anvil.windowId()
+            fixture.seed(anvil.windowId()) shouldBe ""
+            fixture.receive(ClientNameItemPacket(full.drop(1)))
+            fixture.receive(ClientPongPacket(fixture.sent<PingPacket>().single().id()))
+            fixture.receive(ClientNameItemPacket("b"))
+            menu.edits shouldContainExactly listOf("hey", full, full + "b")
+
+            fixture.clear()
+            fixture.receive(fixture.click(anvil.windowId(), 0))
+            fixture.seed(anvil.windowId()) shouldBe "b"
+            fixture.receive(fixture.click(anvil.windowId(), 2))
+            menu.prompts shouldContainExactly listOf(full + "b")
+            player.openInventory shouldBe null
+            fixture.clear()
+            fixture.tick()
+            fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
+        }
+
+        "closing the anvil cancels the prompt on the next tick, and closing the window closes the anvil" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            val session = menu.open()
+
+            menu.prompt("")
+            player.closeInventory()
+            menu.prompts shouldBe emptyList()
+            fixture.tick()
+            menu.prompts shouldContainExactly listOf(null)
+
+            menu.prompt("")
+            session.close()
+            player.openInventory shouldBe null
+            fixture.tick()
+            menu.prompts shouldContainExactly listOf(null)
         }
 
         "sneaking leaves the window and restores the player" {
@@ -312,11 +409,19 @@ private class Menu(
     player: Player,
 ) : FullscreenView(FullscreenDefinition(manifest(), "menu"), MinestomFullscreenHost(player)) {
     val clicks = mutableListOf<FullscreenClick>()
+    val rightClicks = mutableListOf<FullscreenClick>()
+    val scrolls = mutableListOf<Int>()
+    val edits = mutableListOf<String>()
+    val prompts = mutableListOf<String?>()
     var closed = false
 
     override fun FullscreenScope.bind() {
         button("press") { clicks += it }
+        rightClick { rightClicks += it }
+        scroll { scrolls += it }
     }
+
+    fun prompt(initial: String) = promptText(initial = initial, onEdit = { edits += it }) { prompts += it }
 
     override fun onClose() {
         closed = true
@@ -357,6 +462,27 @@ private class FullscreenFixture {
     fun tick() = player.scheduler().processTick()
 
     fun receive(packet: ClientPacket) = EventDispatcher.call(PlayerPacketEvent(player, packet))
+
+    fun click(
+        windowId: Int,
+        slot: Int,
+    ) = ClientClickWindowPacket(
+        windowId,
+        0,
+        slot.toShort(),
+        0,
+        ClientClickWindowPacket.ClickType.PICKUP,
+        emptyMap(),
+        ItemStack.Hash.AIR,
+    )
+
+    /** The name of the paper in the first slot of window [windowId] as last sent. */
+    fun seed(windowId: Int): String? =
+        sent<WindowItemsPacket>()
+            .last { it.windowId() == windowId }
+            .items()[0]
+            .get(DataComponents.CUSTOM_NAME)
+            ?.let { PlainTextComponentSerializer.plainText().serialize(it) }
 
     /** Queues [packets] back to back, then writes them out the way the connection's writer thread does. */
     fun send(vararg packets: ServerPacket) {
