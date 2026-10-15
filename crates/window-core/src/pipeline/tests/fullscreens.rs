@@ -214,3 +214,26 @@ fn rejects_shadowed_text() {
     let error = compile(json!({ "name": "menu", "children": [label] })).unwrap_err().to_string();
     assert!(error.contains("fullscreen `menu` slot `title` sets `shadow`"), "{error}");
 }
+
+#[test]
+fn outlines_hovered_controls_and_emits_the_blank_item_model() {
+    let region = |id: &str, hover: bool, y: u32| {
+        let region = json!({ "type": "region", "on_click": { "kind": "action", "id": id }, "hover": hover });
+        json!({ "type": "flex", "x": 100, "y": y, "style": { "width": 40, "height": 20 }, "children": [region] })
+    };
+    let out =
+        compile(json!({ "name": "menu", "children": [region("play", true, 50), region("quit", false, 80)] })).unwrap();
+    let controls = &out.manifest.fullscreens["menu"].controls;
+    assert!(controls["play"].outline.as_ref().is_some_and(|text| !text.is_empty()));
+    assert_eq!(controls["quit"].outline, None);
+
+    let file = |path: &str| out.files.iter().find(|file| file.path == path).unwrap_or_else(|| panic!("{path}"));
+    let outline = file("assets/window/textures/font/fullscreen/window/menu_hover_0_0_0.png");
+    let outline = Texture::decode_png(outline.contents.as_bytes()).unwrap();
+    assert_eq!((outline.width, outline.height), (40, 20));
+    assert_eq!(outline.get(0, 0), [0xff; 4]);
+    assert_eq!(outline.get(39, 10), [0xff; 4]);
+    assert_eq!(outline.get(1, 1)[3], 0, "the interior is transparent");
+    let blank = file("assets/window/items/fullscreen/blank.json");
+    assert_eq!(blank.contents.as_bytes(), b"{\"model\":{\"type\":\"minecraft:empty\"}}\n");
+}

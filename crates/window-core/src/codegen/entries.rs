@@ -55,6 +55,7 @@ pub(super) fn control_entry_expr(control: &ControlEntry, level: usize) -> String
         .arg("action", optional_string_expr(control.action.as_ref()))
         .arg("defaultAction", optional_string_expr(control.default_action.as_ref()))
         .arg("hover", control.hover)
+        .arg("outline", optional_string_expr(control.outline.as_ref()))
         .arg("source", optional_string_expr(control.source.as_ref()))
         .finish()
 }

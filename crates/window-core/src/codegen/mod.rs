@@ -36,17 +36,25 @@ impl KotlinTarget {
         }
     }
 
+    /// The fully qualified full-screen host class built from a `Player`, or `None` when the caller supplies the host.
+    fn fullscreen_host(self) -> Option<&'static str> {
+        match self {
+            Self::Minestom => Some("com.chunkzero.window.minestom.MinestomFullscreenHost"),
+            Self::Agnostic | Self::Multistom => None,
+        }
+    }
+
     /// The Kotlin item type generated window members use.
     fn item_type(self) -> &'static str {
         if self.player_host().is_some() { "ItemStack" } else { "I" }
     }
 }
 
-/// Generate typed Kotlin view subclasses, one file per manifest window/HUD, and the pack data they bind to. Full-screen
-/// windows get entries and typed definitions.
+/// Generate typed Kotlin view subclasses, one file per manifest window, HUD, and full-screen window, and the pack data
+/// they bind to.
 pub fn generate_kotlin(manifest: &Manifest, package_name: &str, target: KotlinTarget) -> Result<Vec<OutputFile>> {
     naming::validate_package(package_name)?;
-    let mut files = Vec::with_capacity(8 + manifest.windows.len() + manifest.huds.len());
+    let mut files = Vec::with_capacity(10 + manifest.windows.len() + manifest.huds.len() + manifest.fullscreens.len());
     files.push(pack::generate_pack_data(manifest, package_name));
     files.push(pack::generate_spacers(manifest, package_name));
     files.push(pack::generate_fonts(manifest, package_name));
@@ -65,6 +73,9 @@ pub fn generate_kotlin(manifest: &Manifest, package_name: &str, target: KotlinTa
     }
     for (name, hud) in &manifest.huds {
         files.push(view::generate_hud(name, hud, package_name, target)?);
+    }
+    for (name, fullscreen) in &manifest.fullscreens {
+        files.push(view::generate_fullscreen(name, fullscreen, package_name, target)?);
     }
     files.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(files)

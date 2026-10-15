@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 
-use crate::ir::{Align, CLOSE_ACTION, Handle, HandleKind, HandleRole, HandleUse};
+use crate::ir::{Align, CLOSE_ACTION, FullscreenMode, Handle, HandleKind, HandleRole, HandleUse};
 use crate::manifest::{
-    AnvilInputEntry, CollectionEntry, FontMetricsEntry, HudEntry, HudSurfaceEntry, ItemEntry, Manifest, RegionEntry,
-    SlotAreaEntry, SlotEntry, SlotRefEntry, SpriteEntry, SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry, SwitchEntry,
-    VERSION, WindowEntry,
+    AnvilInputEntry, CollectionEntry, FontMetricsEntry, FullscreenEntry, FullscreenSurfaceEntry, HudEntry,
+    HudSurfaceEntry, ItemEntry, Manifest, RegionEntry, SlotAreaEntry, SlotEntry, SlotRefEntry, SpriteEntry,
+    SpriteSlotEntry, SurfaceEntry, SwitchCaseEntry, SwitchEntry, VERSION, WindowEntry,
 };
 use crate::pipeline::OutputFile;
 
@@ -449,4 +449,49 @@ fn runtime_actions_keep_their_entry_action() {
     let entries = file_contents(&files, "WindowEntries.kt");
     assert!(entries.contains("action = \"window:close\",\n"), "{entries}");
     assert!(entries.contains("defaultAction = \"window:close\",\n"), "{entries}");
+}
+
+#[test]
+fn fullscreen_views_take_a_fullscreen_host_and_receive_fullscreen_clicks() {
+    let mut buy = handle(HandleKind::Action, &[]);
+    buy.shape = vec![2];
+    buy.uses = (0..2)
+        .map(|i| HandleUse { role: HandleRole::Click, entry: format!("buy[{i}]"), at: vec![i], value: None })
+        .collect();
+    let menu = FullscreenEntry {
+        surface: FullscreenSurfaceEntry { kind: "fullscreen".into(), mode: FullscreenMode::Unlocked, size: [480, 270] },
+        static_text: String::new(),
+        static_marker: "#a00400".into(),
+        slots: BTreeMap::new(),
+        controls: BTreeMap::new(),
+        switches: BTreeMap::new(),
+        art: BTreeMap::new(),
+        tints: BTreeMap::new(),
+        layers: Vec::new(),
+        markers: BTreeMap::new(),
+        backdrop_marker: None,
+        handles: BTreeMap::from([
+            ("buy".into(), buy),
+            ("play".into(), handle(HandleKind::Action, &[(HandleRole::Click, "play")])),
+        ]),
+    };
+    let mut manifest = manifest(BTreeMap::new(), BTreeMap::new());
+    manifest.fullscreens = BTreeMap::from([("menu".into(), menu)]);
+
+    let files = generate_kotlin(&manifest, "com.chunkzero.window.generated", KotlinTarget::Agnostic).unwrap();
+    let content = file_contents(&files, "MenuFullscreen.kt");
+    assert!(
+        content.contains(
+            "public abstract class MenuFullscreen(host: FullscreenHost) : \
+             FullscreenView(WindowFullscreenDefinitions.menu, host) {"
+        ),
+        "{content}"
+    );
+    assert!(content.contains("import com.chunkzero.window.host.FullscreenHost\n"), "{content}");
+    assert!(!content.contains("IndexedClick") && !content.contains("import com.chunkzero.window.Click\n"), "{content}");
+    assert!(content.contains("protected abstract fun onPlay(click: FullscreenClick)"), "{content}");
+    assert!(content.contains("protected abstract fun onBuy(index: Int, click: FullscreenClick)"), "{content}");
+    assert!(content.contains("button(\"buy[$index]\") { click ->\n"), "{content}");
+    assert!(content.contains("onBuy(index, click)\n"), "{content}");
+    assert!(content.contains("button(\"play\", ::onPlay)"), "{content}");
 }
