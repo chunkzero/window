@@ -108,13 +108,15 @@ pub const CROSSHAIR_MARKER_ALPHA: u8 = 254;
 /// The sprite the crosshair pipeline draws, relative to the pack root.
 pub const CROSSHAIR_SPRITE_PATH: &str = "assets/minecraft/textures/gui/sprites/hud/crosshair.png";
 
-/// The distance in normalized device depth between adjacent layers.
-pub const LAYER_DEPTH_STEP: f64 = 0.0001;
+/// The distance in normalized device depth between adjacent layers: 2^-20, sixteen ulps of the 32-bit float depth
+/// buffer just below 1.0, so every layer's depth is exact in f32 and distinct once stored.
+pub const LAYER_DEPTH_STEP: f64 = 1.0 / 1_048_576.0;
 
 /// The normalized device depth of a layer, written to `gl_Position.z` with `w` of 1. The level projection is
-/// reversed, with the near plane at 1.0 and the far plane at or below 0.0. Layers sit below the near plane by a
-/// margin of at least one step, so the camera's tilt, bobbing, nausea, and FOV, which only transform what the
-/// projection maps, cannot clip them. Higher layers are nearer.
+/// reversed, with the near plane at 1.0 and the far plane at or below 0.0, so depth is about near / distance. All
+/// layers sit within 256 steps below the near plane, covering only geometry within about 1e-5 blocks of it, and at
+/// least one step below it, so the camera's tilt, bobbing, nausea, and FOV, which only transform what the projection
+/// maps, cannot clip them. Higher layers are nearer.
 pub fn layer_depth(layer: u8) -> f64 {
     1.0 - (f64::from(CURSOR_LAYER - layer) + 1.0) * LAYER_DEPTH_STEP
 }

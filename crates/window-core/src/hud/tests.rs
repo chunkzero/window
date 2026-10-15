@@ -156,16 +156,21 @@ fn fullscreen_depth_ignores_the_camera_projection() {
     let depth = &vertex[vertex.find("float window_fs_depth(int layer)").unwrap()..];
     let depth = &depth[..depth.find("\n}").unwrap()];
     assert!(!depth.contains("ProjMat"), "{depth}");
-    assert!(vertex.contains("const float WINDOW_FS_LAYER_DEPTH_STEP = 0.0001;"), "{vertex}");
+    let step = format!("const float WINDOW_FS_LAYER_DEPTH_STEP = {:?};", crate::fullscreen::LAYER_DEPTH_STEP);
+    assert!(vertex.contains(&step), "{vertex}");
 
-    // A tilted level projection can pull the near plane in front of a point just past it, so a projected layer
-    // clips. Every layer's depth is a fixed offset from the near plane, which no camera effect moves.
-    let (near, tilt) = (0.05_f64, 14.0_f64.to_radians());
-    let tilted_near_depth = near / (0.051 * tilt.cos());
-    assert!(tilted_near_depth > 1.0);
+    // Reversed-Z depth is about near / distance, so the layers cover only geometry within a sliver of the near plane:
+    // a particle a millimetre past it must be covered by the backdrop. Every layer survives the 32-bit float
+    // depth buffer as a distinct value below the near plane.
+    let near = 0.05_f64;
     let depths: Vec<f64> = (0..=255).map(crate::fullscreen::layer_depth).collect();
-    assert!(depths.windows(2).all(|pair| pair[0] < pair[1]), "layers are strictly ordered, nearer when higher");
-    assert!(depths[0] > 0.9 && depths[255] < 1.0, "{depths:?}");
+    let backdrop_distance = near / depths[0];
+    assert!(backdrop_distance - near < 2e-5, "{backdrop_distance}");
+    assert!(near / 0.051 < depths[0], "a nearby particle is covered by the backdrop");
+    assert!(depths[255] < 1.0, "{depths:?}");
+    let stored: Vec<f32> = depths.iter().map(|&depth| depth as f32).collect();
+    assert!(stored.windows(2).all(|pair| pair[0] < pair[1]), "layers are strictly ordered, nearer when higher");
+    assert!(stored.iter().zip(&depths).all(|(&stored, &depth)| f64::from(stored) == depth), "exact in f32");
 }
 
 #[test]

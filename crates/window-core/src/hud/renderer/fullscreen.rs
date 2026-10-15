@@ -49,7 +49,8 @@ vec2 window_fs_ndc(vec2 canvas) {
 }
 
 // The depth of a layer in normalized device coordinates, nearer for higher layers. The level projection is reversed,
-// with the near plane at 1.0, and the cursor layer sits one step below it. ProjMat is not consulted, since it carries
+// with the near plane at 1.0, and the layers fill the 256 steps just below it, so world geometry covers one only
+// within a negligible distance of the near plane. ProjMat is not consulted, since it carries
 // the hurt tilt, view bobbing, and nausea, which can move a projected point past the near plane and clip it.
 float window_fs_depth(int layer) {
     return 1.0 - float(WINDOW_FS_CURSOR_LAYER - layer + 1) * WINDOW_FS_LAYER_DEPTH_STEP;
