@@ -4,7 +4,6 @@ import com.chunkzero.window.FullscreenDefinition
 import com.chunkzero.window.host.FullscreenListener
 import com.chunkzero.window.host.OpenFullscreen
 import net.kyori.adventure.text.Component
-import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
@@ -34,6 +33,7 @@ import net.minestom.server.network.packet.client.play.ClientInteractEntityPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerActionPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerPositionAndRotationPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
+import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
@@ -44,9 +44,11 @@ import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
 import net.minestom.server.network.packet.server.play.PlayerRotationPacket
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
+import net.minestom.server.network.packet.server.play.SetSlotPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.network.packet.server.play.SpawnEntityPacket
 import net.minestom.server.network.packet.server.play.UpdateHealthPacket
+import net.minestom.server.network.packet.server.play.WindowItemsPacket
 import net.minestom.server.tag.Tag
 
 /**
@@ -60,7 +62,11 @@ import net.minestom.server.tag.Tag
  * The HUD is hidden: the hotbar holds blank items, which also hide the hand, and the client's world age is held
  * negative, which the pack's GUI shader reads as "clip the bottom-centre HUD strip". So the hearts fit that strip, the
  * client is told its max health is at most the canvas's `hudMaxHealth` and its absorption is 0. While the server has a
- * container open, the client gets the real world age back so the strip does not clip the container.
+ * container open, the client gets the real world age back and its real hotbar so the strip and slots show.
+ *
+ * While the window is open, outgoing game mode, abilities, hotbar, time, max health, and absorption updates are
+ * rewritten to keep that state. Those rewrites run on the connection's writer thread, so [lock] guards the lifecycle
+ * and container state: once the window stops, no rewrite can enqueue a packet after the restoring ones.
  */
 internal class MinestomFullscreen private constructor(
     private val player: Player,
@@ -84,8 +90,14 @@ internal class MinestomFullscreen private constructor(
     private val display = Entity(EntityType.TEXT_DISPLAY)
     private val clickTarget = Entity(EntityType.INTERACTION)
     private val node = EventNode.type("window-fullscreen", EventFilter.PLAYER)
+    private val survival = ChangeGameStatePacket(ChangeGameStatePacket.Reason.CHANGE_GAMEMODE, 0f)
+    private val abilities = PlayerAbilitiesPacket(ABILITY_FLAGS, 0f, WALKING_SPEED)
+    private val lock = Any()
     private var open = false
     private var containerOpen = false
+
+    /** Changes whenever a container opens or closes, so a deferred reaction to an earlier one can tell it is stale. */
+    private var containerEpoch = 0
 
     override val latencyMillis: Int
         get() = player.latency
@@ -112,14 +124,17 @@ internal class MinestomFullscreen private constructor(
         check(player.setGameMode(GameMode.SPECTATOR)) {
             "Opening a full-screen window for ${player.username} was cancelled by a game mode listener"
         }
-        open = true
+        synchronized(lock) {
+            open = true
+            containerOpen = player.openInventory != null
+        }
         player.setTag(ACTIVE, true)
         player.flyingSpeed = 0f
         player.teleport(anchor)
         // The game mode change also updated the client's own tab-list entry, so survival is faked after it.
-        player.scheduler().scheduleNextTick { if (open) fakeSurvival() }
+        player.scheduler().scheduleNextTick { whileOpen { fakeSurvival() } }
         spawn(content)
-        blankHotbar()
+        if (!containerOpen) blankHotbar()
         hideHud()
         listen()
     }
@@ -130,9 +145,7 @@ internal class MinestomFullscreen private constructor(
      * flight, so flight is granted again at zero speed.
      */
     private fun fakeSurvival() {
-        player.sendPacket(
-            ChangeGameStatePacket(ChangeGameStatePacket.Reason.CHANGE_GAMEMODE, GameMode.SURVIVAL.ordinal.toFloat()),
-        )
+        player.sendPacket(survival)
         val entry =
             PlayerInfoUpdatePacket.Entry(
                 player.uuid,
@@ -147,11 +160,7 @@ internal class MinestomFullscreen private constructor(
                 false,
             )
         player.sendPacket(PlayerInfoUpdatePacket(PlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, entry))
-        val flags =
-            PlayerAbilitiesPacket.FLAG_INVULNERABLE.toInt() or
-                PlayerAbilitiesPacket.FLAG_FLYING.toInt() or
-                PlayerAbilitiesPacket.FLAG_ALLOW_FLYING.toInt()
-        player.sendPacket(PlayerAbilitiesPacket(flags.toByte(), 0f, WALKING_SPEED))
+        player.sendPacket(abilities)
     }
 
     private fun spawn(content: Component) {
@@ -191,7 +200,7 @@ internal class MinestomFullscreen private constructor(
     }
 
     private fun hideHud() {
-        player.sendPacket(SetTimePacket(canvas.hudHiddenWorldAge, emptyMap()))
+        if (!containerOpen) player.sendPacket(SetTimePacket(canvas.hudHiddenWorldAge, emptyMap()))
         cappedMaxHealth()?.let { player.sendPacket(EntityAttributesPacket(player.entityId, listOf(it))) }
         player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to Metadata.Float(0f))))
     }
@@ -227,7 +236,7 @@ internal class MinestomFullscreen private constructor(
             is ClientAttackPacket -> {
                 event.isCancelled = true
                 // The client sends a click before the same tick's rotation.
-                MinecraftServer.getSchedulerManager().scheduleEndOfTick { if (open) listener.onClick() }
+                player.scheduler().scheduleEndOfTick { if (isOpen()) listener.onClick() }
             }
 
             // Dropping or swapping hands would resync the real hotbar over the blank items.
@@ -236,7 +245,7 @@ internal class MinestomFullscreen private constructor(
             }
 
             is ClientCloseWindowPacket -> {
-                containerClosed()
+                whileOpen { containerClosed() }
             }
 
             is ClientInputPacket -> {
@@ -249,54 +258,137 @@ internal class MinestomFullscreen private constructor(
         }
     }
 
-    /** Keeps the HUD hidden against the server's own time, attribute, and metadata updates. */
+    /** Keeps the HUD hidden and the client in fake survival against the server's own updates. */
     private fun onPacketOut(event: PlayerPacketOutEvent) {
-        when (val packet = event.packet) {
-            is SetTimePacket -> {
-                if (containerOpen || packet.gameTime() < 0) return
-                event.isCancelled = true
-                player.sendPacket(SetTimePacket(canvas.hudHiddenWorldAge, packet.clocks()))
-            }
+        whileOpen {
+            when (val packet = event.packet) {
+                is SetTimePacket -> {
+                    if (containerOpen || packet.gameTime() < 0) return
+                    replace(event, SetTimePacket(canvas.hudHiddenWorldAge, packet.clocks()))
+                }
 
-            is EntityAttributesPacket -> {
-                val capped = cappedMaxHealth() ?: return
-                val properties = packet.properties()
-                if (packet.entityId() != player.entityId) return
-                if (properties.none { it.attribute() == Attribute.MAX_HEALTH && it != capped }) return
-                event.isCancelled = true
-                val clamped = properties.map { if (it.attribute() == Attribute.MAX_HEALTH) capped else it }
-                player.sendPacket(EntityAttributesPacket(player.entityId, clamped))
-            }
+                is EntityAttributesPacket -> {
+                    val capped = cappedMaxHealth() ?: return
+                    val properties = packet.properties()
+                    if (packet.entityId() != player.entityId) return
+                    if (properties.none { it.attribute() == Attribute.MAX_HEALTH && it != capped }) return
+                    val clamped = properties.map { if (it.attribute() == Attribute.MAX_HEALTH) capped else it }
+                    replace(event, EntityAttributesPacket(player.entityId, clamped))
+                }
 
-            is EntityMetaDataPacket -> {
-                if (packet.entityId() != player.entityId) return
-                val absorption = packet.entries()[ABSORPTION]?.value() ?: return
-                if (absorption == 0f) return
-                event.isCancelled = true
-                player.sendPacket(EntityMetaDataPacket(player.entityId, packet.entries() + (ABSORPTION to ZERO)))
-            }
+                is EntityMetaDataPacket -> {
+                    if (packet.entityId() != player.entityId) return
+                    val absorption = packet.entries()[ABSORPTION]?.value() ?: return
+                    if (absorption == 0f) return
+                    replace(event, EntityMetaDataPacket(player.entityId, packet.entries() + (ABSORPTION to ZERO)))
+                }
 
-            is OpenWindowPacket -> {
-                containerOpen = true
-                player.sendPacket(SetTimePacket(player.instance.worldAge, emptyMap()))
-            }
+                is ChangeGameStatePacket -> {
+                    if (packet.reason() != survival.reason() || packet.value() == survival.value()) return
+                    replace(event, survival)
+                }
 
-            is CloseWindowPacket -> {
-                player.scheduler().scheduleNextTick { if (open) containerClosed() }
-            }
+                is PlayerInfoUpdatePacket -> {
+                    if (PlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE !in packet.actions()) return
+                    if (packet.entries().none { it.isOwnNonSurvival() }) return
+                    val entries = packet.entries().map { if (it.isOwnNonSurvival()) it.withSurvival() else it }
+                    replace(event, PlayerInfoUpdatePacket(packet.actions(), entries))
+                }
 
-            else -> {
-                Unit
+                is PlayerAbilitiesPacket -> {
+                    if (packet != abilities) replace(event, abilities)
+                }
+
+                is SetPlayerInventorySlotPacket, is SetSlotPacket, is WindowItemsPacket -> {
+                    if (!containerOpen) blankedHotbar(packet)?.let { replace(event, it) }
+                }
+
+                is OpenWindowPacket -> {
+                    containerOpen = true
+                    containerEpoch++
+                    player.sendPacket(SetTimePacket(player.instance.worldAge, emptyMap()))
+                }
+
+                is CloseWindowPacket -> {
+                    // The close packet is sent after this event, so the hidden time must follow it.
+                    val epoch = containerEpoch
+                    player.scheduler().scheduleNextTick { whileOpen { if (epoch == containerEpoch) containerClosed() } }
+                }
+
+                else -> {
+                    Unit
+                }
             }
         }
     }
 
+    /** Cancels the outgoing packet and sends [replacement], which the same rewrite leaves unchanged. */
+    private fun replace(
+        event: PlayerPacketOutEvent,
+        replacement: ServerPacket,
+    ) {
+        event.isCancelled = true
+        player.sendPacket(replacement)
+    }
+
+    private fun PlayerInfoUpdatePacket.Entry.isOwnNonSurvival() =
+        uuid() == player.uuid && gameMode() != GameMode.SURVIVAL
+
+    private fun PlayerInfoUpdatePacket.Entry.withSurvival() =
+        PlayerInfoUpdatePacket.Entry(
+            uuid(),
+            username(),
+            properties(),
+            listed(),
+            latency(),
+            GameMode.SURVIVAL,
+            displayName(),
+            chatSession(),
+            listOrder(),
+            displayHat(),
+        )
+
+    /** [packet] with its player-inventory hotbar items blanked, or `null` when it holds none that differ. */
+    private fun blankedHotbar(packet: ServerPacket): ServerPacket? =
+        when {
+            packet is SetPlayerInventorySlotPacket && packet.slot() in 0 until HOTBAR_SIZE &&
+                packet.itemStack() != blank -> {
+                SetPlayerInventorySlotPacket(packet.slot(), blank)
+            }
+
+            packet is SetSlotPacket && packet.windowId() == 0 && packet.slot().toInt() in WINDOW_HOTBAR &&
+                packet.itemStack() != blank -> {
+                SetSlotPacket(0, packet.stateId(), packet.slot(), blank)
+            }
+
+            packet is WindowItemsPacket && packet.windowId() == 0 &&
+                packet.items().withIndex().any { it.isRealHotbarItem() } -> {
+                val items = packet.items().mapIndexed { slot, item -> if (slot in WINDOW_HOTBAR) blank else item }
+                WindowItemsPacket(0, packet.stateId(), items, packet.carriedItem())
+            }
+
+            else -> {
+                null
+            }
+        }
+
+    private fun IndexedValue<ItemStack>.isRealHotbarItem() = index in WINDOW_HOTBAR && value != blank
+
+    /** Hides the HUD again once the server's container is gone. Requires [lock]. */
     private fun containerClosed() {
         if (!containerOpen) return
         containerOpen = false
+        val epoch = ++containerEpoch
         player.sendPacket(SetTimePacket(canvas.hudHiddenWorldAge, emptyMap()))
-        // Closing a container resyncs the real hotbar after this tick's packets.
-        player.scheduler().scheduleNextTick { if (open) blankHotbar() }
+        // Closing a container resyncs the real hotbar after this tick's packets, unless another container opened since.
+        player.scheduler().scheduleNextTick { whileOpen { if (epoch == containerEpoch) blankHotbar() } }
+    }
+
+    private fun isOpen() = synchronized(lock) { open }
+
+    /** Runs [action] under [lock] unless the window has stopped, so it cannot enqueue a packet after restoring. */
+    private inline fun whileOpen(action: () -> Unit) {
+        synchronized(lock) { if (open) action() }
     }
 
     /** Ends the window after the player left it, restoring them unless they disconnected. */
@@ -307,19 +399,24 @@ internal class MinestomFullscreen private constructor(
     }
 
     /** Stops listening; false when already stopped. */
-    private fun stop(): Boolean {
-        if (!open) return false
-        open = false
-        player.eventNode().removeChild(node)
-        player.removeTag(ACTIVE)
-        return true
-    }
+    private fun stop(): Boolean =
+        synchronized(lock) {
+            if (!open) return false
+            open = false
+            player.eventNode().removeChild(node)
+            player.removeTag(ACTIVE)
+            true
+        }
 
     private fun restore() {
         player.sendPacket(DestroyEntitiesPacket(listOf(display.entityId, clickTarget.entityId)))
-        player.setGameMode(gameMode)
-        player.isAllowFlying = allowFlying
-        player.isFlying = flying
+        // A mode the server set while the window was open replaces the one it began with.
+        val mode = player.gameMode.takeUnless { it == GameMode.SPECTATOR } ?: gameMode
+        player.setGameMode(mode)
+        if (mode == gameMode) {
+            player.isAllowFlying = allowFlying
+            player.isFlying = flying
+        }
         player.flyingSpeed = flyingSpeed
         player.teleport(position)
         player.sendPacket(SetTimePacket(player.instance.worldAge, emptyMap()))
@@ -337,6 +434,15 @@ internal class MinestomFullscreen private constructor(
         private val ABSORPTION = MetadataDef.Player.ADDITIONAL_HEARTS.index()
         private val ZERO = Metadata.Float(0f)
         private const val HOTBAR_SIZE = 9
+
+        /** The hotbar's slots in the player inventory window, which follows crafting, armor, and the main grid. */
+        private val WINDOW_HOTBAR = 36..44
+        private val ABILITY_FLAGS =
+            (
+                PlayerAbilitiesPacket.FLAG_INVULNERABLE.toInt() or
+                    PlayerAbilitiesPacket.FLAG_FLYING.toInt() or
+                    PlayerAbilitiesPacket.FLAG_ALLOW_FLYING.toInt()
+            ).toByte()
         private const val WALKING_SPEED = 0.1f
 
         /** The side of the interaction cube centred on the eye. */

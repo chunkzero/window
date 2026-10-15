@@ -28,15 +28,20 @@ import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerPacketOutEvent
+import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
+import net.minestom.server.item.ItemStack
+import net.minestom.server.item.Material
 import net.minestom.server.network.ConnectionState
 import net.minestom.server.network.packet.client.ClientPacket
 import net.minestom.server.network.packet.client.play.ClientAttackPacket
+import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket
 import net.minestom.server.network.packet.client.play.ClientInputPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
+import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
 import net.minestom.server.network.packet.server.play.EntityAttributesPacket
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
@@ -44,8 +49,10 @@ import net.minestom.server.network.packet.server.play.OpenWindowPacket
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
+import net.minestom.server.network.packet.server.play.SetSlotPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.network.packet.server.play.SpawnEntityPacket
+import net.minestom.server.network.packet.server.play.WindowItemsPacket
 import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
 import java.net.InetSocketAddress
@@ -111,7 +118,7 @@ class MinestomFullscreenTest :
                 .value() shouldBe 40.0
         }
 
-        "a click is hit-tested at the end of the tick, after the rotation the client sent with it" {
+        "a click is hit-tested at the end of the player's tick, after the rotation the client sent with it" {
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             menu.open()
@@ -120,7 +127,7 @@ class MinestomFullscreenTest :
             // Canvas pixel (5, 5): the button's top-left corner.
             fixture.receive(ClientPlayerRotationPacket(-44f, -24.375f, 0.toByte()))
             menu.clicks shouldBe emptyList()
-            MinecraftServer.getSchedulerManager().processTickEnd()
+            fixture.player.scheduler().processTickEnd()
 
             menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
         }
@@ -169,6 +176,88 @@ class MinestomFullscreenTest :
             fixture.sendOut(OpenWindowPacket(1, InventoryType.CHEST_1_ROW.ordinal, Component.empty())) shouldBe true
             fixture.sent<SetTimePacket>().single().gameTime() shouldBe player.instance.worldAge
             fixture.sendOut(SetTimePacket(100, emptyMap())) shouldBe true
+        }
+
+        "game mode, abilities, and hotbar updates are rewritten while open, and a changed mode survives closing" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val session = Menu(player).open()
+            fixture.clear()
+
+            fixture.sendOut(ChangeGameStatePacket(ChangeGameStatePacket.Reason.CHANGE_GAMEMODE, 1f)) shouldBe false
+            val survival = fixture.sent<ChangeGameStatePacket>().single()
+            survival.value() shouldBe 0f
+            fixture.sendOut(survival) shouldBe true
+            val creative =
+                PlayerInfoUpdatePacket.Entry(
+                    player.uuid,
+                    "",
+                    emptyList(),
+                    false,
+                    0,
+                    GameMode.CREATIVE,
+                    null,
+                    null,
+                    0,
+                    false,
+                )
+            fixture.sendOut(PlayerInfoUpdatePacket(PlayerInfoUpdatePacket.Action.UPDATE_GAME_MODE, creative)) shouldBe
+                false
+            fixture
+                .sent<PlayerInfoUpdatePacket>()
+                .single()
+                .entries()
+                .single()
+                .gameMode() shouldBe GameMode.SURVIVAL
+            fixture.sendOut(PlayerAbilitiesPacket(0x0F, 0.05f, 0.1f)) shouldBe false
+            fixture.sent<PlayerAbilitiesPacket>().single().flyingSpeed() shouldBe 0f
+
+            fixture.clear()
+            val diamond = ItemStack.of(Material.DIAMOND)
+            fixture.sendOut(SetPlayerInventorySlotPacket(2, diamond)) shouldBe false
+            fixture
+                .sent<SetPlayerInventorySlotPacket>()
+                .single()
+                .itemStack()
+                .material() shouldBe Material.PAPER
+            fixture.sendOut(SetSlotPacket(0, 1, 38, diamond)) shouldBe false
+            fixture
+                .sent<SetSlotPacket>()
+                .single()
+                .itemStack()
+                .material() shouldBe Material.PAPER
+            fixture.sendOut(WindowItemsPacket(0, 1, List(46) { diamond }, ItemStack.AIR)) shouldBe false
+            fixture
+                .sent<WindowItemsPacket>()
+                .single()
+                .items()
+                .map { it.material() } shouldBe List(46) { if (it in 36..44) Material.PAPER else Material.DIAMOND }
+
+            player.setGameMode(GameMode.CREATIVE)
+            session.close()
+            player.gameMode shouldBe GameMode.CREATIVE
+            fixture.sendOut(SetTimePacket(100, emptyMap())) shouldBe true
+            fixture.sendOut(SetPlayerInventorySlotPacket(2, diamond)) shouldBe true
+        }
+
+        "a deferred container close is dropped once another container has opened" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            player.openInventory(Inventory(InventoryType.CHEST_1_ROW, Component.empty()))
+            fixture.clear()
+            Menu(player).open()
+            fixture.sent<SetTimePacket>() shouldBe emptyList()
+            fixture.sent<SetPlayerInventorySlotPacket>() shouldBe emptyList()
+
+            fixture.sendOut(CloseWindowPacket(1)) shouldBe true
+            fixture.sendOut(OpenWindowPacket(2, InventoryType.CHEST_1_ROW.ordinal, Component.empty())) shouldBe true
+            fixture.clear()
+            fixture.tick()
+            fixture.sent<SetTimePacket>() shouldBe emptyList()
+            fixture.sent<SetPlayerInventorySlotPacket>() shouldBe emptyList()
+
+            fixture.receive(ClientCloseWindowPacket(2))
+            fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
         }
     }) {
     private companion object {
