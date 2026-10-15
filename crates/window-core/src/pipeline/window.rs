@@ -6,7 +6,7 @@ use crate::compose::Composite;
 use crate::geometry::{Point, Rect};
 use crate::ir::{Align, LaidOutWindow, Rgb, SlotIr, sprite_slot_only, tint_palettes};
 use crate::manifest::{SlotEntry, SlotLinesEntry, SpriteSlotEntry, SurfaceEntry, TextOverflow, WindowEntry};
-use crate::size::{Pane, Part};
+use crate::size::{Pane, PaneKind, Part};
 use crate::surface::Surface;
 use crate::{Result, bake};
 
@@ -48,7 +48,7 @@ pub(super) fn compile_window(ctx: &mut CompileContext<'_>, w: &LaidOutWindow, la
 }
 
 fn pane(w: &LaidOutWindow) -> Pane<'_> {
-    Pane { hud: false, name: &w.name }
+    Pane { kind: PaneKind::Window, name: &w.name }
 }
 
 fn bake_static(

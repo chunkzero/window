@@ -166,7 +166,7 @@ pub fn render(project: &ParsedProject, input: &CompileInput, requests: &[Preview
                     .ok_or_else(|| fail(preview, format!("there is no window `{name}`")))?;
                 let pane = Pane::window(window);
                 pane.bounds().into_rect(preview, scale)?;
-                let mut composites = compose_layers(&[window], &[], &textures)?;
+                let mut composites = compose_layers(&[window], &[], &[], &textures)?;
                 let mut layers = composites.windows.remove(0);
                 anvil::open_field(window, &mut layers, &mut Vec::new());
                 scene.draw(request, &pane, &layers)?
@@ -178,7 +178,7 @@ pub fn render(project: &ParsedProject, input: &CompileInput, requests: &[Preview
                     .ok_or_else(|| fail(preview, format!("there is no HUD `{name}`")))?;
                 let pane = Pane::hud(hud);
                 pane.bounds().into_rect(preview, scale)?;
-                let mut composites = compose_layers(&[], &[hud], &textures)?;
+                let mut composites = compose_layers(&[], &[hud], &[], &textures)?;
                 scene.draw(request, &pane, &composites.huds.remove(0))?
             }
         };

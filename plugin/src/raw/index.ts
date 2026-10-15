@@ -6,6 +6,7 @@ export {
     bar,
     box,
     collection,
+    fullscreen,
     hud,
     image,
     input,

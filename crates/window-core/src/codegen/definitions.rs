@@ -1,16 +1,17 @@
-//! Compiled UI entries (`WindowEntries`, `WindowHudEntries`) and the typed definitions
-//! (`WindowDefinitions`, `WindowHudDefinitions`) views are constructed from.
+//! Compiled UI entries (`WindowEntries`, `WindowHudEntries`, `WindowFullscreenEntries`) and the typed definitions
+//! (`WindowDefinitions`, `WindowHudDefinitions`, `WindowFullscreenDefinitions`) views are constructed from.
 
 use std::collections::BTreeMap;
 
-use crate::manifest::{ArtEntry, HudEntry, Manifest, SlotEntry, WindowEntry};
+use crate::manifest::{ArtEntry, FullscreenEntry, HudEntry, Manifest, SlotEntry, WindowEntry};
 use crate::pipeline::OutputFile;
 use crate::{Error, Result};
 
 use super::entries::{
-    anvil_input_entry_expr, art_entry_expr, collection_entry_expr, hud_surface_entry_expr, item_entry_expr,
-    layers_expr, optional_hud_shader_entry_expr, region_entry_expr, slot_entry_expr, sprite_slot_entry_expr,
-    strings_map, surface_entry_expr, switch_entry_expr,
+    anvil_input_entry_expr, art_entry_expr, collection_entry_expr, control_entry_expr, fullscreen_canvas_entry_expr,
+    fullscreen_surface_entry_expr, hud_surface_entry_expr, item_entry_expr, layers_expr,
+    optional_hud_shader_entry_expr, region_entry_expr, slot_entry_expr, sprite_slot_entry_expr, strings_map,
+    surface_entry_expr, switch_entry_expr,
 };
 use super::literals::{kt_string, string_map};
 use super::naming;
@@ -24,6 +25,16 @@ pub(super) fn generate_window_definitions(manifest: &Manifest, package_name: &st
 
 pub(super) fn generate_hud_definitions(manifest: &Manifest, package_name: &str) -> Result<OutputFile> {
     typed_definitions(package_name, "WindowHudDefinitions", "HudDefinition", "HUD", manifest.huds.keys())
+}
+
+pub(super) fn generate_fullscreen_definitions(manifest: &Manifest, package_name: &str) -> Result<OutputFile> {
+    typed_definitions(
+        package_name,
+        "WindowFullscreenDefinitions",
+        "FullscreenDefinition",
+        "full-screen window",
+        manifest.fullscreens.keys(),
+    )
 }
 
 /// An `object` with one `class` property per UI name, resolved against `WindowPackData.manifest`.
@@ -186,4 +197,67 @@ fn hud_entry_expr(hud: &HudEntry, level: usize) -> String {
     };
     let call = with_art(call, &hud.art, &hud.tints, inner);
     if hud.layers.is_empty() { call } else { call.arg("layers", layers_expr(&hud.layers, inner)) }.finish()
+}
+
+/// The full-screen entries and the canvas contract, or `None` for a pack without full-screen windows.
+pub(super) fn generate_fullscreen_entries(manifest: &Manifest, package_name: &str) -> Option<OutputFile> {
+    let canvas = manifest.fullscreen_canvas.as_ref()?;
+    let entries = manifest.fullscreens.values();
+    let any = |test: &dyn Fn(&FullscreenEntry) -> bool| entries.clone().any(test);
+    let any_slot = |test: &dyn Fn(&SlotEntry) -> bool| any(&|f| f.slots.values().any(test));
+    let switches = any(&|f| !f.switches.is_empty());
+    let layers = any(&|f| !f.layers.is_empty());
+    let imports = [
+        (any(&|f| !f.slots.is_empty()), "Align"),
+        (any(&|f| !f.art.is_empty()), "ArtEntry"),
+        (any(&|f| f.art.values().any(|art| art.bar.is_some())), "BarEntry"),
+        (any(&|f| !f.controls.is_empty()), "ControlEntry"),
+        (true, "CursorEntry"),
+        (true, "FullscreenCanvasEntry"),
+        (true, "FullscreenEntry"),
+        (true, "FullscreenMode"),
+        (true, "FullscreenSurfaceEntry"),
+        (layers, "LayerEntry"),
+        (layers, "LayerKind"),
+        (any(&|f| !f.slots.is_empty()), "SlotEntry"),
+        (any_slot(&|slot| slot.lines.is_some()), "SlotLinesEntry"),
+        (switches, "SwitchCaseEntry"),
+        (switches, "SwitchEntry"),
+        (any_slot(&|slot| slot.overflow.is_some()), "TextOverflow"),
+    ];
+    let imports = imports.into_iter().filter(|(used, _)| *used).map(|(_, name)| format!("{MANIFEST_PACKAGE}.{name}"));
+    let mut w = KotlinWriter::file(package_name, imports);
+    w.doc("Compiled full-screen entries and canvas contract of this Window pack.");
+    w.open("internal object WindowFullscreenEntries {");
+    w.property("val all: Map<String, FullscreenEntry>", string_map(&manifest.fullscreens, 2, fullscreen_entry_expr));
+    w.property("val canvas: FullscreenCanvasEntry", fullscreen_canvas_entry_expr(canvas, 2));
+    w.close("}");
+    Some(OutputFile::text("WindowFullscreenEntries.kt", w.finish()))
+}
+
+fn fullscreen_entry_expr(fullscreen: &FullscreenEntry, level: usize) -> String {
+    let inner = level + 1;
+    let call = Call::new("FullscreenEntry", level)
+        .arg("surface", fullscreen_surface_entry_expr(&fullscreen.surface, inner))
+        .arg("static", kt_string(&fullscreen.static_text))
+        .arg("staticMarker", kt_string(&fullscreen.static_marker))
+        .arg("slots", string_map(&fullscreen.slots, inner, slot_entry_expr))
+        .arg("controls", string_map(&fullscreen.controls, inner, control_entry_expr));
+    let call = if fullscreen.switches.is_empty() {
+        call
+    } else {
+        call.arg("switches", string_map(&fullscreen.switches, inner, switch_entry_expr))
+    };
+    let call = with_art(call, &fullscreen.art, &fullscreen.tints, inner);
+    let call = if fullscreen.layers.is_empty() {
+        call
+    } else {
+        call.arg("layers", layers_expr(&fullscreen.layers, inner))
+            .arg("markers", strings_map(&fullscreen.markers, inner))
+    };
+    match &fullscreen.backdrop_marker {
+        Some(marker) => call.arg("backdropMarker", kt_string(marker)),
+        None => call,
+    }
+    .finish()
 }

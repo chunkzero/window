@@ -106,7 +106,7 @@ export interface SectionStyle {
 }
 /** Style properties of `<Case>`. */
 export type CaseStyle = ContainerStyle;
-/** Style properties of `<Hud>`, whose children lay out in its root box. */
+/** Style properties of `<Hud>` and `<Fullscreen>`, whose children lay out in their root box. */
 export type HudStyle = Omit<ContainerStyle, "width" | "height" | "tint">;
 
 /** Every style property; `create` accepts these. `align` aligns box children, or text within its width. */
@@ -389,7 +389,7 @@ export function cascade<T>(node: T, style: TextProps | undefined): T {
                 }
             }
         }
-        for (const key of ["children", "windows", "huds"]) {
+        for (const key of ["children", "windows", "huds", "fullscreens"]) {
             if (Array.isArray(el[key])) {
                 result[key] = (el[key] as Fields[]).map(visit);
             }

@@ -1,6 +1,6 @@
 import { root } from "./ui/elements.ts";
 import { resolveTokens } from "./ui/tokens.ts";
-import type { Hud, Window, WindowDocument } from "./ui/document.ts";
+import type { Fullscreen, Hud, Window, WindowDocument } from "./ui/document.ts";
 import type { Preview } from "./ui/previews.ts";
 import type { Art, TextFont } from "./ui/types.ts";
 
@@ -206,6 +206,8 @@ export interface ProjectJson {
     sprites?: Record<string, Art>;
     windows: Window[];
     huds: Hud[];
+    /** Present when the project has full-screen windows. */
+    fullscreens?: Fullscreen[];
     options: {
         core_shaders: { hud: boolean; hover?: true };
         vanilla?: VanillaOptions;
@@ -261,6 +263,7 @@ export function buildProject(
     const sprites: Record<string, Art> = Object.create(null) as Record<string, Art>;
     const windows: Window[] = [];
     const huds: Hud[] = [];
+    const fullscreens: Fullscreen[] = [];
     for (const doc of documents) {
         for (const [name, font] of Object.entries(doc.fonts ?? {})) {
             if (Object.hasOwn(fonts, name)) {
@@ -276,11 +279,15 @@ export function buildProject(
         }
         windows.push(...(doc.windows ?? []).map(resolveTokens));
         huds.push(...(doc.huds ?? []).map(resolveTokens));
+        fullscreens.push(...(doc.fullscreens ?? []).map(resolveTokens));
         if (doc.window !== undefined) {
             windows.push(resolveTokens(doc.window));
         }
         if (doc.hud !== undefined) {
             huds.push(resolveTokens(doc.hud));
+        }
+        if (doc.fullscreen !== undefined) {
+            fullscreens.push(resolveTokens(doc.fullscreen));
         }
     }
     return {
@@ -288,6 +295,7 @@ export function buildProject(
         ...(Object.keys(sprites).length > 0 ? { sprites: { ...sprites } } : {}),
         windows,
         huds,
+        ...(fullscreens.length > 0 ? { fullscreens } : {}),
         options: {
             core_shaders: {
                 hud: options.coreShaders?.hud === true,
@@ -322,9 +330,13 @@ function defaultExport(path: string, module: Record<string, unknown>): WindowDoc
 const LISTS = {
     windows: ["windows", "window"],
     huds: ["huds", "hud"],
+    fullscreens: ["fullscreens", "fullscreen"],
 } as const;
 
-/** Whether `entry` is a bare definition for `list`: a window has a `container`, a HUD a `name` and no `container`. */
+/**
+ * Whether `entry` is a bare definition for `list`: a window has a `container`, a HUD or full-screen window a `name`
+ * and no `container`.
+ */
 function isDefinition(list: keyof typeof LISTS, entry: Fields): boolean {
     return typeof entry["name"] === "string" && "container" in entry === (list === "windows");
 }
@@ -344,9 +356,9 @@ function listDocuments(path: string, list: keyof typeof LISTS, entries: unknown)
         }
         const entry =
             isFields(listed) && isDefinition(list, listed)
-                ? root(listed as unknown as Window | Hud, `${single} \`${String(listed["name"])}\``)
+                ? root(listed as unknown as Window | Hud | Fullscreen, `${single} \`${String(listed["name"])}\``)
                 : resolveTokens(listed);
-        const other = isFields(entry) && ["windows", "huds"].some((key) => key in entry);
+        const other = isFields(entry) && Object.keys(LISTS).some((key) => key in entry);
         if (!isFields(entry) || other || !isDefinition(list, entry)) {
             throw new Error(`${path}: defineWindows \`${list}\` entry ${i} is not a ${single} document`);
         }
@@ -376,7 +388,9 @@ function entryDocuments(path: string, value: unknown): WindowDocument[] {
             `${path}: defineWindows no longer takes \`themes\`; use inline art, \`sprites\`, and \`fonts\``,
         );
     }
-    const documents = (["windows", "huds"] as const).flatMap((key) => listDocuments(path, key, value[key]));
+    const documents = (["windows", "huds", "fullscreens"] as const).flatMap((key) =>
+        listDocuments(path, key, value[key]),
+    );
     const sprites = value["sprites"];
     if (sprites !== undefined) {
         if (!isFields(sprites) || Array.isArray(sprites)) {

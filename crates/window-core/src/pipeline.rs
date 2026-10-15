@@ -5,8 +5,9 @@
 //!
 //! The public entry points decode textures and solve layout, then hand the
 //! laid-out IR to the backend, which runs in stages: compose static layers and
-//! allocate glyph codepoints, compile each window then each HUD, emit fonts and
-//! core shaders, and build the manifest and debug descriptor.
+//! allocate glyph codepoints, compile each window, HUD, and full-screen window, emit
+//! fonts, core shaders, and the full-screen contract, and build the manifest and
+//! debug descriptor.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -14,7 +15,7 @@ use crate::authoring::{BuildOptions, PackTarget, ParsedProject};
 use crate::compose::Texture;
 use crate::font::{shifted_suffix, spacer_table, text_font_suffix};
 use crate::geometry::Size;
-use crate::ir::{LaidOutHud, LaidOutWindow, SlotIr};
+use crate::ir::{LaidOutFullscreen, LaidOutHud, LaidOutWindow, SlotIr};
 use crate::manifest::{HudEntry, Manifest, SpriteEntry, VERSION, WindowEntry};
 use crate::size::{Part, SizeLedger};
 use crate::text_font::TextFonts;
@@ -23,6 +24,7 @@ use crate::{Error, Result, text_font, vanilla};
 mod anvil;
 mod bars;
 mod fonts;
+mod fullscreen;
 mod glyphs;
 mod hover;
 mod hud;
@@ -118,10 +120,12 @@ pub fn compile_project(project: &ParsedProject, input: &CompileInput) -> Result<
     let text_fonts = text_font::resolve(&project.fonts, &textures)?;
     let windows = crate::layout::solve(project, &texture_size, &text_fonts)?;
     let huds = crate::layout::solve_huds(project, &texture_size, &text_fonts)?;
+    let fullscreens = crate::layout::solve_fullscreens(project, &texture_size, &text_fonts)?;
     let runtime_sprites = sprites::runtime_sprite_assets(project, &textures, &input.namespace)?;
 
     let assets = Assets { textures: &textures, runtime_sprites: &runtime_sprites, text_fonts: &text_fonts };
-    let output = compile_layouts(&windows, &huds, &assets, &input.namespace, &project.target, &project.options)?;
+    let output =
+        compile_layouts(&windows, &huds, &fullscreens, &assets, &input.namespace, &project.target, &project.options)?;
     let validation = crate::validation::validate_compiled(&output, &input.files);
     if !validation.is_valid() {
         return Err(Error::Validation(validation.to_string()));
@@ -154,11 +158,12 @@ struct Assets<'a> {
     text_fonts: &'a TextFonts,
 }
 
-/// Compile laid-out windows and HUDs into pack artifacts. Windows and HUDs are
-/// processed by name; output files are sorted by path.
+/// Compile laid-out windows, HUDs, and full-screen windows into pack artifacts. Each
+/// kind is processed by name; output files are sorted by path.
 fn compile_layouts(
     windows: &[LaidOutWindow],
     huds: &[LaidOutHud],
+    fullscreens: &[LaidOutFullscreen],
     assets: &Assets<'_>,
     namespace: &str,
     target: &PackTarget,
@@ -169,6 +174,8 @@ fn compile_layouts(
     windows.sort_by(|a, b| a.name.cmp(&b.name));
     let mut huds: Vec<&LaidOutHud> = huds.iter().collect();
     huds.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut fullscreens: Vec<&LaidOutFullscreen> = fullscreens.iter().collect();
+    fullscreens.sort_by(|a, b| a.name.cmp(&b.name));
     if !options.core_shaders.hud
         && let Some(hud) = huds.iter().find(|h| h.shader.is_some())
     {
@@ -184,7 +191,7 @@ fn compile_layouts(
     if uses_runtime_sprites && runtime_sprites.is_empty() {
         return Err(Error::Validation("runtime sprite slots require at least one catalog sprite".into()));
     }
-    let mut composites = glyphs::compose_layers(&windows, &huds, textures)?;
+    let mut composites = glyphs::compose_layers(&windows, &huds, &fullscreens, textures)?;
     let mut field_warnings = Vec::new();
     for (w, layers) in windows.iter().zip(&mut composites.windows) {
         anvil::check_title(w, options.experimental.anvil_updates, &mut field_warnings)?;
@@ -196,7 +203,7 @@ fn compile_layouts(
         hover::check_disabled(&windows)?;
     }
     let hover_keys = hover.then(|| hover::glyph_keys(&windows)).into_iter().flatten();
-    let codepoints = glyphs::allocate_codepoints(&windows, &huds, &composites, used_sprites, hover_keys)?;
+    let codepoints = glyphs::allocate_codepoints(&windows, &huds, &fullscreens, &composites, used_sprites, hover_keys)?;
     let mut ctx = CompileContext::new(namespace, runtime_sprites, text_fonts, codepoints);
     ctx.hover = hover;
     ctx.warnings.extend(field_warnings);
@@ -227,6 +234,13 @@ fn compile_layouts(
         row_offsets.push(entry.shader.as_ref().map_or(0, |shader| shader.row_offset));
         hud_entries.insert(h.name.clone(), entry);
     }
+    let mut contract = fullscreen::Contract::default();
+    let mut fullscreen_entries = BTreeMap::new();
+    for (f, comp) in fullscreens.iter().zip(&composites.fullscreens) {
+        fullscreen_entries.insert(f.name.clone(), fullscreen::compile_fullscreen(&mut ctx, f, comp, &mut contract)?);
+    }
+    let fullscreen_canvas =
+        if fullscreens.is_empty() { None } else { Some(fullscreen::emit_contract(&mut ctx, contract)?) };
 
     fonts::emit_fonts(&mut ctx)?;
     if options.core_shaders.hud {
@@ -234,7 +248,9 @@ fn compile_layouts(
     } else if hover {
         hud::emit_shader_files(&mut ctx, target.pack_format, &[], &[], hover)?;
     }
-    let manifest = ctx.manifest(sprites, window_entries, hud_entries);
+    let mut manifest = ctx.manifest(sprites, window_entries, hud_entries);
+    manifest.fullscreens = fullscreen_entries;
+    manifest.fullscreen_canvas = fullscreen_canvas;
     ctx.finish(manifest)
 }
 
@@ -352,6 +368,8 @@ impl<'a> CompileContext<'a> {
             sprites,
             windows,
             huds,
+            fullscreens: BTreeMap::new(),
+            fullscreen_canvas: None,
         }
     }
 

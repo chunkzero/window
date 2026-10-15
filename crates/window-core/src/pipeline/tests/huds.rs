@@ -49,7 +49,7 @@ fn compile_huds(huds: &[LaidOutHud], hud_shaders: bool) -> Result<CompileOutput>
     let assets = Assets { textures: &textures, runtime_sprites: &BTreeMap::new(), text_fonts: &fonts };
     let target = PackTarget { pack_format: Some(88) };
     let options = BuildOptions { core_shaders: CoreShaders { hud: hud_shaders, hover: false }, ..Default::default() };
-    compile_layouts(&[], huds, &assets, "demo", &target, &options)
+    compile_layouts(&[], huds, &[], &assets, "demo", &target, &options)
 }
 
 fn text_row_fonts(out: &CompileOutput) -> Vec<&str> {

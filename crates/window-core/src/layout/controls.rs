@@ -10,7 +10,7 @@ use crate::surface::ContainerKind;
 impl<T: LayoutTarget> Solver<'_, T> {
     /// Emits item `name` over `slots`, resolved from its slot source or its laid-out rect.
     pub(super) fn place_item(&mut self, name: &str, slots: Vec<InventorySlotRef>) -> Result<Size> {
-        self.require_interaction(name)?;
+        self.require_inventory(name)?;
         self.register_name(name)?;
         if slots.is_empty() {
             return Err(self.target.layout_err(format!("item `{name}` must define at least one slot")));
@@ -29,7 +29,7 @@ impl<T: LayoutTarget> Solver<'_, T> {
         selected_sprite: Option<String>,
         action: bool,
     ) -> Result<Size> {
-        self.require_interaction(name)?;
+        self.require_inventory(name)?;
         self.register_name(name)?;
         if slots.is_empty() {
             return Err(self.target.layout_err(format!("collection `{name}` must define at least one slot")));
@@ -47,7 +47,8 @@ impl<T: LayoutTarget> Solver<'_, T> {
         Ok(Size::new(0, 0))
     }
 
-    /// Emits `region` over `rect`. Its slots are `slots`, or else the inventory slots `rect` overlaps.
+    /// Emits `region` over `rect`. Its slots are `slots`, or else the inventory slots `rect` overlaps; a target
+    /// without inventory slots gives it none.
     pub(super) fn place_region(
         &mut self,
         region: &Region,
@@ -69,6 +70,11 @@ impl<T: LayoutTarget> Solver<'_, T> {
             None => format!("region `{name}`"),
         };
         self.check_inside_bounds(rect, &source)?;
+        if self.target.container_kind().is_none() && (region.tooltip.is_some() || region.item_model.is_some()) {
+            return Err(self
+                .target
+                .layout_err(format!("{source} sets `tooltip` or `item_model`, which need inventory slots")));
+        }
         let hitbox = (region.tooltip.is_some() || region.item_model.is_some())
             .then(|| Hitbox { item_model: region.item_model.clone(), tooltip: region.tooltip.clone() });
         self.regions.push(RegionIr {

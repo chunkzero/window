@@ -3,7 +3,7 @@
 //!
 //! Semantics are specified in `docs/AUTHORING.md`:
 //!
-//! * The window's and HUD's children are placed in the full GUI or HUD rect at
+//! * The window's, HUD's, and full-screen window's children are placed in the full GUI, HUD, or canvas rect at
 //!   origin `(0, 0)`: an auto-positioned box fills it, and anything else sits at
 //!   its explicit position or the origin.
 //! * Boxes, switches, and sections are solved with taffy; see [`flex`].
@@ -24,15 +24,15 @@ use crate::Result;
 use crate::authoring::ParsedProject;
 use crate::geometry::{Insets, Point, Rect, Size};
 use crate::ir::{
-    AnvilInputIr, ArtIr, CollectionIr, Draw, ItemIr, LaidOutHud, LaidOutWindow, Layer, RegionIr, SlotIr, SpriteSlotIr,
-    SwitchIr,
+    AnvilInputIr, ArtIr, CollectionIr, Draw, ItemIr, LaidOutFullscreen, LaidOutHud, LaidOutWindow, Layer, RegionIr,
+    SlotIr, SpriteSlotIr, SwitchIr,
 };
-use crate::model::{Element, Hud, TextStyle, Window};
+use crate::model::{Element, Fullscreen, Hud, TextStyle, Window};
 use crate::surface::Surface;
 use crate::text_font::{TextFont, TextFonts};
 use crate::vanilla;
 
-use self::target::{HudTarget, LayoutTarget, WindowTarget};
+use self::target::{FullscreenTarget, HudTarget, LayoutTarget, WindowTarget};
 
 /// Solve layout for every window in the project.
 ///
@@ -66,6 +66,22 @@ pub fn solve_huds(
         out.push(
             solve_hud(project, hud, texture_size, fonts)
                 .map_err(|error| error.with_debug_name(hud.debug_name.as_deref()))?,
+        );
+    }
+    Ok(out)
+}
+
+/// Solve layout for every full-screen window in the project, on the canvas of [`crate::fullscreen`].
+pub fn solve_fullscreens(
+    project: &ParsedProject,
+    texture_size: &dyn Fn(&str) -> Option<Size>,
+    fonts: &TextFonts,
+) -> Result<Vec<LaidOutFullscreen>> {
+    let mut out = Vec::with_capacity(project.fullscreens.len());
+    for fullscreen in &project.fullscreens {
+        out.push(
+            solve_fullscreen(project, fullscreen, texture_size, fonts)
+                .map_err(|error| error.with_debug_name(fullscreen.debug_name.as_deref()))?,
         );
     }
     Ok(out)
@@ -149,6 +165,33 @@ fn solve_hud(
         art,
         layers,
         handles: hud.handles.clone(),
+        warnings,
+    })
+}
+
+fn solve_fullscreen(
+    project: &ParsedProject,
+    fullscreen: &Fullscreen,
+    texture_size: &dyn Fn(&str) -> Option<Size>,
+    fonts: &TextFonts,
+) -> Result<LaidOutFullscreen> {
+    let canvas = Rect::from_parts(Point::new(0, 0), crate::fullscreen::CANVAS);
+    let target = FullscreenTarget { name: &fullscreen.name, bounds: canvas };
+    let mut solver = Solver::new(project, texture_size, fonts, target);
+    solver.place_children(&fullscreen.children, canvas)?;
+    let Solved { draws, slots, regions, switches, art, layers, warnings, .. } = solver.finish();
+
+    Ok(LaidOutFullscreen {
+        name: fullscreen.name.clone(),
+        mode: fullscreen.mode,
+        backdrop: fullscreen.backdrop,
+        draws,
+        slots,
+        regions,
+        switches,
+        art,
+        layers,
+        handles: fullscreen.handles.clone(),
         warnings,
     })
 }
@@ -350,12 +393,12 @@ impl<'a, T: LayoutTarget> Solver<'a, T> {
     fn place_element(&mut self, el: &Element, origin: Point) -> Result<Size> {
         match el {
             Element::Item { name, slots, pattern, .. } => {
-                self.require_interaction(name)?;
+                self.require_inventory(name)?;
                 let slots = self.resolve_required_slots(name, slots.as_ref(), pattern.as_ref())?;
                 self.place_item(name, slots)
             }
             Element::Collection { name, slots, pattern, frame, selected_sprite, action, .. } => {
-                self.require_interaction(name)?;
+                self.require_inventory(name)?;
                 let slots = self.resolve_required_slots(name, slots.as_ref(), pattern.as_ref())?;
                 self.place_collection(name, slots, frame.as_deref(), selected_sprite.clone(), *action)
             }

@@ -12,6 +12,8 @@ fn sample() -> Manifest {
         sprites: BTreeMap::new(),
         windows: BTreeMap::from([("shop".into(), sample_window())]),
         huds: BTreeMap::new(),
+        fullscreens: BTreeMap::new(),
+        fullscreen_canvas: None,
     }
 }
 

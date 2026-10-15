@@ -12,8 +12,10 @@ use crate::inventory::{InventorySlotArea, InventorySlotRef};
 use crate::ir::{Align, Handle, Hitbox, Layer};
 use crate::{Error, Result};
 
+mod fullscreen;
 mod hud;
 
+pub use fullscreen::{ControlEntry, CursorEntry, FullscreenCanvasEntry, FullscreenEntry, FullscreenSurfaceEntry};
 pub use hud::{HudEntry, HudShaderEntry, HudSurfaceEntry};
 
 /// Current compiled definition schema version.
@@ -52,6 +54,12 @@ pub struct Manifest {
     /// All compiled HUDs by name.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub huds: BTreeMap<String, HudEntry>,
+    /// All compiled full-screen windows by name.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fullscreens: BTreeMap<String, FullscreenEntry>,
+    /// The full-screen canvas contract, present exactly when [`Self::fullscreens`] is not empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fullscreen_canvas: Option<FullscreenCanvasEntry>,
 }
 
 /// Per-font text metrics.
@@ -126,7 +134,8 @@ pub struct ArtEntry {
     /// Absent art is sent white.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tint: Option<String>,
-    /// In a shader-placed HUD, the marker color to send per palette entry instead of the entry's color.
+    /// In a shader-placed HUD or a full-screen window, the marker color to send per palette entry instead of the
+    /// entry's color.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tint_markers: BTreeMap<String, String>,
 }
@@ -289,8 +298,8 @@ pub struct SlotEntry {
     /// The tint whose current palette color replaces [`Self::color`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tint: Option<String>,
-    /// In a shader-placed HUD, the marker color to send per palette entry of [`Self::tint`], instead of
-    /// [`Self::shader_marker`].
+    /// In a shader-placed HUD or a full-screen window, the marker color to send per palette entry of
+    /// [`Self::tint`], instead of [`Self::shader_marker`] or the window's marker for the slot.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tint_markers: BTreeMap<String, String>,
     /// Whether the text renders with a shadow.

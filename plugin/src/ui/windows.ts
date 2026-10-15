@@ -1,10 +1,10 @@
 import type { Var } from "./tokens.ts";
-import type { Hud, Window } from "./document.ts";
+import type { Fullscreen, Hud, Window } from "./document.ts";
 import type { Preview } from "./previews.ts";
 import type { Art, TextFont } from "./types.ts";
 
 /**
- * The project's windows, HUDs, runtime sprites, and text fonts, as `window/index.ts(x)` default-exports them. Lists
+ * The project's windows, HUDs, full-screen windows, runtime sprites, and text fonts, as `window/index.ts(x)` default-exports them. Lists
  * may nest, so a default-exported fragment or array can be listed as one entry.
  */
 export interface WindowsDefinition {
@@ -12,6 +12,8 @@ export interface WindowsDefinition {
     windows?: readonly unknown[];
     /** `<Hud>` and `hud()` documents, or HUD definitions. */
     huds?: readonly unknown[];
+    /** `<Fullscreen>` and `fullscreen()` documents, or full-screen window definitions. */
+    fullscreens?: readonly unknown[];
     /**
      * Runtime sprites by name: inline art Kotlin selects through the generated `WindowSprite`, such as
      * `{ lamp_on: texture("window/lamp_on.png") }`. A `sprite` handle's `only` names some of them. Vars in them take
@@ -41,6 +43,7 @@ type Checked<T extends WindowsDefinition> = {
     previews?: readonly Preview[];
     windows?: Entries<T["windows"], Window | { windows: Window[] }>;
     huds?: Entries<T["huds"], Hud | { huds: Hud[] }>;
+    fullscreens?: Entries<T["fullscreens"], Fullscreen | { fullscreens: Fullscreen[] }>;
 };
 
 /**

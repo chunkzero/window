@@ -5,6 +5,7 @@ use crate::geometry::{Insets, Rect};
 use crate::ir::{Align, CLOSE_ACTION, Draw, Hitbox, RegionIr, Rgb, SlotIr, TextureKey, Tooltip};
 use crate::surface::{ContainerKind, Surface};
 
+mod fullscreens;
 mod huds;
 mod sprites;
 mod windows;
@@ -16,7 +17,7 @@ fn compile_windows(
 ) -> Result<CompileOutput> {
     let fonts = text_font::resolve(&BTreeMap::new(), &BTreeMap::new()).unwrap();
     let assets = Assets { textures, runtime_sprites: &BTreeMap::new(), text_fonts: &fonts };
-    compile_layouts(windows, &[], &assets, namespace, &PackTarget::default(), &BuildOptions::default())
+    compile_layouts(windows, &[], &[], &assets, namespace, &PackTarget::default(), &BuildOptions::default())
 }
 
 /// A solid RGBA texture for tests.

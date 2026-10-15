@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::compose::{Composite, RasterCache, Texture, compose_draws_cached};
 use crate::font::{allocate, bitmap_provider};
 use crate::geometry::Size;
-use crate::ir::{ArtIr, Draw, LaidOutHud, LaidOutWindow, SwitchIr};
+use crate::ir::{ArtIr, Draw, LaidOutFullscreen, LaidOutHud, LaidOutWindow, SwitchIr};
 use crate::size::{Pane, Part};
 use crate::{Error, Result};
 
@@ -29,15 +29,17 @@ impl Layers {
     }
 }
 
-/// Static layer composites, index-aligned with the name-sorted windows and HUDs.
+/// Static layer composites, index-aligned with the name-sorted windows, HUDs, and full-screen windows.
 pub(super) struct Composites {
     pub(super) windows: Vec<Layers>,
     pub(super) huds: Vec<Layers>,
+    pub(super) fullscreens: Vec<Layers>,
 }
 
 pub(super) fn compose_layers(
     windows: &[&LaidOutWindow],
     huds: &[&LaidOutHud],
+    fullscreens: &[&LaidOutFullscreen],
     textures: &BTreeMap<String, Texture>,
 ) -> Result<Composites> {
     let mut cache = RasterCache::default();
@@ -49,7 +51,11 @@ pub(super) fn compose_layers(
         .iter()
         .map(|h| layers(&h.name, &h.draws, &h.switches, &h.art, textures, &mut cache))
         .collect::<Result<_>>()?;
-    Ok(Composites { windows, huds })
+    let fullscreens = fullscreens
+        .iter()
+        .map(|f| layers(&f.name, &f.draws, &f.switches, &f.art, textures, &mut cache))
+        .collect::<Result<_>>()?;
+    Ok(Composites { windows, huds, fullscreens })
 }
 
 fn layers(
@@ -71,11 +77,12 @@ fn layers(
 }
 
 /// Allocate codepoints across the whole build: one key per static, case, or art layer composite
-/// with content, one per glyph of a bar's fill, one per runtime sprite when any window uses sprites, and the hover
-/// outline keys `hover`.
+/// with content, one per glyph of a bar's fill, one per runtime sprite when any window uses sprites, the hover
+/// outline keys `hover`, and the built-in full-screen glyphs when there are full-screen windows.
 pub(super) fn allocate_codepoints(
     windows: &[&LaidOutWindow],
     huds: &[&LaidOutHud],
+    fullscreens: &[&LaidOutFullscreen],
     composites: &Composites,
     runtime_sprites: Option<&BTreeMap<String, RuntimeSpriteAsset>>,
     hover: impl Iterator<Item = String>,
@@ -86,6 +93,12 @@ pub(super) fn allocate_codepoints(
     }
     for (h, layers) in huds.iter().zip(&composites.huds) {
         layer_keys(&mut keys, &hud_key_prefix(&h.name), &h.switches, &h.art, layers);
+    }
+    for (f, layers) in fullscreens.iter().zip(&composites.fullscreens) {
+        layer_keys(&mut keys, &fullscreen_key_prefix(&f.name), &f.switches, &f.art, layers);
+    }
+    if !fullscreens.is_empty() {
+        keys.extend([FULLSCREEN_CURSOR_KEY.to_string(), FULLSCREEN_BACKDROP_KEY.to_string()]);
     }
     for sprite in runtime_sprites.into_iter().flat_map(BTreeMap::keys) {
         keys.insert(sprite_key(sprite));
@@ -121,6 +134,16 @@ pub(super) fn window_key_prefix(window: &str) -> String {
 pub(super) fn hud_key_prefix(hud: &str) -> String {
     format!("hud/{hud}")
 }
+
+pub(super) fn fullscreen_key_prefix(fullscreen: &str) -> String {
+    format!("fullscreen/{fullscreen}")
+}
+
+/// The codepoint allocation key of the built-in full-screen cursor glyph.
+pub(super) const FULLSCREEN_CURSOR_KEY: &str = "fullscreen/cursor";
+
+/// The codepoint allocation key of the built-in full-screen backdrop glyph.
+pub(super) const FULLSCREEN_BACKDROP_KEY: &str = "fullscreen/backdrop";
 
 /// The codepoint allocation key for one switch case's composite under a surface key prefix.
 pub(super) fn case_key(prefix: &str, switch: &str, case: &str) -> String {
@@ -179,7 +202,7 @@ impl CompileContext<'_> {
                  {MAX_GLYPH_SIZE}x{MAX_GLYPH_SIZE} px, so a larger glyph is not drawn and misplaces everything after \
                  it; keep the art within {MAX_GLYPH_SIZE} px each way (text may extend past it) or split it across \
                  panes",
-                if pane.hud { "HUD" } else { "window" },
+                pane.kind.noun(),
                 pane.name,
                 width,
                 height,

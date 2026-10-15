@@ -77,6 +77,14 @@ pub(super) trait LayoutTarget {
         self.layout_err(format!("{} `{}` cannot contain runtime sprite slot `{name}`", self.kind(), self.name()))
     }
 
+    fn inventory_err(&self, name: &str) -> Error {
+        self.layout_err(format!(
+            "{} `{}` has no inventory slots for inventory element `{name}`",
+            self.kind(),
+            self.name()
+        ))
+    }
+
     fn slot_pattern_err(&self, name: &str) -> Error {
         self.layout_err(format!("{} `{}` cannot contain slot pattern element `{name}`", self.kind(), self.name()))
     }
@@ -85,6 +93,7 @@ pub(super) trait LayoutTarget {
         match self.kind() {
             "window" => "GUI",
             "hud" => "HUD",
+            "fullscreen" => "canvas",
             _ => "layout",
         }
     }
@@ -179,5 +188,50 @@ impl LayoutTarget for HudTarget<'_> {
 
     fn duplicate_namespace(&self) -> &'static str {
         "slot/label names share one namespace"
+    }
+}
+
+/// A full-screen window: the fixed canvas, with clickable regions but no inventory slots.
+#[derive(Clone, Copy)]
+pub(super) struct FullscreenTarget<'a> {
+    pub(super) name: &'a str,
+    pub(super) bounds: Rect,
+}
+
+impl LayoutTarget for FullscreenTarget<'_> {
+    fn name(&self) -> &str {
+        self.name
+    }
+
+    fn kind(&self) -> &'static str {
+        "fullscreen"
+    }
+
+    fn bounds(&self) -> Rect {
+        self.bounds
+    }
+
+    fn visual_bounds(&self) -> Rect {
+        self.bounds
+    }
+
+    fn min_text_y(&self) -> i32 {
+        -1
+    }
+
+    fn allows_interaction(&self) -> bool {
+        true
+    }
+
+    fn allows_sprite_slots(&self) -> bool {
+        false
+    }
+
+    fn container_kind(&self) -> Option<ContainerKind> {
+        None
+    }
+
+    fn duplicate_namespace(&self) -> &'static str {
+        "slot/region/label names share one namespace"
     }
 }

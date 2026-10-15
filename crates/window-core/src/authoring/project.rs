@@ -4,6 +4,7 @@ use serde::Deserialize;
 
 use super::art::{ArtRefDto, ArtUse, intern};
 use super::element::{ElementDto, check_shared, collect_handles, convert_children, intern_art};
+use super::fullscreen::FullscreenDto;
 use super::hud::HudDto;
 use super::insets::InsetsDto;
 use super::parse::{sprite_key, validate_name};
@@ -12,7 +13,7 @@ use super::{
     VanillaAnvil,
 };
 use crate::ir::Handle;
-use crate::model::{Art, FontDef, Hud, Window};
+use crate::model::{Art, FontDef, Fullscreen, Hud, Window};
 use crate::surface::ContainerKind;
 use crate::{Error, Result};
 
@@ -29,6 +30,8 @@ pub(super) struct ProjectDto {
     windows: Vec<WindowDto>,
     #[serde(default)]
     huds: Vec<HudDto>,
+    #[serde(default)]
+    fullscreens: Vec<FullscreenDto>,
     #[serde(default)]
     options: OptionsDto,
     #[serde(default)]
@@ -198,22 +201,17 @@ impl ProjectDto {
 
         let windows = convert_windows(self.windows, &mut art)?;
         let huds = convert_huds(self.huds, &mut art)?;
-        let surfaces = windows
+        let fullscreens = convert_fullscreens(self.fullscreens, &mut art)?;
+        let surfaces: Vec<(String, &BTreeMap<String, Handle>)> = windows
             .iter()
             .map(|w| (format!("window `{}`", w.name), &w.handles))
-            .chain(huds.iter().map(|h| (format!("hud `{}`", h.name), &h.handles)));
-        for (owner, handles) in surfaces {
-            check_only(&owner, handles, &art)?;
+            .chain(huds.iter().map(|h| (format!("hud `{}`", h.name), &h.handles)))
+            .chain(fullscreens.iter().map(|f| (format!("fullscreen `{}`", f.name), &f.handles)))
+            .collect();
+        for (owner, handles) in &surfaces {
+            check_only(owner, handles, &art)?;
         }
-        check_shared(
-            windows
-                .iter()
-                .map(|w| (format!("window `{}`", w.name), &w.handles))
-                .chain(huds.iter().map(|h| (format!("hud `{}`", h.name), &h.handles)))
-                .collect::<Vec<_>>()
-                .iter()
-                .map(|(owner, handles)| (owner.as_str(), *handles)),
-        )?;
+        check_shared(surfaces.iter().map(|(owner, handles)| (owner.as_str(), *handles)))?;
         if self.options.size.budget == Some(0) {
             return Err(Error::Validation("`size.budget` must be a positive integer".into()));
         }
@@ -222,6 +220,7 @@ impl ProjectDto {
             fonts,
             windows,
             huds,
+            fullscreens,
             options: BuildOptions {
                 core_shaders: CoreShaders {
                     hud: self.options.core_shaders.hud,
@@ -290,6 +289,20 @@ fn convert_huds(huds: Vec<HudDto>, art: &mut Art) -> Result<Vec<Hud>> {
         }
         let debug_name = hud.debug_name.clone();
         out.push(hud.into_hud(art).map_err(|error| error.with_debug_name(debug_name.as_deref()))?);
+    }
+    Ok(out)
+}
+
+fn convert_fullscreens(fullscreens: Vec<FullscreenDto>, art: &mut Art) -> Result<Vec<Fullscreen>> {
+    let mut seen = BTreeSet::new();
+    let mut out = Vec::with_capacity(fullscreens.len());
+    for fullscreen in fullscreens {
+        validate_name(&fullscreen.name, "fullscreen")?;
+        if !seen.insert(fullscreen.name.clone()) {
+            return Err(Error::Validation(format!("duplicate fullscreen name `{}`", fullscreen.name)));
+        }
+        let debug_name = fullscreen.debug_name.clone();
+        out.push(fullscreen.into_fullscreen(art).map_err(|error| error.with_debug_name(debug_name.as_deref()))?);
     }
     Ok(out)
 }

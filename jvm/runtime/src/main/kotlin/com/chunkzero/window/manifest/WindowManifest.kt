@@ -46,6 +46,10 @@ public data class WindowManifest(
     val windows: Map<String, WindowEntry>,
     /** HUD definitions keyed by HUD name. */
     val huds: Map<String, HudEntry> = emptyMap(),
+    /** Full-screen window definitions keyed by name. */
+    val fullscreens: Map<String, FullscreenEntry> = emptyMap(),
+    /** The full-screen canvas contract; present exactly when [fullscreens] is not empty. */
+    @SerialName("fullscreen_canvas") val fullscreenCanvas: FullscreenCanvasEntry? = null,
 ) {
     public companion object {
         /** The schema version this runtime reads. */

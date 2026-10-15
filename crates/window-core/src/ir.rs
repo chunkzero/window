@@ -53,6 +53,28 @@ impl HudChannel {
     }
 }
 
+/// How a full-screen window's cursor follows the player's mouse.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FullscreenMode {
+    /// The camera stays on the player, and the text shader reads the cursor from the camera rotation every frame.
+    #[default]
+    Unlocked,
+    /// The view is locked by spectating a fixed entity while the player rides a client-steered horse, whose
+    /// armour the entity shader reads the cursor from.
+    Horse,
+}
+
+impl FullscreenMode {
+    /// Stable id used in authoring and the manifest.
+    pub const fn id(self) -> &'static str {
+        match self {
+            FullscreenMode::Unlocked => "unlocked",
+            FullscreenMode::Horse => "horse",
+        }
+    }
+}
+
 /// Optional core-shader relocation settings for a HUD.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HudShader {
@@ -590,6 +612,33 @@ pub struct LaidOutHud {
     pub draws: Vec<Draw>,
     /// Text regions (dynamic slots and static labels), document order.
     pub slots: Vec<SlotIr>,
+    /// Runtime-selected cases, document order.
+    pub switches: Vec<SwitchIr>,
+    /// Art layers, document order.
+    pub art: Vec<ArtIr>,
+    /// Runtime layers in authored tree order.
+    pub layers: Vec<Layer>,
+    /// Typed handles by id.
+    pub handles: BTreeMap<String, Handle>,
+    /// Non-fatal findings to surface to the user.
+    pub warnings: Vec<String>,
+}
+
+/// A fully laid-out full-screen window, ready for the backend. Its rects are canvas pixels.
+#[derive(Clone, Debug)]
+pub struct LaidOutFullscreen {
+    /// Full-screen window name (manifest key).
+    pub name: String,
+    /// How the cursor follows the mouse.
+    pub mode: FullscreenMode,
+    /// The color filling the whole screen behind the canvas, if any.
+    pub backdrop: Option<Rgb>,
+    /// Static draws in paint order (back to front).
+    pub draws: Vec<Draw>,
+    /// Text regions (dynamic slots and static labels), document order.
+    pub slots: Vec<SlotIr>,
+    /// Clickable and hoverable regions, document order. They claim no inventory slots.
+    pub regions: Vec<RegionIr>,
     /// Runtime-selected cases, document order.
     pub switches: Vec<SwitchIr>,
     /// Art layers, document order.
