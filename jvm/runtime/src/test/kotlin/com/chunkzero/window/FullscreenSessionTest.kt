@@ -2,7 +2,6 @@ package com.chunkzero.window
 
 import com.chunkzero.window.host.FullscreenHost
 import com.chunkzero.window.host.FullscreenListener
-import com.chunkzero.window.host.FullscreenTextListener
 import com.chunkzero.window.host.OpenFullscreen
 import com.chunkzero.window.internal.Turn
 import com.chunkzero.window.manifest.FullscreenMode
@@ -144,25 +143,28 @@ class FullscreenSessionTest :
             menu.scrolls shouldContainExactly listOf(1, -3)
         }
 
-        "a text prompt keeps each full field and opens a fresh anvil, reporting the whole text" {
+        "a prompt ignores canvas input until it is answered, and a new prompt replaces it" {
             val host = FakeFullscreenHost()
             val menu = Menu(host).also { it.open() }
-            val full = "a".repeat(50)
 
-            menu.prompt(full + "bc")
-            host.inputs.single().text shouldBe "bc"
-            host.text.onEdit("bcd")
-            host.text.onEdit(full)
-            host.inputs.map { it.text } shouldContainExactly listOf("bc", "")
-            host.text.onEdit("e")
-            host.text.onSubmit()
+            menu.mode = "on"
+            host.look(110, 170)
+            menu.prompt("a")
+            host.listener.onClick()
+            host.listener.onRightClick()
+            host.listener.onScroll(1)
+            menu.secrets shouldBe 0
+            menu.rightClicks shouldBe emptyList()
+            menu.scrolls shouldBe emptyList()
 
-            menu.edits shouldContainExactly listOf(full + "bcd", full + full, full + full + "e")
-            menu.prompts shouldContainExactly listOf(full + full + "e")
-            menu.prompt("x")
-            shouldThrow<IllegalStateException> { menu.prompt("y") }
-            host.text.onCancel()
-            menu.prompts shouldContainExactly listOf(full + full + "e", null)
+            menu.prompt("b")
+            menu.prompts shouldContainExactly listOf(null)
+            host.answers.last()("text")
+            menu.prompts shouldContainExactly listOf(null, "text")
+            host.listener.onClick()
+            host.listener.onScroll(1)
+            menu.secrets shouldBe 1
+            menu.scrolls shouldContainExactly listOf(1)
         }
 
         "horse mode is refused" {
@@ -183,7 +185,6 @@ private class Menu(
     var closes = 0
     val rightClicks = mutableListOf<FullscreenClick>()
     val scrolls = mutableListOf<Int>()
-    val edits = mutableListOf<String>()
     val prompts = mutableListOf<String?>()
 
     override fun FullscreenScope.bind() {
@@ -198,7 +199,7 @@ private class Menu(
         scroll { scrolls += it }
     }
 
-    fun prompt(initial: String) = promptText(initial = initial, onEdit = { edits += it }) { prompts += it }
+    fun prompt(initial: String) = promptText(initial = initial) { prompts += it }
 
     override fun onClose() {
         closes++
@@ -211,13 +212,9 @@ private class FakeFullscreenHost :
     val scheduler = ManualScheduler()
     val shown = mutableListOf<Component>()
     val turns = mutableListOf<Turn>()
-    val inputs = mutableListOf<TextInput>()
+    val answers = mutableListOf<(String?) -> Unit>()
     var closes = 0
     lateinit var listener: FullscreenListener
-
-    /** The listener of the latest text input. */
-    val text: FullscreenTextListener
-        get() = inputs.last().listener
 
     override val latencyMillis = 50
 
@@ -244,12 +241,13 @@ private class FakeFullscreenHost :
         turns += Turn(yaw, pitch)
     }
 
-    override fun openTextInput(
+    override fun promptText(
         title: Component,
-        text: String,
-        listener: FullscreenTextListener,
+        initial: String,
+        onDone: (String?) -> Unit,
     ) {
-        inputs += TextInput(text, listener)
+        answers.lastOrNull()?.invoke(null)
+        answers += onDone
     }
 
     override fun close() {
@@ -265,11 +263,6 @@ private class FakeFullscreenHost :
         listener.onLook(yaw, pitch)
     }
 }
-
-private data class TextInput(
-    val text: String,
-    val listener: FullscreenTextListener,
-)
 
 private data class Run(
     val color: TextColor?,

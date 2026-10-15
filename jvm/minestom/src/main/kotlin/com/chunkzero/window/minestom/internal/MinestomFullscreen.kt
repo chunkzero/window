@@ -2,7 +2,6 @@ package com.chunkzero.window.minestom.internal
 
 import com.chunkzero.window.FullscreenDefinition
 import com.chunkzero.window.host.FullscreenListener
-import com.chunkzero.window.host.FullscreenTextListener
 import com.chunkzero.window.host.OpenFullscreen
 import net.kyori.adventure.text.Component
 import net.minestom.server.component.DataComponents
@@ -21,6 +20,7 @@ import net.minestom.server.entity.metadata.display.TextDisplayMeta
 import net.minestom.server.entity.metadata.other.InteractionMeta
 import net.minestom.server.event.EventFilter
 import net.minestom.server.event.EventNode
+import net.minestom.server.event.player.PlayerCustomClickEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerPacketEvent
@@ -70,8 +70,7 @@ import net.minestom.server.world.clock.WorldClock
  * negative, which the pack's GUI shader reads as "clip the bottom-centre HUD strip". So the hearts fit that strip, the
  * client is told its max health is at most the canvas's `hudMaxHealth` and its absorption is 0. While the server has a
  * container open, the client gets the real world age back and its real hotbar so the strip and slots show. The text
- * prompt's anvil is this window's own UI rather than a server container, so it keeps the HUD hidden and the hotbar
- * blank.
+ * prompt's dialog is a client screen rather than a server container, so it keeps the HUD hidden and the hotbar blank.
  *
  * While the window is open, a server update to the game mode, abilities, hotbar, time, max health, or absorption passes
  * through unchanged and is followed by a packet that puts the hidden state back. Replacing the update instead would
@@ -114,7 +113,7 @@ internal class MinestomFullscreen private constructor(
 
     /** The held slot the client has selected, which held-slot changes are measured from. Requires [lock]. */
     private var clientSlot = heldSlot.toInt()
-    private val textInput = MinestomTextInput(player, blank, ::deferWhileOpen)
+    private val textPrompt = MinestomTextPrompt(player)
 
     /** The window id of the server container the client has open, or [NO_CONTAINER]. */
     private var containerWindowId = NO_CONTAINER
@@ -138,13 +137,13 @@ internal class MinestomFullscreen private constructor(
         player.sendPacket(PlayerRotationPacket(yaw, true, pitch, true))
     }
 
-    override fun openTextInput(
+    override fun promptText(
         title: Component,
-        text: String,
-        listener: FullscreenTextListener,
+        initial: String,
+        onDone: (String?) -> Unit,
     ) {
         check(isOpen()) { "The full-screen window of ${player.username} is closed" }
-        textInput.open(title, text, listener)
+        textPrompt.open(title, initial, onDone)
     }
 
     override fun close() {
@@ -266,6 +265,7 @@ internal class MinestomFullscreen private constructor(
             val next = event.newPosition
             if (!next.samePoint(anchor)) event.newPosition = anchor.withView(next.yaw(), next.pitch())
         }
+        node.addListener(PlayerCustomClickEvent::class.java, textPrompt::onClick)
         node.addListener(PlayerDisconnectEvent::class.java) { end(restore = false) }
         player.eventNode().addChild(node)
     }
@@ -314,7 +314,7 @@ internal class MinestomFullscreen private constructor(
             }
 
             else -> {
-                textInput.onPacket(event)
+                Unit
             }
         }
     }
@@ -378,13 +378,11 @@ internal class MinestomFullscreen private constructor(
                 }
 
                 is OpenWindowPacket -> {
-                    if (!textInput.owns(packet.windowId())) {
-                        containerWindowId = packet.windowId()
-                        containerGeneration++
-                        player.sendPacket(realTime())
-                        // Opening a container does not resync the player inventory, whose hotbar still holds the blanks.
-                        player.inventory.update(player)
-                    }
+                    containerWindowId = packet.windowId()
+                    containerGeneration++
+                    player.sendPacket(realTime())
+                    // Opening a container does not resync the player inventory, whose hotbar still holds the blanks.
+                    player.inventory.update(player)
                 }
 
                 is CloseWindowPacket -> {
@@ -441,10 +439,6 @@ internal class MinestomFullscreen private constructor(
 
     private fun isOpen() = synchronized(lock) { open }
 
-    private fun deferWhileOpen(task: () -> Unit) {
-        player.scheduler().scheduleNextTick { if (isOpen()) task() }
-    }
-
     /** Runs [action] under [lock] unless the window has stopped, so it cannot enqueue a packet after restoring. */
     private inline fun whileOpen(action: () -> Unit) {
         synchronized(lock) { if (open) action() }
@@ -453,7 +447,7 @@ internal class MinestomFullscreen private constructor(
     /** Ends the window after the player left it, restoring them unless they disconnected. */
     private fun end(restore: Boolean) {
         if (!stop()) return
-        if (restore) restore()
+        if (restore) restore() else textPrompt.close(clear = false)
         listener.onClose()
     }
 
@@ -468,7 +462,7 @@ internal class MinestomFullscreen private constructor(
         }
 
     private fun restore() {
-        textInput.close()
+        textPrompt.close(clear = true)
         player.sendPacket(DestroyEntitiesPacket(listOf(display.entityId, clickTarget.entityId)))
         // A mode the server set while the window was open replaces the one it began with.
         val mode = player.gameMode.takeUnless { it == GameMode.SPECTATOR } ?: gameMode

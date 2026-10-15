@@ -12,7 +12,7 @@ import kotlin.properties.ReadWriteProperty
  * reacts to lifecycle events.
  *
  * A view shows [definition] to the player of [host] and is single-use: [open] it once. The player aims a cursor by
- * turning, clicks with the attack and use keys, scrolls, types into a [promptText] anvil, and leaves by sneaking.
+ * turning, clicks with the attack and use keys, scrolls, answers a [promptText] dialog, and leaves by sneaking.
  * Reactive [state] cells read inside render lambdas re-render the window when written.
  */
 public abstract class FullscreenView(
@@ -75,26 +75,29 @@ public abstract class FullscreenView(
     }
 
     /**
-     * Opens an anvil titled [title] over the canvas for the player to type into, starting from [initial].
+     * Opens a dialog titled [title] over the canvas for the player to type into, starting from [initial], and calls
+     * [onDone] once with the text when they confirm, or `null` when they cancel. The dialog closes with the button and
+     * the canvas is back. The text holds at most 256 characters, and [initial] is cut to fit. Escape does not dismiss
+     * the dialog. While it is open the HUD stays hidden and canvas input is ignored, so the cursor stays where it was.
      *
-     * [onEdit] receives the whole text after each edit. [onDone] receives it once the player clicks the anvil's result
-     * slot, or `null` once they close the anvil; the canvas is back by then. Neither runs after the window closes. While
-     * the anvil is open, the HUD stays hidden and the cursor stays where it was.
+     * Opening a prompt while one is open replaces it, and the replaced prompt's [onDone] receives `null`. When the
+     * window closes with a prompt open, its [onDone] receives `null` as well.
      *
-     * The anvil's rename field holds 50 characters. When it fills, its text is kept and a fresh anvil opens with an empty
-     * field, so the text can grow past 50 characters, but only the part after the last 50-character boundary is shown
-     * and editable. Keys pressed before the fresh anvil arrives are lost.
+     * To prompt on a click, call this from the control's click handler:
+     * ```
+     * override fun onRename(click: FullscreenClick) {
+     *     promptText(Component.text("Rename"), name) { it?.let { name = it } }
+     * }
+     * ```
      *
-     * @throws IllegalStateException if the view is not open, a prompt is already open, or the host could not open the
-     *   anvil, for example while another container is open.
+     * @throws IllegalStateException if the view is not open.
      */
     protected fun promptText(
         title: Component = Component.empty(),
         initial: String = "",
-        onEdit: (String) -> Unit = {},
         onDone: (String?) -> Unit,
     ) {
-        requireSession().promptText(title, initial, onEdit, onDone)
+        requireSession().promptText(title, initial, onDone)
     }
 
     /**

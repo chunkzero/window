@@ -2,9 +2,7 @@ package com.chunkzero.window
 
 import com.chunkzero.window.host.FullscreenHost
 import com.chunkzero.window.host.FullscreenListener
-import com.chunkzero.window.host.FullscreenTextListener
 import com.chunkzero.window.host.OpenFullscreen
-import com.chunkzero.window.internal.AnvilReopenGate
 import com.chunkzero.window.internal.CanvasPoint
 import com.chunkzero.window.internal.FullscreenMapping
 import com.chunkzero.window.internal.HudLayers
@@ -50,7 +48,7 @@ internal class FullscreenWindowSession(
     private var yaw = 0f
     private var pitch = 0f
     private var pullBackAfter = Long.MIN_VALUE
-    private var prompt: TextPrompt? = null
+    private var prompt: Any? = null
     private var closed = false
 
     private val listener =
@@ -63,22 +61,24 @@ internal class FullscreenWindowSession(
             override fun onClick() = click()
 
             override fun onRightClick() {
-                if (closed) return
+                if (!listening) return
                 val point = cursor()
                 bindings.rightClick?.invoke(FullscreenClick(point.x, point.y))
             }
 
             override fun onScroll(steps: Int) {
-                if (!closed) bindings.scroll?.invoke(steps)
+                if (listening) bindings.scroll?.invoke(steps)
             }
 
             override fun onClose() {
                 if (closed) return
                 closed = true
-                prompt = null
                 view.invokeOnClose()
             }
         }
+
+    /** Whether canvas input counts: the window is open and no prompt covers it. */
+    private val listening get() = !closed && prompt == null
 
     fun open() {
         try {
@@ -103,7 +103,6 @@ internal class FullscreenWindowSession(
     override fun close() {
         if (closed) return
         closed = true
-        prompt = null
         view.invokeOnClose()
         screen.close()
     }
@@ -111,20 +110,15 @@ internal class FullscreenWindowSession(
     fun promptText(
         title: Component,
         initial: String,
-        onEdit: (String) -> Unit,
         onDone: (String?) -> Unit,
     ) {
         check(!closed) { "Fullscreen view is not open" }
-        check(prompt == null) { "A text prompt is already open in fullscreen '${definition.name}'" }
-        val kept = initial.length - initial.length % AnvilReopenGate.MAX_NAME_LENGTH
-        val next = TextPrompt(title, initial.take(kept), onEdit, onDone)
-        prompt = next
-        try {
-            next.open(initial.drop(kept))
-        } catch (failure: Throwable) {
-            prompt = null
-            throw failure
+        val token = Any()
+        screen.promptText(title, initial) { text ->
+            if (prompt === token) prompt = null
+            onDone(text)
         }
+        prompt = token
     }
 
     fun refreshAll() {
@@ -142,7 +136,7 @@ internal class FullscreenWindowSession(
         yaw: Float,
         pitch: Float,
     ) {
-        if (closed) return
+        if (!listening) return
         this.yaw = yaw
         this.pitch = pitch
         mapping.pullBack(yaw, pitch)?.let { turn ->
@@ -160,7 +154,7 @@ internal class FullscreenWindowSession(
     }
 
     private fun click() {
-        if (closed) return
+        if (!listening) return
         val point = cursor()
         val current = layers.switches.current()
         val actions =
@@ -203,44 +197,6 @@ internal class FullscreenWindowSession(
         if (content == sent) return
         screen.show(content)
         sent = content
-    }
-
-    /**
-     * A [promptText] anvil: [kept] is the text of earlier anvils whose field filled, and [field] the current anvil's.
-     */
-    private inner class TextPrompt(
-        private val title: Component,
-        private var kept: String,
-        private val edited: (String) -> Unit,
-        private val done: (String?) -> Unit,
-    ) : FullscreenTextListener {
-        private var field = ""
-
-        fun open(text: String) {
-            field = text
-            screen.openTextInput(title, text, this)
-        }
-
-        override fun onEdit(text: String) {
-            if (prompt !== this) return
-            if (text.length >= AnvilReopenGate.MAX_NAME_LENGTH) {
-                kept += text
-                open("")
-            } else {
-                field = text
-            }
-            edited(kept + field)
-        }
-
-        override fun onSubmit() = finish(kept + field)
-
-        override fun onCancel() = finish(null)
-
-        private fun finish(text: String?) {
-            if (prompt !== this) return
-            prompt = null
-            done(text)
-        }
     }
 
     /** The [FullscreenScope] passed to `bind`, and the check that every control requiring a binding received one. */
