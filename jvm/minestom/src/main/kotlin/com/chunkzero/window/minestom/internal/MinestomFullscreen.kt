@@ -37,6 +37,8 @@ import net.minestom.server.network.packet.client.play.ClientPlayerActionPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerPositionAndRotationPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
 import net.minestom.server.network.packet.server.ServerPacket
+import net.minestom.server.network.packet.server.common.ClearDialogPacket
+import net.minestom.server.network.packet.server.common.ShowDialogPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
@@ -388,13 +390,15 @@ internal class MinestomFullscreen private constructor(
                     if (!containerOpen) blank(realHotbarSlots(packet))
                 }
 
+                is ShowDialogPacket, is ClearDialogPacket -> {
+                    textPrompt.onWritten(packet)
+                }
+
                 is OpenWindowPacket -> {
                     containerWindowId = packet.windowId()
                     containerGeneration++
                     // The container replaces the client's dialog without any answer.
-                    textPrompt.current?.let { covered ->
-                        player.scheduler().scheduleNextTick { textPrompt.cancel(covered) }
-                    }
+                    textPrompt.coverByContainer()
                     player.sendPacket(realTime())
                     // Opening a container does not resync the player inventory, whose hotbar still holds the blanks.
                     player.inventory.update(player)

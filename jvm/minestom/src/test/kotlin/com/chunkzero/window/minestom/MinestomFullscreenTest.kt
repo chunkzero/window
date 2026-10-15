@@ -34,6 +34,7 @@ import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.player.PlayerCustomClickEvent
+import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerPacketOutEvent
 import net.minestom.server.inventory.Inventory
@@ -242,6 +243,35 @@ class MinestomFullscreenTest :
 
             menu.prompts shouldContainExactly listOf(null)
             menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
+        }
+
+        "a container opened before a prompt's dialog is written leaves that prompt pending" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            fixture.tick()
+            fixture.clear()
+
+            fixture.player.openInventory(Inventory(InventoryType.CHEST_1_ROW, Component.empty()))
+            menu.prompt("hi")
+            val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
+            fixture.tick()
+            fixture.click(dialog, 0, "text" to "kept")
+
+            menu.prompts shouldContainExactly listOf("kept")
+        }
+
+        "disconnecting with a prompt open reports null and closes once" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.prompt("hi")
+
+            EventDispatcher.call(PlayerDisconnectEvent(fixture.player))
+            EventDispatcher.call(PlayerDisconnectEvent(fixture.player))
+
+            menu.prompts shouldContainExactly listOf(null)
+            menu.closeCount shouldBe 1
         }
 
         "closing with a prompt open restores first, then reports null and onClose, even if the callback fails" {
@@ -460,6 +490,7 @@ private class Menu(
     val scrolls = mutableListOf<Int>()
     val prompts = mutableListOf<String?>()
     var closed = false
+    var closeCount = 0
 
     override fun FullscreenScope.bind() {
         button("press") { clicks += it }
@@ -477,6 +508,7 @@ private class Menu(
 
     override fun onClose() {
         closed = true
+        closeCount++
     }
 }
 

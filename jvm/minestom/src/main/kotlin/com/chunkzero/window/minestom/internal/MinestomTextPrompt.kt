@@ -12,6 +12,7 @@ import net.minestom.server.dialog.DialogInput
 import net.minestom.server.dialog.DialogMetadata
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerCustomClickEvent
+import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.common.ClearDialogPacket
 import net.minestom.server.network.packet.server.common.ShowDialogPacket
 import java.util.concurrent.atomic.AtomicLong
@@ -31,6 +32,10 @@ internal class MinestomTextPrompt(
     @Volatile
     private var pending: Pending? = null
 
+    /** The prompt whose dialog the writer has sent most recently and not cleared, which may no longer be [current]. */
+    @Volatile
+    private var shown: Pending? = null
+
     /** The prompt awaiting an answer, if any. */
     val current: Pending? get() = pending
 
@@ -41,10 +46,13 @@ internal class MinestomTextPrompt(
         onDone: (String?) -> Unit,
     ) {
         val id = PROMPTS.getAndIncrement()
-        val next = Pending(Key.key("window", "prompt/$id/confirm"), Key.key("window", "prompt/$id/cancel"), onDone)
+        val confirm = Key.key("window", "prompt/$id/confirm")
+        val cancel = Key.key("window", "prompt/$id/cancel")
+        val show = ShowDialogPacket(dialog(title, initial.take(MAX_LENGTH), confirm, cancel))
+        val next = Pending(confirm, cancel, show, onDone)
         val replaced = pending
         pending = next
-        player.sendPacket(ShowDialogPacket(dialog(title, initial.take(MAX_LENGTH), next)))
+        player.sendPacket(next.show)
         replaced?.onDone?.invoke(null)
     }
 
@@ -75,6 +83,25 @@ internal class MinestomTextPrompt(
         if (pending != null) player.sendPacket(ClearDialogPacket())
     }
 
+    /** Records, from the packets as the writer sends them, which prompt's dialog the client is showing. */
+    fun onWritten(packet: ServerPacket) {
+        when (packet) {
+            is ShowDialogPacket -> shown = pending?.takeIf { it.show == packet }
+            is ClearDialogPacket -> shown = null
+            else -> Unit
+        }
+    }
+
+    /**
+     * Cancels the open prompt on the player's next tick when a container replaces the dialog the client is showing.
+     * A prompt whose dialog has not been sent yet is unaffected, as its dialog arrives after the container.
+     */
+    fun coverByContainer() {
+        val covered = shown?.takeIf { it === pending } ?: return
+        shown = null
+        player.scheduler().scheduleNextTick { cancel(covered) }
+    }
+
     /** Reports `null` to the open prompt, if any; with [only], just when that prompt is still the open one. */
     fun cancel(only: Pending? = null) {
         val current = pending ?: return
@@ -86,7 +113,8 @@ internal class MinestomTextPrompt(
     private fun dialog(
         title: Component,
         initial: String,
-        prompt: Pending,
+        confirm: Key,
+        cancel: Key,
     ): Dialog =
         Dialog.MultiAction(
             DialogMetadata(
@@ -98,7 +126,7 @@ internal class MinestomTextPrompt(
                 emptyList(),
                 listOf(DialogInput.Text(FIELD, DialogInput.DEFAULT_WIDTH, title, false, initial, MAX_LENGTH, null)),
             ),
-            listOf(button("Confirm", prompt.confirm), button("Cancel", prompt.cancel)),
+            listOf(button("Confirm", confirm), button("Cancel", cancel)),
             null,
             2,
         )
@@ -111,6 +139,7 @@ internal class MinestomTextPrompt(
     class Pending internal constructor(
         internal val confirm: Key,
         internal val cancel: Key,
+        internal val show: ShowDialogPacket,
         internal val onDone: (String?) -> Unit,
     )
 
