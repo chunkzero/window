@@ -128,7 +128,9 @@ out vec2 texCoord0;
 out vec4 vertexColor;
 out vec2 windowHudPos;
 flat out int windowHudHidden;
-out float windowHudIndicator;
+out vec4 windowHudIndicator;
+out vec2 windowHudGui;
+flat out vec4 windowHudRects[4];
 @PROMPT@
 // Whether a vertex lies on a corner of `rect` (left, top, right, bottom in GUI pixels). `freeRight` also accepts any x
 // right of the left edge up to 17 pixels past it, and `freeTop` any y from the top edge down to the bottom edge, for
@@ -141,20 +143,22 @@ bool window_fs_on_corner(vec2 pos, vec4 rect, bool freeRight, bool freeTop) {
     return onX && onY;
 }
 
-// Whether a vertex belongs to a quad vanilla's Hud draws as an attack indicator, in GUI pixels from the top-left,
-// with the GUI size gui: the crosshair indicator's 16x4 background and progress and its 16x16 full sprite, which
-// start at (gui.x / 2 - 8, gui.y / 2 + 9), and the 18x18 hotbar indicator background and progress in the row
-// gui.y - 20, either 97 pixels right of the centre or 113 left of it, depending on the main arm.
-bool window_fs_indicator_corner(vec2 pos, vec2 gui) {
+// Sets, per attack indicator rect, whether a vertex lies on one of its corners (windowHudIndicator) and the rect's
+// maximal extent (windowHudRects), in GUI pixels from the top-left with the GUI size gui: the crosshair indicator's 16x4
+// background and progress and its 16x16 full sprite, which start at (gui.x / 2 - 8, gui.y / 2 + 9), and the 18x18
+// hotbar indicator background and progress in the row gui.y - 20, either 97 pixels right of the centre or 113 left of
+// it, depending on the main arm.
+void window_fs_indicator(vec2 pos, vec2 gui, bool hidden) {
     vec2 centre = floor(gui / 2.0);
     vec4 crosshair = vec4(centre.x - 8.0, centre.y + 9.0, centre.x + 8.0, centre.y + 13.0);
     vec4 full = vec4(crosshair.xy, crosshair.zy + vec2(0.0, 16.0));
     vec4 hotbarRight = vec4(centre.x + 97.0, gui.y - 20.0, centre.x + 115.0, gui.y - 2.0);
     vec4 hotbarLeft = hotbarRight - vec4(210.0, 0.0, 210.0, 0.0);
-    return window_fs_on_corner(pos, crosshair, true, false)
-        || window_fs_on_corner(pos, full, false, false)
-        || window_fs_on_corner(pos, hotbarRight, false, true)
-        || window_fs_on_corner(pos, hotbarLeft, false, true);
+    windowHudRects = vec4[4](crosshair + vec4(0.0, 0.0, 1.0, 0.0), full, hotbarRight, hotbarLeft);
+    windowHudIndicator = hidden ? vec4(
+        window_fs_on_corner(pos, crosshair, true, false), window_fs_on_corner(pos, full, false, false),
+        window_fs_on_corner(pos, hotbarRight, false, true), window_fs_on_corner(pos, hotbarLeft, false, true))
+        : vec4(0.0);
 }
 
 void main() {
@@ -168,11 +172,13 @@ void main() {
     windowHudHidden = GameTime < 0.0 && ProjMat[3][3] == 1.0 ? 1 : 0;
     windowHudPos = vec2(gl_Position.x / ProjMat[0][0], (gl_Position.y + 1.0) / -ProjMat[1][1]);
 
-    // Only a quad whose four vertices all match reaches 1.0 across its fragments. The GUI size is the client's: the
-    // fractional framebuffer size over the scale, rounded up.
-    vec2 gui = ceil(vec2(2.0 / ProjMat[0][0], -2.0 / ProjMat[1][1]) - 1.0e-3);
-    vec2 guiPos = vec2((gl_Position.x + 1.0) / ProjMat[0][0], (gl_Position.y - 1.0) / ProjMat[1][1]);
-    windowHudIndicator = windowHudHidden == 1 && window_fs_indicator_corner(guiPos, gui) ? 1.0 : 0.0;
+    // Three matching corners of an axis-aligned quad fix its fourth, so a rect's flag reaches 1.0 across a quad only if
+    // it is that rect, and the fragment's bounds check confines any sliver of a partial match to the rect itself. The
+    // GUI size is the client's: the fractional framebuffer size over the scale, rounded up. Fractional sizes are
+    // multiples of 1 / scale, so 0.01 absorbs float error without rounding a true fraction down.
+    vec2 gui = ceil(vec2(2.0 / ProjMat[0][0], -2.0 / ProjMat[1][1]) - 0.01);
+    windowHudGui = vec2((gl_Position.x + 1.0) / ProjMat[0][0], (gl_Position.y - 1.0) / ProjMat[1][1]);
+    window_fs_indicator(windowHudGui, gui, windowHudHidden == 1);
 
     window_prompt_clip(gl_Position);
 }
@@ -205,7 +211,9 @@ in vec2 texCoord0;
 in vec4 vertexColor;
 in vec2 windowHudPos;
 flat in int windowHudHidden;
-in float windowHudIndicator;
+in vec4 windowHudIndicator;
+in vec2 windowHudGui;
+flat in vec4 windowHudRects[4];
 {prompt_helpers}
 out vec4 fragColor;
 
@@ -213,10 +221,11 @@ void main() {{{prompt_clip}
     if (windowHudHidden == 1 && abs(windowHudPos.x) < WINDOW_FS_HUD_STRIP.x && windowHudPos.y < WINDOW_FS_HUD_STRIP.y) {{
         discard;
     }}
-    // Fragment centres sit at least half a framebuffer pixel from an edge, so a quad with unmatched vertices stays
-    // below 1 - 0.5 / height in pixels, well under this threshold.
-    if (windowHudIndicator > 0.99999) {{
-        discard;
+    for (int i = 0; i < 4; i++) {{
+        if (windowHudIndicator[i] > 0.99999 && all(greaterThanEqual(windowHudGui, windowHudRects[i].xy))
+            && all(lessThanEqual(windowHudGui, windowHudRects[i].zw))) {{
+            discard;
+        }}
     }}
     vec4 texel = texture(Sampler0, texCoord0);
     if (windowHudHidden == 1 && int(round(texel.a * 255.0)) == WINDOW_FS_CROSSHAIR_ALPHA) {{
