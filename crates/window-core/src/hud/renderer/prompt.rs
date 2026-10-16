@@ -18,9 +18,10 @@ use crate::fullscreen::PROMPT_TIME_SPLIT;
 /// The anvil screen's size; vanilla centres it with integer division.
 const ANVIL_SIZE: [u32; 2] = [176, 166];
 
-/// The rename field's band `[x, y, width, height]`: its text at (62, 24) with a shadow, the caret and selection one
-/// pixel above and below it, and an end-of-text caret that may run past the field's 103-pixel width.
-const FIELD_BAND: [u32; 4] = [62, 22, 114, 14];
+/// The rename field's band `[x, y, width, height]`: its text at (62, 24) with a shadow, the selection starting one
+/// pixel left of it, the caret and selection one pixel above and below it, and an end-of-text caret that may run past
+/// the field's 103-pixel width.
+const FIELD_BAND: [u32; 4] = [61, 22, 115, 14];
 
 /// The title's band at y 6 and the inventory label's at y 72, nine pixels of text and a pixel of slack each.
 const LABEL_BANDS: [[u32; 4]; 2] = [[0, 6, 176, 10], [0, 72, 176, 10]];

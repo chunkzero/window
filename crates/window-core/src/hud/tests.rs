@@ -156,7 +156,7 @@ fn fullscreen_branch_joins_the_text_shader_and_hides_the_hud_strip() {
     // While the prompt's anvil is open, GUI text is hidden only in its field and label bands, and fills only in the
     // field band or when they are the dimming gradient or a slot highlight.
     let text = &alone.files[1].contents;
-    assert!(text.contains("const vec4 WINDOW_PROMPT_FIELD = vec4(62.0, 22.0, 114.0, 14.0);"), "{text}");
+    assert!(text.contains("const vec4 WINDOW_PROMPT_FIELD = vec4(61.0, 22.0, 115.0, 14.0);"), "{text}");
     assert!(text.contains("void main() {\n#ifdef IS_GUI\n    if (window_prompt_in(WINDOW_PROMPT_FIELD)"), "{text}");
     assert!(alone.files[0].contents.contains("const float WINDOW_PROMPT_TIME_SPLIT = -0.4;"));
     let gui = &alone.files[4].contents;
