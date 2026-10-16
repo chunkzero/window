@@ -18,7 +18,7 @@ export default defineConfig({
             namespace: "window",
             coreShaders: { hud: true, hover: true },
             vanilla: { anvil: { field: "search_field" }, hud: { experience: false }, slotHighlight: false },
-            size: { report: true, budget: 1_150_000 },
+            size: { report: true, budget: 3_000_000 },
             previews: { output: "build/previews" },
             kotlin: {
                 package: "com.chunkzero.window.example.generated",

@@ -10,6 +10,7 @@ import lookout from "./lookout.tsx";
 import search from "./search.tsx";
 import shop from "./shop.tsx";
 import statusHuds, { bottomCenter, coins, hint, power, rate, topLeft, waveBar, waveCharge } from "./status_hud.tsx";
+import storefront from "./storefront.tsx";
 import upgrades from "./upgrades.tsx";
 
 /** A preview of the workshop with one card in each stage. */
@@ -31,11 +32,64 @@ const upgradesPreview = (options: PreviewOptions) =>
         options,
     );
 
+/** The storefront browsing Gear, with a card selected and two lines in the cart. */
+const storefrontState = (pane: "details" | "cart") =>
+    [
+        [handles.storeCategory, "gear"],
+        [handles.storePane, pane],
+        [handles.storeSearch, "ing_"],
+        [handles.storeHasSearch, true],
+        [handles.storeCartCount, "3"],
+        [handles.storeResults, "Gear: 14 items"],
+        [handles.storeSortLabel, "Sort: Price"],
+        [handles.catalogFocused, pane === "details"],
+        [
+            handles.cardName,
+            [
+                "Gilded Ingot",
+                "Tempered Iron",
+                "Copper Bundle",
+                "Tide Trident",
+                "Sky Wings",
+                "Rocket Crate",
+                "Scout Spyglass",
+                "Explorer Compass",
+                "Chrono Dial",
+            ],
+        ],
+        [handles.cardPrice, ["180", "95", "75", "860", "1150", "155", "165", "205", "260"]],
+        [handles.cardIcon, ["gold", "iron", "copper", "trident", "elytra", "rocket", "spyglass", "compass", "clock"]],
+        [handles.cardFilled, [true, true, true, true, true, true, true, true, true]],
+        [handles.cardFeatured, [false, false, false, true, true]],
+        [handles.cardSelected, [false, false, false, true]],
+        [handles.catalogThumb, [false, false, true, true, true, true, false, false]],
+        [handles.detailIcon, "trident"],
+        [handles.detailName, "Tide Trident"],
+        [handles.detailTier, "legendary"],
+        [handles.detailKind, "Legendary gear"],
+        [handles.detailPrice, "860"],
+        [handles.detailBlurb, "Forged in the drowned halls. Returns to your hand and calls lightning in a storm."],
+        [handles.detailInCart, "1 already in your cart"],
+        [handles.quantity, "2"],
+        [handles.canLess, true],
+        [handles.canMore, true],
+        [handles.canBuyNow, true],
+        [handles.buyNowLabel, "Buy 1720"],
+        [handles.cartName, ["Tide Trident", "Copper Bundle", "Rocket Crate"]],
+        [handles.cartQuantity, ["x1", "x1", "x1"]],
+        [handles.cartPrice, ["860", "75", "155"]],
+        [handles.cartThumb, [true, true, true, true, true]],
+        [handles.cartTotal, "1090"],
+        [handles.canCheckout, true],
+        [handles.storeBalance, "2500"],
+        [handles.storeToast, "Added Tide Trident to your cart"],
+    ] as const;
+
 export default defineWindows({
     sprites: { searchField: art.inputField, ...ranks },
     windows: [shop, search, upgrades],
     huds: statusHuds,
-    fullscreens: [lobby, lookout],
+    fullscreens: [lobby, lookout, storefront],
     // `rpp build` writes these to build/previews/, one PNG per preview.
     previews: [
         preview(shop, [
@@ -85,5 +139,7 @@ export default defineWindows({
             [handles.worldName, ["Ironvale", "Emberly", "Ashmoor"]],
             [handles.ready, true],
         ]),
+        preview(storefront, storefrontState("details")),
+        preview(storefront, storefrontState("cart"), { name: "storefront_cart" }),
     ],
 });

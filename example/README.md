@@ -18,6 +18,7 @@ example/
 │   │       ├── upgrades.tsx    # themed workshop: styles, vars, cards with a face per stage, choices, and a hotspot
 │   │       ├── lobby.tsx       # full-screen main menu: paged worlds, a rename prompt, tooltips, and a ready switch
 │   │       ├── lookout.tsx     # horse-mode full-screen window with a signal bar
+│   │       ├── storefront.tsx  # horse-mode web-style store: tabs, live search, a scrolling grid and cart
 │   │       ├── status_hud.tsx  # the shader-relocated actionbar HUDs
 │   │       └── clock_hud.ts    # the clock HUD, written with the function-style raw API
 │   ├── build/previews/         # preview PNGs of the windows and HUDs, rewritten by every build
@@ -27,13 +28,13 @@ example/
 
 The Minestom server is the Gradle module `jvm/example`, which depends on `window-minestom`. `Main.kt` boots the server,
 `Market.kt` and `Workshop.kt` are a throwaway domain model, `MyShop.kt` and `MyUpgrades.kt` implement the **generated**
-`ShopView` and `UpgradesView`, and `MyLobby.kt` and `MyLookout.kt` the full-screen `LobbyFullscreen` and
-`LookoutFullscreen`. `MyStatusHud.kt` implements the **generated** HUD views. The pack uses `target: "minestom"`, so a
-window view takes the `Player` it is shown to: `Main.kt` opens the shop with `MyShop(player, market).open()`. Generated
-HUD views take no player; the handwritten ones that need it take it themselves. `Main.kt` joins the status HUDs into one
-action-bar `HudStack` and resends it with `player.sendHud(stack)` every tick, which keeps the wave bar moving smoothly,
-re-renders the clocks, and stays ahead of the action bar fading out. The bindings live under `generated/`, produced by
-the rpp plugin — committed, do not hand-edit.
+`ShopView` and `UpgradesView`, and `MyLobby.kt`, `MyLookout.kt`, and `MyStorefront.kt` the full-screen
+`LobbyFullscreen`, `LookoutFullscreen`, and `StorefrontFullscreen`. `MyStatusHud.kt` implements the **generated** HUD
+views. The pack uses `target: "minestom"`, so a window view takes the `Player` it is shown to: `Main.kt` opens the shop
+with `MyShop(player, market).open()`. Generated HUD views take no player; the handwritten ones that need it take it
+themselves. `Main.kt` joins the status HUDs into one action-bar `HudStack` and resends it with `player.sendHud(stack)`
+every tick, which keeps the wave bar moving smoothly, re-renders the clocks, and stays ahead of the action bar fading
+out. The bindings live under `generated/`, produced by the rpp plugin — committed, do not hand-edit.
 
 ## Run it
 
@@ -58,7 +59,9 @@ until the server stops.
 rename it in a native dialog, which returns to the lobby on Confirm or Cancel. The arrows or the scroll wheel move the
 world list, a click selects a world, and right clicking anywhere toggles ready, which switches the line under the list
 and retints the status. Play leaves once you are ready. `/lookout` opens a horse-mode window, which locks the view while
-the cursor follows the mouse; Charge fills its signal bar.
+the cursor follows the mouse; Charge fills its signal bar. `/store` opens a horse-mode storefront over the world: click
+the search box and type to filter the grid as you go (Escape finishes), and the scroll wheel moves whichever of the grid
+and the cart was clicked last. Right click flips the side pane between the details and the cart.
 
 The actionbar-backed HUD demo is disabled by default so the inventory examples stay visually focused. Enable it with
 `-Dwindow.hud.enabled=true`; use `-Dwindow.hud.spriteDebug=true` to print each HUD's static art to chat. The pack blanks
@@ -70,6 +73,7 @@ vanilla's experience bar, and one of the HUDs draws its wave bar there.
 | `/upgrades`                      | opens the workshop, like the catalog's Workshop button                 |
 | `/lobby`                         | opens the full-screen lobby                                            |
 | `/lookout`                       | opens the horse-mode lookout                                           |
+| `/store`                         | opens the horse-mode storefront                                        |
 | `/tone <ok\|warn\|danger\|auto>` | pins the tone the HUDs and newly opened windows draw in; `auto` unpins |
 | `/bar <fraction\|auto>`          | pins how full the wave bar and a newly opened shop's bar are           |
 
