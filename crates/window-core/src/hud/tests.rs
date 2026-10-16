@@ -151,6 +151,9 @@ fn fullscreen_branch_joins_the_text_shader_and_hides_the_hud_strip() {
     assert!(alone.files[0].contents.contains("void window_fs_apply()"));
     let fragment = &alone.files[3].contents;
     assert!(fragment.contains("const vec2 WINDOW_FS_HUD_STRIP = vec2(96.0, 56.0);"), "{fragment}");
+    let indicator = &alone.files[2].contents;
+    assert!(indicator.contains("windowHudHidden == 1 && window_fs_indicator_corner("), "{indicator}");
+    assert!(fragment.contains("if (windowHudIndicator > 0.99)"), "{fragment}");
     assert!(alone.files[2].contents.contains("float GameTime;\n    int MenuBlurRadius;\n    int UseRgss;\n};"));
 
     // While the prompt's anvil is open, GUI text is hidden only in its field and label bands, and fills only in the

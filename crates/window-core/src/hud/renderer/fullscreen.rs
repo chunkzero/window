@@ -1,5 +1,5 @@
 //! Full-screen snippets of the pack_format 85-88 `core/text` vertex shader, and the `core/position_tex_color`
-//! shaders that hide the HUD and the vanilla crosshair while a full-screen window is open, and the keyboard prompt's
+//! shaders that hide the HUD, the vanilla crosshair, and the attack indicators while a full-screen window is open, and the keyboard prompt's
 //! anvil while it is open (see [`super::prompt`]).
 //!
 //! The text shader moves every vertex of a full-screen marker (see [`crate::fullscreen`]) in the world pass straight
@@ -95,7 +95,8 @@ pub(super) fn render_fullscreen_vertex_helpers() -> String {
     VERTEX_HELPERS.replace("@PLACEMENT@", CANVAS_PLACEMENT).replace("@DEPTH_STEP@", &format!("{LAYER_DEPTH_STEP:?}"))
 }
 
-/// Renders `core/position_tex_color.vsh`, vanilla's GUI sprite shader plus the HUD strip and prompt inputs. Like
+/// Renders `core/position_tex_color.vsh`, vanilla's GUI sprite shader plus the HUD strip, attack indicator, and prompt
+/// inputs. Like
 /// vanilla, it declares its uniform blocks inline, since the shader is also compiled before resource packs load.
 pub(in crate::hud) fn render_position_tex_color_vertex() -> String {
     let source = r#"#version 330
@@ -127,7 +128,34 @@ out vec2 texCoord0;
 out vec4 vertexColor;
 out vec2 windowHudPos;
 flat out int windowHudHidden;
+out float windowHudIndicator;
 @PROMPT@
+// Whether a vertex of a GUI sprite quad sits where corner `corner` of `rect` (left, top, right, bottom in GUI pixels)
+// belongs. GUI sprite quads list their corners top-left, bottom-left, bottom-right, top-right. `freeRight` leaves the
+// right edge's x unchecked and `freeTop` the top edge's y, for the progress sprites whose far edge follows the charge.
+bool window_fs_quad_corner(vec2 pos, int corner, vec4 rect, bool freeRight, bool freeTop) {
+    bool right = corner >= 2;
+    bool bottom = corner == 1 || corner == 2;
+    vec2 d = abs(pos - vec2(right ? rect.z : rect.x, bottom ? rect.w : rect.y));
+    return (d.x < 0.01 || (right && freeRight)) && (d.y < 0.01 || (!bottom && freeTop));
+}
+
+// Whether a vertex belongs to a quad vanilla's Hud draws as an attack indicator, in GUI pixels from the top-left,
+// with the GUI size gui: the crosshair indicator's 16x4 background and progress and its 16x16 full sprite, which
+// start at (gui.x / 2 - 8, gui.y / 2 + 9), and the 18x18 hotbar indicator background and progress in the row
+// gui.y - 20, either 97 pixels right of the centre or 113 left of it, depending on the main arm.
+bool window_fs_indicator_corner(vec2 pos, int corner, vec2 gui) {
+    vec2 centre = floor(gui / 2.0);
+    vec4 crosshair = vec4(centre.x - 8.0, centre.y + 9.0, centre.x + 8.0, centre.y + 13.0);
+    vec4 full = vec4(crosshair.xy, crosshair.zy + vec2(0.0, 16.0));
+    vec4 hotbarRight = vec4(centre.x + 97.0, gui.y - 20.0, centre.x + 115.0, gui.y - 2.0);
+    vec4 hotbarLeft = hotbarRight - vec4(210.0, 0.0, 210.0, 0.0);
+    return window_fs_quad_corner(pos, corner, crosshair, true, false)
+        || window_fs_quad_corner(pos, corner, full, false, false)
+        || window_fs_quad_corner(pos, corner, hotbarRight, false, true)
+        || window_fs_quad_corner(pos, corner, hotbarLeft, false, true);
+}
+
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
@@ -139,6 +167,11 @@ void main() {
     windowHudHidden = GameTime < 0.0 && ProjMat[3][3] == 1.0 ? 1 : 0;
     windowHudPos = vec2(gl_Position.x / ProjMat[0][0], (gl_Position.y + 1.0) / -ProjMat[1][1]);
 
+    // Only a quad whose four vertices all match reaches 1.0 across its fragments.
+    vec2 gui = vec2(2.0 / ProjMat[0][0], -2.0 / ProjMat[1][1]);
+    vec2 guiPos = vec2((gl_Position.x + 1.0) / ProjMat[0][0], (gl_Position.y - 1.0) / ProjMat[1][1]);
+    windowHudIndicator = windowHudHidden == 1 && window_fs_indicator_corner(guiPos, gl_VertexID % 4, floor(gui + 0.5)) ? 1.0 : 0.0;
+
     window_prompt_clip(gl_Position);
 }
 "#;
@@ -146,8 +179,8 @@ void main() {
 }
 
 /// Renders `core/position_tex_color.fsh`, which while the HUD is hidden discards GUI sprite fragments inside the HUD
-/// strip, and texels carrying the crosshair marker alpha, which the pack's crosshair sprite override sets on its
-/// opaque texels. Clipping per fragment cuts sprites crossing the strip's edge instead of distorting them. While the
+/// strip, texels carrying the crosshair marker alpha, which the pack's crosshair sprite override sets on its opaque
+/// texels, and quads the vertex shader matched to a vanilla attack indicator. Clipping per fragment cuts sprites crossing the strip's edge instead of distorting them. While the
 /// prompt's anvil is open, it also discards GUI sprite fragments inside the anvil's rect.
 pub(in crate::hud) fn render_position_tex_color_fragment() -> String {
     format!(
@@ -170,11 +203,15 @@ in vec2 texCoord0;
 in vec4 vertexColor;
 in vec2 windowHudPos;
 flat in int windowHudHidden;
+in float windowHudIndicator;
 {prompt_helpers}
 out vec4 fragColor;
 
 void main() {{{prompt_clip}
     if (windowHudHidden == 1 && abs(windowHudPos.x) < WINDOW_FS_HUD_STRIP.x && windowHudPos.y < WINDOW_FS_HUD_STRIP.y) {{
+        discard;
+    }}
+    if (windowHudIndicator > 0.99) {{
         discard;
     }}
     vec4 texel = texture(Sampler0, texCoord0);

@@ -33,7 +33,6 @@
 
 use std::fmt::Write as _;
 
-use crate::authoring::HudGroup;
 use crate::compose::Texture;
 use crate::geometry::{Point, Rect, Size};
 use crate::ir::Rgb;
@@ -118,9 +117,9 @@ pub const HUD_STRIP_HALF_WIDTH: u32 = 96;
 /// The most max health the client is told while the HUD is hidden, so its hearts fit in one row inside the strip.
 pub const HUD_MAX_HEALTH: u32 = 20;
 
-/// The alpha of the opaque texels in the pack's overrides of the vanilla crosshair and attack-indicator sprites.
-/// While the HUD is hidden, `core/position_tex_color` discards GUI texels with this alpha, which removes them
-/// without cutting anything else. 254 draws the same as 255, including with the crosshair's inverting blend.
+/// The alpha of the opaque texels in the pack's override of the vanilla crosshair sprite. While the HUD is hidden,
+/// `core/position_tex_color` discards GUI texels with this alpha, which removes the crosshair without cutting
+/// anything else. With the crosshair's inverting blend, 254 draws the same as 255.
 pub const CROSSHAIR_MARKER_ALPHA: u8 = 254;
 
 /// The sprite the crosshair pipeline draws, relative to the pack root.
@@ -227,139 +226,6 @@ pub(crate) fn crosshair_marker_texture() -> Texture {
         }
     }
     texture
-}
-
-/// The attack-indicator sprites the pack overrides, as `(group, sprite name, rows, palette)`: each sprite's opaque
-/// texels become [`CROSSHAIR_MARKER_ALPHA`], so they are discarded while the HUD is hidden. The client draws the
-/// crosshair ones around the crosshair, and the hotbar ones beside the hotbar, which the HUD strip's width does not
-/// cover. Rows are the Minecraft 26.2 art, `.` being transparent.
-type Palette = &'static [(char, [u8; 3])];
-
-const INDICATOR_SPRITES: [(HudGroup, &str, &[&str], Palette); 5] = [
-    (
-        HudGroup::Crosshair,
-        "crosshair_attack_indicator_background",
-        &["...a............", "aaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaa..", "...a............"],
-        &[('a', [0x3a, 0x3b, 0x3c])],
-    ),
-    (
-        HudGroup::Crosshair,
-        "crosshair_attack_indicator_progress",
-        &["...a............", "bcbcdddddddddddd", "bcbceeffffffff..", "...a............"],
-        &CROSSHAIR_INDICATOR_PALETTE,
-    ),
-    (
-        HudGroup::Crosshair,
-        "crosshair_attack_indicator_full",
-        &[
-            "...a............",
-            "bcbcdddddddddddf",
-            "bcbceeffffffff..",
-            "...a............",
-            "........d.......",
-            ".......ddd......",
-            "........d.......",
-            "................",
-            "................",
-            "................",
-            "................",
-            "................",
-            "................",
-            "................",
-            "................",
-            "................",
-        ],
-        &CROSSHAIR_INDICATOR_PALETTE,
-    ),
-    (
-        HudGroup::Hotbar,
-        "hotbar_attack_indicator_background",
-        &[
-            "..................",
-            "..............aa..",
-            ".............a..a.",
-            "............a...a.",
-            "...........a....a.",
-            "..........a...a.a.",
-            ".........a...aa..a",
-            "........a...a.a..a",
-            ".......a...a.a...a",
-            "......a...a..a...a",
-            "..a..a...a...a...a",
-            ".a.aa...a.....a.a.",
-            "..a....a.......a..",
-            "..a...a...........",
-            ".a....a...........",
-            "a...aa.a..........",
-            "a..a..a...........",
-            ".aa...............",
-        ],
-        &[('a', [0, 0, 0])],
-    ),
-    (
-        HudGroup::Hotbar,
-        "hotbar_attack_indicator_progress",
-        &[
-            "..................",
-            "..............aa..",
-            ".............abca.",
-            "............abcca.",
-            "...........abdcea.",
-            "..........abdfaea.",
-            ".........abdfaagca",
-            "........abdfa.agca",
-            ".......abdfa.acgca",
-            "......abdfa..aegca",
-            "..a..abdfa...aceca",
-            ".ahaaidfa.....aca.",
-            "..ahjdfa.......a..",
-            "..ajhja...........",
-            ".akljha...........",
-            "aklkaaha..........",
-            "ahka..a...........",
-            ".aa...............",
-        ],
-        &[
-            ('a', [0x00, 0x00, 0x00]),
-            ('b', [0xd2, 0xd2, 0xd6]),
-            ('c', [0x6f, 0x47, 0x4b]),
-            ('d', [0x9f, 0xa1, 0xaf]),
-            ('e', [0x85, 0x59, 0x5c]),
-            ('f', [0xaf, 0xb0, 0xb5]),
-            ('g', [0x95, 0x6b, 0x6e]),
-            ('h', [0x47, 0x36, 0x35]),
-            ('i', [0xbd, 0xbe, 0xc3]),
-            ('j', [0x2b, 0x20, 0x1f]),
-            ('k', [0x58, 0x47, 0x46]),
-            ('l', [0x62, 0x4d, 0x46]),
-        ],
-    ),
-];
-
-const CROSSHAIR_INDICATOR_PALETTE: [(char, [u8; 3]); 6] = [
-    ('a', [0x5b, 0x4a, 0x49]),
-    ('b', [0x82, 0x6d, 0x6c]),
-    ('c', [0x6d, 0x59, 0x57]),
-    ('d', [0xd7, 0xd9, 0xea]),
-    ('e', [0xea, 0xec, 0xf2]),
-    ('f', [0xff, 0xff, 0xff]),
-];
-
-/// The vanilla attack-indicator sprites' overrides, as `(group, path)` and texture, with opaque texels at
-/// [`CROSSHAIR_MARKER_ALPHA`].
-pub(crate) fn indicator_marker_textures() -> impl Iterator<Item = (HudGroup, String, Texture)> {
-    INDICATOR_SPRITES.iter().map(|&(group, name, rows, palette)| {
-        let mut texture = Texture::transparent(rows[0].len() as u32, rows.len() as u32);
-        for (y, row) in rows.iter().enumerate() {
-            for (x, pixel) in row.chars().enumerate() {
-                if let Some((_, [r, g, b])) = palette.iter().find(|(key, _)| *key == pixel) {
-                    let at = (y * texture.width as usize + x) * 4;
-                    texture.rgba[at..at + 4].copy_from_slice(&[*r, *g, *b, CROSSHAIR_MARKER_ALPHA]);
-                }
-            }
-        }
-        (group, format!("assets/minecraft/textures/gui/sprites/hud/{name}.png"), texture)
-    })
 }
 
 /// The built-in backdrop glyph's texture: solid white, which the shader stretches over the screen. Its left and top
