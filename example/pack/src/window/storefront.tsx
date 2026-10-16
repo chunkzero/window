@@ -64,9 +64,9 @@ import {
 type StoreIcon = (typeof STORE_ICONS)[number];
 
 const s = create({
-    nav: { frame: glass, tint: "#1a3866", height: 24, padding: { left: 6, right: 4 }, gap: 4 },
-    pane: { frame: glass, tint: "#102446" },
-    footer: { frame: glass, tint: "#1a3866", height: 16, padding: { left: 5, right: 2 }, gap: 4 },
+    nav: { frame: glass, tint: "#24508c", height: 24, padding: { left: 6, right: 4 }, gap: 4 },
+    pane: { frame: glass, tint: "#1b3766" },
+    footer: { frame: glass, tint: "#24508c", height: 16, padding: { left: 5, right: 2 }, gap: 4 },
     field: { frame: art.recess, width: 116, height: 16, padding: { left: 4, right: 3 }, gap: 4 },
     dim: { color: "#9cc4e4" },
     gold: { color: "#ffd27a" },
@@ -216,7 +216,7 @@ const catalog = (
                 columns={3}
                 rows={3}
                 onClick={pickCard}
-                style={{ cell: { frame: glass, tint: "#2f5f9a", gap: 2 } }}
+                style={{ cell: { frame: glass, tint: "#4f86c6", gap: 2 } }}
                 tooltip={{ title: "View product", lines: ["Click for details"] }}
             >
                 {(i) => [
@@ -308,7 +308,7 @@ const cart = (
                             columns={1}
                             rows={5}
                             onClick={removeLine}
-                            style={{ cell: { frame: glass, tint: "#2f5f9a" } }}
+                            style={{ cell: { frame: glass, tint: "#4f86c6" } }}
                         >
                             {(i) => (
                                 <Row width={138} gap={2}>
@@ -358,7 +358,7 @@ const footer = (
 );
 
 /**
- * A web-style storefront over the world, in horse mode so the view holds still behind it: no backdrop, dark translucent
+ * A web-style storefront over the world, in horse mode so the view holds still behind it: no backdrop, translucent
  * glass panes, category tabs, a search box the player types into in place, a product grid and a cart that each scroll,
  * and a detail pane to buy from.
  */
