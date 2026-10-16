@@ -871,7 +871,7 @@ class MinestomFullscreenTest :
     }) {
     private companion object {
         const val HIDDEN_AGE = -1_000_000_001L
-        const val PROMPT_AGE = -999_988_001L
+        const val PROMPT_AGE = -999_795_201L
     }
 }
 
@@ -1073,7 +1073,7 @@ private fun manifest(mode: FullscreenMode): WindowManifest {
             backdrop = "B",
             overlayMarker = "#a3f800",
             hudHiddenWorldAge = -1_000_000_001,
-            promptWorldAge = -999_988_001,
+            promptWorldAge = -999_795_201,
             hudStripHeight = 56,
             hudStripHalfWidth = 96,
             hudMaxHealth = 20,
