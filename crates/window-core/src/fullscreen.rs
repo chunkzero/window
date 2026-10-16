@@ -99,10 +99,12 @@ pub const MAX_COLORS: usize = 1 << 10;
 /// 24000.
 pub const HUD_HIDDEN_WORLD_AGE: i64 = -1_000_000_001;
 
-/// The world age the server sends while the keyboard text prompt's anvil is open: 12000 ticks above
-/// [`HUD_HIDDEN_WORLD_AGE`], so `GameTime` is about -0.17 rather than -0.67. Both bands hide the HUD, and the prompt
-/// band also hides what the anvil draws.
-pub const PROMPT_WORLD_AGE: i64 = HUD_HIDDEN_WORLD_AGE + 12_000;
+/// The world age the server sends while the keyboard text prompt's anvil is open: 204800 ticks above
+/// [`HUD_HIDDEN_WORLD_AGE`], so `GameTime` is about -0.13 rather than -0.67. Both bands hide the HUD, and the prompt
+/// band also hides what the anvil draws. Clouds scroll by the world age modulo 400 times the cloud texture's width,
+/// and the gap is a multiple of that for widths up to 512 (vanilla's is 256), so the clouds hold still when the anvil
+/// opens or closes.
+pub const PROMPT_WORLD_AGE: i64 = HUD_HIDDEN_WORLD_AGE + 204_800;
 
 /// The `GameTime` between the HUD band, below it, and the prompt band, above it.
 pub const PROMPT_TIME_SPLIT: f64 = -0.4;
