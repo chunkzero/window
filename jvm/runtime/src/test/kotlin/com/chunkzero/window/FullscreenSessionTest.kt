@@ -249,6 +249,29 @@ class FullscreenSessionTest :
             host.pending shouldBe null
         }
 
+        "a keyboard edit re-renders at once, and no tooltip shows while a prompt of either kind is open" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+
+            host.look(160, 200)
+            text(host.shown.last()) shouldContain "PANEL"
+            menu.type("") { menu.suffix = it }
+            text(host.shown.last()) shouldNotContain "PANEL"
+
+            host.edit("hi")
+            text(host.shown.last()) shouldContain "N0hi"
+            text(host.shown.last()) shouldNotContain "PANEL"
+
+            host.answer("hi")
+            menu.prompts shouldContainExactly listOf("hi")
+            text(host.shown.last()) shouldContain "PANEL"
+
+            menu.dialog("hi")
+            text(host.shown.last()) shouldNotContain "PANEL"
+            host.answer(null)
+            text(host.shown.last()) shouldContain "PANEL"
+        }
+
         "horse mode sends no cursor run, since the entity shader draws the cursor, and hit-tests the same rotation" {
             val host = FakeFullscreenHost()
             val menu = Menu(host, FullscreenMode.HORSE).also { it.open() }
@@ -262,6 +285,7 @@ class FullscreenSessionTest :
         }
     })
 
+@OptIn(ExperimentalFullscreenApi::class)
 private class Menu(
     host: FullscreenHost,
     mode: FullscreenMode = FullscreenMode.UNLOCKED,
@@ -298,10 +322,17 @@ private class Menu(
     fun prompt(
         initial: String,
         then: () -> Unit = {},
-    ) = promptText(initial = initial) {
+    ) = promptText(initial, onEdit = {}) {
         prompts += it
         then()
     }
+
+    fun type(
+        initial: String,
+        onEdit: (String) -> Unit,
+    ) = promptText(initial, onEdit) { prompts += it }
+
+    fun dialog(initial: String) = promptTextDialog(initial = initial) { prompts += it }
 
     override fun onClose() {
         closes++
@@ -315,6 +346,7 @@ private class FakeFullscreenHost :
     val shown = mutableListOf<Component>()
     val turns = mutableListOf<Turn>()
     var pending: ((String?) -> Unit)? = null
+    private var editing: ((String) -> Unit)? = null
     var closes = 0
     private var open = true
     lateinit var listener: FullscreenListener
@@ -346,15 +378,33 @@ private class FakeFullscreenHost :
 
     override val promptOpen get() = pending != null
 
+    @ExperimentalFullscreenApi
     override fun promptText(
+        initial: String,
+        onEdit: (String) -> Unit,
+        onDone: (String?) -> Unit,
+    ) = replace(onEdit, onDone)
+
+    override fun promptTextDialog(
         title: Component,
         initial: String,
+        onDone: (String?) -> Unit,
+    ) = replace(null, onDone)
+
+    private fun replace(
+        onEdit: ((String) -> Unit)?,
         onDone: (String?) -> Unit,
     ) {
         if (!open) return onDone(null)
         val replaced = pending
         pending = onDone
+        editing = onEdit
         replaced?.invoke(null)
+    }
+
+    /** Reports an edit to the pending keyboard prompt. */
+    fun edit(text: String) {
+        editing?.invoke(text)
     }
 
     override fun close() {
@@ -367,6 +417,7 @@ private class FakeFullscreenHost :
     fun answer(text: String?) {
         val done = pending ?: return
         pending = null
+        editing = null
         done(text)
     }
 

@@ -1,5 +1,6 @@
 package com.chunkzero.window.host
 
+import com.chunkzero.window.ExperimentalFullscreenApi
 import com.chunkzero.window.FullscreenDefinition
 import net.kyori.adventure.text.Component
 
@@ -32,7 +33,7 @@ public interface OpenFullscreen {
     /** The player's latency in milliseconds. */
     public val latencyMillis: Int
 
-    /** Replaces the glyph runs shown. */
+    /** Replaces the glyph runs shown; does nothing once the window has ended. */
     public fun show(content: Component)
 
     /** Turns the player's view by [yaw] and [pitch] degrees from where the client has it. */
@@ -41,8 +42,26 @@ public interface OpenFullscreen {
         pitch: Float,
     )
 
-    /** Whether a [promptText] dialog is open and unanswered. */
+    /** Whether a [promptText] or [promptTextDialog] prompt is open and unanswered. */
     public val promptOpen: Boolean
+
+    /**
+     * Captures text the player types, starting from [initial], while the canvas stays in view; the host draws nothing
+     * of the prompt, so the window draws the text itself. Reports the whole text to [onEdit] after each edit the client
+     * sends, and the outcome to [onDone] exactly once, on the player's thread: the text when the player presses Escape
+     * or clicks anywhere, and `null` when another prompt replaces this one, a server container opens over it, or the
+     * window ends. There is no cancel. The HUD stays hidden while the prompt is open.
+     *
+     * Both kinds of prompt share one slot: opening either replaces an open prompt of either kind. The prompt has left
+     * [promptOpen] by the time [onDone] runs, so [onDone] may open the next prompt. On a closed window, or when the host
+     * cannot show the prompt, this reports `null` at once.
+     */
+    @ExperimentalFullscreenApi
+    public fun promptText(
+        initial: String,
+        onEdit: (String) -> Unit,
+        onDone: (String?) -> Unit,
+    )
 
     /**
      * Shows a dialog titled [title] over the canvas with a text field holding [initial] and a Confirm and a Cancel
@@ -51,19 +70,18 @@ public interface OpenFullscreen {
      * the window ends. The dialog closes with the button, back to the canvas, and cannot be dismissed with Escape. The
      * text holds at most 256 characters; [initial] is cut to fit. The HUD stays hidden while the dialog is open.
      *
-     * The prompt has left [promptOpen] by the time [onDone] runs, so [onDone] may open the next prompt. On a closed
-     * window this reports `null` at once.
+     * Replacement and [onDone] timing are as for [promptText].
      */
-    public fun promptText(
+    public fun promptTextDialog(
         title: Component,
         initial: String,
         onDone: (String?) -> Unit,
     )
 
     /**
-     * Server-initiated close: stops listening, clears an open prompt's dialog, removes the display, restores the player's
-     * game mode, abilities, position, held slot, and HUD, and only then reports `null` to the open prompt. Does not call
-     * [FullscreenListener.onClose].
+     * Server-initiated close: stops listening, takes an open prompt off the client, removes the display, restores the
+     * player's game mode, abilities, position, held slot, and HUD, and only then reports `null` to the open prompt. Does
+     * not call [FullscreenListener.onClose].
      */
     public fun close()
 }

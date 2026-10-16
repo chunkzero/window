@@ -1,5 +1,6 @@
 package com.chunkzero.window.minestom.internal
 
+import com.chunkzero.window.ExperimentalFullscreenApi
 import com.chunkzero.window.FullscreenDefinition
 import com.chunkzero.window.host.FullscreenListener
 import com.chunkzero.window.host.OpenFullscreen
@@ -30,6 +31,7 @@ import net.minestom.server.event.player.PlayerPacketOutEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import net.minestom.server.item.component.TooltipDisplay
 import net.minestom.server.network.packet.client.play.ClientAnimationPacket
 import net.minestom.server.network.packet.client.play.ClientAttackPacket
 import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket
@@ -76,6 +78,8 @@ import net.minestom.server.world.clock.WorldClock
  * client is told its max health is at most the canvas's `hudMaxHealth` and its absorption is 0. While the server has a
  * container open, the client gets the real world age back and its real hotbar so the strip and slots show. The text
  * prompt's dialog is a client screen rather than a server container, so it keeps the HUD hidden and the hotbar blank.
+ * The keyboard prompt's anvil is a server container, but not one the player sees: while it is open the client gets the
+ * prompt's world age band, which also hides the anvil, and blanks in every inventory slot the anvil would show.
  *
  * While the window is open, a server update to the game mode, abilities, hotbar, time, max health, or absorption passes
  * through unchanged and is followed by a packet that puts the hidden state back. Replacing the update instead would
@@ -96,8 +100,8 @@ import net.minestom.server.world.clock.WorldClock
  * not a player, so their max health and absorption are left alone.
  *
  * A prompt's callback runs on the player's thread after the state it reports has changed, never under [lock]: a server
- * container opening over the dialog cancels it on the next tick, and a window ending cancels it once the player is
- * restored, just before [FullscreenListener.onClose].
+ * container opening over the dialog or replacing the anvil cancels it on the next tick, and a window ending cancels it
+ * once the player is restored, just before [FullscreenListener.onClose].
  */
 internal class MinestomFullscreen private constructor(
     private val player: Player,
@@ -110,6 +114,7 @@ internal class MinestomFullscreen private constructor(
             .builder(Material.PAPER)
             .set(DataComponents.ITEM_MODEL, definition.blankItemModel.asString())
             .set(DataComponents.CUSTOM_NAME, Component.empty())
+            .set(DataComponents.TOOLTIP_DISPLAY, TooltipDisplay(true, emptySet()))
             .build()
     private val gameMode = player.gameMode
     private val allowFlying = player.isAllowFlying
@@ -137,7 +142,15 @@ internal class MinestomFullscreen private constructor(
 
     /** The held slot the client has selected, which held-slot changes are measured from. Requires [lock]. */
     private var clientSlot = heldSlot.toInt()
-    private val textPrompt = MinestomTextPrompt(player)
+    private val textPrompt =
+        MinestomTextPrompt(player, blank, ::sendHiddenTime) {
+            whileOpen {
+                if (!containerOpen) {
+                    player.inventory.update(player)
+                    blankHotbar()
+                }
+            }
+        }
 
     /** The window id of the server container the client has open, or [NO_CONTAINER]. */
     private var containerWindowId = NO_CONTAINER
@@ -150,8 +163,10 @@ internal class MinestomFullscreen private constructor(
         get() = player.latency
 
     override fun show(content: Component) {
-        display.editEntityMeta(TextDisplayMeta::class.java) { it.text = content }
-        player.sendPacket(display.metadataPacket)
+        whileOpen {
+            display.editEntityMeta(TextDisplayMeta::class.java) { it.text = content }
+            player.sendPacket(display.metadataPacket)
+        }
     }
 
     override fun turn(
@@ -164,12 +179,21 @@ internal class MinestomFullscreen private constructor(
     override val promptOpen: Boolean
         get() = textPrompt.current != null
 
+    @ExperimentalFullscreenApi
     override fun promptText(
+        initial: String,
+        onEdit: (String) -> Unit,
+        onDone: (String?) -> Unit,
+    ) {
+        if (isOpen()) textPrompt.openKeyboard(initial, onEdit, onDone) else onDone(null)
+    }
+
+    override fun promptTextDialog(
         title: Component,
         initial: String,
         onDone: (String?) -> Unit,
     ) {
-        if (isOpen()) textPrompt.open(title, initial, onDone) else onDone(null)
+        if (isOpen()) textPrompt.openDialog(title, initial, onDone) else onDone(null)
     }
 
     override fun close() {
@@ -279,8 +303,14 @@ internal class MinestomFullscreen private constructor(
         if (horse == null) player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to ZERO)))
     }
 
+    /** Sends the HUD band's world age, or the prompt band's while the keyboard's anvil is open. */
     private fun hideTime(clocks: Map<RegistryKey<WorldClock>, SetTimePacket.ClockState>) {
-        player.sendPacket(SetTimePacket(canvas.hudHiddenWorldAge, clocks))
+        val age = if (textPrompt.keyboardOpen) canvas.promptWorldAge else canvas.hudHiddenWorldAge
+        player.sendPacket(SetTimePacket(age, clocks))
+    }
+
+    private fun sendHiddenTime() {
+        whileOpen { if (!containerOpen) hideTime(realTime().clocks()) }
     }
 
     private fun realTime() = player.instance.createTimePacket()
@@ -317,6 +347,7 @@ internal class MinestomFullscreen private constructor(
     }
 
     private fun onPacket(event: PlayerPacketEvent) {
+        textPrompt.onPacket(event)
         when (val packet = event.packet) {
             is ClientPlayerRotationPacket -> {
                 listener.onLook(packet.yaw(), packet.pitch())
@@ -420,7 +451,7 @@ internal class MinestomFullscreen private constructor(
                 }
 
                 is SetPlayerInventorySlotPacket, is SetSlotPacket, is WindowItemsPacket -> {
-                    if (!containerOpen) blank(realHotbarSlots(packet))
+                    if (!containerOpen) blank(realSlots(packet))
                 }
 
                 is ShowDialogPacket, is ClearDialogPacket -> {
@@ -428,6 +459,7 @@ internal class MinestomFullscreen private constructor(
                 }
 
                 is OpenWindowPacket -> {
+                    if (textPrompt.ownsOpen(packet.windowId())) return
                     containerWindowId = packet.windowId()
                     containerGeneration++
                     // The container replaces the client's dialog without any answer.
@@ -456,28 +488,42 @@ internal class MinestomFullscreen private constructor(
         }
     }
 
-    /** The hotbar slots [packet] sets to something other than the blank. */
-    private fun realHotbarSlots(packet: ServerPacket): List<Int> =
-        when {
-            packet is SetPlayerInventorySlotPacket && packet.slot() in 0 until HOTBAR_SIZE &&
-                packet.itemStack() != blank -> {
+    /**
+     * The player inventory slots [packet] sets to something other than the blank, among those the client shows: the
+     * hotbar, or every storage slot while the keyboard's anvil shows them.
+     */
+    private fun realSlots(packet: ServerPacket): List<Int> {
+        val shown = if (textPrompt.keyboardOpen) 0 until STORAGE_SIZE else 0 until HOTBAR_SIZE
+        return when {
+            packet is SetPlayerInventorySlotPacket && packet.slot() in shown && packet.itemStack() != blank -> {
                 listOf(packet.slot())
             }
 
-            packet is SetSlotPacket && packet.windowId() == 0 && packet.slot().toInt() in WINDOW_HOTBAR &&
+            packet is SetSlotPacket && packet.windowId() == 0 && inventorySlot(packet.slot().toInt()) in shown &&
                 packet.itemStack() != blank -> {
-                listOf(packet.slot() - WINDOW_HOTBAR.first)
+                listOf(inventorySlot(packet.slot().toInt()))
             }
 
             packet is WindowItemsPacket && packet.windowId() == 0 -> {
-                (0 until HOTBAR_SIZE).filter { slot ->
-                    packet.items().getOrNull(WINDOW_HOTBAR.first + slot)?.let { it != blank } == true
-                }
+                packet
+                    .items()
+                    .withIndex()
+                    .filter { (slot, item) -> inventorySlot(slot) in shown && item != blank }
+                    .map { inventorySlot(it.index) }
             }
 
             else -> {
                 emptyList()
             }
+        }
+    }
+
+    /** The player inventory slot of player-window slot [slot], or -1 for crafting, armor, and the off hand. */
+    private fun inventorySlot(slot: Int): Int =
+        when (slot) {
+            in WINDOW_HOTBAR -> slot - WINDOW_HOTBAR.first
+            in WINDOW_MAIN -> slot
+            else -> -1
         }
 
     /** Hides the HUD again once the server's container is gone. Requires [lock]. */
@@ -548,7 +594,7 @@ internal class MinestomFullscreen private constructor(
         player.sendPacket(player.metadataPacket)
         player.sendPacket(UpdateHealthPacket(player.health, player.food, player.foodSaturation))
         player.setHeldItemSlot(heldSlot)
-        player.inventory.update()
+        player.inventory.update(player)
     }
 
     companion object {
@@ -557,6 +603,12 @@ internal class MinestomFullscreen private constructor(
         private val ZERO = Metadata.Float(0f)
         private const val HOTBAR_SIZE = 9
         private const val NO_CONTAINER = -1
+
+        /** The player inventory's hotbar and main grid. */
+        private const val STORAGE_SIZE = 36
+
+        /** The main grid's slots in the player inventory window, after crafting and armor, which match its own. */
+        private val WINDOW_MAIN = 9..35
 
         /** The hotbar's slots in the player inventory window, which follows crafting, armor, and the main grid. */
         private val WINDOW_HOTBAR = 36..44

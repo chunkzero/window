@@ -12,35 +12,73 @@ import net.minestom.server.dialog.DialogInput
 import net.minestom.server.dialog.DialogMetadata
 import net.minestom.server.entity.Player
 import net.minestom.server.event.player.PlayerCustomClickEvent
+import net.minestom.server.event.player.PlayerPacketEvent
+import net.minestom.server.item.ItemStack
 import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.common.ClearDialogPacket
 import net.minestom.server.network.packet.server.common.ShowDialogPacket
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * The dialog a full-screen window shows [player] to type into: a text field over a Confirm and a Cancel button, which
- * report through custom click actions whose ids are unique to the prompt, so responses to any other dialog are ignored.
+ * The text prompt of [player]'s full-screen window, and the one owner of its state: [current] is the open prompt, a
+ * native dialog or the anvil keyboard ([MinestomAnvilKeyboard]), and opening either kind replaces it, taking the
+ * replaced kind off the client first.
  *
- * The client closes the dialog when a button is pressed, and Escape does nothing, so a prompt ends with a button, with
- * another prompt replacing it, or with [cancel]. Each of those reports to its callback once, after the prompt has left
- * [current], so a callback may open the next prompt. The buttons sit in the dialog's body, clear of the footer, which
- * falls inside the strip the pack's shader clips while the HUD is hidden.
+ * The dialog has a text field over a Confirm and a Cancel button, which report through custom click actions whose ids
+ * are unique to the prompt, so responses to any other dialog are ignored. The client closes the dialog when a button
+ * is pressed, and Escape does nothing. The buttons sit in the dialog's body, clear of the footer, which falls inside
+ * the strip the pack's shader clips while the HUD is hidden. The keyboard ends with its text when the player clicks or
+ * presses Escape.
+ *
+ * Either kind also ends with `null` when replaced, when a server container takes over (on the next tick), or with
+ * [cancel]. Each end reports to its callback once, after the prompt has left [current], so a callback may open the
+ * next prompt.
  */
 internal class MinestomTextPrompt(
     private val player: Player,
+    blank: ItemStack,
+    sendBand: () -> Unit,
+    restoreSlots: () -> Unit,
 ) {
     @Volatile
     private var pending: Pending? = null
 
-    /** The prompt whose dialog the writer has sent most recently and not cleared, which may no longer be [current]. */
+    /** The dialog the writer has sent most recently and not cleared, which may no longer be [current]. */
     @Volatile
-    private var shown: Pending? = null
+    private var shown: Pending.Dialog? = null
+
+    private val keyboard =
+        MinestomAnvilKeyboard(
+            player,
+            blank,
+            sendBand,
+            restoreSlots,
+            object : MinestomAnvilKeyboard.Events {
+                override fun onEdit(text: String) {
+                    (pending as? Pending.Keyboard)?.onEdit(text)
+                }
+
+                override fun onFinish(text: String) {
+                    val current = pending as? Pending.Keyboard ?: return
+                    pending = null
+                    current.onDone(text)
+                }
+
+                override fun onDisplaced() {
+                    val displaced = pending as? Pending.Keyboard ?: return
+                    player.scheduler().scheduleNextTick { cancel(displaced) }
+                }
+            },
+        )
 
     /** The prompt awaiting an answer, if any. */
     val current: Pending? get() = pending
 
+    /** Whether the keyboard's anvil is open, so the world age belongs in the prompt band. */
+    val keyboardOpen: Boolean get() = keyboard.isOpen
+
     /** Shows the dialog, first reporting `null` to the prompt it replaces. */
-    fun open(
+    fun openDialog(
         title: Component,
         initial: String,
         onDone: (String?) -> Unit,
@@ -48,21 +86,45 @@ internal class MinestomTextPrompt(
         val id = PROMPTS.getAndIncrement()
         val confirm = Key.key("window", "prompt/$id/confirm")
         val cancel = Key.key("window", "prompt/$id/cancel")
-        val show = ShowDialogPacket(dialog(title, initial.take(MAX_LENGTH), confirm, cancel))
-        val next = Pending(confirm, cancel, show, onDone)
+        val show = ShowDialogPacket(dialog(title, initial.take(DIALOG_MAX_LENGTH), confirm, cancel))
+        val next = Pending.Dialog(confirm, cancel, show, onDone)
         val replaced = pending
         pending = next
+        keyboard.close()
         player.sendPacket(next.show)
         replaced?.onDone?.invoke(null)
     }
 
-    /** Reports a button press of the open prompt, and nothing else. */
+    /**
+     * Opens the keyboard, first reporting `null` to the prompt it replaces. A keyboard replacing a keyboard keeps its
+     * anvil open. When an inventory listener refuses the anvil, the new prompt reports `null` as well.
+     */
+    fun openKeyboard(
+        initial: String,
+        onEdit: (String) -> Unit,
+        onDone: (String?) -> Unit,
+    ) {
+        val next = Pending.Keyboard(onEdit, onDone)
+        val replaced = pending
+        pending = next
+        if (replaced is Pending.Dialog) player.sendPacket(ClearDialogPacket())
+        val opened = keyboard.open(initial)
+        try {
+            replaced?.onDone?.invoke(null)
+        } finally {
+            if (!opened) cancel(next)
+        }
+    }
+
+    /** Reports a button press of the open dialog, and nothing else. */
     fun onClick(event: PlayerCustomClickEvent) {
-        val current = pending ?: return
+        val current = pending as? Pending.Dialog ?: return
         val text =
             when (event.key) {
                 current.confirm -> {
-                    ((event.payload as? CompoundBinaryTag)?.get(FIELD) as? StringBinaryTag)?.value()?.take(MAX_LENGTH)
+                    ((event.payload as? CompoundBinaryTag)?.get(FIELD) as? StringBinaryTag)
+                        ?.value()
+                        ?.take(DIALOG_MAX_LENGTH)
                         ?: return
                 }
 
@@ -78,15 +140,24 @@ internal class MinestomTextPrompt(
         current.onDone(text)
     }
 
-    /** Takes the open prompt's dialog, if any, off the client's screen; the prompt itself ends with [cancel]. */
+    /** Reports the keyboard's edits and its end. */
+    fun onPacket(event: PlayerPacketEvent) {
+        keyboard.onPacket(event)
+    }
+
+    /** Whether the open packet being written for [windowId] is the keyboard's; see [MinestomAnvilKeyboard.ownsOpen]. */
+    fun ownsOpen(windowId: Int): Boolean = keyboard.ownsOpen(windowId)
+
+    /** Takes the open prompt off the client, if any; the prompt itself ends with [cancel]. */
     fun clear() {
-        if (pending != null) player.sendPacket(ClearDialogPacket())
+        if (pending is Pending.Dialog) player.sendPacket(ClearDialogPacket())
+        keyboard.close()
     }
 
     /** Records, from the packets as the writer sends them, which prompt's dialog the client is showing. */
     fun onWritten(packet: ServerPacket) {
         when (packet) {
-            is ShowDialogPacket -> shown = pending?.takeIf { it.show == packet }
+            is ShowDialogPacket -> shown = (pending as? Pending.Dialog)?.takeIf { it.show == packet }
             is ClearDialogPacket -> shown = null
             else -> Unit
         }
@@ -94,7 +165,8 @@ internal class MinestomTextPrompt(
 
     /**
      * Cancels the open prompt on the player's next tick when a container replaces the dialog the client is showing.
-     * A prompt whose dialog has not been sent yet is unaffected, as its dialog arrives after the container.
+     * A prompt whose dialog has not been sent yet is unaffected, as its dialog arrives after the container. The
+     * keyboard's anvil reports its own replacement.
      */
     fun coverByContainer() {
         val covered = shown?.takeIf { it === pending } ?: return
@@ -107,6 +179,7 @@ internal class MinestomTextPrompt(
         val current = pending ?: return
         if (only != null && only !== current) return
         pending = null
+        if (current is Pending.Keyboard) keyboard.close()
         current.onDone(null)
     }
 
@@ -124,7 +197,9 @@ internal class MinestomTextPrompt(
                 false,
                 DialogAfterAction.CLOSE,
                 emptyList(),
-                listOf(DialogInput.Text(FIELD, DialogInput.DEFAULT_WIDTH, title, false, initial, MAX_LENGTH, null)),
+                listOf(
+                    DialogInput.Text(FIELD, DialogInput.DEFAULT_WIDTH, title, false, initial, DIALOG_MAX_LENGTH, null),
+                ),
             ),
             listOf(button("Confirm", confirm), button("Cancel", cancel)),
             null,
@@ -136,16 +211,25 @@ internal class MinestomTextPrompt(
         id: Key,
     ) = DialogActionButton(Component.text(label), null, BUTTON_WIDTH, DialogAction.DynamicCustom(id, null))
 
-    class Pending internal constructor(
-        internal val confirm: Key,
-        internal val cancel: Key,
-        internal val show: ShowDialogPacket,
+    sealed class Pending(
         internal val onDone: (String?) -> Unit,
-    )
+    ) {
+        class Dialog internal constructor(
+            internal val confirm: Key,
+            internal val cancel: Key,
+            internal val show: ShowDialogPacket,
+            onDone: (String?) -> Unit,
+        ) : Pending(onDone)
+
+        class Keyboard internal constructor(
+            internal val onEdit: (String) -> Unit,
+            onDone: (String?) -> Unit,
+        ) : Pending(onDone)
+    }
 
     private companion object {
         const val FIELD = "text"
-        const val MAX_LENGTH = 256
+        const val DIALOG_MAX_LENGTH = 256
         const val BUTTON_WIDTH = 100
         val PROMPTS = AtomicLong()
     }
