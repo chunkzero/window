@@ -239,6 +239,7 @@ pub(super) fn emit_contract(ctx: &mut CompileContext<'_>, mut contract: Contract
         backdrop,
         overlay_marker,
         hud_hidden_world_age: fullscreen::HUD_HIDDEN_WORLD_AGE,
+        prompt_world_age: fullscreen::PROMPT_WORLD_AGE,
         hud_strip_height: fullscreen::HUD_STRIP_HEIGHT,
         hud_strip_half_width: fullscreen::HUD_STRIP_HALF_WIDTH,
         hud_max_health: fullscreen::HUD_MAX_HEALTH,

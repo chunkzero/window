@@ -1,5 +1,6 @@
 package com.chunkzero.window.minestom
 
+import com.chunkzero.window.ExperimentalFullscreenApi
 import com.chunkzero.window.FullscreenClick
 import com.chunkzero.window.FullscreenDefinition
 import com.chunkzero.window.FullscreenScope
@@ -16,7 +17,9 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
@@ -38,6 +41,7 @@ import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.EventListener
+import net.minestom.server.event.inventory.InventoryOpenEvent
 import net.minestom.server.event.player.PlayerCustomClickEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerPacketEvent
@@ -49,15 +53,20 @@ import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.ConnectionState
 import net.minestom.server.network.packet.client.ClientPacket
+import net.minestom.server.network.packet.client.common.ClientPongPacket
 import net.minestom.server.network.packet.client.play.ClientAttackPacket
+import net.minestom.server.network.packet.client.play.ClientClickWindowPacket
+import net.minestom.server.network.packet.client.play.ClientClickWindowPacket.ClickType
 import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket
 import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket
 import net.minestom.server.network.packet.client.play.ClientInputPacket
 import net.minestom.server.network.packet.client.play.ClientInteractEntityPacket
+import net.minestom.server.network.packet.client.play.ClientNameItemPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.common.ClearDialogPacket
+import net.minestom.server.network.packet.server.common.PingPacket
 import net.minestom.server.network.packet.server.common.ShowDialogPacket
 import net.minestom.server.network.packet.server.play.CameraPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
@@ -71,12 +80,14 @@ import net.minestom.server.network.packet.server.play.OpenWindowPacket
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
 import net.minestom.server.network.packet.server.play.RespawnPacket
+import net.minestom.server.network.packet.server.play.SetExperiencePacket
 import net.minestom.server.network.packet.server.play.SetPassengersPacket
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
 import net.minestom.server.network.packet.server.play.SetSlotPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
 import net.minestom.server.network.packet.server.play.SpawnEntityPacket
 import net.minestom.server.network.packet.server.play.WindowItemsPacket
+import net.minestom.server.network.packet.server.play.WindowPropertyPacket
 import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
 import net.minestom.server.registry.RegistryKey
@@ -196,7 +207,7 @@ class MinestomFullscreenTest :
             fixture.tick()
             fixture.clear()
 
-            menu.prompt("hi")
+            menu.dialog("hi")
             val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
             (dialog.metadata().inputs().single() as DialogInput.Text).initial() shouldBe "hi"
             dialog.metadata().canCloseWithEscape() shouldBe false
@@ -212,7 +223,7 @@ class MinestomFullscreenTest :
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             menu.open()
-            menu.prompt("hi")
+            menu.dialog("hi")
             val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
 
             fixture.click(dialog, 1)
@@ -224,9 +235,9 @@ class MinestomFullscreenTest :
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             menu.open()
-            menu.prompt("first")
+            menu.dialog("first")
             val first = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
-            menu.prompt("second")
+            menu.dialog("second")
             menu.prompts shouldContainExactly listOf(null)
             val second = fixture.sent<ShowDialogPacket>().last().dialog() as Dialog.MultiAction
 
@@ -242,7 +253,7 @@ class MinestomFullscreenTest :
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             menu.open()
-            menu.prompt("hi")
+            menu.dialog("hi")
             val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
 
             fixture.clickCanvas()
@@ -265,7 +276,7 @@ class MinestomFullscreenTest :
             fixture.clear()
 
             fixture.player.openInventory(Inventory(InventoryType.CHEST_1_ROW, Component.empty()))
-            menu.prompt("hi")
+            menu.dialog("hi")
             val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
             fixture.tick()
             fixture.click(dialog, 0, "text" to "kept")
@@ -277,7 +288,7 @@ class MinestomFullscreenTest :
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             menu.open()
-            menu.prompt("hi")
+            menu.dialog("hi")
 
             EventDispatcher.call(PlayerDisconnectEvent(fixture.player))
             EventDispatcher.call(PlayerDisconnectEvent(fixture.player))
@@ -290,7 +301,7 @@ class MinestomFullscreenTest :
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             val session = menu.open()
-            menu.prompt("hi")
+            menu.dialog("hi")
             val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
             fixture.clear()
 
@@ -303,9 +314,9 @@ class MinestomFullscreenTest :
             val other = Menu(sneaking.player)
             other.open()
             var mode: GameMode? = null
-            other.prompt("hi") {
+            other.dialog("hi") {
                 mode = sneaking.player.gameMode
-                other.prompt("again")
+                other.dialog("again")
             }
             sneaking.receive(ClientInputPacket(false, false, false, false, false, true, false))
             mode shouldBe GameMode.SURVIVAL
@@ -316,10 +327,225 @@ class MinestomFullscreenTest :
             val failing = FullscreenFixture()
             val broken = Menu(failing.player)
             val failed = broken.open()
-            broken.prompt("hi") { error("boom") }
+            broken.dialog("hi") { error("boom") }
             shouldThrow<IllegalStateException> { failed.close() }
             failing.player.gameMode shouldBe GameMode.SURVIVAL
             broken.closed shouldBe true
+        }
+
+        "the keyboard opens an untitled anvil in the prompt band over blank slots, and Escape finishes with the text" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            player.inventory.setItemStack(2, ItemStack.of(Material.DIAMOND))
+            val menu = Menu(player)
+            menu.open()
+            fixture.tick()
+            fixture.clear()
+
+            menu.type("hi")
+            val open = fixture.sent<OpenWindowPacket>().single()
+            open.windowType() shouldBe InventoryType.ANVIL.windowType
+            open.title() shouldBe Component.empty()
+            fixture.sent<SetTimePacket>().single().gameTime() shouldBe PROMPT_AGE
+            val items = fixture.sent<WindowItemsPacket>().last { it.windowId() == open.windowId() }.items()
+            items[0].get(DataComponents.CUSTOM_NAME) shouldBe Component.text("hi")
+            items.drop(3).map { it.get(DataComponents.ITEM_MODEL) }.distinct() shouldBe
+                listOf("window:fullscreen/blank")
+            fixture.sent<WindowPropertyPacket>().single().value() shouldBe 0.toShort()
+
+            // The field's echo of its seed arrives before the pong and is not an edit.
+            fixture.receive(ClientNameItemPacket("hi")).isCancelled shouldBe true
+            fixture.pong()
+            fixture.receive(ClientNameItemPacket("hey"))
+            fixture.receive(ClientNameItemPacket("hey"))
+            menu.edits shouldContainExactly listOf("hey")
+            fixture.clickCanvas()
+            menu.clicks shouldBe emptyList()
+
+            fixture.clear()
+            fixture.closeWindow(open.windowId())
+            menu.prompts shouldContainExactly listOf("hey")
+            player.openInventory shouldBe null
+            fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
+            fixture.sent<SetExperiencePacket>().size shouldBe 1
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
+            fixture.clickCanvas()
+            menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
+        }
+
+        "a click outside the anvil finishes with the text and closes the anvil" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.type("hi")
+            val window = fixture.window()
+            fixture.clear()
+
+            fixture.clickWindow(window, -999).isCancelled shouldBe true
+
+            menu.prompts shouldContainExactly listOf("hi")
+            fixture.player.openInventory shouldBe null
+            fixture.sent<CloseWindowPacket>().single().windowId() shouldBe window
+            fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
+        }
+
+        "a click carrying a stale window id is cancelled and leaves the prompt open" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.type("hi")
+            val window = fixture.window()
+
+            fixture.clickWindow(window + 1, 3).isCancelled shouldBe true
+
+            menu.prompts shouldBe emptyList()
+            fixture.player.openInventory shouldNotBe null
+        }
+
+        "a prompt replacing one of the other kind takes it off the client first; a keyboard keeps its anvil" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            menu.open()
+            fixture.tick()
+            fixture.clear()
+
+            menu.type("a")
+            val window = fixture.window()
+            menu.type("b")
+            menu.prompts shouldContainExactly listOf(null)
+            fixture.sent<OpenWindowPacket>().size shouldBe 1
+            fixture
+                .sent<WindowItemsPacket>()
+                .last()
+                .items()[0]
+                .get(DataComponents.CUSTOM_NAME) shouldBe
+                Component.text("b")
+
+            fixture.clear()
+            menu.dialog("c")
+            menu.prompts shouldContainExactly listOf(null, null)
+            player.openInventory shouldBe null
+            fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
+            fixture.sent<SetExperiencePacket>().size shouldBe 1
+            val closed = fixture.delivered.indexOfFirst { it is CloseWindowPacket && it.windowId() == window }
+            closed shouldBeLessThan fixture.delivered.indexOfFirst { it is ShowDialogPacket }
+
+            fixture.clear()
+            menu.type("d")
+            menu.prompts shouldContainExactly listOf(null, null, null)
+            fixture.sent<SetTimePacket>().single().gameTime() shouldBe PROMPT_AGE
+            val cleared = fixture.delivered.indexOfFirst { it is ClearDialogPacket }
+            cleared shouldBeLessThan fixture.delivered.indexOfFirst { it is OpenWindowPacket }
+        }
+
+        "ending the window mid-edit restores the band, slots, and XP, then reports null once before onClose" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            player.inventory.setItemStack(2, ItemStack.of(Material.DIAMOND))
+            val menu = Menu(player)
+            menu.open()
+            fixture.tick()
+            var mode: GameMode? = null
+            menu.type("hi") { mode = player.gameMode }
+            fixture.clear()
+
+            fixture.receive(ClientInputPacket(false, false, false, false, false, true, false))
+
+            mode shouldBe GameMode.SURVIVAL
+            menu.prompts shouldContainExactly listOf(null)
+            menu.closes shouldBe 1
+            player.openInventory shouldBe null
+            fixture.sent<CloseWindowPacket>().size shouldBe 1
+            fixture.sent<SetTimePacket>().last().gameTime() shouldBe player.instance.worldAge
+            fixture.sent<SetExperiencePacket>().size shouldBe 1
+            fixture.hotbar()[2] shouldBe Material.DIAMOND
+            fixture.tick()
+            menu.prompts shouldContainExactly listOf(null)
+        }
+
+        "a server container replacing the anvil resolves null on the next tick and re-enables the canvas" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            menu.open()
+            menu.type("hi")
+            fixture.clear()
+
+            player.openInventory(Inventory(InventoryType.CHEST_1_ROW, Component.empty()))
+            menu.prompts shouldBe emptyList()
+            fixture.sent<SetTimePacket>().last() shouldBe player.instance.createTimePacket()
+            fixture.tick()
+            fixture.clickCanvas()
+
+            menu.prompts shouldContainExactly listOf(null)
+            menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
+        }
+
+        "the keyboard holds 50 characters: a longer initial text is cut, and a longer rename is truncated" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.type("x".repeat(55))
+            val window = fixture.window()
+            fixture
+                .sent<WindowItemsPacket>()
+                .last()
+                .items()[0]
+                .get(DataComponents.CUSTOM_NAME) shouldBe
+                Component.text("x".repeat(50))
+            fixture.pong()
+
+            fixture.receive(ClientNameItemPacket("x".repeat(50) + "y"))
+            menu.edits shouldBe emptyList()
+            fixture.receive(ClientNameItemPacket("z".repeat(60)))
+            fixture.closeWindow(window)
+
+            menu.edits shouldContainExactly listOf("z".repeat(50))
+            menu.prompts shouldContainExactly listOf("z".repeat(50))
+        }
+
+        "a refused anvil open resolves the prompt with null and leaves the band hidden" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            menu.open()
+            player.eventNode().addListener(InventoryOpenEvent::class.java) { it.isCancelled = true }
+            fixture.clear()
+
+            menu.type("hi")
+
+            menu.prompts shouldContainExactly listOf(null)
+            player.openInventory shouldBe null
+            fixture.sent<SetTimePacket>().last().gameTime() shouldBe HIDDEN_AGE
+        }
+
+        "a keyboard replacing an open container takes over its band, and finishing restores the hidden band and slots" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val diamond = ItemStack.of(Material.DIAMOND)
+            player.inventory.setItemStack(2, diamond)
+            val menu = Menu(player)
+            menu.open()
+            player.openInventory(Inventory(InventoryType.CHEST_1_ROW, Component.empty()))
+            fixture.clear()
+            fixture.hotbar()[2] shouldBe Material.DIAMOND
+
+            menu.type("hi")
+            fixture.sent<SetTimePacket>().last().gameTime() shouldBe PROMPT_AGE
+            val window = fixture.window()
+
+            fixture.clear()
+            fixture.closeWindow(window)
+            menu.prompts shouldContainExactly listOf("hi")
+            fixture.sent<SetTimePacket>().last().gameTime() shouldBe HIDDEN_AGE
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
+
+            fixture.clear()
+            fixture.send(SetTimePacket(100, emptyMap()))
+            fixture.sent<SetTimePacket>().map { it.gameTime() } shouldContainExactly listOf(100L, HIDDEN_AGE)
+            fixture.send(SetPlayerInventorySlotPacket(2, diamond))
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
         }
 
         "sneaking leaves the window and restores the player" {
@@ -645,9 +871,11 @@ class MinestomFullscreenTest :
     }) {
     private companion object {
         const val HIDDEN_AGE = -1_000_000_001L
+        const val PROMPT_AGE = -999_795_201L
     }
 }
 
+@OptIn(ExperimentalFullscreenApi::class)
 private class Menu(
     player: Player,
     mode: FullscreenMode = FullscreenMode.UNLOCKED,
@@ -656,6 +884,7 @@ private class Menu(
     val rightClicks = mutableListOf<FullscreenClick>()
     val scrolls = mutableListOf<Int>()
     val prompts = mutableListOf<String?>()
+    val edits = mutableListOf<String>()
     var closes = 0
     val closed get() = closes > 0
 
@@ -665,10 +894,18 @@ private class Menu(
         scroll { scrolls += it }
     }
 
-    fun prompt(
+    fun dialog(
         initial: String,
         then: () -> Unit = {},
-    ) = promptText(initial = initial) {
+    ) = promptTextDialog(initial = initial) {
+        prompts += it
+        then()
+    }
+
+    fun type(
+        initial: String = "",
+        then: () -> Unit = {},
+    ) = promptText(initial, onEdit = { edits += it }) {
         prompts += it
         then()
     }
@@ -719,6 +956,25 @@ private class FullscreenFixture {
     }
 
     fun receive(packet: ClientPacket) = PlayerPacketEvent(player, packet).also(EventDispatcher::call)
+
+    /** The window id of the latest window the client was told to open. */
+    fun window(): Int = sent<OpenWindowPacket>().last().windowId()
+
+    /** Answers the latest ping, which settles the keyboard's latest seed. */
+    fun pong() {
+        receive(ClientPongPacket(sent<PingPacket>().last().id()))
+    }
+
+    /** Closes window [id] from the client, as Escape does, then lets Minestom close it unless the event was cancelled. */
+    fun closeWindow(id: Int) {
+        if (!receive(ClientCloseWindowPacket(id)).isCancelled) player.closeInventory(true, id.toByte())
+    }
+
+    /** Clicks [slot] of window [id], -999 being outside it. */
+    fun clickWindow(
+        id: Int,
+        slot: Int,
+    ) = receive(ClientClickWindowPacket(id, 0, slot.toShort(), 0, ClickType.PICKUP, emptyMap(), ItemStack.Hash.AIR))
 
     /** Presses [dialog]'s button [index], answering with [fields]. */
     fun click(
@@ -817,6 +1073,7 @@ private fun manifest(mode: FullscreenMode): WindowManifest {
             backdrop = "B",
             overlayMarker = "#a3f800",
             hudHiddenWorldAge = -1_000_000_001,
+            promptWorldAge = -999_795_201,
             hudStripHeight = 56,
             hudStripHalfWidth = 96,
             hudMaxHealth = 20,

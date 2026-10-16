@@ -108,7 +108,10 @@ fn full_screen_windows_emit_their_shaders_and_need_the_define_variant_profile() 
     let out = compile(menu.clone()).unwrap();
     let shaders: Vec<&str> =
         out.files.iter().filter_map(|file| file.path.strip_prefix("assets/minecraft/shaders/core/")).collect();
-    assert_eq!(shaders, ["position_tex_color.fsh", "position_tex_color.vsh", "text.fsh", "text.vsh"]);
+    assert_eq!(
+        shaders,
+        ["gui.fsh", "gui.vsh", "position_tex_color.fsh", "position_tex_color.vsh", "text.fsh", "text.vsh"]
+    );
 
     let crosshair = out.files.iter().find(|file| file.path == fullscreen::CROSSHAIR_SPRITE_PATH).unwrap();
     let crosshair = Texture::decode_png(crosshair.contents.as_bytes()).unwrap();
@@ -328,7 +331,15 @@ fn horse_mode_emits_the_cursor_armour_and_entity_shader() {
     let out = compile(json!({ "name": "lookout", "mode": "horse", "children": [] })).unwrap();
     assert_eq!(
         shaders(&out),
-        ["entity.vsh", "position_tex_color.fsh", "position_tex_color.vsh", "text.fsh", "text.vsh"]
+        [
+            "entity.vsh",
+            "gui.fsh",
+            "gui.vsh",
+            "position_tex_color.fsh",
+            "position_tex_color.vsh",
+            "text.fsh",
+            "text.vsh"
+        ]
     );
     let horse = out.manifest.fullscreen_canvas.as_ref().unwrap().horse.as_ref().expect("the horse entry is present");
     assert_eq!(horse.offset, fullscreen::horse::OFFSET);

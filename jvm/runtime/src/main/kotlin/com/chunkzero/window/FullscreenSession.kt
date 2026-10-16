@@ -24,6 +24,7 @@ public sealed class FullscreenSession {
 /**
  * A full-screen window shown through [host]: maps the player's rotation to the canvas cursor, hit-tests clicks, draws
  * the hovered control's outline and tooltip, and re-sends the runs when reactive state or the hovered control changes.
+ * While a text prompt is open, canvas input is ignored and the tooltip is left out.
  *
  * A player turned more than a degree past a canvas edge is turned back to it, at most once per round trip: rotations
  * the client sent before applying a correction still carry the overshoot.
@@ -78,6 +79,8 @@ internal class FullscreenWindowSession(
     /** Whether canvas input counts: the window is open and no prompt covers it. */
     private val listening get() = !closed && !screen.promptOpen
 
+    private val prompting get() = ::screen.isInitialized && screen.promptOpen
+
     fun open() {
         try {
             view.attach(this, reactivity)
@@ -105,13 +108,43 @@ internal class FullscreenWindowSession(
         }
     }
 
+    @OptIn(ExperimentalFullscreenApi::class)
     fun promptText(
+        initial: String,
+        onEdit: (String) -> Unit,
+        onDone: (String?) -> Unit,
+    ) {
+        if (closed) return onDone(null)
+        val edit = { text: String ->
+            onEdit(text)
+            if (!closed) reactivity.flushNow()
+        }
+        screen.promptText(initial, edit, ended(onDone))
+        show()
+    }
+
+    fun promptTextDialog(
         title: Component,
         initial: String,
         onDone: (String?) -> Unit,
     ) {
-        if (closed) onDone(null) else screen.promptText(title, initial, onDone)
+        if (closed) return onDone(null)
+        screen.promptTextDialog(title, initial, ended(onDone))
+        show()
     }
+
+    /** [onDone], then what it changed and the tooltip the prompt hid, at once rather than on the next tick. */
+    private fun ended(onDone: (String?) -> Unit): (String?) -> Unit =
+        { text ->
+            try {
+                onDone(text)
+            } finally {
+                if (!closed) {
+                    reactivity.flushNow()
+                    show()
+                }
+            }
+        }
 
     fun refreshAll() {
         reactivity.markAllDirty(layers.renderKeys())
@@ -176,7 +209,7 @@ internal class FullscreenWindowSession(
             .firstOrNull { (key, control) -> layers.switches.regionActive(key) && mapping.hits(control, point) }
             ?.key
 
-    /** The backdrop, the window's layers, the hovered control's tooltip and outline, and the cursor. */
+    /** The backdrop, the window's layers, the hovered control's tooltip unless prompting, its outline, and the cursor. */
     private fun content(): Component =
         Component
             .text()
@@ -184,7 +217,7 @@ internal class FullscreenWindowSession(
                 listOfNotNull(
                     definition.backdrop,
                     layout,
-                    hovered?.let(definition.tooltips::get),
+                    hovered?.takeUnless { prompting }?.let(definition.tooltips::get),
                     hovered?.let(definition.outlines::get),
                     definition.cursor,
                 ),

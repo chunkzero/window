@@ -124,7 +124,15 @@ fn fullscreen_branch_joins_the_text_shader_and_hides_the_hud_strip() {
     let all = emit(Some(88), &[&hud], &[0], true, true).unwrap();
     assert_eq!(
         names(&all),
-        ["text.vsh", "text.fsh", "text_background.vsh", "position_tex_color.vsh", "position_tex_color.fsh"]
+        [
+            "text.vsh",
+            "text.fsh",
+            "text_background.vsh",
+            "position_tex_color.vsh",
+            "position_tex_color.fsh",
+            "gui.vsh",
+            "gui.fsh"
+        ]
     );
     let vertex = &all.files[0].contents;
     assert!(vertex.contains("#moj_import <minecraft:projection.glsl>\n#if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)\n#moj_import <minecraft:window_fullscreen.glsl>\n#endif"));
@@ -133,15 +141,27 @@ fn fullscreen_branch_joins_the_text_shader_and_hides_the_hud_strip() {
     assert!(main.starts_with("void main() {\n#if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)\n    if (window_fs_is_marker(Color)) {\n        window_fs_apply();\n        return;\n    }\n#endif\n    vec3 pos = Position;\n    window_hud_apply(pos, Color);"), "{main}");
     assert!(main.contains("window_hover_apply();"));
     let without = emit(Some(88), &[&hud], &[0], true, false).unwrap();
-    assert_eq!(all.files[1], without.files[1]);
     assert_eq!(all.files[2], without.files[2]);
 
     let alone = emit(Some(88), &[], &[], false, true).unwrap();
-    assert_eq!(names(&alone), ["text.vsh", "text.fsh", "position_tex_color.vsh", "position_tex_color.fsh"]);
+    assert_eq!(
+        names(&alone),
+        ["text.vsh", "text.fsh", "position_tex_color.vsh", "position_tex_color.fsh", "gui.vsh", "gui.fsh"]
+    );
     assert!(alone.files[0].contents.contains("void window_fs_apply()"));
     let fragment = &alone.files[3].contents;
     assert!(fragment.contains("const vec2 WINDOW_FS_HUD_STRIP = vec2(96.0, 56.0);"), "{fragment}");
     assert!(alone.files[2].contents.contains("float GameTime;\n    int MenuBlurRadius;\n    int UseRgss;\n};"));
+
+    // While the prompt's anvil is open, GUI text is hidden only in its field and label bands, and fills only in the
+    // field band or when they are the dimming gradient or a slot highlight.
+    let text = &alone.files[1].contents;
+    assert!(text.contains("const vec4 WINDOW_PROMPT_FIELD = vec4(61.0, 22.0, 115.0, 14.0);"), "{text}");
+    assert!(text.contains("void main() {\n#ifdef IS_GUI\n    if (window_prompt_in(WINDOW_PROMPT_FIELD)"), "{text}");
+    assert!(alone.files[0].contents.contains("const float WINDOW_PROMPT_TIME_SPLIT = -0.4;"));
+    let gui = &alone.files[4].contents;
+    assert!(gui.contains("rgba == ivec4(16, 16, 16, 192) || rgba == ivec4(16, 16, 16, 208)"), "{gui}");
+    assert!(gui.contains("rgba == ivec4(255, 255, 255, 128) && window_prompt_slot_corner(windowPromptPos)"), "{gui}");
 
     for pack_format in [None, Some(84), Some(89)] {
         let err = emit(pack_format, &[], &[], false, true).unwrap_err().to_string();

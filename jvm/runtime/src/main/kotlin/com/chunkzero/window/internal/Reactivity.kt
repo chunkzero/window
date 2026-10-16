@@ -78,6 +78,14 @@ internal class Reactivity(
         scheduleFlush()
     }
 
+    /** Re-renders the dirty keys now rather than on the scheduled tick, which then finds nothing to do. */
+    fun flushNow() {
+        if (dirty.isEmpty()) return
+        val snapshot = LinkedHashSet(dirty)
+        dirty.clear()
+        flush(snapshot)
+    }
+
     private fun scheduleFlush() {
         if (flushScheduled) return
         flushScheduled = true

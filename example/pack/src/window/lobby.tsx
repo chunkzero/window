@@ -24,9 +24,8 @@ const s = create({
 });
 
 /**
- * A main menu drawn over the whole screen while the world turns behind it. Click the name to rename the foundry in a
- * native dialog, pick a world from the paged list (the arrows or the scroll wheel move it), right click anywhere to
- * ready up, then play.
+ * A main menu drawn over the whole screen while the world turns behind it. Click the name to edit it in place, pick a
+ * world from the paged list (the arrows or the scroll wheel move it), right click anywhere to ready up, then play.
  */
 export default (
     <Fullscreen name="lobby" backdrop="#140b08" align="center" justify="center" text={{ color: "#ffffff" }}>

@@ -4,6 +4,7 @@ mod fragment;
 mod fullscreen;
 mod glsl;
 mod hover;
+mod prompt;
 mod text;
 
 use crate::ir::Rgb;
@@ -18,6 +19,7 @@ pub(super) use fragment::{
     render_v330_define_variant_text_fragment,
 };
 pub(super) use fullscreen::{render_position_tex_color_fragment, render_position_tex_color_vertex};
+pub(super) use prompt::{render_gui_fragment, render_gui_vertex};
 pub(super) use text::{
     render_v150_dynamic_text_shader, render_v150_text_shader, render_v330_define_variant_text_shader,
     render_v330_text_shader,

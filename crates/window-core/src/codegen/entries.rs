@@ -93,6 +93,7 @@ pub(super) fn fullscreen_canvas_entry_expr(canvas: &FullscreenCanvasEntry, level
         .arg("backdrop", kt_string(&canvas.backdrop))
         .arg("overlayMarker", kt_string(&canvas.overlay_marker))
         .arg("hudHiddenWorldAge", format!("{}L", canvas.hud_hidden_world_age))
+        .arg("promptWorldAge", format!("{}L", canvas.prompt_world_age))
         .arg("hudStripHeight", canvas.hud_strip_height)
         .arg("hudStripHalfWidth", canvas.hud_strip_half_width)
         .arg("hudMaxHealth", canvas.hud_max_health);

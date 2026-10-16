@@ -12,7 +12,8 @@ import kotlin.properties.ReadWriteProperty
  * reacts to lifecycle events.
  *
  * A view shows [definition] to the player of [host] and is single-use: [open] it once. The player aims a cursor by
- * turning, clicks with the attack and use keys, scrolls, answers a [promptText] dialog, and leaves by sneaking.
+ * turning, clicks with the attack and use keys, scrolls, types into a [promptText] or [promptTextDialog] prompt, and
+ * leaves by sneaking.
  * Reactive [state] cells read inside render lambdas re-render the window when written.
  */
 public abstract class FullscreenView(
@@ -91,31 +92,73 @@ public abstract class FullscreenView(
     }
 
     /**
-     * Opens a dialog titled [title] over the canvas for the player to type into, starting from [initial], and calls
-     * [onDone] once with the text when they confirm, or `null` when they cancel. The dialog closes with the button and
-     * the canvas is back. The text holds at most 256 characters, and [initial] is cut to fit. Escape does not dismiss
-     * the dialog. While it is open the HUD stays hidden and canvas input is ignored, so the cursor stays where it was.
+     * Lets the player type on the canvas, starting from [initial]: the keyboard prompt. Nothing of the prompt is drawn,
+     * so draw the text from [onEdit], which receives the whole text after each edit and re-renders at once rather than
+     * on the next tick. [onDone] then receives the text once, when the player presses Escape; a click on a slot or
+     * outside the anvil may finish it too, but a click on the rename field does not. There is no cancel; use [promptTextDialog] when the player must be able to back out. While the prompt is open the HUD
+     * stays hidden, canvas input is ignored, so the cursor stays where it was, and the hovered control's tooltip is not
+     * drawn.
      *
-     * Opening a prompt while one is open replaces it, and the replaced prompt's [onDone] receives `null`. When a server
-     * container opens over the dialog, the open prompt's [onDone] receives `null` as well, on the next tick, and the
+     * The prompt is an anvil the pack's shaders hide, so:
+     * - the server never learns the client's caret, so a drawn caret belongs at the end of the text;
+     * - the anvil holds at most 50 characters, so [initial] is cut to 50 and typing stops there ([promptTextDialog]
+     *   allows 256);
+     * - GUI text and fills in the anvil's rename field and label bands, such as chat lines crossing them, are hidden
+     *   while it is open;
+     * - the system mouse pointer shows;
+     * - each edit costs a round trip before [onEdit] runs;
+     * - without the pack's shaders, the player sees a plain vanilla anvil.
+     *
+     * Opening a prompt of either kind while one is open replaces it, and the replaced prompt's [onDone] receives `null`.
+     * When a server container opens over the prompt, its [onDone] receives `null` as well, on the next tick, and the
      * window stays open. When the window closes, it receives `null` once the player is restored. [onDone] runs after its
      * prompt has ended, so it may open another one; on a closed window it receives `null` at once.
      *
-     * To prompt on a click, call this from the control's click handler:
      * ```
      * override fun onRename(click: FullscreenClick) {
-     *     promptText(Component.text("Rename"), name) { it?.let { name = it } }
+     *     draft = name
+     *     promptText(name, onEdit = { draft = it }) { text ->
+     *         draft = null
+     *         text?.let { name = it }
+     *     }
      * }
      * ```
      *
      * @throws IllegalStateException if the view was never opened.
      */
+    @ExperimentalFullscreenApi
     protected fun promptText(
+        initial: String = "",
+        onEdit: (String) -> Unit,
+        onDone: (String?) -> Unit,
+    ) {
+        requireSession().promptText(initial, onEdit, onDone)
+    }
+
+    /**
+     * Opens a native dialog titled [title] over the canvas for the player to type into, starting from [initial], and
+     * calls [onDone] once with the text when they confirm, or `null` when they cancel. The dialog closes with the button
+     * and the canvas is back. The text holds at most 256 characters, and [initial] is cut to fit. Escape does not
+     * dismiss the dialog. While it is open the HUD stays hidden, canvas input is ignored, and the hovered control's
+     * tooltip is not drawn.
+     *
+     * Unlike [promptText], the dialog covers the canvas, but it offers a cancel, a movable caret, and selection, and
+     * needs nothing from the pack. Replacement and [onDone] timing are as for [promptText].
+     *
+     * ```
+     * override fun onRename(click: FullscreenClick) {
+     *     promptTextDialog(Component.text("Rename"), name) { it?.let { name = it } }
+     * }
+     * ```
+     *
+     * @throws IllegalStateException if the view was never opened.
+     */
+    protected fun promptTextDialog(
         title: Component = Component.empty(),
         initial: String = "",
         onDone: (String?) -> Unit,
     ) {
-        requireSession().promptText(title, initial, onDone)
+        requireSession().promptTextDialog(title, initial, onDone)
     }
 
     /**
