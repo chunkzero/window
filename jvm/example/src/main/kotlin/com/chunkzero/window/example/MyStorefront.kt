@@ -31,7 +31,10 @@ class MyStorefront(
     private var toast by state<Pair<String, Tone>?>(null)
     private var toastTask: Task? = null
 
-    private val catalog = list(cells = CARD_NAME_SIZE, key = Product::id, step = COLUMNS) { visibleProducts() }
+    private val catalog =
+        list(cells = CARD_NAME_SIZE, key = { it: Product? ->
+            it?.id
+        }, step = COLUMNS) { visibleProducts().inWholeRows() }
     private val lines =
         list(cells = CART_NAME_SIZE, key = { it: Pair<Product, Int> -> it.first.id }, step = 1) { cartLines() }
 
@@ -66,16 +69,16 @@ class MyStorefront(
 
     override fun onStoreCategoryChanged(value: StoreCategory) = catalogChanged()
 
-    override fun onStorePaneChanged(value: StorePane) {
-        wheelOnCatalog = value == StorePane.DETAILS
-    }
+    override fun onOpenDetails(click: FullscreenClick) = showPane(StorePane.DETAILS)
+
+    override fun onOpenCart(click: FullscreenClick) = showPane(StorePane.CART)
 
     // Product grid
 
     override fun storeResults(): Component {
-        val count = catalog.size
+        val count = visibleProducts().size
         val label = if (query.isBlank()) CATEGORY_LABELS.getValue(storeCategory) else "\"${query.trim()}\""
-        return Component.text(if (count == 0) "$label: no matches" else "$label: $count items")
+        return Component.text(if (count == 0) "$label: no matches" else "$label: ${plural(count, "item")}")
     }
 
     override fun storeSortLabel(): Component = Component.text("Sort: ${sort.label}")
@@ -99,6 +102,8 @@ class MyStorefront(
                 .orEmpty(),
         )
 
+    override fun cardFilled(index: Int): Boolean = catalog.at(index) != null
+
     override fun cardFeatured(index: Int): Boolean = catalog.at(index)?.featured == true
 
     override fun cardSelected(index: Int): Boolean = catalog.isSelected(index)
@@ -116,7 +121,13 @@ class MyStorefront(
     override fun catalogFocused(): Boolean = wheelOnCatalog
 
     override fun catalogThumb(index: Int): Boolean =
-        thumb(index, CATALOG_THUMB_SIZE, catalog.visible.first / COLUMNS, CARD_NAME_SIZE / COLUMNS, rows(catalog.size))
+        thumb(
+            index,
+            CATALOG_THUMB_SIZE,
+            catalog.visible.first / COLUMNS,
+            CARD_NAME_SIZE / COLUMNS,
+            catalog.size / COLUMNS,
+        )
 
     override fun onCatalogUp(click: FullscreenClick) {
         wheelOnCatalog = true
@@ -239,7 +250,7 @@ class MyStorefront(
         val count = cart.values.sum()
         if (!pay(cartTotalPrice())) return
         cart = emptyMap()
-        show("Checked out $count items", Tone.OK)
+        show("Checked out ${plural(count, "item")}", Tone.OK)
     }
 
     override fun onClearCart(click: FullscreenClick) {
@@ -261,8 +272,12 @@ class MyStorefront(
     }
 
     override fun onRightClick(click: FullscreenClick) {
-        storePane = if (storePane == StorePane.DETAILS) StorePane.CART else StorePane.DETAILS
-        wheelOnCatalog = storePane == StorePane.DETAILS
+        showPane(if (storePane == StorePane.DETAILS) StorePane.CART else StorePane.DETAILS)
+    }
+
+    private fun showPane(pane: StorePane) {
+        storePane = pane
+        wheelOnCatalog = pane == StorePane.DETAILS
     }
 
     private fun visibleProducts(): List<Product> {
@@ -278,6 +293,9 @@ class MyStorefront(
             }
         return products.sortedWith(sort.order)
     }
+
+    /** Pads the grid with empty entries so every row is full and the list scrolls a whole row at a time. */
+    private fun List<Product>.inWholeRows(): List<Product?> = this + List((-size).mod(COLUMNS)) { null }
 
     private fun cartLines(): List<Pair<Product, Int>> =
         cart.mapNotNull { (id, count) -> market.products.find { it.id == id }?.let { it to count } }
@@ -299,14 +317,14 @@ class MyStorefront(
     private fun pay(price: Int): Boolean {
         val balance = market.purchase(player, price)
         if (balance == null) {
-            show("Need ${price - coins} more coins", Tone.DANGER)
+            show("Need ${plural(price - coins, "more coin")}", Tone.DANGER)
             return false
         }
         coins = balance
         return true
     }
 
-    private fun amountOf(product: Product): String = if (amount == 1) product.name else "$amount ${product.name}"
+    private fun amountOf(product: Product): String = if (amount == 1) product.name else "${product.name} x$amount"
 
     /** Shows [message] in the footer for a few seconds. */
     private fun show(
@@ -352,7 +370,10 @@ private val CATEGORY_LABELS =
         StorefrontFullscreen.StoreCategory.DEALS to "Deals",
     )
 
-private fun rows(items: Int): Int = (items + COLUMNS - 1) / COLUMNS
+private fun plural(
+    count: Int,
+    noun: String,
+): String = if (count == 1) "1 $noun" else "$count ${noun}s"
 
 /**
  * Whether scrollbar segment [index] of [segments] is lit: whether its stretch of a [total]-row list overlaps the

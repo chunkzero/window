@@ -13,6 +13,7 @@ import {
     canLess,
     canMore,
     cardFeatured,
+    cardFilled,
     cardIcon,
     cardName,
     cardPrice,
@@ -40,6 +41,8 @@ import {
     detailTier,
     less,
     more,
+    openCart,
+    openDetails,
     pickCard,
     quantity,
     removeLine,
@@ -81,7 +84,6 @@ const selectedBar = shape({
 });
 
 const categories = { all: "All", gear: "Gear", magic: "Magic", deals: "Deals" };
-const panes = { details: "Details", cart: "Cart" };
 
 /** A product's art, switched by an icon handle and stretched over `size` pixels. */
 function ProductIcon(props: { bind: ValueHandle<StoreIcon>; size?: number }) {
@@ -91,6 +93,21 @@ function ProductIcon(props: { bind: ValueHandle<StoreIcon>; size?: number }) {
             {STORE_ICONS.map((id) => (
                 <Case value={id} width={size} height={size} frame={id === "none" ? undefined : productIcon(id)} />
             ))}
+        </Switch>
+    );
+}
+
+/** A side pane tab; clicking it opens its pane and gives it the wheel, even when it is already selected. */
+function PaneTab(props: { label: string; open: ActionHandle; value: "details" | "cart" }) {
+    const face = (frame: typeof art.button) => (
+        <Button onClick={props.open} frame={frame} style={{ base: { width: 78, height: 16 } }}>
+            <Text>{props.label}</Text>
+        </Button>
+    );
+    return (
+        <Switch bind={storePane.is(props.value)}>
+            <Case value="true">{face(art.buttonSelected)}</Case>
+            <Case value="false">{face(art.button)}</Case>
         </Switch>
     );
 }
@@ -172,7 +189,7 @@ const nav = (
             <Image art={icons.clear} />
         </Button>
         <Button
-            onClick={storePane.set("cart")}
+            onClick={openCart}
             frame={art.buttonAccent}
             style={{ base: { width: 50, height: 16 } }}
             tooltip="Open your cart"
@@ -205,10 +222,12 @@ const catalog = (
                 {(i) => [
                     <ProductIcon bind={cardIcon.at(i)} />,
                     <Text bind={cardName.at(i)} width={84} align="center" overflow="ellipsis" />,
-                    <Row gap={2}>
-                        <Image art={coin} />
-                        <Text bind={cardPrice.at(i)} width={30} style={s.gold} />
-                    </Row>,
+                    <Show when={cardFilled.at(i)}>
+                        <Row gap={2}>
+                            <Image art={coin} />
+                            <Text bind={cardPrice.at(i)} width={30} style={s.gold} />
+                        </Row>
+                    </Show>,
                     <Show when={cardFeatured.at(i)} absolute top={3} right={3}>
                         <Image art={art.lampOn} tint="#ffb20b" />
                     </Show>,
@@ -349,9 +368,8 @@ export default (
             {catalog}
             <Column style={s.pane} grow={1} padding={5} gap={4}>
                 <Row gap={4}>
-                    <Tabs bind={storePane} style={{ base: { width: 78, height: 16 } }}>
-                        {(value) => <Text>{panes[value]}</Text>}
-                    </Tabs>
+                    <PaneTab label="Details" open={openDetails} value="details" />
+                    <PaneTab label="Cart" open={openCart} value="cart" />
                 </Row>
                 <Switch on={storePane}>{{ details, cart }}</Switch>
             </Column>

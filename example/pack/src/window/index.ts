@@ -59,6 +59,7 @@ const storefrontState = (pane: "details" | "cart") =>
         ],
         [handles.cardPrice, ["180", "95", "75", "860", "1150", "155", "165", "205", "260"]],
         [handles.cardIcon, ["gold", "iron", "copper", "trident", "elytra", "rocket", "spyglass", "compass", "clock"]],
+        [handles.cardFilled, [true, true, true, true, true, true, true, true, true]],
         [handles.cardFeatured, [false, false, false, true, true]],
         [handles.cardSelected, [false, false, false, true]],
         [handles.catalogThumb, [false, false, true, true, true, true, false, false]],

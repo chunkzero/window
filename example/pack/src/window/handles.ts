@@ -132,12 +132,15 @@ export const storeHasSearch = flag("store_has_search");
 export const storeFind = action("store_find");
 export const storeClearSearch = action("store_clear_search");
 export const storeCartCount = text("store_cart_count");
+export const openDetails = action("open_details");
+export const openCart = action("open_cart");
 
 export const STORE_CARDS = 9;
 const storeCards = { shape: [STORE_CARDS] } as const;
 export const cardName = text("card_name", storeCards);
 export const cardPrice = text("card_price", storeCards);
 export const cardIcon = value("card_icon", STORE_ICONS, storeCards);
+export const cardFilled = flag("card_filled", storeCards);
 export const cardFeatured = flag("card_featured", storeCards);
 export const cardSelected = flag("card_selected", storeCards);
 export const pickCard = action("pick_card", storeCards);

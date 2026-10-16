@@ -34,6 +34,9 @@ public abstract class StorefrontFullscreen(protected val player: Player) : Fulls
     /** The `card_featured` flag. */
     protected abstract fun cardFeatured(index: Int): Boolean
 
+    /** The `card_filled` flag. */
+    protected abstract fun cardFilled(index: Int): Boolean
+
     /** The values of `card_icon`. */
     public enum class CardIcon(public val value: String) {
         NONE("none"),
@@ -193,6 +196,12 @@ public abstract class StorefrontFullscreen(protected val player: Player) : Fulls
     /** Handle a `more` click. */
     protected abstract fun onMore(click: FullscreenClick)
 
+    /** Handle a `open_cart` click. */
+    protected abstract fun onOpenCart(click: FullscreenClick)
+
+    /** Handle a `open_details` click. */
+    protected abstract fun onOpenDetails(click: FullscreenClick)
+
     /** Handle a `pick_card` click; `index` is the clicked entry, row-major. */
     protected abstract fun onPickCard(index: Int, click: FullscreenClick)
 
@@ -286,6 +295,9 @@ public abstract class StorefrontFullscreen(protected val player: Player) : Fulls
         for (index in 0 until CARD_FEATURED_SIZE) {
             switch("card_featured[$index]") { cardFeatured(index).toString() }
         }
+        for (index in 0 until CARD_FILLED_SIZE) {
+            switch("card_filled[$index]") { cardFilled(index).toString() }
+        }
         for (index in 0 until CARD_ICON_SIZE) {
             switch("card_icon[$index]") { cardIcon(index).value }
         }
@@ -332,6 +344,11 @@ public abstract class StorefrontFullscreen(protected val player: Player) : Fulls
         tint("detail_tier") { detailTier().value }
         button("less", ::onLess)
         button("more", ::onMore)
+        button("open_cart", ::onOpenCart)
+        button("open_cart~2", ::onOpenCart)
+        button("open_cart~3", ::onOpenCart)
+        button("open_details", ::onOpenDetails)
+        button("open_details~2", ::onOpenDetails)
         for (index in 0 until PICK_CARD_SIZE) {
             button("pick_card[$index]") { click ->
                 onPickCard(index, click)
@@ -401,38 +418,8 @@ public abstract class StorefrontFullscreen(protected val player: Player) : Fulls
         button("store_find", ::onStoreFind)
         switch("store_has_search") { storeHasSearch().toString() }
         switch("store_has_search~2") { storeHasSearch().toString() }
-        button("store_pane=cart") { _ ->
-            if (storePane != StorePane.CART) {
-                storePane = StorePane.CART
-                onStorePaneChanged(storePane)
-            }
-        }
         switch("store_pane?details") { (storePane == StorePane.DETAILS).toString() }
-        button("store_pane=details") { _ ->
-            if (storePane != StorePane.DETAILS) {
-                storePane = StorePane.DETAILS
-                onStorePaneChanged(storePane)
-            }
-        }
-        button("store_pane=details~2") { _ ->
-            if (storePane != StorePane.DETAILS) {
-                storePane = StorePane.DETAILS
-                onStorePaneChanged(storePane)
-            }
-        }
         switch("store_pane?cart") { (storePane == StorePane.CART).toString() }
-        button("store_pane=cart~2") { _ ->
-            if (storePane != StorePane.CART) {
-                storePane = StorePane.CART
-                onStorePaneChanged(storePane)
-            }
-        }
-        button("store_pane=cart~3") { _ ->
-            if (storePane != StorePane.CART) {
-                storePane = StorePane.CART
-                onStorePaneChanged(storePane)
-            }
-        }
         switch("store_pane") { storePane.value }
         slot("store_results") { storeResults() }
         slot("store_search") { storeSearch() }
@@ -447,6 +434,8 @@ public abstract class StorefrontFullscreen(protected val player: Player) : Fulls
     public companion object {
         /** A shape dimension of `card_featured`. */
         public const val CARD_FEATURED_SIZE: Int = 9
+        /** A shape dimension of `card_filled`. */
+        public const val CARD_FILLED_SIZE: Int = 9
         /** A shape dimension of `card_icon`. */
         public const val CARD_ICON_SIZE: Int = 9
         /** A shape dimension of `card_name`. */

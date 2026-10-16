@@ -2531,7 +2531,7 @@ internal object WindowEntries {
                             cases = listOf(
                                 SwitchCaseEntry(
                                     value = "true",
-                                    static = "\uDB80\uDC12\uDB80\uDC0F\uF826\uDB80\uDC03\uDB80\uDC05\uDB80\uDC0A",
+                                    static = "\uDB80\uDC12\uDB80\uDC0F\uF827\uDB80\uDC03\uDB80\uDC05\uDB80\uDC0A",
                                     slots = emptyList(),
                                     spriteSlots = emptyList(),
                                     regions = listOf("clear_search"),
