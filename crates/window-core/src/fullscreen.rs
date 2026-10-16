@@ -99,6 +99,14 @@ pub const MAX_COLORS: usize = 1 << 10;
 /// 24000.
 pub const HUD_HIDDEN_WORLD_AGE: i64 = -1_000_000_001;
 
+/// The world age the server sends while the keyboard text prompt's anvil is open: 12000 ticks above
+/// [`HUD_HIDDEN_WORLD_AGE`], so `GameTime` is about -0.17 rather than -0.67. Both bands hide the HUD, and the prompt
+/// band also hides what the anvil draws.
+pub const PROMPT_WORLD_AGE: i64 = HUD_HIDDEN_WORLD_AGE + 12_000;
+
+/// The `GameTime` between the HUD band, below it, and the prompt band, above it.
+pub const PROMPT_TIME_SPLIT: f64 = -0.4;
+
 /// The height of the HUD strip in GUI pixels, from the bottom of the screen: the hotbar, XP bar, hearts, armour, and
 /// hunger.
 pub const HUD_STRIP_HEIGHT: u32 = 56;

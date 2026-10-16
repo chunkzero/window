@@ -136,6 +136,11 @@ public data class FullscreenCanvasEntry(
     @SerialName("overlay_marker") val overlayMarker: String,
     /** The world age the server sends while the HUD is hidden, which makes the shaders' `GameTime` negative. */
     @SerialName("hud_hidden_world_age") val hudHiddenWorldAge: Long,
+    /**
+     * The world age the server sends while the keyboard text prompt's anvil is open: a band of negative `GameTime` that
+     * hides the HUD as [hudHiddenWorldAge] does and also what the anvil draws.
+     */
+    @SerialName("prompt_world_age") val promptWorldAge: Long,
     /** The HUD strip's height in GUI pixels, from the bottom of the screen. */
     @SerialName("hud_strip_height") val hudStripHeight: Int,
     /** Half the HUD strip's width in GUI pixels, either side of the screen's center. */

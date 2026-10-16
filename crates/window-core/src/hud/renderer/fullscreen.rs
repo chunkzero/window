@@ -1,11 +1,14 @@
 //! Full-screen snippets of the pack_format 85-88 `core/text` vertex shader, and the `core/position_tex_color`
-//! shaders that hide the HUD and the vanilla crosshair while a full-screen window is open.
+//! shaders that hide the HUD and the vanilla crosshair while a full-screen window is open, and the keyboard prompt's
+//! anvil while it is open (see [`super::prompt`]).
 //!
 //! The text shader moves every vertex of a full-screen marker (see [`crate::fullscreen`]) in the world pass straight
 //! into clip space on the letterboxed canvas, so the projection, FOV, and view bobbing never move it. Unmarked text
 //! takes the vanilla path.
 
 use crate::fullscreen::{CROSSHAIR_MARKER_ALPHA, HUD_STRIP_HALF_WIDTH, HUD_STRIP_HEIGHT, LAYER_DEPTH_STEP};
+
+use super::prompt::{PROMPT_SPRITE_FRAGMENT_CLIP, render_prompt_fragment_helpers, render_prompt_vertex_helpers};
 
 /// Imports the canvas contract into the world variant of the text vertex shader.
 pub(super) const FULLSCREEN_VERTEX_IMPORT: &str = "
@@ -92,10 +95,10 @@ pub(super) fn render_fullscreen_vertex_helpers() -> String {
     VERTEX_HELPERS.replace("@PLACEMENT@", CANVAS_PLACEMENT).replace("@DEPTH_STEP@", &format!("{LAYER_DEPTH_STEP:?}"))
 }
 
-/// Renders `core/position_tex_color.vsh`, vanilla's GUI sprite shader plus the HUD strip inputs. Like vanilla, it
-/// declares its uniform blocks inline, since the shader is also compiled before resource packs load.
+/// Renders `core/position_tex_color.vsh`, vanilla's GUI sprite shader plus the HUD strip and prompt inputs. Like
+/// vanilla, it declares its uniform blocks inline, since the shader is also compiled before resource packs load.
 pub(in crate::hud) fn render_position_tex_color_vertex() -> String {
-    r#"#version 330
+    let source = r#"#version 330
 
 layout(std140) uniform DynamicTransforms {
     mat4 ModelViewMat;
@@ -124,7 +127,7 @@ out vec2 texCoord0;
 out vec4 vertexColor;
 out vec2 windowHudPos;
 flat out int windowHudHidden;
-
+@PROMPT@
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
@@ -135,14 +138,17 @@ void main() {
     // orthographically, so windowHudPos is in GUI pixels: x from the center, y up from the bottom.
     windowHudHidden = GameTime < 0.0 && ProjMat[3][3] == 1.0 ? 1 : 0;
     windowHudPos = vec2(gl_Position.x / ProjMat[0][0], (gl_Position.y + 1.0) / -ProjMat[1][1]);
+
+    window_prompt_clip(gl_Position);
 }
-"#
-    .to_string()
+"#;
+    source.replace("@PROMPT@", &render_prompt_vertex_helpers())
 }
 
 /// Renders `core/position_tex_color.fsh`, which while the HUD is hidden discards GUI sprite fragments inside the HUD
 /// strip, and texels carrying the crosshair marker alpha, which the pack's crosshair sprite override sets on its
-/// opaque texels. Clipping per fragment cuts sprites crossing the strip's edge instead of distorting them.
+/// opaque texels. Clipping per fragment cuts sprites crossing the strip's edge instead of distorting them. While the
+/// prompt's anvil is open, it also discards GUI sprite fragments inside the anvil's rect.
 pub(in crate::hud) fn render_position_tex_color_fragment() -> String {
     format!(
         r#"#version 330
@@ -164,10 +170,10 @@ in vec2 texCoord0;
 in vec4 vertexColor;
 in vec2 windowHudPos;
 flat in int windowHudHidden;
-
+{prompt_helpers}
 out vec4 fragColor;
 
-void main() {{
+void main() {{{prompt_clip}
     if (windowHudHidden == 1 && abs(windowHudPos.x) < WINDOW_FS_HUD_STRIP.x && windowHudPos.y < WINDOW_FS_HUD_STRIP.y) {{
         discard;
     }}
@@ -185,5 +191,7 @@ void main() {{
         half_width = HUD_STRIP_HALF_WIDTH,
         height = HUD_STRIP_HEIGHT,
         crosshair_alpha = CROSSHAIR_MARKER_ALPHA,
+        prompt_helpers = render_prompt_fragment_helpers(),
+        prompt_clip = PROMPT_SPRITE_FRAGMENT_CLIP,
     )
 }

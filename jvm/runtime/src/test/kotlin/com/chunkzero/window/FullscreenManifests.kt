@@ -40,6 +40,7 @@ object FullscreenManifests {
             backdrop = "BACKDROP",
             overlayMarker = OVERLAY_MARKER,
             hudHiddenWorldAge = -1_000_000_001,
+            promptWorldAge = -999_988_001,
             hudStripHeight = 56,
             hudStripHalfWidth = 96,
             hudMaxHealth = 20,

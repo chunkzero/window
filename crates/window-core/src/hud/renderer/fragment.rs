@@ -1,4 +1,5 @@
 use super::hover::{HOVER_FRAGMENT_DRAW, HOVER_FRAGMENT_INPUTS};
+use super::prompt::{PROMPT_TEXT_FRAGMENT_CLIP, render_prompt_text_fragment_helpers};
 
 const INTENSITY_SAMPLE_FUNCTION: &str = r#"
 vec4 window_hud_intensity_sample(sampler2D sampler, vec2 coord) {
@@ -10,10 +11,15 @@ vec4 window_hud_intensity_sample(sampler2D sampler, vec2 coord) {
 }
 "#;
 
-/// Renders `core/text.fsh` for every define variant; `IS_GRAYSCALE` departs from vanilla, and with `hover` so does
-/// `IS_GUI`.
-pub(in crate::hud) fn render_v330_define_variant_text_fragment(hover: bool) -> String {
+/// Renders `core/text.fsh` for every define variant; `IS_GRAYSCALE` departs from vanilla, and with `hover` or
+/// `fullscreen` so does `IS_GUI`.
+pub(in crate::hud) fn render_v330_define_variant_text_fragment(hover: bool, fullscreen: bool) -> String {
     let (hover_inputs, hover_draw) = if hover { (HOVER_FRAGMENT_INPUTS, HOVER_FRAGMENT_DRAW) } else { ("", "") };
+    let (prompt_inputs, prompt_clip) = if fullscreen {
+        (render_prompt_text_fragment_helpers(), PROMPT_TEXT_FRAGMENT_CLIP)
+    } else {
+        (String::new(), "")
+    };
     format!(
         r#"#version 330
 
@@ -34,11 +40,11 @@ in vec4 vertexColor;
 in vec2 texCoord0;
 #ifdef IS_GRAYSCALE
 flat in int windowHudTextureMode;
-#endif{hover_inputs}
+#endif{hover_inputs}{prompt_inputs}
 
 out vec4 fragColor;
 
-void main() {{
+void main() {{{prompt_clip}
     vec4 texColor = texture(Sampler0, texCoord0);
 #ifdef IS_GRAYSCALE
     if (windowHudTextureMode != 1) {{

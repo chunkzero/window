@@ -7,6 +7,7 @@ use super::glsl::{
 };
 use super::hover::{HOVER_VERTEX_APPLY, render_hover_vertex_helpers};
 use super::marker_id;
+use super::prompt::{PROMPT_TEXT_VERTEX_APPLY, render_prompt_text_vertex_helpers};
 
 // Minecraft's actionbar renderer (Gui.extractOverlayMessage in 26.1.2,
 // Hud.extractOverlayMessage in 26.2) translates to guiHeight - 68 and draws
@@ -289,7 +290,8 @@ void main() {{
 
 /// Renders `core/text.vsh`, which vanilla compiles once per pipeline with `IS_GUI`,
 /// `IS_SEE_THROUGH`, and `IS_GRAYSCALE` defines; each variant keeps vanilla's inputs and bindings. With `fullscreen`,
-/// the world variant places full-screen markers on the canvas before anything else runs.
+/// the world variant places full-screen markers on the canvas before anything else runs, and the GUI variant passes
+/// the keyboard prompt's clip inputs on.
 pub(in crate::hud) fn render_v330_define_variant_text_shader(
     rules: &[HudShaderRule],
     hover: bool,
@@ -302,10 +304,15 @@ pub(in crate::hud) fn render_v330_define_variant_text_shader(
     };
     let (hover_helpers, hover_apply) =
         if hover { (render_hover_vertex_helpers(), HOVER_VERTEX_APPLY) } else { (String::new(), "") };
-    let (fullscreen_import, fullscreen_helpers, fullscreen_apply) = if fullscreen {
-        (FULLSCREEN_VERTEX_IMPORT, render_fullscreen_vertex_helpers(), FULLSCREEN_VERTEX_APPLY)
+    let (fullscreen_import, fullscreen_helpers, fullscreen_apply, prompt_apply) = if fullscreen {
+        (
+            FULLSCREEN_VERTEX_IMPORT,
+            render_fullscreen_vertex_helpers() + &render_prompt_text_vertex_helpers(),
+            FULLSCREEN_VERTEX_APPLY,
+            PROMPT_TEXT_VERTEX_APPLY,
+        )
     } else {
-        ("", String::new(), "")
+        ("", String::new(), "", "")
     };
 
     format!(
@@ -353,7 +360,7 @@ void main() {{{fullscreen_apply}
     texCoord0 = UV0;
 #ifdef IS_GRAYSCALE
     windowHudTextureMode = window_hud_texture_mode(Color);
-#endif{hover_apply}
+#endif{hover_apply}{prompt_apply}
 }}
 "#
     )

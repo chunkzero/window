@@ -130,6 +130,8 @@ pub struct FullscreenCanvasEntry {
     pub overlay_marker: String,
     /// The world age the server sends while the HUD is hidden.
     pub hud_hidden_world_age: i64,
+    /// The world age the server sends while the keyboard text prompt's anvil is open, which also hides the anvil.
+    pub prompt_world_age: i64,
     /// The HUD strip's height in GUI pixels, from the bottom of the screen.
     pub hud_strip_height: u32,
     /// Half the HUD strip's width in GUI pixels, either side of the screen's center.
