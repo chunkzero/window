@@ -494,4 +494,8 @@ fn fullscreen_views_take_a_fullscreen_host_and_receive_fullscreen_clicks() {
     assert!(content.contains("button(\"buy[$index]\") { click ->\n"), "{content}");
     assert!(content.contains("onBuy(index, click)\n"), "{content}");
     assert!(content.contains("button(\"play\", ::onPlay)"), "{content}");
+    assert!(content.contains("protected open fun onScroll(steps: Int) {}"), "{content}");
+    assert!(content.contains("protected open fun onRightClick(click: FullscreenClick) {}"), "{content}");
+    assert!(content.contains("scroll(::onScroll)\n"), "{content}");
+    assert!(content.contains("rightClick(::onRightClick)\n"), "{content}");
 }

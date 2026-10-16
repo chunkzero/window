@@ -49,6 +49,23 @@ public interface FullscreenScope {
         name: String,
         handler: (FullscreenClick) -> Unit,
     )
+
+    /**
+     * Binds [handler] to right clicks anywhere on the canvas, at the cursor. Holding the use key repeats a right click
+     * every 4 ticks.
+     */
+    public fun rightClick(handler: (FullscreenClick) -> Unit)
+
+    /**
+     * Binds [handler] to the scroll wheel, which reaches the server as changes to the client's held hotbar slot. Each
+     * change becomes a signed step count, taken the shortest way around the 9-slot hotbar: positive when the selection
+     * moves right, which scrolling down does by default.
+     *
+     * The client sends at most one held-slot change per tick, so notches scrolled within one tick arrive as one call,
+     * and more than 4 of them read as a scroll the other way. The number keys also select a slot, and the server cannot
+     * tell them apart from scrolling.
+     */
+    public fun scroll(handler: (steps: Int) -> Unit)
 }
 
 /**

@@ -12,8 +12,8 @@ import kotlin.properties.ReadWriteProperty
  * reacts to lifecycle events.
  *
  * A view shows [definition] to the player of [host] and is single-use: [open] it once. The player aims a cursor by
- * turning, clicks with the attack key, and leaves by sneaking. Reactive [state] cells read inside render lambdas
- * re-render the window when written.
+ * turning, clicks with the attack and use keys, scrolls, answers a [promptText] dialog, and leaves by sneaking.
+ * Reactive [state] cells read inside render lambdas re-render the window when written.
  */
 public abstract class FullscreenView(
     private val definition: FullscreenDefinition,
@@ -72,6 +72,34 @@ public abstract class FullscreenView(
      */
     protected fun refresh() {
         requireSession().refreshAll()
+    }
+
+    /**
+     * Opens a dialog titled [title] over the canvas for the player to type into, starting from [initial], and calls
+     * [onDone] once with the text when they confirm, or `null` when they cancel. The dialog closes with the button and
+     * the canvas is back. The text holds at most 256 characters, and [initial] is cut to fit. Escape does not dismiss
+     * the dialog. While it is open the HUD stays hidden and canvas input is ignored, so the cursor stays where it was.
+     *
+     * Opening a prompt while one is open replaces it, and the replaced prompt's [onDone] receives `null`. When a server
+     * container opens over the dialog, the open prompt's [onDone] receives `null` as well, on the next tick, and the
+     * window stays open. When the window closes, it receives `null` once the player is restored. [onDone] runs after its
+     * prompt has ended, so it may open another one; on a closed window it receives `null` at once.
+     *
+     * To prompt on a click, call this from the control's click handler:
+     * ```
+     * override fun onRename(click: FullscreenClick) {
+     *     promptText(Component.text("Rename"), name) { it?.let { name = it } }
+     * }
+     * ```
+     *
+     * @throws IllegalStateException if the view was never opened.
+     */
+    protected fun promptText(
+        title: Component = Component.empty(),
+        initial: String = "",
+        onDone: (String?) -> Unit,
+    ) {
+        requireSession().promptText(title, initial, onDone)
     }
 
     /**

@@ -58,7 +58,13 @@ pub(super) fn generate_fullscreen(
     target: KotlinTarget,
 ) -> Result<OutputFile> {
     let class_name = naming::fullscreen_class_name(name);
-    let handles = HandleMember::all(&class_name, &[], ClickKind::Fullscreen, &fullscreen.handles, |_| None)?;
+    let handles = HandleMember::all(
+        &class_name,
+        naming::FULLSCREEN_RESERVED_MEMBERS,
+        ClickKind::Fullscreen,
+        &fullscreen.handles,
+        |_| None,
+    )?;
     Ok(OutputFile::text(
         format!("{class_name}.kt"),
         class::render(package_name, &FULLSCREEN, target, name, &class_name, &handles),

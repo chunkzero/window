@@ -15,17 +15,26 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import net.kyori.adventure.key.Key
+import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
 import net.minestom.server.MinecraftServer
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
+import net.minestom.server.coordinate.Vec
+import net.minestom.server.dialog.Dialog
+import net.minestom.server.dialog.DialogAction
+import net.minestom.server.dialog.DialogInput
 import net.minestom.server.entity.EntityType
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Metadata
 import net.minestom.server.entity.MetadataDef
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.event.EventDispatcher
+import net.minestom.server.event.player.PlayerCustomClickEvent
+import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerPacketOutEvent
 import net.minestom.server.inventory.Inventory
@@ -36,15 +45,20 @@ import net.minestom.server.network.ConnectionState
 import net.minestom.server.network.packet.client.ClientPacket
 import net.minestom.server.network.packet.client.play.ClientAttackPacket
 import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket
+import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket
 import net.minestom.server.network.packet.client.play.ClientInputPacket
+import net.minestom.server.network.packet.client.play.ClientInteractEntityPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.ServerPacket
+import net.minestom.server.network.packet.server.common.ClearDialogPacket
+import net.minestom.server.network.packet.server.common.ShowDialogPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
 import net.minestom.server.network.packet.server.play.EntityAttributesPacket
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
+import net.minestom.server.network.packet.server.play.HeldItemChangePacket
 import net.minestom.server.network.packet.server.play.OpenWindowPacket
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
@@ -134,6 +148,166 @@ class MinestomFullscreenTest :
             fixture.player.scheduler().processTickEnd()
 
             menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
+        }
+
+        "held-slot changes are steps the shortest way around the hotbar, from the slot the client last had" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+
+            fixture.receive(ClientHeldItemChangePacket(1)).isCancelled shouldBe true
+            fixture.receive(ClientHeldItemChangePacket(8))
+            fixture.send(HeldItemChangePacket(5))
+            fixture.receive(ClientHeldItemChangePacket(6))
+
+            menu.scrolls shouldContainExactly listOf(1, -2, 1)
+            fixture.player.heldSlot shouldBe 0.toByte()
+        }
+
+        "a main-hand right click is reported at the end of the player's tick" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+
+            fixture.receive(ClientInteractEntityPacket(0, PlayerHand.MAIN, Vec.ZERO, false)).isCancelled shouldBe true
+            fixture.receive(ClientInteractEntityPacket(0, PlayerHand.OFF, Vec.ZERO, false))
+            fixture.receive(ClientPlayerRotationPacket(-44f, -24.375f, 0.toByte()))
+            fixture.player.scheduler().processTickEnd()
+
+            menu.rightClicks shouldContainExactly listOf(FullscreenClick(5, 5))
+        }
+
+        "a prompt shows a dialog that keeps the HUD hidden, and Confirm delivers the field's text" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            fixture.tick()
+            fixture.clear()
+
+            menu.prompt("hi")
+            val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
+            (dialog.metadata().inputs().single() as DialogInput.Text).initial() shouldBe "hi"
+            dialog.metadata().canCloseWithEscape() shouldBe false
+            fixture.sent<SetTimePacket>() shouldBe emptyList()
+
+            fixture.click(dialog, 0, "text" to "hello")
+            menu.prompts shouldContainExactly listOf("hello")
+            fixture.click(dialog, 0, "text" to "again")
+            menu.prompts shouldContainExactly listOf("hello")
+        }
+
+        "Cancel delivers null" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.prompt("hi")
+            val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
+
+            fixture.click(dialog, 1)
+
+            menu.prompts shouldContainExactly listOf(null)
+        }
+
+        "a response to another prompt's dialog or a foreign action is ignored" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.prompt("first")
+            val first = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
+            menu.prompt("second")
+            menu.prompts shouldContainExactly listOf(null)
+            val second = fixture.sent<ShowDialogPacket>().last().dialog() as Dialog.MultiAction
+
+            fixture.click(first, 0, "text" to "stale")
+            fixture.respond(Key.key("other", "confirm"), "text" to "foreign")
+            menu.prompts shouldContainExactly listOf(null)
+            fixture.click(second, 0, "text" to "now")
+
+            menu.prompts shouldContainExactly listOf(null, "now")
+        }
+
+        "a container opening over the dialog cancels the prompt on the next tick and re-enables the canvas" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.prompt("hi")
+            val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
+
+            fixture.clickCanvas()
+            menu.clicks shouldBe emptyList()
+            fixture.send(OpenWindowPacket(1, InventoryType.CHEST_1_ROW.ordinal, Component.empty()))
+            menu.prompts shouldBe emptyList()
+            fixture.tick()
+            fixture.click(dialog, 0, "text" to "late")
+            fixture.clickCanvas()
+
+            menu.prompts shouldContainExactly listOf(null)
+            menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
+        }
+
+        "a container opened before a prompt's dialog is written leaves that prompt pending" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            fixture.tick()
+            fixture.clear()
+
+            fixture.player.openInventory(Inventory(InventoryType.CHEST_1_ROW, Component.empty()))
+            menu.prompt("hi")
+            val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
+            fixture.tick()
+            fixture.click(dialog, 0, "text" to "kept")
+
+            menu.prompts shouldContainExactly listOf("kept")
+        }
+
+        "disconnecting with a prompt open reports null and closes once" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.prompt("hi")
+
+            EventDispatcher.call(PlayerDisconnectEvent(fixture.player))
+            EventDispatcher.call(PlayerDisconnectEvent(fixture.player))
+
+            menu.prompts shouldContainExactly listOf(null)
+            menu.closeCount shouldBe 1
+        }
+
+        "closing with a prompt open restores first, then reports null and onClose, even if the callback fails" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            val session = menu.open()
+            menu.prompt("hi")
+            val dialog = fixture.sent<ShowDialogPacket>().single().dialog() as Dialog.MultiAction
+            fixture.clear()
+
+            session.close()
+            fixture.sent<ClearDialogPacket>().size shouldBe 1
+            fixture.click(dialog, 0, "text" to "late")
+            menu.prompts shouldContainExactly listOf(null)
+
+            val sneaking = FullscreenFixture()
+            val other = Menu(sneaking.player)
+            other.open()
+            var mode: GameMode? = null
+            other.prompt("hi") {
+                mode = sneaking.player.gameMode
+                other.prompt("again")
+            }
+            sneaking.receive(ClientInputPacket(false, false, false, false, false, true, false))
+            mode shouldBe GameMode.SURVIVAL
+            other.prompts shouldContainExactly listOf(null, null)
+            other.closed shouldBe true
+            sneaking.sent<ShowDialogPacket>().size shouldBe 1
+
+            val failing = FullscreenFixture()
+            val broken = Menu(failing.player)
+            val failed = broken.open()
+            broken.prompt("hi") { error("boom") }
+            shouldThrow<IllegalStateException> { failed.close() }
+            failing.player.gameMode shouldBe GameMode.SURVIVAL
+            broken.closed shouldBe true
         }
 
         "sneaking leaves the window and restores the player" {
@@ -312,14 +486,29 @@ private class Menu(
     player: Player,
 ) : FullscreenView(FullscreenDefinition(manifest(), "menu"), MinestomFullscreenHost(player)) {
     val clicks = mutableListOf<FullscreenClick>()
+    val rightClicks = mutableListOf<FullscreenClick>()
+    val scrolls = mutableListOf<Int>()
+    val prompts = mutableListOf<String?>()
     var closed = false
+    var closeCount = 0
 
     override fun FullscreenScope.bind() {
         button("press") { clicks += it }
+        rightClick { rightClicks += it }
+        scroll { scrolls += it }
+    }
+
+    fun prompt(
+        initial: String,
+        then: () -> Unit = {},
+    ) = promptText(initial = initial) {
+        prompts += it
+        then()
     }
 
     override fun onClose() {
         closed = true
+        closeCount++
     }
 }
 
@@ -356,7 +545,30 @@ private class FullscreenFixture {
 
     fun tick() = player.scheduler().processTick()
 
-    fun receive(packet: ClientPacket) = EventDispatcher.call(PlayerPacketEvent(player, packet))
+    /** Clicks the menu's button, at canvas pixel (5, 5), and runs the end of the player's tick. */
+    fun clickCanvas() {
+        receive(ClientAttackPacket(0))
+        receive(ClientPlayerRotationPacket(-44f, -24.375f, 0.toByte()))
+        player.scheduler().processTickEnd()
+    }
+
+    fun receive(packet: ClientPacket) = PlayerPacketEvent(player, packet).also(EventDispatcher::call)
+
+    /** Presses [dialog]'s button [index], answering with [fields]. */
+    fun click(
+        dialog: Dialog.MultiAction,
+        index: Int,
+        vararg fields: Pair<String, String>,
+    ) = respond((dialog.actions()[index].action() as DialogAction.DynamicCustom).key(), *fields)
+
+    fun respond(
+        key: Key,
+        vararg fields: Pair<String, String>,
+    ) {
+        val payload = CompoundBinaryTag.builder()
+        for ((name, value) in fields) payload.putString(name, value)
+        EventDispatcher.call(PlayerCustomClickEvent(player, key, payload.build()))
+    }
 
     /** Queues [packets] back to back, then writes them out the way the connection's writer thread does. */
     fun send(vararg packets: ServerPacket) {
