@@ -690,7 +690,7 @@ internal object WindowFullscreenEntries {
             "storefront" to FullscreenEntry(
                 surface = FullscreenSurfaceEntry(
                     kind = "fullscreen",
-                    mode = FullscreenMode.UNLOCKED,
+                    mode = FullscreenMode.HORSE,
                     size = listOf(480, 270),
                 ),
                 static = "\uDB80\uDC0D\uDB80\uDC0C\uE20C\uDB80\uDC02\uDB80\uDC08\uDB80\uDC09\uDB80\uDC0A\uDB80\uDC13\uDB80\uDC0D\uDB80\uDC0C\uF2F2\uDB80\uDC02\uDB80\uDC03\uDB80\uDC04\uDB80\uDC06\uDB80\uDC07\uDB80\uDC08\uDB80\uDC09\uDB80\uDC0A\uDB80\uDC0D\uDB80\uDC0C\uF166\uDB80\uDC02\uDB80\uDC08\uDB80\uDC09\uDB80\uDC0A\uDB80\uDC13\uDB80\uDC0D\uDB80\uDC0C\uF60C\uDB80\uDC02\uDB80\uDC03\uDB80\uDC04\uDB80\uDC06\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",

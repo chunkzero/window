@@ -130,7 +130,7 @@ private fun registerShopAccess(market: Market) {
     }
 }
 
-/** `/lobby` opens the full-screen lobby, `/lookout` the horse-mode lookout, and `/store` the storefront; sneak to leave. */
+/** `/lobby` opens the full-screen lobby, `/lookout` the horse-mode lookout, and `/store` the horse-mode storefront; sneak to leave. */
 private fun registerFullscreens(market: Market) {
     val lobby = Command("lobby")
     lobby.setDefaultExecutor { sender, _ -> (sender as? Player)?.let { MyLobby(it).open() } }

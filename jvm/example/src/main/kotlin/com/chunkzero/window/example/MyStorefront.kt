@@ -11,9 +11,9 @@ import kotlin.math.abs
 import kotlin.math.ceil
 
 /**
- * A web-style storefront drawn over the live world: category tabs and a search box typed into in place filter a product
- * grid, a detail pane buys or adds to a cart, and the grid and the cart each scroll with the wheel and their arrows.
- * The wheel moves the pane last clicked; right click flips the side pane between the details and the cart.
+ * A web-style storefront drawn over a held-still view of the world: category tabs and a search box typed into in place
+ * filter a product grid, a detail pane buys or adds to a cart, and the grid and the cart each scroll with the wheel and
+ * their arrows. The wheel moves the pane last clicked; right click flips the side pane between the details and the cart.
  */
 class MyStorefront(
     player: Player,
