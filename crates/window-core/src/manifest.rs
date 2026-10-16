@@ -16,7 +16,8 @@ mod fullscreen;
 mod hud;
 
 pub use fullscreen::{
-    ControlEntry, CursorEntry, FullscreenCanvasEntry, FullscreenEntry, FullscreenSurfaceEntry, HorseEntry,
+    ControlEntry, ControlTooltipEntry, CursorEntry, FullscreenCanvasEntry, FullscreenEntry, FullscreenSurfaceEntry,
+    HorseEntry,
 };
 pub use hud::{HudEntry, HudShaderEntry, HudSurfaceEntry};
 

@@ -47,6 +47,22 @@ public abstract class FullscreenView(
      */
     protected fun <T> state(initial: T): ReadWriteProperty<Any?, T> = LazyState(initial) { reactivity }
 
+    /**
+     * Creates a [WindowList] showing [source] through [cells] cells, keyed by [key], as [WindowView.list] does: read
+     * [WindowList.at] in a repeater's indexed renders, and back previous and next buttons with [WindowList.canPrevious]
+     * and [WindowList.canNext]. [WindowList.items] adapts a list to item collections, which full-screen windows do not
+     * have.
+     *
+     * @throws IllegalArgumentException if [cells] or [step] is not positive.
+     */
+    protected fun <T, K> list(
+        cells: Int,
+        key: (T) -> K,
+        step: Int = cells,
+        select: WindowList.Select = WindowList.Select.FIRST,
+        source: () -> List<T>,
+    ): WindowList<T, K> = WindowList(cells, key, step, select, source) { reactivity }
+
     /** Declares the slot renders and button handlers for this view. */
     protected abstract fun FullscreenScope.bind()
 

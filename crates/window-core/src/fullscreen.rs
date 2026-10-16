@@ -75,9 +75,16 @@ pub const BACKDROP_LAYER: u8 = 0;
 pub const STATIC_LAYER: u8 = 1;
 
 /// The highest layer of a window's runtime layers, which take the layers from `STATIC_LAYER + 1` in authored order.
-pub const MAX_CONTENT_LAYER: u8 = 253;
+pub const MAX_CONTENT_LAYER: u8 = 251;
 
-/// The layer of the runtime's own overlays, such as server-driven hover outlines, above every window layer.
+/// The layer of the hovered control's tooltip panel, above every window layer.
+pub const TOOLTIP_LAYER: u8 = 252;
+
+/// The layer of the hovered control's tooltip text, above its panel.
+pub const TOOLTIP_TEXT_LAYER: u8 = 253;
+
+/// The layer of the runtime's own overlays, such as server-driven hover outlines, above every window layer and
+/// tooltip.
 pub const OVERLAY_LAYER: u8 = 254;
 
 /// The layer of the cursor, above everything else.

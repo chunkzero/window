@@ -70,10 +70,11 @@ impl<T: LayoutTarget> Solver<'_, T> {
             None => format!("region `{name}`"),
         };
         self.check_inside_bounds(rect, &source)?;
-        if self.target.container_kind().is_none() && (region.tooltip.is_some() || region.item_model.is_some()) {
-            return Err(self
-                .target
-                .layout_err(format!("{source} sets `tooltip` or `item_model`, which need inventory slots")));
+        if self.target.container_kind().is_none() && region.item_model.is_some() {
+            return Err(self.target.layout_err(format!(
+                "{source} sets `item_model`, which draws the hitbox item of inventory slots, and a {} has none",
+                self.target.kind()
+            )));
         }
         let hitbox = (region.tooltip.is_some() || region.item_model.is_some())
             .then(|| Hitbox { item_model: region.item_model.clone(), tooltip: region.tooltip.clone() });

@@ -7,7 +7,10 @@ import com.chunkzero.window.internal.Turn
 import com.chunkzero.window.manifest.FullscreenMode
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -100,6 +103,41 @@ class FullscreenSessionTest :
                 TextColor.fromHexString(FullscreenManifests.OVERLAY_MARKER)
         }
 
+        "repeater cells are hit and hovered per cell, and the hovered cell's tooltip is sent above the layers" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+
+            host.look(110, 200)
+            host.listener.onClick()
+            host.look(160, 200)
+            host.listener.onClick()
+            host.look(200, 250)
+
+            menu.picked shouldContainExactly listOf("a", "b")
+            host.shown.map { "Tip" in text(it) } shouldContainExactly listOf(false, true, false)
+            val runs = runs(host.shown[1])
+            runs.getValue("PANEL").color shouldBe TextColor.fromHexString(FullscreenManifests.TOOLTIP_MARKER)
+            runs.getValue("Tip").color shouldBe TextColor.fromHexString(FullscreenManifests.TOOLTIP_TEXT_MARKER)
+            val shown = text(host.shown[1])
+            shown.indexOf("PANEL") shouldBeGreaterThan shown.indexOf("N0")
+            shown.indexOf("CURSOR") shouldBeGreaterThan shown.indexOf("Tip")
+        }
+
+        "a list pages its items through the repeater's cells" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+
+            host.look(110, 230)
+            host.listener.onClick()
+            host.scheduler.tick()
+            host.look(110, 200)
+            host.listener.onClick()
+
+            runs(host.shown.last()).keys shouldContain "c"
+            runs(host.shown.last()).keys shouldNotContain "a"
+            menu.picked shouldContainExactly listOf("c")
+        }
+
         "state changes re-send the runs on the next tick" {
             val host = FakeFullscreenHost()
             Menu(host).open()
@@ -128,6 +166,17 @@ class FullscreenSessionTest :
             host.listener.onLook(45.5f, 0f)
 
             host.turns shouldContainExactly listOf(Turn(-5f, 0f), Turn(-5f, 0f))
+        }
+
+        "a newline in bound slot text is sent as a space" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+
+            menu.suffix = "a\nb"
+            host.scheduler.tick()
+
+            text(host.shown.last()) shouldContain "N0a b"
+            text(host.shown.last()) shouldNotContain "\n"
         }
 
         "right clicks and scroll steps reach their handlers, right clicks at the cursor" {
@@ -218,22 +267,30 @@ private class Menu(
     mode: FullscreenMode = FullscreenMode.UNLOCKED,
 ) : FullscreenView(FullscreenDefinition(FullscreenManifests.manifest(mode), "menu"), host) {
     var count by state(0)
+    var suffix by state("")
     var mode by state("off")
     var plays = 0
     var secrets = 0
     var closes = 0
+    val picked = mutableListOf<String>()
     val rightClicks = mutableListOf<FullscreenClick>()
     val scrolls = mutableListOf<Int>()
     val prompts = mutableListOf<String?>()
+    private val names = list(2, { it: String -> it }) { listOf("a", "b", "c") }
 
     override fun FullscreenScope.bind() {
-        slot("count") { Component.text("N$count") }
+        slot("count") { Component.text("N$count$suffix") }
         switch("mode") { mode }
         button("play") {
             plays++
             count++
         }
         button("secret") { secrets++ }
+        for (cell in 0 until 2) {
+            slot("cell[$cell]") { Component.text(names.at(cell).orEmpty()) }
+            button("pick[$cell]") { names.selectAt(cell)?.let(picked::add) }
+        }
+        button("next") { names.next() }
         rightClick { rightClicks += it }
         scroll { scrolls += it }
     }

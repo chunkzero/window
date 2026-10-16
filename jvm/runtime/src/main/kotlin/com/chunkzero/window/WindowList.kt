@@ -5,7 +5,7 @@ import com.chunkzero.window.internal.LazyState
 import com.chunkzero.window.internal.Reactivity
 
 /**
- * A reactive list shown through a fixed number of cells, created with [WindowView.list].
+ * A reactive list shown through a fixed number of cells, created with [WindowView.list] or [FullscreenView.list].
  *
  * The offset of the first visible item and the selected item's key are view state: reading them
  * while rendering re-renders when they change. The offset is clamped to the current list when read,

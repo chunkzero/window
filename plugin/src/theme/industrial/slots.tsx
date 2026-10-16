@@ -53,6 +53,8 @@ export interface RepeaterProps extends ItemStyle, DebugProps {
     cell: [number, number];
     columns: number;
     rows: number;
+    /** Sizes the grid at 18px per slot instead of letting its section area or content size it; for full-screen windows. */
+    fixed?: boolean;
     /** An action indexed by cell; a click calls it with the clicked cell's index. */
     onClick?: Indexed<Action, readonly [number]>;
     tooltip?: string | Tooltip | ((i: number) => string | Tooltip);
@@ -75,7 +77,21 @@ const SLOT = 18;
 
 /** A grid of `columns` x `rows` cells, each a face over `cell` slots whose content is centered in a column. */
 export function Repeater(props: RepeaterProps): Element {
-    const { cell, columns, rows, onClick, tooltip, hover, item, itemSlot = 1, frame, padding, text, style } = props;
+    const {
+        cell,
+        columns,
+        rows,
+        fixed,
+        onClick,
+        tooltip,
+        hover,
+        item,
+        itemSlot = 1,
+        frame,
+        padding,
+        text,
+        style,
+    } = props;
     const { children } = props;
     const [width, height] = cell;
     if (item !== undefined && (itemSlot < 1 || itemSlot > width * height)) {
@@ -85,6 +101,7 @@ export function Repeater(props: RepeaterProps): Element {
         "cell",
         "columns",
         "rows",
+        "fixed",
         "onClick",
         "tooltip",
         "hover",
@@ -127,7 +144,15 @@ export function Repeater(props: RepeaterProps): Element {
         );
     });
     return (
-        <Box span={[columns * width, rows * height]} {...placed} display="grid" columns={columns} rows={rows}>
+        <Box
+            span={[columns * width, rows * height]}
+            width={fixed ? columns * width * SLOT : undefined}
+            height={fixed ? rows * height * SLOT : undefined}
+            {...placed}
+            display="grid"
+            columns={columns}
+            rows={rows}
+        >
             {cells}
         </Box>
     ) as Element;

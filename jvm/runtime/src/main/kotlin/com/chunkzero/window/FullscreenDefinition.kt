@@ -1,6 +1,7 @@
 package com.chunkzero.window
 
 import com.chunkzero.window.internal.HudComposer
+import com.chunkzero.window.internal.HudLayer
 import com.chunkzero.window.internal.baseStyle
 import com.chunkzero.window.internal.requireColor
 import com.chunkzero.window.manifest.FullscreenCanvasEntry
@@ -74,6 +75,21 @@ public class FullscreenDefinition(
         entry.controls
             .mapNotNull { (key, control) -> control.outline?.let { key to run(it, canvas.overlayMarker) } }
             .toMap()
+
+    /** The tooltip runs of each control with one, by control key: its panel, then its lines. */
+    internal val tooltips: Map<String, Component> =
+        entry.controls
+            .mapNotNull { (key, control) ->
+                control.tooltip?.let { tooltip ->
+                    val id = "fullscreen/$name/tooltip/$key"
+                    val lines =
+                        tooltip.lines.mapNotNull { line ->
+                            composer.renderSlot(id, line, Component.text(line.text.orEmpty()))?.let(HudLayer::Slot)
+                        }
+                    val panel = HudLayer.Art(id, tooltip.panel, null, requireColor(tooltip.marker))
+                    key to composer.composeLayers(listOf(panel) + lines)
+                }
+            }.toMap()
 
     private fun run(
         text: String,

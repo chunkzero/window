@@ -80,7 +80,7 @@ fn compiles_layers_controls_and_the_contract() {
     assert_eq!(color(&status["low"], 0), (3, "255, 77, 77"));
     assert_eq!(color(menu.backdrop_marker.as_deref().unwrap(), 2), (0, "16, 16, 16"));
     assert_eq!(color(&canvas.cursor.marker, 1), (255, "255, 255, 255"));
-    assert_eq!(color(&canvas.overlay_marker, 0), (254, "255, 255, 255"));
+    assert_eq!(color(&canvas.overlay_marker, 0), (fullscreen::OVERLAY_LAYER.into(), "255, 255, 255"));
 
     let play = &menu.controls["play"];
     assert_eq!((play.index, play.x, play.y, play.width, play.height), (0, 0, 0, 40, 20));
@@ -130,15 +130,91 @@ fn full_screen_windows_emit_their_shaders_and_need_the_define_variant_profile() 
 }
 
 #[test]
-fn rejects_inventory_elements_and_hitbox_items() {
+fn rejects_items_runtime_sprites_and_hitbox_models() {
+    let reject = |child: serde_json::Value| compile(json!({ "name": "menu", "children": [child] })).unwrap_err();
     let item = json!({ "type": "item", "handle": { "kind": "items", "id": "loot" }, "slots": [0] });
-    let error = compile(json!({ "name": "menu", "children": [item] })).unwrap_err().to_string();
-    assert!(error.contains("fullscreen `menu` has no inventory slots for inventory element `loot`"), "{error}");
+    let error = reject(item).to_string();
+    assert!(error.contains("cannot contain inventory element `loot`: real items need inventory slots"), "{error}");
 
-    let region = json!({ "type": "region", "on_click": { "kind": "action", "id": "play" }, "width": 8, "height": 8,
-                         "tooltip": "Play" });
-    let error = compile(json!({ "name": "menu", "children": [region] })).unwrap_err().to_string();
-    assert!(error.contains("sets `tooltip` or `item_model`, which need inventory slots"), "{error}");
+    let sprite = json!({ "type": "sprite_slot", "handle": { "kind": "sprite", "id": "icon" }, "width": 16,
+                         "height": 16 });
+    let error = reject(sprite).to_string();
+    assert!(
+        error.contains("cannot contain runtime sprite slot `icon`: full-screen windows draw no runtime"),
+        "{error}"
+    );
+
+    let region = json!({ "type": "region", "width": 8, "height": 8, "item_model": "window:button" });
+    let error = reject(region).to_string();
+    assert!(error.contains("sets `item_model`, which draws the hitbox item of inventory slots"), "{error}");
+
+    let region = json!({ "type": "region", "width": 8, "height": 8, "tooltip": "<red>Hot" });
+    let error = reject(region).to_string();
+    assert!(error.contains("full-screen tooltips draw plain text, without MiniMessage tags"), "{error}");
+
+    let region =
+        json!({ "type": "region", "width": 8, "height": 8, "tooltip": { "title": "Hot", "lines": ["§cDanger"] } });
+    let error = reject(region).to_string();
+    assert!(error.contains("full-screen tooltips draw plain text, without formatting codes"), "{error}");
+}
+
+#[test]
+fn splits_embedded_newlines_into_tooltip_lines() {
+    let region = json!({ "type": "flex", "x": 100, "y": 50, "style": { "width": 40, "height": 20 }, "children": [
+        { "type": "region", "on_click": { "kind": "action", "id": "play" },
+          "tooltip": { "title": "First\nSecond", "lines": ["Third\n\nFifth"] } }
+    ] });
+    let out = compile(json!({ "name": "menu", "children": [region] })).unwrap();
+    let tooltip = out.manifest.fullscreens["menu"].controls["play"].tooltip.as_ref().unwrap();
+    let rows: Vec<(&str, i32)> = tooltip.lines.iter().map(|line| (line.text.as_deref().unwrap(), line.y)).collect();
+    assert_eq!(rows, [("First", 76), ("Second", 88), ("Third", 98), ("Fifth", 118)]);
+    assert!(tooltip.lines.iter().all(|line| !line.text.as_deref().unwrap().contains('\n')));
+}
+
+#[test]
+fn lays_tooltips_out_beside_their_controls_above_every_window_layer() {
+    let region = |id: &str, x: u32, y: u32, width: u32, tooltip: serde_json::Value| {
+        let region = json!({ "type": "region", "on_click": { "kind": "action", "id": id }, "tooltip": tooltip });
+        json!({ "type": "flex", "x": x, "y": y, "style": { "width": width, "height": 20 }, "children": [region] })
+    };
+    let out = compile(json!({ "name": "menu", "children": [
+        region("top", 0, 10, 40, json!("Top")),
+        region("bottom", 470, 240, 10, json!({ "title": "Bottom", "lines": ["One", "Two"] })),
+        region("plain", 200, 100, 40, json!(null)),
+    ] }))
+    .unwrap();
+    let menu = &out.manifest.fullscreens["menu"];
+    assert_eq!(menu.controls["plain"].tooltip, None);
+    let table = color_table(include(&out));
+
+    // Centered below its control: a 4px inset around one 8px line.
+    let top = menu.controls["top"].tooltip.as_ref().unwrap();
+    assert_eq!(decode(&top.marker, 0).0, u32::from(fullscreen::TOOLTIP_LAYER));
+    let [title] = top.lines.as_slice() else { panic!("{:?}", top.lines) };
+    assert_eq!((title.x, title.y, title.text.as_deref()), ((40 - (title.width as i32 + 8)) / 2 + 4, 36, Some("Top")));
+    let (layer, color) = decode(title.shader_marker.as_deref().unwrap(), 0);
+    assert_eq!((layer, table[color].as_str()), (u32::from(fullscreen::TOOLTIP_TEXT_LAYER), "255, 255, 255"));
+
+    // Above its control where the canvas ends below it, and kept on the canvas; the title is 2px further from its
+    // lines than they are apart.
+    let bottom = menu.controls["bottom"].tooltip.as_ref().unwrap();
+    let rows: Vec<(i32, i32)> = bottom.lines.iter().map(|line| (line.x, line.y)).collect();
+    let panel_height = 8 + 2 + 2 * 10 + 8;
+    let top_y = 240 - 2 - panel_height + 4;
+    let left = 480 - (bottom.lines.iter().map(|line| line.width).max().unwrap() as i32 + 8) + 4;
+    assert_eq!(rows, [(left, top_y), (left, top_y + 12), (left, top_y + 22)]);
+    let gray = decode(bottom.lines[1].shader_marker.as_deref().unwrap(), 0).1;
+    assert_eq!(table[gray], "170, 170, 170");
+
+    let file = out
+        .files
+        .iter()
+        .find(|file| file.path.ends_with(&format!("menu_tooltip_{}_32_{}x16_0_0.png", title.x - 4, title.width + 8)))
+        .unwrap();
+    let panel = Texture::decode_png(file.contents.as_bytes()).unwrap();
+    assert_eq!((panel.width, panel.height), (title.width + 8, 16));
+    assert_eq!(panel.get(0, 0)[3], 0, "the corners are cut");
+    assert_eq!(panel.get(4, 4), [0x10, 0x00, 0x10, 0xf0]);
 }
 
 #[test]

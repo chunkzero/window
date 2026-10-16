@@ -234,4 +234,20 @@ impl LayoutTarget for FullscreenTarget<'_> {
     fn duplicate_namespace(&self) -> &'static str {
         "slot/region/label names share one namespace"
     }
+
+    fn sprite_slot_err(&self, name: &str) -> Error {
+        self.layout_err(format!(
+            "fullscreen `{}` cannot contain runtime sprite slot `{name}`: full-screen windows draw no runtime \
+             sprites; switch between static images with a `<Switch>` instead",
+            self.name
+        ))
+    }
+
+    fn inventory_err(&self, name: &str) -> Error {
+        self.layout_err(format!(
+            "fullscreen `{}` cannot contain inventory element `{name}`: real items need inventory slots, which only \
+             container windows have; draw item art with an image instead",
+            self.name
+        ))
+    }
 }
