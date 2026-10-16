@@ -203,15 +203,21 @@ player aims by turning, clicks with the attack key, and leaves by sneaking. An e
 ```kotlin
 class MyLobby(player: Player) : LobbyFullscreen(player) {
     private var name by state("${player.username}'s Foundry")
+    private var draft: String? by state(null)
     private val worlds = list(cells = 3, key = { it: String -> it }, step = 1) { WORLDS }
 
-    override fun foundryName(): Component = Component.text(name)
+    override fun foundryName(): Component = Component.text(draft?.let { "${it}_" } ?: name)
 
     override fun worldName(index: Int): Component = Component.text(worlds.at(index).orEmpty())
 
-    // A click opens a native dialog; the canvas is back once the player confirms or cancels.
+    // A click lets the player type the name in place, until they click again or press Escape.
+    @OptIn(ExperimentalFullscreenApi::class)
     override fun onRename(click: FullscreenClick) {
-        promptText(Component.text("Name your foundry"), name) { text -> text?.let { name = it } }
+        draft = name
+        promptText(name, onEdit = { draft = it }) { text ->
+            draft = null
+            text?.let { name = it }
+        }
     }
 
     override fun onScroll(steps: Int) = repeat(abs(steps)) { if (steps > 0) worlds.next() else worlds.previous() }
@@ -225,8 +231,15 @@ MyLobby(player).open()
 - Handlers receive a `FullscreenClick` with the cursor's canvas position. `onScroll(steps)` gets the scroll wheel as
   signed steps, and `onRightClick(click)` gets right clicks anywhere on the canvas.
 - `list(...)` pages a list through a `<Repeater fixed>`'s cells, like `WindowView.list(...)`.
-- `promptText(title, initial) { text -> }` shows a native dialog with a text field and Confirm and Cancel buttons. The
-  callback gets the text, or `null` on Cancel or when the window closes. Escape does not dismiss it.
+- Two text prompts share one slot: opening either replaces an open prompt, whose callback gets `null`, as it does when a
+  server container opens over the prompt or the window closes. While one is open, canvas input is ignored and the
+  hovered control's tooltip is hidden.
+  - `promptText(initial, onEdit) { text -> }`, experimental (`@OptIn(ExperimentalFullscreenApi::class)`), lets the
+    player type while the canvas stays in view. Nothing of it is drawn: draw the text from `onEdit`, which re-renders at
+    once. Escape or a click anywhere finishes with the text; there is no cancel.
+  - `promptTextDialog(title, initial) { text -> }` shows a native dialog over the canvas with a text field and Confirm
+    and Cancel buttons, and gets `null` on Cancel. Escape does not dismiss it. Use it when the player must be able to
+    back out, or to move the caret.
 - Views are single-use, as with windows, and a player has at most one full-screen window open.
 
 While the window is open, the Minestom host:
@@ -237,7 +250,8 @@ While the window is open, the Minestom host:
   (or the one the server set meanwhile), abilities, position, and held slot.
 - hides the HUD by holding the client's world age negative, which the pack's shaders read. The hidden strip at the
   bottom of the screen can clip the player's own inventory (E) at small GUI heights, since the server is not told it
-  opened.
+  opened. While the keyboard prompt is open, the age sits in a second negative band in which the shaders also hide the
+  untitled anvil that captures the typing.
 - closes the window when the player dies or spawns into another instance. Opening one while the player is dead or
   respawning throws, so a respawn listener should open it on the next tick.
 
@@ -248,6 +262,11 @@ Limitations:
 - The client sends at most one held-slot change per tick, so `onScroll` gets one update per tick of at most 4 steps
   either way, more than 4 notches in one tick read as a scroll the other way, and number keys look like scrolling.
 - Chat and other GUI overlays draw over the canvas, and there are no real items.
+- The keyboard prompt is experimental. The server never sees the caret, so draw it at the end of the text. The anvil
+  holds 50 characters, so longer text continues in a fresh field: text in earlier fields can no longer be edited, and
+  keys typed just as the fresh field opens can be lost. While it is open, GUI text and fills in the anvil's rename field
+  and label bands, such as chat lines crossing them, are hidden, and the system mouse pointer shows. Each edit takes a
+  round trip to reach `onEdit`. Without the pack's shaders, the player sees a plain vanilla anvil.
 
 ## Supported versions
 
