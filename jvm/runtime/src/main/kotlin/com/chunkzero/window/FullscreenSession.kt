@@ -10,7 +10,6 @@ import com.chunkzero.window.internal.Reactivity
 import com.chunkzero.window.internal.RenderKey
 import com.chunkzero.window.internal.RenderScheduler
 import com.chunkzero.window.internal.RuntimeAction
-import com.chunkzero.window.manifest.FullscreenMode
 import net.kyori.adventure.text.Component
 
 /** A live full-screen window opened by [FullscreenView.open]. */
@@ -59,6 +58,16 @@ internal class FullscreenWindowSession(
 
             override fun onClick() = click()
 
+            override fun onRightClick() {
+                if (!listening) return
+                val point = cursor()
+                bindings.rightClick?.invoke(FullscreenClick(point.x, point.y))
+            }
+
+            override fun onScroll(steps: Int) {
+                if (listening) bindings.scroll?.invoke(steps)
+            }
+
             override fun onClose() {
                 if (closed) return
                 closed = true
@@ -66,11 +75,11 @@ internal class FullscreenWindowSession(
             }
         }
 
+    /** Whether canvas input counts: the window is open and no prompt covers it. */
+    private val listening get() = !closed && !screen.promptOpen
+
     fun open() {
         try {
-            check(entry.surface.mode == FullscreenMode.UNLOCKED) {
-                "Fullscreen '${definition.name}' uses horse mode, which this runtime cannot show"
-            }
             view.attach(this, reactivity)
             view.invokeBind(bindings)
             bindings.sealed = true
@@ -89,8 +98,19 @@ internal class FullscreenWindowSession(
     override fun close() {
         if (closed) return
         closed = true
-        view.invokeOnClose()
-        screen.close()
+        try {
+            screen.close()
+        } finally {
+            view.invokeOnClose()
+        }
+    }
+
+    fun promptText(
+        title: Component,
+        initial: String,
+        onDone: (String?) -> Unit,
+    ) {
+        if (closed) onDone(null) else screen.promptText(title, initial, onDone)
     }
 
     fun refreshAll() {
@@ -108,7 +128,7 @@ internal class FullscreenWindowSession(
         yaw: Float,
         pitch: Float,
     ) {
-        if (closed) return
+        if (!listening) return
         this.yaw = yaw
         this.pitch = pitch
         mapping.pullBack(yaw, pitch)?.let { turn ->
@@ -126,7 +146,7 @@ internal class FullscreenWindowSession(
     }
 
     private fun click() {
-        if (closed) return
+        if (!listening) return
         val point = cursor()
         val current = layers.switches.current()
         val actions =
@@ -181,6 +201,8 @@ internal class FullscreenWindowSession(
     private inner class Bindings : FullscreenScope {
         var sealed = false
         val buttons = HashMap<String, (FullscreenClick) -> Unit>()
+        var rightClick: ((FullscreenClick) -> Unit)? = null
+        var scroll: ((Int) -> Unit)? = null
 
         /** The action ids controls name that a handler can bind; runtime actions are run by the runtime. */
         private val actions: Set<String> =
@@ -229,6 +251,18 @@ internal class FullscreenWindowSession(
                 "Unknown button '$name' in fullscreen '${definition.name}'; known buttons: ${actions.sorted()}"
             }
             require(buttons.put(name, handler) == null) { "Button '$name' bound more than once" }
+        }
+
+        override fun rightClick(handler: (FullscreenClick) -> Unit) {
+            requireBindable("rightClick")
+            require(rightClick == null) { "rightClick bound more than once" }
+            rightClick = handler
+        }
+
+        override fun scroll(handler: (steps: Int) -> Unit) {
+            requireBindable("scroll")
+            require(scroll == null) { "scroll bound more than once" }
+            scroll = handler
         }
 
         fun validate() {

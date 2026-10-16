@@ -313,3 +313,43 @@ fn outlines_hovered_controls_and_emits_the_blank_item_model() {
     let blank = file("assets/window/items/fullscreen/blank.json");
     assert_eq!(blank.contents.as_bytes(), b"{\"model\":{\"type\":\"minecraft:empty\"}}\n");
 }
+
+#[test]
+fn horse_mode_emits_the_cursor_armour_and_entity_shader() {
+    let shaders = |out: &CompileOutput| -> Vec<String> {
+        let names = out.files.iter().filter_map(|file| file.path.strip_prefix("assets/minecraft/shaders/core/"));
+        names.map(str::to_string).collect()
+    };
+    let unlocked = compile(json!({ "name": "menu", "children": [] })).unwrap();
+    assert!(unlocked.manifest.fullscreen_canvas.as_ref().unwrap().horse.is_none());
+    assert!(!shaders(&unlocked).contains(&"entity.vsh".to_string()));
+    assert!(unlocked.files.iter().all(|file| !file.path.contains("equipment")));
+
+    let out = compile(json!({ "name": "lookout", "mode": "horse", "children": [] })).unwrap();
+    assert_eq!(
+        shaders(&out),
+        ["entity.vsh", "position_tex_color.fsh", "position_tex_color.vsh", "text.fsh", "text.vsh"]
+    );
+    let horse = out.manifest.fullscreen_canvas.as_ref().unwrap().horse.as_ref().expect("the horse entry is present");
+    assert_eq!(horse.offset, fullscreen::horse::OFFSET);
+    assert_eq!(horse.armor, "window:fullscreen/horse_cursor");
+    let file = |path: &str| out.files.iter().find(|file| file.path == path).unwrap_or_else(|| panic!("{path}"));
+    let equipment = file("assets/window/equipment/fullscreen/horse_cursor.json");
+    assert_eq!(
+        equipment.contents.as_bytes(),
+        b"{\"layers\":{\"horse_body\":[{\"texture\":\"window:fullscreen/horse_cursor\"}]}}\n"
+    );
+    let armor = file("assets/window/textures/entity/equipment/horse_body/fullscreen/horse_cursor.png");
+    let armor = Texture::decode_png(armor.contents.as_bytes()).unwrap();
+    assert_eq!(armor.get(0, 0), fullscreen::horse::ARMOR_SIGNATURE);
+    let entity = file("assets/minecraft/shaders/core/entity.vsh");
+    let entity = std::str::from_utf8(entity.contents.as_bytes()).unwrap();
+    assert!(entity.contains("const ivec4 WINDOW_FS_ARMOR_SIGNATURE = ivec4(253, 1, 253, 255);"), "{entity}");
+    assert!(entity.contains("const vec3 WINDOW_FS_HORSE_OFFSET = vec3(0.0, -1.75, 3.0);"), "{entity}");
+    assert!(entity.contains("float window_fs_depth(int layer)"), "{entity}");
+
+    let parsed = Manifest::from_json(&out.manifest.to_json_bytes().unwrap()).unwrap();
+    assert_eq!(&parsed, &out.manifest);
+    let error = compile_at(json!({ "name": "lookout", "mode": "horse", "children": [] }), json!(84));
+    assert!(error.unwrap_err().to_string().contains("full-screen windows are drawn by a core text shader"));
+}

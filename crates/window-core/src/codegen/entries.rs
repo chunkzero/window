@@ -79,7 +79,7 @@ pub(super) fn fullscreen_canvas_entry_expr(canvas: &FullscreenCanvasEntry, level
         .arg("width", canvas.cursor.width)
         .arg("height", canvas.cursor.height)
         .finish();
-    Call::new("FullscreenCanvasEntry", level)
+    let call = Call::new("FullscreenCanvasEntry", level)
         .arg("width", canvas.width)
         .arg("height", canvas.height)
         .arg("degreesPerPixel", format!("{:?}", canvas.degrees_per_pixel))
@@ -95,8 +95,16 @@ pub(super) fn fullscreen_canvas_entry_expr(canvas: &FullscreenCanvasEntry, level
         .arg("hudHiddenWorldAge", format!("{}L", canvas.hud_hidden_world_age))
         .arg("hudStripHeight", canvas.hud_strip_height)
         .arg("hudStripHalfWidth", canvas.hud_strip_half_width)
-        .arg("hudMaxHealth", canvas.hud_max_health)
-        .finish()
+        .arg("hudMaxHealth", canvas.hud_max_health);
+    let Some(horse) = &canvas.horse else {
+        return call.finish();
+    };
+    let offset = horse.offset.iter().map(|value| format!("{value:?}")).collect::<Vec<_>>().join(", ");
+    let horse = Call::new("HorseEntry", level + 1)
+        .arg("offset", format!("listOf({offset})"))
+        .arg("armor", kt_string(&horse.armor))
+        .finish();
+    call.arg("horse", horse).finish()
 }
 
 pub(super) fn optional_hud_shader_entry_expr(shader: Option<&HudShaderEntry>, level: usize) -> String {

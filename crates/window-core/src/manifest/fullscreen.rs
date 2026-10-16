@@ -136,6 +136,18 @@ pub struct FullscreenCanvasEntry {
     pub hud_strip_half_width: u32,
     /// The most max health the client is told while the HUD is hidden.
     pub hud_max_health: u32,
+    /// The horse of horse-mode windows, present when the pack has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub horse: Option<HorseEntry>,
+}
+
+/// The horse that horse-mode full-screen windows read the cursor from; see [`crate::fullscreen::horse`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct HorseEntry {
+    /// Where the horse stands relative to the camera `[x, y, z]`, in blocks, with the camera facing yaw and pitch 0.
+    pub offset: [f64; 3],
+    /// The equipment asset id of the cursor armour the horse wears in its body slot.
+    pub armor: String,
 }
 
 /// The built-in cursor glyph.

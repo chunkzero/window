@@ -37,6 +37,8 @@ use crate::compose::Texture;
 use crate::geometry::{Point, Rect, Size};
 use crate::ir::Rgb;
 
+pub mod horse;
+
 /// The virtual canvas size in canvas pixels, which full-screen windows are laid out on.
 pub const CANVAS: Size = Size::new(480, 270);
 

@@ -59,11 +59,24 @@ pub(super) fn render(
     for handle in handles {
         handle.declare(&mut w, item);
     }
-    if handles.iter().all(|handle| handle.handle.uses.is_empty()) {
+    let fullscreen = base.host == ViewHost::Fullscreen;
+    if fullscreen {
+        w.doc("Handle a scroll of the wheel, as the signed steps the hotbar selection moved.");
+        w.line("protected open fun onScroll(steps: Int) {}");
+        w.blank();
+        w.doc("Handle a right click anywhere on the canvas.");
+        w.line("protected open fun onRightClick(click: FullscreenClick) {}");
+        w.blank();
+    }
+    if !fullscreen && handles.iter().all(|handle| handle.handle.uses.is_empty()) {
         w.line(format_args!("final override fun {prefix}Scope{type_args}.bind() {{}}"));
     } else {
         w.open(format_args!("final override fun {prefix}Scope{type_args}.bind() {{"));
         handles::bind(&mut w, handles);
+        if fullscreen {
+            w.line("scroll(::onScroll)");
+            w.line("rightClick(::onRightClick)");
+        }
         w.close("}");
     }
     handles::constants(&mut w, handles);
@@ -86,6 +99,7 @@ fn imports(base: &ViewBase, target: KotlinTarget, handles: &[HandleMember]) -> V
     let mut imports: Vec<String> = [
         (base.host == ViewHost::Window && host.is_none(), "com.chunkzero.window.host.WindowHost"),
         (base.host == ViewHost::Fullscreen && host.is_none(), "com.chunkzero.window.host.FullscreenHost"),
+        (base.host == ViewHost::Fullscreen, "com.chunkzero.window.FullscreenClick"),
         (host.is_some(), "net.minestom.server.entity.Player"),
         (host.is_some() && base.host == ViewHost::Window, "net.minestom.server.item.ItemStack"),
     ]

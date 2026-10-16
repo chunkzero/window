@@ -6,6 +6,7 @@ import com.chunkzero.window.internal.baseStyle
 import com.chunkzero.window.internal.requireColor
 import com.chunkzero.window.manifest.FullscreenCanvasEntry
 import com.chunkzero.window.manifest.FullscreenEntry
+import com.chunkzero.window.manifest.FullscreenMode
 import com.chunkzero.window.manifest.FullscreenSurfaceEntry
 import com.chunkzero.window.manifest.HudEntry
 import com.chunkzero.window.manifest.HudShaderEntry
@@ -62,8 +63,12 @@ public class FullscreenDefinition(
     /** The backdrop run, or `null` when the window shows the world behind it. */
     internal val backdrop: Component? = entry.backdropMarker?.let { run(canvas.backdrop, it) }
 
-    /** The cursor run, which the text shader moves to the cursor. */
-    internal val cursor: Component = run(canvas.cursor.text, canvas.cursor.marker)
+    /**
+     * The cursor run, which the text shader moves to the cursor, or `null` in horse mode, where the pack's entity shader
+     * draws the cursor instead.
+     */
+    internal val cursor: Component? =
+        run(canvas.cursor.text, canvas.cursor.marker).takeIf { entry.surface.mode == FullscreenMode.UNLOCKED }
 
     /** The hover outline run of each control with one, by control key. */
     internal val outlines: Map<String, Component> =
