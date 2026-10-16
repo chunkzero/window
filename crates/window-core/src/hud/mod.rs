@@ -102,6 +102,12 @@ pub fn emit(
     })
 }
 
+/// The `core/entity` vertex shader that draws the cursor of horse-mode full-screen windows. It belongs only in packs
+/// that [`emit`] accepted full-screen windows for, which targets the pack_format 85-88 profile it is written for.
+pub fn horse_entity_shader() -> ShaderFile {
+    shader_file("entity.vsh", renderer::render_horse_entity_vertex())
+}
+
 fn shader_files(profile: ShaderProfile, rules: &[HudShaderRule], hover: bool, fullscreen: bool) -> Vec<ShaderFile> {
     profile.sources(rules, hover, fullscreen).into_iter().map(|(name, contents)| shader_file(name, contents)).collect()
 }

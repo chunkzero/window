@@ -10,9 +10,11 @@ import com.chunkzero.window.manifest.FullscreenCanvasEntry
 import com.chunkzero.window.manifest.FullscreenEntry
 import com.chunkzero.window.manifest.FullscreenMode
 import com.chunkzero.window.manifest.FullscreenSurfaceEntry
+import com.chunkzero.window.manifest.HorseEntry
 import com.chunkzero.window.manifest.WindowManifest
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import net.kyori.adventure.key.Key
@@ -25,7 +27,9 @@ import net.minestom.server.coordinate.Vec
 import net.minestom.server.dialog.Dialog
 import net.minestom.server.dialog.DialogAction
 import net.minestom.server.dialog.DialogInput
+import net.minestom.server.entity.Entity
 import net.minestom.server.entity.EntityType
+import net.minestom.server.entity.EquipmentSlot
 import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Metadata
 import net.minestom.server.entity.MetadataDef
@@ -33,10 +37,12 @@ import net.minestom.server.entity.Player
 import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.event.EventDispatcher
+import net.minestom.server.event.EventListener
 import net.minestom.server.event.player.PlayerCustomClickEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerPacketOutEvent
+import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
@@ -53,15 +59,19 @@ import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.common.ClearDialogPacket
 import net.minestom.server.network.packet.server.common.ShowDialogPacket
+import net.minestom.server.network.packet.server.play.CameraPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
 import net.minestom.server.network.packet.server.play.EntityAttributesPacket
+import net.minestom.server.network.packet.server.play.EntityEquipmentPacket
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
 import net.minestom.server.network.packet.server.play.HeldItemChangePacket
 import net.minestom.server.network.packet.server.play.OpenWindowPacket
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
+import net.minestom.server.network.packet.server.play.RespawnPacket
+import net.minestom.server.network.packet.server.play.SetPassengersPacket
 import net.minestom.server.network.packet.server.play.SetPlayerInventorySlotPacket
 import net.minestom.server.network.packet.server.play.SetSlotPacket
 import net.minestom.server.network.packet.server.play.SetTimePacket
@@ -69,6 +79,8 @@ import net.minestom.server.network.packet.server.play.SpawnEntityPacket
 import net.minestom.server.network.packet.server.play.WindowItemsPacket
 import net.minestom.server.network.player.GameProfile
 import net.minestom.server.network.player.PlayerConnection
+import net.minestom.server.registry.RegistryKey
+import net.minestom.server.world.DimensionType
 import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.util.UUID
@@ -271,7 +283,7 @@ class MinestomFullscreenTest :
             EventDispatcher.call(PlayerDisconnectEvent(fixture.player))
 
             menu.prompts shouldContainExactly listOf(null)
-            menu.closeCount shouldBe 1
+            menu.closes shouldBe 1
         }
 
         "closing with a prompt open restores first, then reports null and onClose, even if the callback fails" {
@@ -476,6 +488,160 @@ class MinestomFullscreenTest :
             fixture.receive(ClientCloseWindowPacket(second))
             fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
         }
+
+        "horse mode locks the view next tick, leaves max health alone, and unlocks it on close" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val session = Menu(player, FullscreenMode.HORSE).open()
+
+            fixture.sent<SpawnEntityPacket>().map { it.type() } shouldContainExactly
+                listOf(EntityType.TEXT_DISPLAY, EntityType.INTERACTION)
+            fixture.sent<EntityAttributesPacket>() shouldBe emptyList()
+            fixture.clear()
+            fixture.tick()
+
+            val spawns = fixture.sent<SpawnEntityPacket>()
+            spawns.map { it.type() } shouldContainExactly
+                listOf(EntityType.BAT, EntityType.ITEM_DISPLAY, EntityType.HORSE)
+            val (bat, seat, horse) = spawns
+            bat.position().y() shouldBe player.position.y() + player.eyeHeight - Entity(EntityType.BAT).eyeHeight
+            horse.position() shouldBe player.position.add(0.0, player.eyeHeight - 1.75, 3.0)
+            seat.position() shouldBe horse.position()
+            val armor =
+                fixture
+                    .sent<EntityEquipmentPacket>()
+                    .single()
+                    .equipments()
+                    .getValue(EquipmentSlot.BODY)
+            armor.get(DataComponents.EQUIPPABLE)?.assetId() shouldBe "window:fullscreen/horse_cursor"
+            fixture.sent<SetPassengersPacket>() shouldContainExactly
+                listOf(
+                    SetPassengersPacket(seat.entityId(), listOf(horse.entityId())),
+                    SetPassengersPacket(horse.entityId(), listOf(player.entityId)),
+                )
+            fixture.sent<CameraPacket>().single().cameraId() shouldBe bat.entityId()
+
+            fixture.clear()
+            fixture.send(
+                EntityAttributesPacket(
+                    player.entityId,
+                    listOf(EntityAttributesPacket.Property(Attribute.MAX_HEALTH, 40.0, emptyList())),
+                ),
+            )
+            fixture.sent<EntityAttributesPacket>().size shouldBe 1
+
+            fixture.clear()
+            session.close()
+            fixture.sent<CameraPacket>().single().cameraId() shouldBe player.entityId
+            fixture.sent<SetPassengersPacket>().single().passengersId() shouldBe emptyList()
+            fixture.sent<DestroyEntitiesPacket>().flatMap { it.entityIds() } shouldContainAll
+                listOf(bat.entityId(), horse.entityId(), seat.entityId())
+        }
+        "a player riding a vehicle is put back on it when horse mode closes" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val cart = Entity(EntityType.MINECART)
+            cart.setInstance(player.instance, player.position).join()
+            cart.addPassenger(player)
+            val session = Menu(player, FullscreenMode.HORSE).open()
+            fixture.tick()
+
+            fixture.clear()
+            session.close()
+
+            fixture.sent<SetPassengersPacket>().last() shouldBe
+                SetPassengersPacket(cart.entityId, listOf(player.entityId))
+        }
+
+        for ((name, dimension) in mapOf("within a dimension" to "overworld", "across dimensions" to "the_nether")) {
+            "changing instance $name ends the window without teleporting the player back" {
+                val fixture = FullscreenFixture()
+                val player = fixture.player
+                val menu = Menu(player, FullscreenMode.HORSE)
+                menu.open()
+                fixture.tick()
+
+                val elsewhere = Pos(100.0, 80.0, 100.0)
+                val other =
+                    MinecraftServer.getInstanceManager().createInstanceContainer(
+                        RegistryKey.unsafeOf<DimensionType>("minecraft:$dimension"),
+                    )
+                fixture.clear()
+                player.setInstance(other, elsewhere).join()
+
+                menu.closes shouldBe 1
+                player.gameMode shouldBe GameMode.SURVIVAL
+                player.position shouldBe elsewhere
+                fixture.sent<RespawnPacket>().size shouldBe if (dimension == "overworld") 0 else 1
+                fixture.sent<CameraPacket>().single().cameraId() shouldBe player.entityId
+                fixture.sent<DestroyEntitiesPacket>().flatMap { it.entityIds() }.size shouldBe 5
+
+                // The close already happened, so leaving the server right after it does not report another.
+                EventDispatcher.call(PlayerDisconnectEvent(player))
+                menu.closes shouldBe 1
+            }
+        }
+
+        "changing instance in the tick the window opened ends it" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            menu.open()
+            val elsewhere = Pos(100.0, 80.0, 100.0)
+
+            player.setInstance(MinecraftServer.getInstanceManager().createInstanceContainer(), elsewhere).join()
+            fixture.tick()
+
+            menu.closes shouldBe 1
+            player.gameMode shouldBe GameMode.SURVIVAL
+            player.position shouldBe elsewhere
+        }
+
+        "death ends the window where the player died, and the respawn that follows leaves it ended" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            menu.open()
+            fixture.tick()
+            val destination = Pos(100.0, 80.0, 100.0)
+            player.respawnPoint = destination
+
+            player.kill()
+            menu.closes shouldBe 1
+            player.gameMode shouldBe GameMode.SURVIVAL
+            player.position shouldBe Pos(0.0, 42.0, 0.0)
+            shouldThrow<IllegalStateException> { Menu(player).open() }
+
+            player.respawn()
+            fixture.tick()
+            menu.closes shouldBe 1
+            player.position shouldBe destination
+            player.gameMode shouldBe GameMode.SURVIVAL
+        }
+
+        "a window opened by a spawn listener is not ended by the spawn that opened it" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            // Minestom reaches a window's listeners from an earlier listener only if the player's node listens already.
+            player.eventNode().addListener(PlayerSpawnEvent::class.java) { }
+            val opener =
+                EventListener.of(PlayerSpawnEvent::class.java) {
+                    menu
+                        .takeIf { _ ->
+                            it.player == player
+                        }?.open()
+                }
+            MinecraftServer.getGlobalEventHandler().addListener(opener)
+            val elsewhere = Pos(100.0, 80.0, 100.0)
+
+            player.setInstance(MinecraftServer.getInstanceManager().createInstanceContainer(), elsewhere).join()
+            MinecraftServer.getGlobalEventHandler().removeListener(opener)
+
+            menu.closes shouldBe 0
+            player.gameMode shouldBe GameMode.SPECTATOR
+            player.position shouldBe elsewhere.withView(0f, 0f)
+        }
     }) {
     private companion object {
         const val HIDDEN_AGE = -1_000_000_001L
@@ -484,13 +650,14 @@ class MinestomFullscreenTest :
 
 private class Menu(
     player: Player,
-) : FullscreenView(FullscreenDefinition(manifest(), "menu"), MinestomFullscreenHost(player)) {
+    mode: FullscreenMode = FullscreenMode.UNLOCKED,
+) : FullscreenView(FullscreenDefinition(manifest(mode), "menu"), MinestomFullscreenHost(player)) {
     val clicks = mutableListOf<FullscreenClick>()
     val rightClicks = mutableListOf<FullscreenClick>()
     val scrolls = mutableListOf<Int>()
     val prompts = mutableListOf<String?>()
-    var closed = false
-    var closeCount = 0
+    var closes = 0
+    val closed get() = closes > 0
 
     override fun FullscreenScope.bind() {
         button("press") { clicks += it }
@@ -507,8 +674,7 @@ private class Menu(
     }
 
     override fun onClose() {
-        closed = true
-        closeCount++
+        closes++
     }
 }
 
@@ -633,7 +799,7 @@ private class PacketLog : PlayerConnection() {
     override fun getRemoteAddress(): SocketAddress = InetSocketAddress("127.0.0.1", 25565)
 }
 
-private fun manifest(): WindowManifest {
+private fun manifest(mode: FullscreenMode): WindowManifest {
     val magnitudes = (0..10).map { 1 shl it }
     val advances = magnitudes.reversed().map { -it } + magnitudes
     val canvas =
@@ -654,6 +820,7 @@ private fun manifest(): WindowManifest {
             hudStripHeight = 56,
             hudStripHalfWidth = 96,
             hudMaxHealth = 20,
+            horse = HorseEntry(listOf(0.0, -1.75, 3.0), "window:fullscreen/horse_cursor"),
         )
     return WindowManifest(
         version = WindowManifest.VERSION,
@@ -666,7 +833,7 @@ private fun manifest(): WindowManifest {
             mapOf(
                 "menu" to
                     FullscreenEntry(
-                        surface = FullscreenSurfaceEntry("fullscreen", FullscreenMode.UNLOCKED, listOf(480, 270)),
+                        surface = FullscreenSurfaceEntry("fullscreen", mode, listOf(480, 270)),
                         static = "S",
                         staticMarker = "#a00400",
                         controls = mapOf("press" to ControlEntry(0, 5, 5, 20, 10, action = "press", hover = false)),

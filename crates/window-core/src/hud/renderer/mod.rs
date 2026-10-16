@@ -1,4 +1,5 @@
 mod background;
+mod entity;
 mod fragment;
 mod fullscreen;
 mod glsl;
@@ -11,6 +12,7 @@ pub(super) use background::{
     render_v150_dynamic_text_background_shader, render_v150_text_background_shader,
     render_v330_define_variant_text_background_shader, render_v330_text_background_shader,
 };
+pub(super) use entity::render_horse_entity_vertex;
 pub(super) use fragment::{
     render_dynamic_text_intensity_fragment, render_v150_text_intensity_fragment,
     render_v330_define_variant_text_fragment,

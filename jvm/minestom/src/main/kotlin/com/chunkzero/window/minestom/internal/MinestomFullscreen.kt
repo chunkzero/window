@@ -3,6 +3,7 @@ package com.chunkzero.window.minestom.internal
 import com.chunkzero.window.FullscreenDefinition
 import com.chunkzero.window.host.FullscreenListener
 import com.chunkzero.window.host.OpenFullscreen
+import com.chunkzero.window.manifest.FullscreenMode
 import net.kyori.adventure.text.Component
 import net.minestom.server.component.DataComponents
 import net.minestom.server.coordinate.Pos
@@ -21,10 +22,12 @@ import net.minestom.server.entity.metadata.other.InteractionMeta
 import net.minestom.server.event.EventFilter
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerCustomClickEvent
+import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerPacketOutEvent
+import net.minestom.server.event.player.PlayerSpawnEvent
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.client.play.ClientAnimationPacket
@@ -84,6 +87,14 @@ import net.minestom.server.world.clock.WorldClock
  * snapshots, so every packet that changes the world age carries the real clock values, or the hidden age would move
  * the clocks with it.
  *
+ * The window ends, restoring the player where they died, when they die, so the respawn that follows finds a client
+ * with nothing left to lose. It also ends when they spawn into a different instance than the one it opened in, since
+ * the client then drops its client-only entities and camera; the player is already at the destination then, so they are
+ * not teleported back. A window opened by a spawn listener is in the spawn's instance and stays open.
+ *
+ * In horse mode, [MinestomFullscreenHorse] also locks the view. The client then draws no hearts, since its camera is
+ * not a player, so their max health and absorption are left alone.
+ *
  * A prompt's callback runs on the player's thread after the state it reports has changed, never under [lock]: a server
  * container opening over the dialog cancels it on the next tick, and a window ending cancels it once the player is
  * restored, just before [FullscreenListener.onClose].
@@ -116,6 +127,13 @@ internal class MinestomFullscreen private constructor(
     private val abilities = PlayerAbilitiesPacket(ABILITY_FLAGS, 0f, WALKING_SPEED)
     private val lock = Any()
     private var open = false
+    private val instance = player.instance
+    private val horse =
+        if (definition.surface.mode == FullscreenMode.HORSE) {
+            MinestomFullscreenHorse(player, checkNotNull(canvas.horse) { "The pack has no horse for horse mode" })
+        } else {
+            null
+        }
 
     /** The held slot the client has selected, which held-slot changes are measured from. Requires [lock]. */
     private var clientSlot = heldSlot.toInt()
@@ -157,7 +175,7 @@ internal class MinestomFullscreen private constructor(
     override fun close() {
         if (!stop()) return
         try {
-            restore()
+            restore(returnToStart = true)
         } finally {
             textPrompt.cancel()
         }
@@ -165,7 +183,8 @@ internal class MinestomFullscreen private constructor(
 
     private fun start(content: Component) {
         check(!player.hasTag(ACTIVE)) { "${player.username} already has a full-screen window open" }
-        checkNotNull(player.instance) { "${player.username} is in no instance" }
+        checkNotNull(instance) { "${player.username} is in no instance" }
+        check(!player.isDead) { "${player.username} is dead or respawning" }
         check(player.setGameMode(GameMode.SPECTATOR)) {
             "Opening a full-screen window for ${player.username} was cancelled by a game mode listener"
         }
@@ -176,8 +195,14 @@ internal class MinestomFullscreen private constructor(
         player.setTag(ACTIVE, true)
         player.flyingSpeed = 0f
         player.teleport(anchor)
-        // The game mode change also updated the client's own tab-list entry, so survival is faked after it.
-        player.scheduler().scheduleNextTick { whileOpen { fakeSurvival() } }
+        // The game mode change also updated the client's own tab-list entry, so survival is faked after it. The horse
+        // follows, so a spectator client never draws the invisible horse as a translucent ghost.
+        player.scheduler().scheduleNextTick {
+            whileOpen {
+                fakeSurvival()
+                horse?.lock(anchor.add(0.0, player.eyeHeight, 0.0))
+            }
+        }
         spawn(content)
         if (!containerOpen) blankHotbar()
         hideHud()
@@ -251,7 +276,7 @@ internal class MinestomFullscreen private constructor(
     private fun hideHud() {
         if (!containerOpen) hideTime(realTime().clocks())
         capMaxHealth()
-        player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to ZERO)))
+        if (horse == null) player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to ZERO)))
     }
 
     private fun hideTime(clocks: Map<RegistryKey<WorldClock>, SetTimePacket.ClockState>) {
@@ -264,10 +289,13 @@ internal class MinestomFullscreen private constructor(
         cappedMaxHealth()?.let { player.sendPacket(EntityAttributesPacket(player.entityId, listOf(it))) }
     }
 
-    /** The modifier-free max health the client is told while the HUD is hidden, or `null` when the real one fits. */
+    /**
+     * The modifier-free max health the client is told while the HUD is hidden, or `null` when the real one fits or the
+     * hearts are not drawn.
+     */
     private fun cappedMaxHealth(): EntityAttributesPacket.Property? {
         val cap = canvas.hudMaxHealth.toDouble()
-        if (player.getAttribute(Attribute.MAX_HEALTH).value <= cap) return null
+        if (horse != null || player.getAttribute(Attribute.MAX_HEALTH).value <= cap) return null
         return EntityAttributesPacket.Property(Attribute.MAX_HEALTH, cap, emptyList())
     }
 
@@ -280,6 +308,11 @@ internal class MinestomFullscreen private constructor(
         }
         node.addListener(PlayerCustomClickEvent::class.java, textPrompt::onClick)
         node.addListener(PlayerDisconnectEvent::class.java) { end(restore = false) }
+        node.addListener(PlayerDeathEvent::class.java) { end(restore = true) }
+        // The client clears its client-only entities and camera when it changes world.
+        node.addListener(PlayerSpawnEvent::class.java) { event ->
+            if (event.instance != instance) end(restore = true, moved = true)
+        }
         player.eventNode().addChild(node)
     }
 
@@ -359,7 +392,7 @@ internal class MinestomFullscreen private constructor(
                 }
 
                 is EntityMetaDataPacket -> {
-                    val absorption = packet.entries()[ABSORPTION]?.value()
+                    val absorption = packet.entries()[ABSORPTION]?.value()?.takeIf { horse == null }
                     if (packet.entityId() == player.entityId && absorption != null && absorption != 0f) {
                         player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to ZERO)))
                     }
@@ -463,11 +496,17 @@ internal class MinestomFullscreen private constructor(
         synchronized(lock) { if (open) action() }
     }
 
-    /** Ends the window after the player left it, restoring them unless they disconnected. */
-    private fun end(restore: Boolean) {
+    /**
+     * Ends the window after the player left it, restoring them unless they disconnected. A [moved] player was placed
+     * elsewhere by an instance change, so they are not teleported back.
+     */
+    private fun end(
+        restore: Boolean,
+        moved: Boolean = false,
+    ) {
         if (!stop()) return
         try {
-            if (restore) restore()
+            if (restore) restore(returnToStart = !moved)
         } finally {
             try {
                 textPrompt.cancel()
@@ -487,7 +526,8 @@ internal class MinestomFullscreen private constructor(
             true
         }
 
-    private fun restore() {
+    private fun restore(returnToStart: Boolean) {
+        horse?.unlock()
         textPrompt.clear()
         player.sendPacket(DestroyEntitiesPacket(listOf(display.entityId, clickTarget.entityId)))
         // A mode the server set while the window was open replaces the one it began with.
@@ -500,7 +540,7 @@ internal class MinestomFullscreen private constructor(
             player.isInstantBreak = instantBreak
         }
         player.flyingSpeed = flyingSpeed
-        player.teleport(position)
+        if (returnToStart) player.teleport(position)
         player.sendPacket(realTime())
         val maxHealth = player.getAttribute(Attribute.MAX_HEALTH)
         val property = EntityAttributesPacket.Property(Attribute.MAX_HEALTH, maxHealth.baseValue, maxHealth.modifiers())
@@ -534,8 +574,9 @@ internal class MinestomFullscreen private constructor(
         /**
          * Shows [definition] drawn by [content] to [player], then listens.
          *
-         * @throws IllegalStateException if the player already has a full-screen window open, or a game mode listener
-         *   cancelled the switch to spectator mode.
+         * @throws IllegalStateException if the player already has a full-screen window open, is dead or respawning
+         *   (a respawn listener should open on the next tick), or a game mode listener cancelled the switch to spectator
+         *   mode.
          */
         fun open(
             player: Player,

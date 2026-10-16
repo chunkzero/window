@@ -11,7 +11,8 @@ public interface FullscreenHost {
      *
      * The player is pinned in place facing yaw and pitch 0, which the canvas centre maps to, and their HUD is hidden.
      * [content] is sent as the line of a client-only text display at their eye, as [FullscreenDefinition.canvas]
-     * describes.
+     * describes. In horse mode, the host also locks the player's view and seats them on the horse that
+     * [com.chunkzero.window.manifest.FullscreenCanvasEntry.horse] describes, which the pack draws the cursor from.
      *
      * @throws IllegalStateException if the player cannot show it, for example while another full-screen window is open
      *   for them. Nothing is left behind.

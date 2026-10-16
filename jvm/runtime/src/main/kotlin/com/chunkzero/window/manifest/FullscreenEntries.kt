@@ -129,6 +129,20 @@ public data class FullscreenCanvasEntry(
     @SerialName("hud_strip_half_width") val hudStripHalfWidth: Int,
     /** The most max health the client is told while the HUD is hidden, so its hearts fit the strip. */
     @SerialName("hud_max_health") val hudMaxHealth: Int,
+    /** The horse of horse-mode windows, present when the pack has one. */
+    val horse: HorseEntry? = null,
+)
+
+/**
+ * The horse that horse-mode full-screen windows read the cursor from. The player rides it while their camera spectates
+ * a fixed entity at their eye, and the pack's entity shader draws the cursor from its armour.
+ */
+@Serializable
+public data class HorseEntry(
+    /** Where the horse stands relative to the camera `[x, y, z]`, in blocks, with the camera facing yaw and pitch 0. */
+    val offset: List<Double>,
+    /** The equipment asset id of the cursor armour the horse wears in its body slot. */
+    val armor: String,
 )
 
 /** The built-in full-screen cursor glyph. Its top-left texel is the hot spot. */

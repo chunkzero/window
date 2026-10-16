@@ -217,6 +217,7 @@ pub(super) fn generate_fullscreen_entries(manifest: &Manifest, package_name: &st
         (true, "FullscreenEntry"),
         (true, "FullscreenMode"),
         (true, "FullscreenSurfaceEntry"),
+        (canvas.horse.is_some(), "HorseEntry"),
         (layers, "LayerEntry"),
         (layers, "LayerKind"),
         (any(&|f| !f.slots.is_empty()), "SlotEntry"),

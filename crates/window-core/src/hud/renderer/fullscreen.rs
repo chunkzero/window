@@ -22,6 +22,25 @@ pub(super) const FULLSCREEN_VERTEX_APPLY: &str = "
     }
 #endif";
 
+/// Places a canvas point on the screen and a layer at its depth: `window_fs_ndc` and `window_fs_depth`. Needs
+/// `ScreenSize`, the include, and `WINDOW_FS_LAYER_DEPTH_STEP`.
+pub(super) const CANVAS_PLACEMENT: &str = r#"// A canvas point in normalized device coordinates, with the canvas letterboxed or pillarboxed to the screen.
+vec2 window_fs_ndc(vec2 canvas) {
+    float screenAspect = ScreenSize.x / ScreenSize.y;
+    float canvasAspect = WINDOW_FS_CANVAS.x / WINDOW_FS_CANVAS.y;
+    vec2 fit = screenAspect > canvasAspect ? vec2(canvasAspect / screenAspect, 1.0) : vec2(1.0, screenAspect / canvasAspect);
+    vec2 unit = canvas / WINDOW_FS_CANVAS * 2.0 - 1.0;
+    return vec2(unit.x, -unit.y) * fit;
+}
+
+// The depth of a layer in normalized device coordinates, nearer for higher layers. The level projection is reversed,
+// with the near plane at 1.0, and the layers fill the 256 steps just below it, so world geometry covers one only
+// within a negligible distance of the near plane. ProjMat is not consulted, since it carries
+// the hurt tilt, view bobbing, and nausea, which can move a projected point past the near plane and clip it.
+float window_fs_depth(int layer) {
+    return 1.0 - float(WINDOW_FS_CURSOR_LAYER - layer + 1) * WINDOW_FS_LAYER_DEPTH_STEP;
+}"#;
+
 const VERTEX_HELPERS: &str = r#"
 #if !defined(IS_GUI) && !defined(IS_SEE_THROUGH)
 // The top-left of the text display's single zero-width line in its text space, where a shifted font's row 0 draws.
@@ -39,22 +58,7 @@ vec2 window_fs_camera_rotation() {
     return vec2(degrees(atan(-right.z, -right.x)), degrees(asin(clamp(-lookY, -1.0, 1.0))));
 }
 
-// A canvas point in normalized device coordinates, with the canvas letterboxed or pillarboxed to the screen.
-vec2 window_fs_ndc(vec2 canvas) {
-    float screenAspect = ScreenSize.x / ScreenSize.y;
-    float canvasAspect = WINDOW_FS_CANVAS.x / WINDOW_FS_CANVAS.y;
-    vec2 fit = screenAspect > canvasAspect ? vec2(canvasAspect / screenAspect, 1.0) : vec2(1.0, screenAspect / canvasAspect);
-    vec2 unit = canvas / WINDOW_FS_CANVAS * 2.0 - 1.0;
-    return vec2(unit.x, -unit.y) * fit;
-}
-
-// The depth of a layer in normalized device coordinates, nearer for higher layers. The level projection is reversed,
-// with the near plane at 1.0, and the layers fill the 256 steps just below it, so world geometry covers one only
-// within a negligible distance of the near plane. ProjMat is not consulted, since it carries
-// the hurt tilt, view bobbing, and nausea, which can move a projected point past the near plane and clip it.
-float window_fs_depth(int layer) {
-    return 1.0 - float(WINDOW_FS_CURSOR_LAYER - layer + 1) * WINDOW_FS_LAYER_DEPTH_STEP;
-}
+@PLACEMENT@
 
 void window_fs_apply() {
     int payload = window_fs_payload(Color);
@@ -85,7 +89,7 @@ void window_fs_apply() {
 "#;
 
 pub(super) fn render_fullscreen_vertex_helpers() -> String {
-    VERTEX_HELPERS.replace("@DEPTH_STEP@", &format!("{LAYER_DEPTH_STEP:?}"))
+    VERTEX_HELPERS.replace("@PLACEMENT@", CANVAS_PLACEMENT).replace("@DEPTH_STEP@", &format!("{LAYER_DEPTH_STEP:?}"))
 }
 
 /// Renders `core/position_tex_color.vsh`, vanilla's GUI sprite shader plus the HUD strip inputs. Like vanilla, it
