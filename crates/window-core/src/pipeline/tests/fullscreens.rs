@@ -118,12 +118,20 @@ fn full_screen_windows_emit_their_shaders_and_need_the_define_variant_profile() 
     let alphas: BTreeSet<u8> = crosshair.rgba.chunks(4).map(|texel| texel[3]).collect();
     assert_eq!((crosshair.width, crosshair.height), (15, 15));
     assert_eq!(alphas, BTreeSet::from([0, fullscreen::CROSSHAIR_MARKER_ALPHA]));
+    for (_, path, _) in fullscreen::indicator_marker_textures() {
+        let file = out.files.iter().find(|file| file.path == path).unwrap();
+        let sprite = Texture::decode_png(file.contents.as_bytes()).unwrap();
+        let alphas: BTreeSet<u8> = sprite.rgba.chunks(4).map(|texel| texel[3]).collect();
+        assert_eq!(alphas, BTreeSet::from([0, fullscreen::CROSSHAIR_MARKER_ALPHA]), "{path}");
+    }
 
     let blanked = json!({ "options": { "vanilla": { "hud": { "crosshair": false } } }, "fullscreens": [menu.clone()],
                           "target": { "pack_format": 88 } });
     let out = compile_project_json(blanked.to_string().as_bytes(), &CompileInput::new(BTreeMap::new())).unwrap();
     let sprites: Vec<_> = out.files.iter().filter(|file| file.path == fullscreen::CROSSHAIR_SPRITE_PATH).collect();
     assert_eq!(sprites.len(), 1);
+    let indicators = out.files.iter().filter(|file| file.path.contains("attack_indicator")).count();
+    assert_eq!(indicators, 5, "blanking the crosshair leaves the hotbar indicators to the marker");
     assert_eq!(Texture::decode_png(sprites[0].contents.as_bytes()).unwrap().rgba, Texture::transparent(15, 15).rgba);
 
     let error = compile_at(menu.clone(), json!(84)).unwrap_err().to_string();

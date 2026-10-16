@@ -247,12 +247,17 @@ pub(super) fn emit_contract(ctx: &mut CompileContext<'_>, mut contract: Contract
     })
 }
 
-/// Emits the crosshair sprite override the HUD-hiding fragment shader discards, unless `vanilla.hud` already blanks
-/// the crosshair.
+/// Emits the sprite overrides the HUD-hiding fragment shader discards: the crosshair and the attack indicators,
+/// except those of a group `blank_hud` already blanks.
 pub(super) fn emit_crosshair_marker(ctx: &mut CompileContext<'_>, blank_hud: &BTreeSet<HudGroup>) -> Result<()> {
     if !blank_hud.contains(&HudGroup::Crosshair) {
         let texture = fullscreen::crosshair_marker_texture();
         ctx.push(Part::Fullscreen, OutputFile::binary(fullscreen::CROSSHAIR_SPRITE_PATH, texture.encode_png()?));
+    }
+    for (group, path, texture) in fullscreen::indicator_marker_textures() {
+        if !blank_hud.contains(&group) {
+            ctx.push(Part::Fullscreen, OutputFile::binary(path, texture.encode_png()?));
+        }
     }
     Ok(())
 }
