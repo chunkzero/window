@@ -706,7 +706,7 @@ internal object WindowFullscreenEntries {
             backdrop = "\uE6AF\uDB80\uDC07\uDB80\uDC0A",
             overlayMarker = "#a3f800",
             hudHiddenWorldAge = -1000000001L,
-            promptWorldAge = -999988001L,
+            promptWorldAge = -999795201L,
             hudStripHeight = 56,
             hudStripHalfWidth = 96,
             hudMaxHealth = 20,
