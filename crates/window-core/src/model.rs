@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::geometry::{Insets, Point, Size};
 use crate::inventory::{InventorySlotRef, SlotPattern};
-use crate::ir::{Align, FullscreenMode, Handle, HudChannel, HudShader, Rgb};
+use crate::ir::{Align, Backdrop, FullscreenMode, Handle, HudChannel, HudShader, Rgb};
 use crate::surface::ContainerKind;
 
 mod flex;
@@ -130,8 +130,8 @@ pub struct Fullscreen {
     pub name: String,
     /// How the cursor follows the mouse.
     pub mode: FullscreenMode,
-    /// The color filling the whole screen behind the canvas, letterbox included; `None` shows the world.
-    pub backdrop: Option<Rgb>,
+    /// What fills the whole screen behind the canvas, letterbox included; `None` shows the world as is.
+    pub backdrop: Option<Backdrop>,
     /// The root elements, laid out in the canvas rect. Inventory elements are rejected during layout.
     pub children: Vec<Element>,
     /// Typed handles by id; their elements carry the entry names of their uses.

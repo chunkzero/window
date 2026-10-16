@@ -131,6 +131,15 @@ impl Rgb {
     }
 }
 
+/// What fills the whole screen behind a full-screen canvas, letterbox included.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Backdrop {
+    /// The fill color.
+    pub color: Rgb,
+    /// The fill's opacity: 255 hides the world, and anything lower dims it.
+    pub alpha: u8,
+}
+
 /// The runtime action closing the window. Action ids in the `window:` namespace are resolved by the runtime.
 pub const CLOSE_ACTION: &str = "window:close";
 
@@ -631,8 +640,8 @@ pub struct LaidOutFullscreen {
     pub name: String,
     /// How the cursor follows the mouse.
     pub mode: FullscreenMode,
-    /// The color filling the whole screen behind the canvas, if any.
-    pub backdrop: Option<Rgb>,
+    /// What fills the whole screen behind the canvas, if anything.
+    pub backdrop: Option<Backdrop>,
     /// Static draws in paint order (back to front).
     pub draws: Vec<Draw>,
     /// Text regions (dynamic slots and static labels), document order.

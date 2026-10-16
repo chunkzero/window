@@ -16,7 +16,7 @@ use crate::compose::{Composite, Texture, blit_sprite, multiply};
 use crate::geometry::{Point, Rect, Size};
 use crate::inventory::InventorySlotRef;
 use crate::ir::{
-    Align, AnvilInputIr, ArtIr, CollectionIr, Draw, Handle, HandleKind, HandleRole, HandleUse, ItemIr,
+    Align, AnvilInputIr, ArtIr, Backdrop, CollectionIr, Draw, Handle, HandleKind, HandleRole, HandleUse, ItemIr,
     LaidOutFullscreen, LaidOutHud, LaidOutWindow, Layer, RegionIr, Rgb, SlotIr, SpriteSlotIr, SwitchIr, bar_columns,
 };
 use crate::model::{GeneratedStyle, SpriteDef};
@@ -260,8 +260,8 @@ struct Pane<'a> {
     label: String,
     /// The surface rect in GUI space, or in canvas pixels for a full-screen window.
     rect: Rect,
-    /// The color filling the whole image behind everything else.
-    backdrop: Option<Rgb>,
+    /// What fills the whole image behind everything else.
+    backdrop: Option<Backdrop>,
     /// The shadow of slot text.
     shadow: Shadow,
     container: Option<ContainerKind>,
@@ -667,8 +667,8 @@ impl Scene<'_> {
             placement.include_in(&mut bounds);
         }
         let mut canvas = Canvas::new(bounds.into_rect(&request.name, request.scale.unwrap_or(1))?);
-        if let Some(Rgb { r, g, b }) = pane.backdrop {
-            canvas.texture.rgba.as_chunks_mut::<4>().0.fill([r, g, b, 0xff]);
+        if let Some(Backdrop { color: Rgb { r, g, b }, alpha }) = pane.backdrop {
+            canvas.texture.rgba.as_chunks_mut::<4>().0.fill([r, g, b, alpha]);
         }
         let field = ContainerKind::ANVIL_TEXT_FIELD;
         if pane.container == Some(ContainerKind::Anvil)

@@ -39,11 +39,14 @@ import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket
 import net.minestom.server.network.packet.client.play.ClientInputPacket
 import net.minestom.server.network.packet.client.play.ClientInteractEntityPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerActionPacket
+import net.minestom.server.network.packet.client.play.ClientPlayerBlockPlacementPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerPositionAndRotationPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
+import net.minestom.server.network.packet.client.play.ClientUseItemPacket
 import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.common.ClearDialogPacket
 import net.minestom.server.network.packet.server.common.ShowDialogPacket
+import net.minestom.server.network.packet.server.play.AcknowledgeBlockChangePacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
@@ -381,6 +384,17 @@ internal class MinestomFullscreen private constructor(
                 event.isCancelled = true
             }
 
+            // A right click that misses the interaction entity would use the item the server's player really holds.
+            is ClientUseItemPacket -> {
+                event.isCancelled = true
+                rejectUse(packet.sequence())
+            }
+
+            is ClientPlayerBlockPlacementPacket -> {
+                event.isCancelled = true
+                rejectUse(packet.sequence())
+            }
+
             is ClientCloseWindowPacket -> {
                 // Minestom ignores a close for any window but the open one, so a stale close must not hide the HUD.
                 whileOpen { if (packet.windowId() == containerWindowId) containerClosed() }
@@ -394,6 +408,15 @@ internal class MinestomFullscreen private constructor(
                 Unit
             }
         }
+    }
+
+    /**
+     * Undoes what the client predicted for a cancelled use: acknowledging [sequence] restores the blocks it placed, and
+     * the inventory resync restores the off-hand item it spent, while the hotbar stays blank.
+     */
+    private fun rejectUse(sequence: Int) {
+        player.sendPacket(AcknowledgeBlockChangePacket(sequence))
+        player.inventory.update(player)
     }
 
     /** Reports the client selecting [slot] as steps the shortest way around the hotbar from the slot it had. */

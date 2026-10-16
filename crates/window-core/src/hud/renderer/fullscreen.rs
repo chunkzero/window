@@ -82,7 +82,7 @@ void window_fs_apply() {
     gl_Position = vec4(ndc, window_fs_depth(window_fs_layer(payload)), 1.0);
     sphericalVertexDistance = WINDOW_FS_NO_FOG_DISTANCE;
     cylindricalVertexDistance = WINDOW_FS_NO_FOG_DISTANCE;
-    vertexColor = vec4(window_fs_color(payload), 1.0);
+    vertexColor = window_fs_color(payload);
     texCoord0 = UV0;
 #ifdef IS_GRAYSCALE
     windowHudTextureMode = 0;

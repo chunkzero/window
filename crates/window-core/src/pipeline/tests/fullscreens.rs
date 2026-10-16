@@ -32,9 +32,9 @@ fn include(out: &CompileOutput) -> &str {
 
 /// The include's color table, as `r, g, b` strings.
 fn color_table(include: &str) -> Vec<String> {
-    let line = include.lines().find(|line| line.starts_with("const vec3 WINDOW_FS_COLORS")).unwrap();
-    let list = line.split_once("vec3[](").unwrap().1.trim_end_matches(");");
-    list.split("vec3(")
+    let line = include.lines().find(|line| line.starts_with("const vec4 WINDOW_FS_COLORS")).unwrap();
+    let list = line.split_once("vec4[](").unwrap().1.trim_end_matches(");");
+    list.split("vec4(")
         .filter(|entry| !entry.is_empty())
         .map(|entry| entry.trim_end_matches([')', ',', ' ']).replace(".0", ""))
         .collect()
@@ -49,7 +49,7 @@ fn panel() -> serde_json::Value {
 fn compiles_layers_controls_and_the_contract() {
     let tone = json!({ "kind": "tint", "id": "tone", "values": ["ok", "low"], "colors": ["#3ddc84", "#ff4d4d"] });
     let out = compile(json!({
-        "name": "menu", "mode": "horse", "backdrop": "#101010",
+        "name": "menu", "mode": "horse", "backdrop": "#10101080",
         "children": [
             { "type": "sprite", "art": panel(), "x": 220, "y": 125 },
             { "type": "slot", "handle": { "kind": "text", "id": "title" }, "width": 60, "x": 10, "y": 200,
@@ -72,15 +72,15 @@ fn compiles_layers_controls_and_the_contract() {
         let (layer, index) = decode(marker, kind);
         (layer, table[index].as_str())
     };
-    assert_eq!(color(&menu.static_marker, 0), (1, "255, 255, 255"));
-    assert_eq!(color(&menu.markers["title"], 0), (2, "255, 215, 0"));
+    assert_eq!(color(&menu.static_marker, 0), (1, "255, 255, 255, 255"));
+    assert_eq!(color(&menu.markers["title"], 0), (2, "255, 215, 0, 255"));
     assert_eq!(color(&menu.markers["status"], 0).0, 3);
     let status = &menu.slots["status"].tint_markers;
-    assert_eq!(color(&status["ok"], 0), (3, "61, 220, 132"));
-    assert_eq!(color(&status["low"], 0), (3, "255, 77, 77"));
-    assert_eq!(color(menu.backdrop_marker.as_deref().unwrap(), 2), (0, "16, 16, 16"));
-    assert_eq!(color(&canvas.cursor.marker, 1), (255, "255, 255, 255"));
-    assert_eq!(color(&canvas.overlay_marker, 0), (fullscreen::OVERLAY_LAYER.into(), "255, 255, 255"));
+    assert_eq!(color(&status["ok"], 0), (3, "61, 220, 132, 255"));
+    assert_eq!(color(&status["low"], 0), (3, "255, 77, 77, 255"));
+    assert_eq!(color(menu.backdrop_marker.as_deref().unwrap(), 2), (0, "16, 16, 16, 128"));
+    assert_eq!(color(&canvas.cursor.marker, 1), (255, "255, 255, 255, 255"));
+    assert_eq!(color(&canvas.overlay_marker, 0), (fullscreen::OVERLAY_LAYER.into(), "255, 255, 255, 255"));
 
     let play = &menu.controls["play"];
     assert_eq!((play.index, play.x, play.y, play.width, play.height), (0, 0, 0, 40, 20));
@@ -91,6 +91,16 @@ fn compiles_layers_controls_and_the_contract() {
 
     let parsed = Manifest::from_json(&manifest.to_json_bytes().unwrap()).unwrap();
     assert_eq!(&parsed, manifest);
+}
+
+#[test]
+fn a_dimming_backdrop_needs_an_alpha_the_text_shader_draws() {
+    let backdrop = |color: &str| compile(json!({ "name": "menu", "backdrop": color, "children": [] }));
+    assert!(backdrop("#0000001a").is_ok());
+    let error = backdrop("#00000019").unwrap_err().to_string();
+    assert!(error.contains("below the lowest alpha"), "{error}");
+    assert!(backdrop("#0000").is_err());
+    assert!(backdrop("#00000\u{e9}0").is_err());
 }
 
 #[test]
@@ -196,7 +206,7 @@ fn lays_tooltips_out_beside_their_controls_above_every_window_layer() {
     let [title] = top.lines.as_slice() else { panic!("{:?}", top.lines) };
     assert_eq!((title.x, title.y, title.text.as_deref()), ((40 - (title.width as i32 + 8)) / 2 + 4, 36, Some("Top")));
     let (layer, color) = decode(title.shader_marker.as_deref().unwrap(), 0);
-    assert_eq!((layer, table[color].as_str()), (u32::from(fullscreen::TOOLTIP_TEXT_LAYER), "255, 255, 255"));
+    assert_eq!((layer, table[color].as_str()), (u32::from(fullscreen::TOOLTIP_TEXT_LAYER), "255, 255, 255, 255"));
 
     // Above its control where the canvas ends below it, and kept on the canvas; the title is 2px further from its
     // lines than they are apart.
@@ -207,7 +217,7 @@ fn lays_tooltips_out_beside_their_controls_above_every_window_layer() {
     let left = 480 - (bottom.lines.iter().map(|line| line.width).max().unwrap() as i32 + 8) + 4;
     assert_eq!(rows, [(left, top_y), (left, top_y + 12), (left, top_y + 22)]);
     let gray = decode(bottom.lines[1].shader_marker.as_deref().unwrap(), 0).1;
-    assert_eq!(table[gray], "170, 170, 170");
+    assert_eq!(table[gray], "170, 170, 170, 255");
 
     let file = out
         .files

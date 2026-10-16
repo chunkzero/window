@@ -7277,6 +7277,7 @@ internal object WindowFullscreenEntries {
                     "store_sort_label" to "#a05800",
                     "store_toast" to "#a23c02",
                 ),
+                backdropMarker = "#a80010",
             ),
         )
     val canvas: FullscreenCanvasEntry =

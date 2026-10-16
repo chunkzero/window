@@ -387,7 +387,7 @@ export interface Fullscreen {
     name: string;
     /** Defaults to `"unlocked"`. */
     mode?: FullscreenMode;
-    /** Hex color filling the whole screen behind the canvas, letterbox included; omit to show the world. */
+    /** `#rrggbb` filling the whole screen behind the canvas, letterbox included, or `#rrggbbaa` dimming the world behind it; omit to show the world. */
     backdrop?: string;
     /** Overrides vars for the whole full-screen window. */
     theme?: VarTheme;

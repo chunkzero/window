@@ -240,9 +240,9 @@ pub(crate) fn backdrop_texture() -> Texture {
 
 /// The include: the contract's constants, the color table `colors`, the control rects `controls` in canvas pixels,
 /// and the functions decoding markers and mapping rotation to the cursor.
-pub(crate) fn include(colors: &[Rgb], controls: &[Rect], cursor_size: Size) -> String {
-    let rgb = |color: &Rgb| format!("vec3({}.0, {}.0, {}.0)", color.r, color.g, color.b);
-    let colors_glsl = colors.iter().map(rgb).collect::<Vec<_>>().join(", ");
+pub(crate) fn include(colors: &[(Rgb, u8)], controls: &[Rect], cursor_size: Size) -> String {
+    let rgba = |(color, alpha): &(Rgb, u8)| format!("vec4({}.0, {}.0, {}.0, {alpha}.0)", color.r, color.g, color.b);
+    let colors_glsl = colors.iter().map(rgba).collect::<Vec<_>>().join(", ");
     let rects: Vec<String> = controls
         .iter()
         .map(|rect| format!("vec4({}.0, {}.0, {}.0, {}.0)", rect.x, rect.y, rect.width, rect.height))
@@ -277,9 +277,9 @@ const vec2 WINDOW_FS_CURSOR_SIZE = vec2({cursor_width}.0, {cursor_height}.0);
 // pixels.
 const vec2 WINDOW_FS_HUD_STRIP = vec2({strip_half_width}.0, {strip_height}.0);
 
-// Marker colors, 0-255 per channel; index 0 is white.
+// Marker colors with their alpha, 0-255 per channel; index 0 is white. Only backdrops are translucent.
 const int WINDOW_FS_COLOR_COUNT = {color_count};
-const vec3 WINDOW_FS_COLORS[{color_count}] = vec3[]({colors_glsl});
+const vec4 WINDOW_FS_COLORS[{color_count}] = vec4[]({colors_glsl});
 
 // Every full-screen control rect (x, y, width, height) in canvas pixels, by the control's manifest index.
 const int WINDOW_FS_CONTROL_COUNT = {control_count};
@@ -305,7 +305,7 @@ int window_fs_layer(int payload) {{
 }}
 
 // The color a marked glyph's texels are multiplied by.
-vec3 window_fs_color(int payload) {{
+vec4 window_fs_color(int payload) {{
     return WINDOW_FS_COLORS[min(payload & 1023, WINDOW_FS_COLOR_COUNT - 1)] / 255.0;
 }}
 

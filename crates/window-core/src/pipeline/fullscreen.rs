@@ -28,6 +28,7 @@ use super::{CompileContext, OutputFile};
 mod horse;
 
 const WHITE: Rgb = Rgb::new(0xff, 0xff, 0xff);
+const OPAQUE: u8 = 0xff;
 
 /// The item model, under the pack namespace, that draws nothing: the runtime fills the hotbar with it while a
 /// full-screen window is open, which also hides the hand.
@@ -35,7 +36,8 @@ const BLANK_ITEM: &str = "fullscreen/blank";
 
 /// What the full-screen windows compiled so far put in the include: the color table and every control rect.
 pub(super) struct Contract {
-    colors: Vec<Rgb>,
+    /// Colors with their alpha; only backdrops are translucent.
+    colors: Vec<(Rgb, u8)>,
     controls: Vec<Rect>,
     /// Whether a horse-mode window was compiled.
     horse: bool,
@@ -43,13 +45,19 @@ pub(super) struct Contract {
 
 impl Default for Contract {
     fn default() -> Self {
-        Self { colors: vec![WHITE], controls: Vec::new(), horse: false }
+        Self { colors: vec![(WHITE, OPAQUE)], controls: Vec::new(), horse: false }
     }
 }
 
 impl Contract {
-    /// The marker color of a `kind` run at `layer` drawn in `color`, adding `color` to the color table.
+    /// The marker color of a `kind` run at `layer` drawn in opaque `color`, adding `color` to the color table.
     fn marker(&mut self, kind: MarkerKind, layer: u8, color: Rgb) -> Result<String> {
+        self.translucent_marker(kind, layer, color, OPAQUE)
+    }
+
+    /// Like [`Self::marker`], with the run drawn at `alpha`.
+    fn translucent_marker(&mut self, kind: MarkerKind, layer: u8, color: Rgb, alpha: u8) -> Result<String> {
+        let color = (color, alpha);
         let index = match self.colors.iter().position(|known| *known == color) {
             Some(index) => index,
             None => {
@@ -183,8 +191,10 @@ pub(super) fn compile_fullscreen(
         contract.controls.push(rect);
         controls.insert(region.name.clone(), entry);
     }
-    let backdrop_marker =
-        f.backdrop.map(|color| contract.marker(MarkerKind::Backdrop, BACKDROP_LAYER, color)).transpose()?;
+    let backdrop_marker = f
+        .backdrop
+        .map(|b| contract.translucent_marker(MarkerKind::Backdrop, BACKDROP_LAYER, b.color, b.alpha))
+        .transpose()?;
 
     Ok(FullscreenEntry {
         surface: FullscreenSurfaceEntry {
