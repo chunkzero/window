@@ -249,10 +249,11 @@ While the window is open, the Minestom host:
   wheel, and number keys reach the server. Game mode, ability, hotbar, time, and max health updates the server sends
   meanwhile still reach the client, followed by packets that hide them again. Closing restores the player's game mode
   (or the one the server set meanwhile), abilities, position, and held slot.
-- hides the HUD by holding the client's world age negative, which the pack's shaders read. The hidden strip at the
-  bottom of the screen can clip the player's own inventory (E) at small GUI heights, since the server is not told it
-  opened. While the keyboard prompt is open, the age sits in a second negative band in which the shaders also hide the
-  untitled anvil that captures the typing.
+- hides the HUD by holding the client's world age negative, which the pack's shaders read. The shaders also drop the
+  crosshair, and the attack indicator quads they match by exact position. The hidden strip at the bottom of the screen
+  can clip the player's own inventory (E) at small GUI heights, since the server is not told it opened. While the
+  keyboard prompt is open, the age sits in a second negative band in which the shaders also hide the untitled anvil that
+  captures the typing.
 - closes the window when the player dies or spawns into another instance. Opening one while the player is dead or
   respawning throws, so a respawn listener should open it on the next tick.
 

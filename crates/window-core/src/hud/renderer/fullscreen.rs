@@ -1,5 +1,5 @@
 //! Full-screen snippets of the pack_format 85-88 `core/text` vertex shader, and the `core/position_tex_color`
-//! shaders that hide the HUD and the vanilla crosshair while a full-screen window is open, and the keyboard prompt's
+//! shaders that hide the HUD, the vanilla crosshair, and the attack indicators while a full-screen window is open, and the keyboard prompt's
 //! anvil while it is open (see [`super::prompt`]).
 //!
 //! The text shader moves every vertex of a full-screen marker (see [`crate::fullscreen`]) in the world pass straight
@@ -95,7 +95,8 @@ pub(super) fn render_fullscreen_vertex_helpers() -> String {
     VERTEX_HELPERS.replace("@PLACEMENT@", CANVAS_PLACEMENT).replace("@DEPTH_STEP@", &format!("{LAYER_DEPTH_STEP:?}"))
 }
 
-/// Renders `core/position_tex_color.vsh`, vanilla's GUI sprite shader plus the HUD strip and prompt inputs. Like
+/// Renders `core/position_tex_color.vsh`, vanilla's GUI sprite shader plus the HUD strip, attack indicator, and prompt
+/// inputs. Like
 /// vanilla, it declares its uniform blocks inline, since the shader is also compiled before resource packs load.
 pub(in crate::hud) fn render_position_tex_color_vertex() -> String {
     let source = r#"#version 330
@@ -127,7 +128,39 @@ out vec2 texCoord0;
 out vec4 vertexColor;
 out vec2 windowHudPos;
 flat out int windowHudHidden;
+out vec4 windowHudIndicator;
+out vec2 windowHudGui;
+flat out vec4 windowHudRects[4];
 @PROMPT@
+// Whether a vertex lies on a corner of `rect` (left, top, right, bottom in GUI pixels). `freeRight` also accepts any x
+// right of the left edge up to 17 pixels past it, and `freeTop` any y from the top edge down to the bottom edge, for
+// the progress sprites whose far edge follows the charge. A quad drawn at the rect has all four vertices on corners.
+bool window_fs_on_corner(vec2 pos, vec4 rect, bool freeRight, bool freeTop) {
+    bool onX = abs(pos.x - rect.x) < 0.01 || abs(pos.x - rect.z) < 0.01
+        || (freeRight && pos.x > rect.x + 0.01 && pos.x <= rect.x + 17.0);
+    bool onY = abs(pos.y - rect.w) < 0.01 || abs(pos.y - rect.y) < 0.01
+        || (freeTop && pos.y >= rect.y - 0.01 && pos.y < rect.w - 0.01);
+    return onX && onY;
+}
+
+// Sets, per attack indicator rect, whether a vertex lies on one of its corners (windowHudIndicator) and the rect's
+// maximal extent (windowHudRects), in GUI pixels from the top-left with the GUI size gui: the crosshair indicator's 16x4
+// background and progress and its 16x16 full sprite, which start at (gui.x / 2 - 8, gui.y / 2 + 9), and the 18x18
+// hotbar indicator background and progress in the row gui.y - 20, either 97 pixels right of the centre or 113 left of
+// it, depending on the main arm.
+void window_fs_indicator(vec2 pos, vec2 gui, bool hidden) {
+    vec2 centre = floor(gui / 2.0);
+    vec4 crosshair = vec4(centre.x - 8.0, centre.y + 9.0, centre.x + 8.0, centre.y + 13.0);
+    vec4 full = vec4(crosshair.xy, crosshair.zy + vec2(0.0, 16.0));
+    vec4 hotbarRight = vec4(centre.x + 97.0, gui.y - 20.0, centre.x + 115.0, gui.y - 2.0);
+    vec4 hotbarLeft = hotbarRight - vec4(210.0, 0.0, 210.0, 0.0);
+    windowHudRects = vec4[4](crosshair + vec4(0.0, 0.0, 1.0, 0.0), full, hotbarRight, hotbarLeft);
+    windowHudIndicator = hidden ? vec4(
+        window_fs_on_corner(pos, crosshair, true, false), window_fs_on_corner(pos, full, false, false),
+        window_fs_on_corner(pos, hotbarRight, false, true), window_fs_on_corner(pos, hotbarLeft, false, true))
+        : vec4(0.0);
+}
+
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 
@@ -139,6 +172,14 @@ void main() {
     windowHudHidden = GameTime < 0.0 && ProjMat[3][3] == 1.0 ? 1 : 0;
     windowHudPos = vec2(gl_Position.x / ProjMat[0][0], (gl_Position.y + 1.0) / -ProjMat[1][1]);
 
+    // Three matching corners of an axis-aligned quad fix its fourth, so a rect's flag reaches 1.0 across a quad only if
+    // it is that rect, and the fragment's bounds check confines any sliver of a partial match to the rect itself. The
+    // GUI size is the client's: the fractional framebuffer size over the scale, rounded up. Fractional sizes are
+    // multiples of 1 / scale, so 0.01 absorbs float error without rounding a true fraction down.
+    vec2 gui = ceil(vec2(2.0 / ProjMat[0][0], -2.0 / ProjMat[1][1]) - 0.01);
+    windowHudGui = vec2((gl_Position.x + 1.0) / ProjMat[0][0], (gl_Position.y - 1.0) / ProjMat[1][1]);
+    window_fs_indicator(windowHudGui, gui, windowHudHidden == 1);
+
     window_prompt_clip(gl_Position);
 }
 "#;
@@ -146,8 +187,8 @@ void main() {
 }
 
 /// Renders `core/position_tex_color.fsh`, which while the HUD is hidden discards GUI sprite fragments inside the HUD
-/// strip, and texels carrying the crosshair marker alpha, which the pack's crosshair sprite override sets on its
-/// opaque texels. Clipping per fragment cuts sprites crossing the strip's edge instead of distorting them. While the
+/// strip, texels carrying the crosshair marker alpha, which the pack's crosshair sprite override sets on its opaque
+/// texels, and quads the vertex shader matched to a vanilla attack indicator. Clipping per fragment cuts sprites crossing the strip's edge instead of distorting them. While the
 /// prompt's anvil is open, it also discards GUI sprite fragments inside the anvil's rect.
 pub(in crate::hud) fn render_position_tex_color_fragment() -> String {
     format!(
@@ -170,12 +211,21 @@ in vec2 texCoord0;
 in vec4 vertexColor;
 in vec2 windowHudPos;
 flat in int windowHudHidden;
+in vec4 windowHudIndicator;
+in vec2 windowHudGui;
+flat in vec4 windowHudRects[4];
 {prompt_helpers}
 out vec4 fragColor;
 
 void main() {{{prompt_clip}
     if (windowHudHidden == 1 && abs(windowHudPos.x) < WINDOW_FS_HUD_STRIP.x && windowHudPos.y < WINDOW_FS_HUD_STRIP.y) {{
         discard;
+    }}
+    for (int i = 0; i < 4; i++) {{
+        if (windowHudIndicator[i] > 0.99999 && all(greaterThanEqual(windowHudGui, windowHudRects[i].xy))
+            && all(lessThanEqual(windowHudGui, windowHudRects[i].zw))) {{
+            discard;
+        }}
     }}
     vec4 texel = texture(Sampler0, texCoord0);
     if (windowHudHidden == 1 && int(round(texel.a * 255.0)) == WINDOW_FS_CROSSHAIR_ALPHA) {{
