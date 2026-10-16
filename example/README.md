@@ -10,12 +10,14 @@ example/
 │   ├── rpp.config.ts           # pack metadata, build, and Window plugin configuration
 │   ├── src/
 │   │   └── window/             # UI sources — stripped from the built pack
-│   │       ├── index.ts        # defineWindows entry: the sprite catalog, windows, HUDs, and previews
+│   │       ├── index.ts        # defineWindows entry: the sprite catalog, windows, HUDs, full-screen windows, and previews
 │   │       ├── handles.ts      # typed bindings shared by the windows
 │   │       ├── art.ts          # inline art: icons, coin, vents, bars, and the rank sprites
 │   │       ├── shop.tsx        # paged catalog, selections, toggles, and buttons
 │   │       ├── search.tsx      # linked native-anvil catalog search
 │   │       ├── upgrades.tsx    # themed workshop: styles, vars, cards with a face per stage, choices, and a hotspot
+│   │       ├── lobby.tsx       # full-screen main menu: paged worlds, a rename prompt, tooltips, and a ready switch
+│   │       ├── lookout.tsx     # horse-mode full-screen window with a signal bar
 │   │       ├── status_hud.tsx  # the shader-relocated actionbar HUDs
 │   │       └── clock_hud.ts    # the clock HUD, written with the function-style raw API
 │   ├── build/previews/         # preview PNGs of the windows and HUDs, rewritten by every build
@@ -24,13 +26,14 @@ example/
 ```
 
 The Minestom server is the Gradle module `jvm/example`, which depends on `window-minestom`. `Main.kt` boots the server,
-`Market.kt` and `Workshop.kt` are a throwaway domain model, and `MyShop.kt` and `MyUpgrades.kt` implement the
-**generated** `ShopView` and `UpgradesView`. `MyStatusHud.kt` implements the **generated** HUD views. The pack uses
-`target: "minestom"`, so a window view takes the `Player` it is shown to: `Main.kt` opens the shop with
-`MyShop(player, market).open()`. Generated HUD views take no player; the handwritten ones that need it take it
-themselves. `Main.kt` joins the status HUDs into one action-bar `HudStack` and resends it with `player.sendHud(stack)`
-every tick, which keeps the wave bar moving smoothly, re-renders the clocks, and stays ahead of the action bar fading
-out. The bindings live under `generated/`, produced by the rpp plugin — committed, do not hand-edit.
+`Market.kt` and `Workshop.kt` are a throwaway domain model, `MyShop.kt` and `MyUpgrades.kt` implement the **generated**
+`ShopView` and `UpgradesView`, and `MyLobby.kt` and `MyLookout.kt` the full-screen `LobbyFullscreen` and
+`LookoutFullscreen`. `MyStatusHud.kt` implements the **generated** HUD views. The pack uses `target: "minestom"`, so a
+window view takes the `Player` it is shown to: `Main.kt` opens the shop with `MyShop(player, market).open()`. Generated
+HUD views take no player; the handwritten ones that need it take it themselves. `Main.kt` joins the status HUDs into one
+action-bar `HudStack` and resends it with `player.sendHud(stack)` every tick, which keeps the wave bar moving smoothly,
+re-renders the clocks, and stays ahead of the action bar fading out. The bindings live under `generated/`, produced by
+the rpp plugin — committed, do not hand-edit.
 
 ## Run it
 
@@ -51,6 +54,12 @@ levels, each card shows its level as text and is marked new, shows a bar, or is 
 the shared tone. A maxed card takes no clicks, so hovering it shows "Fully upgraded" and no outline. Its levels last
 until the server stops.
 
+`/lobby` opens a full-screen main menu over the world; aim by turning and sneak to leave. Click the foundry name to
+rename it in a native dialog, which returns to the lobby on Confirm or Cancel. The arrows or the scroll wheel move the
+world list, a click selects a world, and right clicking anywhere toggles ready, which switches the line under the list
+and retints the status. Play leaves once you are ready. `/lookout` opens a horse-mode window, which locks the view while
+the cursor follows the mouse; Charge fills its signal bar.
+
 The actionbar-backed HUD demo is disabled by default so the inventory examples stay visually focused. Enable it with
 `-Dwindow.hud.enabled=true`; use `-Dwindow.hud.spriteDebug=true` to print each HUD's static art to chat. The pack blanks
 vanilla's experience bar, and one of the HUDs draws its wave bar there.
@@ -59,6 +68,8 @@ vanilla's experience bar, and one of the HUDs draws its wave bar there.
 | -------------------------------- | ---------------------------------------------------------------------- |
 | `/shop`                          | opens the catalog, like the hotbar emerald                             |
 | `/upgrades`                      | opens the workshop, like the catalog's Workshop button                 |
+| `/lobby`                         | opens the full-screen lobby                                            |
+| `/lookout`                       | opens the horse-mode lookout                                           |
 | `/tone <ok\|warn\|danger\|auto>` | pins the tone the HUDs and newly opened windows draw in; `auto` unpins |
 | `/bar <fraction\|auto>`          | pins how full the wave bar and a newly opened shop's bar are           |
 
@@ -71,12 +82,12 @@ when testing from another machine.
 ## The typed contract
 
 The rpp plugin emits `internal` pack data (`WindowPackData`, `WindowFonts`, `WindowSpacers`, and friends), the public
-`WindowDefinitions` and `WindowHudDefinitions`, and one public abstract class for each window/HUD. Each handle in
-`handles.ts` becomes a member of the views that use it: `text` handles such as `balance` and `status` are functions
-returning a `Component`, `flag` handles such as `canBuy` are Boolean functions, `action` handles such as `buy` are
-`onBuy(click)` handlers, `products` is a `WindowCollection` that `MyShop` backs with a `WindowList`, and the
-`category`/`sort` selections and `favorites`/`affordable` toggles are UI-owned `var`s with `on…Changed` hooks. In
-`UpgradesView` the indexed handles take the card's index (`upgradeLevel(index)`, `onUpgrade(click)` with `click.index`),
-the `upgradeStage` value and the `rank` sprite return generated enums, and `upgradeProgress` and `tone` return a bar's
-fraction and a tint's palette entry. `MyStatusHud` implements each HUD's handles. Omit one, rebuild, and the breakage
-surfaces at compile time.
+`WindowDefinitions`, `WindowHudDefinitions`, and `WindowFullscreenDefinitions`, and one public abstract class for each
+window, HUD, and full-screen window. Each handle in `handles.ts` becomes a member of the views that use it: `text`
+handles such as `balance` and `status` are functions returning a `Component`, `flag` handles such as `canBuy` are
+Boolean functions, `action` handles such as `buy` are `onBuy(click)` handlers, `products` is a `WindowCollection` that
+`MyShop` backs with a `WindowList`, and the `category`/`sort` selections and `favorites`/`affordable` toggles are
+UI-owned `var`s with `on…Changed` hooks. In `UpgradesView` the indexed handles take the card's index
+(`upgradeLevel(index)`, `onUpgrade(click)` with `click.index`), the `upgradeStage` value and the `rank` sprite return
+generated enums, and `upgradeProgress` and `tone` return a bar's fraction and a tint's palette entry. `MyStatusHud`
+implements each HUD's handles. Omit one, rebuild, and the breakage surfaces at compile time.
