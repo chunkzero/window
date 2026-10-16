@@ -197,28 +197,29 @@ You own the rest:
 A full-screen window is authored with [`<Fullscreen>`](docs/AUTHORING.md#full-screen-windows) and generates a typed
 view, such as `LobbyFullscreen`, that extends `FullscreenView`. With the `minestom` target it takes a `Player`; with
 other targets it takes a `FullscreenHost`, which only `window-minestom` implements (`MinestomFullscreenHost`). The
-player aims by turning, clicks with the attack key, and leaves by sneaking:
+player aims by turning, clicks with the attack key, and leaves by sneaking. An excerpt of the example's
+[`MyLobby`](jvm/example/src/main/kotlin/com/chunkzero/window/example/MyLobby.kt):
 
 ```kotlin
-class Lobby(player: Player) : LobbyFullscreen(player) {
-    private var name by state("Lobby")
-    private val worlds = list(cells = 3, key = { it: String -> it }) { allWorlds() }
+class MyLobby(player: Player) : LobbyFullscreen(player) {
+    private var name by state("${player.username}'s Foundry")
+    private val worlds = list(cells = 3, key = { it: String -> it }, step = 1) { WORLDS }
 
-    override fun lobbyName(): Component = Component.text(name)
+    override fun foundryName(): Component = Component.text(name)
 
     override fun worldName(index: Int): Component = Component.text(worlds.at(index).orEmpty())
 
     // A click opens a native dialog; the canvas is back once the player confirms or cancels.
     override fun onRename(click: FullscreenClick) {
-        promptText(Component.text("Rename"), name) { text -> text?.let { name = it } }
+        promptText(Component.text("Name your foundry"), name) { text -> text?.let { name = it } }
     }
 
-    override fun onScroll(steps: Int) = if (steps > 0) worlds.next() else worlds.previous()
+    override fun onScroll(steps: Int) = repeat(abs(steps)) { if (steps > 0) worlds.next() else worlds.previous() }
 
-    override fun onRightClick(click: FullscreenClick) = close()
+    // The other generated bindings and handlers are omitted.
 }
 
-Lobby(player).open()
+MyLobby(player).open()
 ```
 
 - Handlers receive a `FullscreenClick` with the cursor's canvas position. `onScroll(steps)` gets the scroll wheel as
@@ -244,8 +245,8 @@ Limitations:
 
 - First person only: third person (F5) mirrors the camera, so the drawn cursor and the server's hit-test disagree.
 - Shader packs that replace world rendering, such as Iris, are not supported.
-- The client sends at most one held-slot change per tick, so a fast scroll counts as one step, more than 4 notches in
-  one tick read as a scroll the other way, and number keys look like scrolling.
+- The client sends at most one held-slot change per tick, so `onScroll` gets one update per tick of at most 4 steps
+  either way, more than 4 notches in one tick read as a scroll the other way, and number keys look like scrolling.
 - Chat and other GUI overlays draw over the canvas, and there are no real items.
 
 ## Supported versions
