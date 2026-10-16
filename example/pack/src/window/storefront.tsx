@@ -358,12 +358,12 @@ const footer = (
 );
 
 /**
- * A web-style storefront over the world, in horse mode so the view holds still behind it: no backdrop, translucent
+ * A web-style storefront over the world, in horse mode so the view holds still behind it: a backdrop dims it, translucent
  * glass panes, category tabs, a search box the player types into in place, a product grid and a cart that each scroll,
  * and a detail pane to buy from.
  */
 export default (
-    <Fullscreen name="storefront" mode="horse" padding={6} gap={6} text={{ color: "#ffffff" }}>
+    <Fullscreen name="storefront" mode="horse" backdrop="#05080f99" padding={6} gap={6} text={{ color: "#ffffff" }}>
         {nav}
         <Row gap={6} align="stretch" grow={1}>
             {catalog}

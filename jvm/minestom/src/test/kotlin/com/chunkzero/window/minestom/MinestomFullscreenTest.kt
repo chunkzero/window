@@ -47,6 +47,7 @@ import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerPacketEvent
 import net.minestom.server.event.player.PlayerPacketOutEvent
 import net.minestom.server.event.player.PlayerSpawnEvent
+import net.minestom.server.instance.block.BlockFace
 import net.minestom.server.inventory.Inventory
 import net.minestom.server.inventory.InventoryType
 import net.minestom.server.item.ItemStack
@@ -62,7 +63,9 @@ import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket
 import net.minestom.server.network.packet.client.play.ClientInputPacket
 import net.minestom.server.network.packet.client.play.ClientInteractEntityPacket
 import net.minestom.server.network.packet.client.play.ClientNameItemPacket
+import net.minestom.server.network.packet.client.play.ClientPlayerBlockPlacementPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
+import net.minestom.server.network.packet.client.play.ClientUseItemPacket
 import net.minestom.server.network.packet.server.SendablePacket
 import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.common.ClearDialogPacket
@@ -194,6 +197,10 @@ class MinestomFullscreenTest :
 
             fixture.receive(ClientInteractEntityPacket(0, PlayerHand.MAIN, Vec.ZERO, false)).isCancelled shouldBe true
             fixture.receive(ClientInteractEntityPacket(0, PlayerHand.OFF, Vec.ZERO, false))
+            fixture.receive(ClientUseItemPacket(PlayerHand.MAIN, 0, 0f, 0f)).isCancelled shouldBe true
+            val placement =
+                ClientPlayerBlockPlacementPacket(PlayerHand.MAIN, Vec.ZERO, BlockFace.TOP, 0f, 0f, 0f, false, false, 0)
+            fixture.receive(placement).isCancelled shouldBe true
             fixture.receive(ClientPlayerRotationPacket(-44f, -24.375f, 0.toByte()))
             fixture.player.scheduler().processTickEnd()
 

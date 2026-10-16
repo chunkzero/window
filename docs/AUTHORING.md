@@ -629,7 +629,9 @@ the core shaders that draw it, with no `coreShaders` option, and needs pack form
 
 - `mode`: `"unlocked"`, the default, keeps the camera on the player, so the world turns behind the canvas as they aim.
   `"horse"` locks the view in place and draws the cursor about a tick behind the mouse.
-- `backdrop`: a hex color filling the screen behind the canvas, letterbox included. Omit it to show the world.
+- `backdrop`: a hex color filling the screen behind the canvas, letterbox included. `#rrggbb` hides the world, and
+  `#rrggbbaa` dims it, such as `#00000099`; the alpha starts at `1a`, since the text shader drops fainter fragments.
+  Omit it to show the world.
 
 It takes the same elements as a window, except those that need a container:
 

@@ -39,8 +39,10 @@ import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket
 import net.minestom.server.network.packet.client.play.ClientInputPacket
 import net.minestom.server.network.packet.client.play.ClientInteractEntityPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerActionPacket
+import net.minestom.server.network.packet.client.play.ClientPlayerBlockPlacementPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerPositionAndRotationPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
+import net.minestom.server.network.packet.client.play.ClientUseItemPacket
 import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.common.ClearDialogPacket
 import net.minestom.server.network.packet.server.common.ShowDialogPacket
@@ -378,6 +380,11 @@ internal class MinestomFullscreen private constructor(
 
             // Dropping or swapping hands would resync the real hotbar over the blank items.
             is ClientAnimationPacket, is ClientPlayerActionPacket -> {
+                event.isCancelled = true
+            }
+
+            // A right click that misses the interaction entity would use the item the server's player really holds.
+            is ClientUseItemPacket, is ClientPlayerBlockPlacementPacket -> {
                 event.isCancelled = true
             }
 
