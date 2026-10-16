@@ -5,6 +5,7 @@ import com.chunkzero.window.host.FullscreenListener
 import com.chunkzero.window.host.OpenFullscreen
 import com.chunkzero.window.internal.Turn
 import com.chunkzero.window.manifest.FullscreenMode
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -129,6 +130,76 @@ class FullscreenSessionTest :
             host.turns shouldContainExactly listOf(Turn(-5f, 0f), Turn(-5f, 0f))
         }
 
+        "right clicks and scroll steps reach their handlers, right clicks at the cursor" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+
+            host.look(200, 200)
+            host.listener.onRightClick()
+            host.listener.onScroll(1)
+            host.listener.onScroll(-3)
+
+            menu.rightClicks shouldContainExactly listOf(FullscreenClick(200, 200))
+            menu.scrolls shouldContainExactly listOf(1, -3)
+        }
+
+        "a prompt ignores canvas input until it ends, including when a container covers it" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+
+            menu.mode = "on"
+            host.look(110, 170)
+            menu.prompt("a")
+            host.listener.onClick()
+            host.listener.onRightClick()
+            host.listener.onScroll(1)
+            menu.secrets shouldBe 0
+            menu.rightClicks shouldBe emptyList()
+            menu.scrolls shouldBe emptyList()
+
+            host.answer(null)
+            menu.prompts shouldContainExactly listOf(null)
+            host.listener.onClick()
+            host.listener.onScroll(1)
+            menu.secrets shouldBe 1
+            menu.scrolls shouldContainExactly listOf(1)
+        }
+
+        "a callback that opens a prompt while another replaces it leaves that prompt pending" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host).also { it.open() }
+
+            menu.mode = "on"
+            host.look(110, 170)
+            menu.prompt("a") { menu.prompt("c") }
+            menu.prompt("b")
+            menu.prompts shouldContainExactly listOf(null, null)
+            host.listener.onClick()
+            menu.secrets shouldBe 0
+
+            host.answer("text")
+            menu.prompts shouldContainExactly listOf(null, null, "text")
+            host.listener.onClick()
+            menu.secrets shouldBe 1
+        }
+
+        "closing with a prompt open reports null and runs onClose even when the callback prompts again or throws" {
+            val host = FakeFullscreenHost()
+            val menu = Menu(host)
+            val session = menu.open()
+
+            menu.prompt("a") {
+                menu.prompt("b")
+                error("boom")
+            }
+            shouldThrow<IllegalStateException> { session.close() }
+
+            menu.prompts shouldContainExactly listOf(null, null)
+            menu.closes shouldBe 1
+            host.closes shouldBe 1
+            host.pending shouldBe null
+        }
+
         "horse mode sends no cursor run, since the entity shader draws the cursor, and hit-tests the same rotation" {
             val host = FakeFullscreenHost()
             val menu = Menu(host, FullscreenMode.HORSE).also { it.open() }
@@ -151,6 +222,9 @@ private class Menu(
     var plays = 0
     var secrets = 0
     var closes = 0
+    val rightClicks = mutableListOf<FullscreenClick>()
+    val scrolls = mutableListOf<Int>()
+    val prompts = mutableListOf<String?>()
 
     override fun FullscreenScope.bind() {
         slot("count") { Component.text("N$count") }
@@ -160,6 +234,16 @@ private class Menu(
             count++
         }
         button("secret") { secrets++ }
+        rightClick { rightClicks += it }
+        scroll { scrolls += it }
+    }
+
+    fun prompt(
+        initial: String,
+        then: () -> Unit = {},
+    ) = promptText(initial = initial) {
+        prompts += it
+        then()
     }
 
     override fun onClose() {
@@ -173,7 +257,9 @@ private class FakeFullscreenHost :
     val scheduler = ManualScheduler()
     val shown = mutableListOf<Component>()
     val turns = mutableListOf<Turn>()
+    var pending: ((String?) -> Unit)? = null
     var closes = 0
+    private var open = true
     lateinit var listener: FullscreenListener
 
     override val latencyMillis = 50
@@ -201,8 +287,30 @@ private class FakeFullscreenHost :
         turns += Turn(yaw, pitch)
     }
 
+    override val promptOpen get() = pending != null
+
+    override fun promptText(
+        title: Component,
+        initial: String,
+        onDone: (String?) -> Unit,
+    ) {
+        if (!open) return onDone(null)
+        val replaced = pending
+        pending = onDone
+        replaced?.invoke(null)
+    }
+
     override fun close() {
         closes++
+        open = false
+        answer(null)
+    }
+
+    /** Ends the pending prompt with [text], as a button press or a container takeover does. */
+    fun answer(text: String?) {
+        val done = pending ?: return
+        pending = null
+        done(text)
     }
 
     /** Turns the player so the cursor lands on canvas pixel ([x], [y]). */

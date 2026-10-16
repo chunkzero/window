@@ -14,12 +14,14 @@ import net.minestom.server.entity.GameMode
 import net.minestom.server.entity.Metadata
 import net.minestom.server.entity.MetadataDef
 import net.minestom.server.entity.Player
+import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.entity.metadata.display.AbstractDisplayMeta
 import net.minestom.server.entity.metadata.display.TextDisplayMeta
 import net.minestom.server.entity.metadata.other.InteractionMeta
 import net.minestom.server.event.EventFilter
 import net.minestom.server.event.EventNode
+import net.minestom.server.event.player.PlayerCustomClickEvent
 import net.minestom.server.event.player.PlayerDeathEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerMoveEvent
@@ -31,17 +33,21 @@ import net.minestom.server.item.Material
 import net.minestom.server.network.packet.client.play.ClientAnimationPacket
 import net.minestom.server.network.packet.client.play.ClientAttackPacket
 import net.minestom.server.network.packet.client.play.ClientCloseWindowPacket
+import net.minestom.server.network.packet.client.play.ClientHeldItemChangePacket
 import net.minestom.server.network.packet.client.play.ClientInputPacket
 import net.minestom.server.network.packet.client.play.ClientInteractEntityPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerActionPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerPositionAndRotationPacket
 import net.minestom.server.network.packet.client.play.ClientPlayerRotationPacket
 import net.minestom.server.network.packet.server.ServerPacket
+import net.minestom.server.network.packet.server.common.ClearDialogPacket
+import net.minestom.server.network.packet.server.common.ShowDialogPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
 import net.minestom.server.network.packet.server.play.EntityAttributesPacket
 import net.minestom.server.network.packet.server.play.EntityMetaDataPacket
+import net.minestom.server.network.packet.server.play.HeldItemChangePacket
 import net.minestom.server.network.packet.server.play.OpenWindowPacket
 import net.minestom.server.network.packet.server.play.PlayerAbilitiesPacket
 import net.minestom.server.network.packet.server.play.PlayerInfoUpdatePacket
@@ -61,13 +67,15 @@ import net.minestom.server.world.clock.WorldClock
  * child of their event node.
  *
  * The server keeps the player in spectator mode, pinned at their position facing yaw and pitch 0. Their client alone is
- * told it is in survival, flying at zero speed, so the scroll wheel and number keys change the held slot. A client-only
- * interaction entity encloses the eye, so every left click attacks it without a miss cooldown.
+ * told it is in survival, flying at zero speed, so the scroll wheel and number keys change the held slot, which is
+ * reported as steps and never applied to the server's player. A client-only interaction entity encloses the eye, so
+ * every left click attacks it without a miss cooldown, and every right click interacts with it once, with the main hand.
  *
  * The HUD is hidden: the hotbar holds blank items, which also hide the hand, and the client's world age is held
  * negative, which the pack's GUI shader reads as "clip the bottom-centre HUD strip". So the hearts fit that strip, the
  * client is told its max health is at most the canvas's `hudMaxHealth` and its absorption is 0. While the server has a
- * container open, the client gets the real world age back and its real hotbar so the strip and slots show.
+ * container open, the client gets the real world age back and its real hotbar so the strip and slots show. The text
+ * prompt's dialog is a client screen rather than a server container, so it keeps the HUD hidden and the hotbar blank.
  *
  * While the window is open, a server update to the game mode, abilities, hotbar, time, max health, or absorption passes
  * through unchanged and is followed by a packet that puts the hidden state back. Replacing the update instead would
@@ -86,6 +94,10 @@ import net.minestom.server.world.clock.WorldClock
  *
  * In horse mode, [MinestomFullscreenHorse] also locks the view. The client then draws no hearts, since its camera is
  * not a player, so their max health and absorption are left alone.
+ *
+ * A prompt's callback runs on the player's thread after the state it reports has changed, never under [lock]: a server
+ * container opening over the dialog cancels it on the next tick, and a window ending cancels it once the player is
+ * restored, just before [FullscreenListener.onClose].
  */
 internal class MinestomFullscreen private constructor(
     private val player: Player,
@@ -123,6 +135,10 @@ internal class MinestomFullscreen private constructor(
             null
         }
 
+    /** The held slot the client has selected, which held-slot changes are measured from. Requires [lock]. */
+    private var clientSlot = heldSlot.toInt()
+    private val textPrompt = MinestomTextPrompt(player)
+
     /** The window id of the server container the client has open, or [NO_CONTAINER]. */
     private var containerWindowId = NO_CONTAINER
     private val containerOpen get() = containerWindowId != NO_CONTAINER
@@ -145,8 +161,24 @@ internal class MinestomFullscreen private constructor(
         player.sendPacket(PlayerRotationPacket(yaw, true, pitch, true))
     }
 
+    override val promptOpen: Boolean
+        get() = textPrompt.current != null
+
+    override fun promptText(
+        title: Component,
+        initial: String,
+        onDone: (String?) -> Unit,
+    ) {
+        if (isOpen()) textPrompt.open(title, initial, onDone) else onDone(null)
+    }
+
     override fun close() {
-        if (stop()) restore(returnToStart = true)
+        if (!stop()) return
+        try {
+            restore(returnToStart = true)
+        } finally {
+            textPrompt.cancel()
+        }
     }
 
     private fun start(content: Component) {
@@ -274,6 +306,7 @@ internal class MinestomFullscreen private constructor(
             val next = event.newPosition
             if (!next.samePoint(anchor)) event.newPosition = anchor.withView(next.yaw(), next.pitch())
         }
+        node.addListener(PlayerCustomClickEvent::class.java, textPrompt::onClick)
         node.addListener(PlayerDisconnectEvent::class.java) { end(restore = false) }
         node.addListener(PlayerDeathEvent::class.java) { end(restore = true) }
         // The client clears its client-only entities and camera when it changes world.
@@ -299,8 +332,21 @@ internal class MinestomFullscreen private constructor(
                 player.scheduler().scheduleEndOfTick { if (isOpen()) listener.onClick() }
             }
 
+            is ClientInteractEntityPacket -> {
+                event.isCancelled = true
+                // The interaction entity consumes a main-hand use, so the client never tries the off hand.
+                if (packet.hand() == PlayerHand.MAIN) {
+                    player.scheduler().scheduleEndOfTick { if (isOpen()) listener.onRightClick() }
+                }
+            }
+
+            is ClientHeldItemChangePacket -> {
+                event.isCancelled = true
+                scroll(packet.slot().toInt())
+            }
+
             // Dropping or swapping hands would resync the real hotbar over the blank items.
-            is ClientAnimationPacket, is ClientInteractEntityPacket, is ClientPlayerActionPacket -> {
+            is ClientAnimationPacket, is ClientPlayerActionPacket -> {
                 event.isCancelled = true
             }
 
@@ -317,6 +363,18 @@ internal class MinestomFullscreen private constructor(
                 Unit
             }
         }
+    }
+
+    /** Reports the client selecting [slot] as steps the shortest way around the hotbar from the slot it had. */
+    private fun scroll(slot: Int) {
+        if (slot !in 0 until HOTBAR_SIZE) return
+        val steps =
+            synchronized(lock) {
+                val from = clientSlot
+                clientSlot = slot
+                Math.floorMod(slot - from + HOTBAR_SIZE / 2, HOTBAR_SIZE) - HOTBAR_SIZE / 2
+            }
+        if (steps != 0) listener.onScroll(steps)
     }
 
     /** Keeps the HUD hidden and the client in fake survival after each of the server's own updates. */
@@ -357,13 +415,23 @@ internal class MinestomFullscreen private constructor(
                     if (packet != abilities) player.sendPacket(abilities)
                 }
 
+                is HeldItemChangePacket -> {
+                    clientSlot = packet.slot().toInt()
+                }
+
                 is SetPlayerInventorySlotPacket, is SetSlotPacket, is WindowItemsPacket -> {
                     if (!containerOpen) blank(realHotbarSlots(packet))
+                }
+
+                is ShowDialogPacket, is ClearDialogPacket -> {
+                    textPrompt.onWritten(packet)
                 }
 
                 is OpenWindowPacket -> {
                     containerWindowId = packet.windowId()
                     containerGeneration++
+                    // The container replaces the client's dialog without any answer.
+                    textPrompt.coverByContainer()
                     player.sendPacket(realTime())
                     // Opening a container does not resync the player inventory, whose hotbar still holds the blanks.
                     player.inventory.update(player)
@@ -437,8 +505,15 @@ internal class MinestomFullscreen private constructor(
         moved: Boolean = false,
     ) {
         if (!stop()) return
-        if (restore) restore(returnToStart = !moved)
-        listener.onClose()
+        try {
+            if (restore) restore(returnToStart = !moved)
+        } finally {
+            try {
+                textPrompt.cancel()
+            } finally {
+                listener.onClose()
+            }
+        }
     }
 
     /** Stops listening; false when already stopped. */
@@ -453,6 +528,7 @@ internal class MinestomFullscreen private constructor(
 
     private fun restore(returnToStart: Boolean) {
         horse?.unlock()
+        textPrompt.clear()
         player.sendPacket(DestroyEntitiesPacket(listOf(display.entityId, clickTarget.entityId)))
         // A mode the server set while the window was open replaces the one it began with.
         val mode = player.gameMode.takeUnless { it == GameMode.SPECTATOR } ?: gameMode
