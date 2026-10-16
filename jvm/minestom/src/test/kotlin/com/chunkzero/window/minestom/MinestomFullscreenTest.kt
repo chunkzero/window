@@ -40,6 +40,7 @@ import net.minestom.server.entity.PlayerHand
 import net.minestom.server.entity.attribute.Attribute
 import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.EventListener
+import net.minestom.server.event.inventory.InventoryOpenEvent
 import net.minestom.server.event.player.PlayerCustomClickEvent
 import net.minestom.server.event.player.PlayerDisconnectEvent
 import net.minestom.server.event.player.PlayerPacketEvent
@@ -371,7 +372,7 @@ class MinestomFullscreenTest :
             menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
         }
 
-        "a click anywhere in the anvil's window, even outside it, finishes with the text and closes the anvil" {
+        "a click outside the anvil finishes with the text and closes the anvil" {
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             menu.open()
@@ -467,38 +468,70 @@ class MinestomFullscreenTest :
             menu.clicks shouldContainExactly listOf(FullscreenClick(5, 5))
         }
 
-        "a full field continues in a fresh one, keeping its text, and drops renames until the fresh one settles" {
+        "the keyboard holds 50 characters: a longer initial text is cut, and a longer rename is truncated" {
             val fixture = FullscreenFixture()
             val menu = Menu(fixture.player)
             menu.open()
-            val start = "x".repeat(55)
-            menu.type(start)
+            menu.type("x".repeat(55))
             val window = fixture.window()
             fixture
                 .sent<WindowItemsPacket>()
                 .last()
                 .items()[0]
                 .get(DataComponents.CUSTOM_NAME) shouldBe
-                Component.text("xxxxx")
+                Component.text("x".repeat(50))
             fixture.pong()
-            fixture.clear()
 
-            val full = "xxxxx" + "y".repeat(45)
-            fixture.receive(ClientNameItemPacket(full))
-            menu.edits shouldContainExactly listOf("x".repeat(50) + full)
-            fixture
-                .sent<WindowItemsPacket>()
-                .last()
-                .items()[0]
-                .get(DataComponents.CUSTOM_NAME) shouldBe
-                Component.text("")
-            fixture.receive(ClientNameItemPacket("lost"))
-            fixture.pong()
-            fixture.receive(ClientNameItemPacket("z"))
+            fixture.receive(ClientNameItemPacket("x".repeat(50) + "y"))
+            menu.edits shouldBe emptyList()
+            fixture.receive(ClientNameItemPacket("z".repeat(60)))
             fixture.closeWindow(window)
 
-            menu.edits.last() shouldBe "x".repeat(50) + full + "z"
-            menu.prompts shouldContainExactly listOf("x".repeat(50) + full + "z")
+            menu.edits shouldContainExactly listOf("z".repeat(50))
+            menu.prompts shouldContainExactly listOf("z".repeat(50))
+        }
+
+        "a refused anvil open resolves the prompt with null and leaves the band hidden" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val menu = Menu(player)
+            menu.open()
+            player.eventNode().addListener(InventoryOpenEvent::class.java) { it.isCancelled = true }
+            fixture.clear()
+
+            menu.type("hi")
+
+            menu.prompts shouldContainExactly listOf(null)
+            player.openInventory shouldBe null
+            fixture.sent<SetTimePacket>().last().gameTime() shouldBe HIDDEN_AGE
+        }
+
+        "a keyboard replacing an open container takes over its band, and finishing restores the hidden band and slots" {
+            val fixture = FullscreenFixture()
+            val player = fixture.player
+            val diamond = ItemStack.of(Material.DIAMOND)
+            player.inventory.setItemStack(2, diamond)
+            val menu = Menu(player)
+            menu.open()
+            player.openInventory(Inventory(InventoryType.CHEST_1_ROW, Component.empty()))
+            fixture.clear()
+            fixture.hotbar()[2] shouldBe Material.DIAMOND
+
+            menu.type("hi")
+            fixture.sent<SetTimePacket>().last().gameTime() shouldBe PROMPT_AGE
+            val window = fixture.window()
+
+            fixture.clear()
+            fixture.closeWindow(window)
+            menu.prompts shouldContainExactly listOf("hi")
+            fixture.sent<SetTimePacket>().last().gameTime() shouldBe HIDDEN_AGE
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
+
+            fixture.clear()
+            fixture.send(SetTimePacket(100, emptyMap()))
+            fixture.sent<SetTimePacket>().map { it.gameTime() } shouldContainExactly listOf(100L, HIDDEN_AGE)
+            fixture.send(SetPlayerInventorySlotPacket(2, diamond))
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
         }
 
         "sneaking leaves the window and restores the player" {

@@ -49,8 +49,9 @@ public interface OpenFullscreen {
      * Captures text the player types, starting from [initial], while the canvas stays in view; the host draws nothing
      * of the prompt, so the window draws the text itself. Reports the whole text to [onEdit] after each edit the client
      * sends, and the outcome to [onDone] exactly once, on the player's thread: the text when the player presses Escape
-     * or clicks anywhere, and `null` when another prompt replaces this one, a server container opens over it, or the
-     * window ends. There is no cancel. The HUD stays hidden while the prompt is open.
+     * (a click on a slot or outside the keyboard may finish it too), and `null` when another prompt replaces this one,
+     * a server container opens over it, or the window ends. There is no cancel. The text holds at most 50 characters,
+     * and [initial] is cut to fit. The HUD stays hidden while the prompt is open.
      *
      * Both kinds of prompt share one slot: opening either replaces an open prompt of either kind. The prompt has left
      * [promptOpen] by the time [onDone] runs, so [onDone] may open the next prompt. On a closed window, or when the host

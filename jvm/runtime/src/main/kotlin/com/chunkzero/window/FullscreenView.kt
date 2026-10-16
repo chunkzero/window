@@ -94,15 +94,15 @@ public abstract class FullscreenView(
     /**
      * Lets the player type on the canvas, starting from [initial]: the keyboard prompt. Nothing of the prompt is drawn,
      * so draw the text from [onEdit], which receives the whole text after each edit and re-renders at once rather than
-     * on the next tick. [onDone] then receives the text once, when the player presses Escape or clicks anywhere. There
-     * is no cancel; use [promptTextDialog] when the player must be able to back out. While the prompt is open the HUD
+     * on the next tick. [onDone] then receives the text once, when the player presses Escape; a click on a slot or
+     * outside the anvil may finish it too, but a click on the rename field does not. There is no cancel; use [promptTextDialog] when the player must be able to back out. While the prompt is open the HUD
      * stays hidden, canvas input is ignored, so the cursor stays where it was, and the hovered control's tooltip is not
      * drawn.
      *
      * The prompt is an anvil the pack's shaders hide, so:
      * - the server never learns the client's caret, so a drawn caret belongs at the end of the text;
-     * - the anvil holds 50 characters, so the text moves on in 50-character pieces: the earlier pieces cannot be edited,
-     *   and characters typed while the next piece opens can be lost;
+     * - the anvil holds at most 50 characters, so [initial] is cut to 50 and typing stops there ([promptTextDialog]
+     *   allows 256);
      * - GUI text and fills in the anvil's rename field and label bands, such as chat lines crossing them, are hidden
      *   while it is open;
      * - the system mouse pointer shows;

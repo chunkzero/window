@@ -26,13 +26,15 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * The input paper is named after the field's text, which vanilla copies into the rename field, and has no
  * enchantments, so the client computes no repair cost. The client resets its field only when the input slot changes,
- * so each seed carries a fresh lore line. A seeding send (an open, or a continuation once the field fills) is bundled
- * with a ping; rename packets before its pong come from an earlier anvil or are the seed's echo, and are dropped. The
- * field holds [MAX_LENGTH] characters, so a full field moves its text into [kept] and starts empty again.
+ * so each seed carries a fresh lore line. A seeding send is bundled with a ping; rename packets before its pong come
+ * from an earlier anvil or are the seed's echo, and are dropped. The field holds at most [MAX_LENGTH] characters, and a
+ * longer initial text is truncated to fit.
  *
- * The server cannot see the client's caret, so a click anywhere in the anvil's window, or Escape, which closes it,
- * finishes the edit with the text so far. Another inventory replacing the anvil displaces it. Each is reported to
- * [events] after the anvil's state is reset and the player's band, slots, and XP are put back.
+ * The server cannot see the client's caret, so Escape, which closes the anvil, finishes the edit with the text so far.
+ * Clicking a slot or outside the anvil's window also finishes it, but the client sends nothing for a click on the
+ * rename field or elsewhere inside the window, so a click is only a best-effort way to finish. Another inventory
+ * replacing the anvil displaces it. Each is reported to [events] after the anvil's state is reset and the player's
+ * band, slots, and XP are put back.
  */
 internal class MinestomAnvilKeyboard(
     private val player: Player,
@@ -43,10 +45,10 @@ internal class MinestomAnvilKeyboard(
 ) {
     /** What the player did with the open anvil. */
     interface Events {
-        /** The field changed; [text] includes the kept pieces. */
+        /** The field changed to [text]. */
         fun onEdit(text: String)
 
-        /** The player clicked or pressed Escape, which closed the anvil. */
+        /** The player pressed Escape, or clicked a slot or outside the window; the anvil is closed. */
         fun onFinish(text: String)
 
         /** Another inventory replaced the anvil, or the server closed it. */
@@ -55,9 +57,6 @@ internal class MinestomAnvilKeyboard(
 
     private val unenchanted = blank.without(DataComponents.ENCHANTMENTS)
     private var anvil: PromptAnvil? = null
-
-    /** The text of earlier fields that filled up. */
-    private var kept = ""
 
     /** The rename field's text as of the latest edit, or the text it was seeded with. */
     private var field = ""
@@ -88,8 +87,7 @@ internal class MinestomAnvilKeyboard(
     fun open(initial: String): Boolean {
         val reused = anvil?.takeIf { player.openInventory === it }
         val target = reused ?: PromptAnvil()
-        kept = initial.take(initial.length - initial.length % MAX_LENGTH)
-        field = initial.drop(kept.length)
+        field = initial.take(MAX_LENGTH)
         target.setItemStack(INPUT_SLOT, seed(field), false)
         anvil = target
         window = target.windowId.toInt()
@@ -128,7 +126,7 @@ internal class MinestomAnvilKeyboard(
 
             is ClientNameItemPacket -> {
                 event.isCancelled = true
-                if (awaiting == null) edit(current, packet.itemName())
+                if (awaiting == null) edit(packet.itemName())
             }
 
             is ClientClickWindowPacket -> {
@@ -148,22 +146,11 @@ internal class MinestomAnvilKeyboard(
         }
     }
 
-    private fun edit(
-        current: PromptAnvil,
-        name: String,
-    ) {
-        val typed = name.filter { it >= ' ' && it != '\u007f' && it != '§' }
-        if (typed.length >= MAX_LENGTH) {
-            kept += typed.take(MAX_LENGTH)
-            field = ""
-            current.setItemStack(INPUT_SLOT, seed(field), false)
-            synced(seeding = true) { sendSlots(current) }
-        } else if (typed != field) {
-            field = typed
-        } else {
-            return
-        }
-        events.onEdit(kept + field)
+    private fun edit(name: String) {
+        val typed = name.filter { it >= ' ' && it != '\u007f' && it != '§' }.take(MAX_LENGTH)
+        if (typed == field) return
+        field = typed
+        events.onEdit(field)
     }
 
     /** Ends the edit with its text; with [closing], the anvil is still open on the client, so the server closes it. */
@@ -171,7 +158,7 @@ internal class MinestomAnvilKeyboard(
         current: PromptAnvil,
         closing: Boolean,
     ) {
-        val text = kept + field
+        val text = field
         reset()
         synced(seeding = false) {
             if (closing && player.openInventory === current) player.closeInventory()

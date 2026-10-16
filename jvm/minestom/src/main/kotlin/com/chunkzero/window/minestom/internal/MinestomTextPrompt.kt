@@ -27,8 +27,8 @@ import java.util.concurrent.atomic.AtomicLong
  * The dialog has a text field over a Confirm and a Cancel button, which report through custom click actions whose ids
  * are unique to the prompt, so responses to any other dialog are ignored. The client closes the dialog when a button
  * is pressed, and Escape does nothing. The buttons sit in the dialog's body, clear of the footer, which falls inside
- * the strip the pack's shader clips while the HUD is hidden. The keyboard ends with its text when the player clicks or
- * presses Escape.
+ * the strip the pack's shader clips while the HUD is hidden. The keyboard holds at most 50 characters and ends with its
+ * text when the player presses Escape; a click on a slot or outside the anvil may end it too.
  *
  * Either kind also ends with `null` when replaced, when a server container takes over (on the next tick), or with
  * [cancel]. Each end reports to its callback once, after the prompt has left [current], so a callback may open the

@@ -210,7 +210,7 @@ class MyLobby(player: Player) : LobbyFullscreen(player) {
 
     override fun worldName(index: Int): Component = Component.text(worlds.at(index).orEmpty())
 
-    // A click lets the player type the name in place, until they click again or press Escape.
+    // A click lets the player type the name in place, until they press Escape.
     @OptIn(ExperimentalFullscreenApi::class)
     override fun onRename(click: FullscreenClick) {
         draft = name
@@ -236,10 +236,11 @@ MyLobby(player).open()
   hovered control's tooltip is hidden.
   - `promptText(initial, onEdit) { text -> }`, experimental (`@OptIn(ExperimentalFullscreenApi::class)`), lets the
     player type while the canvas stays in view. Nothing of it is drawn: draw the text from `onEdit`, which re-renders at
-    once. Escape or a click anywhere finishes with the text; there is no cancel.
+    once. Escape finishes with the text, and a click on a slot or outside the anvil may finish it too; there is no
+    cancel. The text holds at most 50 characters, and `initial` is cut to fit.
   - `promptTextDialog(title, initial) { text -> }` shows a native dialog over the canvas with a text field and Confirm
-    and Cancel buttons, and gets `null` on Cancel. Escape does not dismiss it. Use it when the player must be able to
-    back out, or to move the caret.
+    and Cancel buttons, and gets `null` on Cancel. It holds up to 256 characters, and Escape does not dismiss it. Use it
+    when the player must be able to back out, or to move the caret.
 - Views are single-use, as with windows, and a player has at most one full-screen window open.
 
 While the window is open, the Minestom host:

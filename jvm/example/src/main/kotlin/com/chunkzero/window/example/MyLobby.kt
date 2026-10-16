@@ -26,7 +26,7 @@ class MyLobby(
     override fun lobbyStatus(): Component =
         Component.text(
             when {
-                draft != null -> "Type a name, then click or press Esc"
+                draft != null -> "Type a name, then press Esc"
                 isReady -> "Ready for ${worlds.selected}"
                 else -> "${worlds.selected} selected"
             },
@@ -59,7 +59,7 @@ class MyLobby(
         isReady = !isReady
     }
 
-    /** Edits the name in place: the plate shows the text as it is typed, until the player clicks or presses Escape. */
+    /** Edits the name in place: the plate shows the text as it is typed, until the player presses Escape. */
     @OptIn(ExperimentalFullscreenApi::class)
     override fun onRename(click: FullscreenClick) {
         draft = name

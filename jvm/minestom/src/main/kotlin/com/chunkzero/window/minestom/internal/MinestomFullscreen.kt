@@ -459,7 +459,15 @@ internal class MinestomFullscreen private constructor(
                 }
 
                 is OpenWindowPacket -> {
-                    if (textPrompt.ownsOpen(packet.windowId())) return
+                    if (textPrompt.ownsOpen(packet.windowId())) {
+                        // The anvil replaces any open container without a close packet.
+                        if (containerOpen) {
+                            containerWindowId = NO_CONTAINER
+                            containerGeneration++
+                            hideTime(realTime().clocks())
+                        }
+                        return
+                    }
                     containerWindowId = packet.windowId()
                     containerGeneration++
                     // The container replaces the client's dialog without any answer.
