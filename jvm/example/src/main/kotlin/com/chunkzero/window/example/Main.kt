@@ -34,7 +34,8 @@ import java.nio.file.Path
  * ```
  *
  * Then connect a Minecraft 26.2 client and the shop opens on spawn. Reopen it with `/shop` or the hotbar emerald, open
- * the workshop with `/upgrades` or the shop's Workshop button, and the full-screen windows with `/lobby` and `/lookout`.
+ * the workshop with `/upgrades` or the shop's Workshop button, and the full-screen windows with `/lobby`, `/lookout`, and
+ * `/store`.
  */
 fun main() {
     val server = MinecraftServer.init()
@@ -50,7 +51,7 @@ fun main() {
     registerShopAccess(market)
     registerToneCommand()
     registerBarCommand()
-    registerFullscreens()
+    registerFullscreens(market)
 
     server.start("0.0.0.0", serverPort)
     println("Window example server listening on $serverPort — pack served at $packUrl.")
@@ -129,14 +130,17 @@ private fun registerShopAccess(market: Market) {
     }
 }
 
-/** `/lobby` opens the full-screen lobby, and `/lookout` the horse-mode lookout; sneak to leave either. */
-private fun registerFullscreens() {
+/** `/lobby` opens the full-screen lobby, `/lookout` the horse-mode lookout, and `/store` the storefront; sneak to leave. */
+private fun registerFullscreens(market: Market) {
     val lobby = Command("lobby")
     lobby.setDefaultExecutor { sender, _ -> (sender as? Player)?.let { MyLobby(it).open() } }
     MinecraftServer.getCommandManager().register(lobby)
     val lookout = Command("lookout")
     lookout.setDefaultExecutor { sender, _ -> (sender as? Player)?.let { MyLookout(it).open() } }
     MinecraftServer.getCommandManager().register(lookout)
+    val store = Command("store")
+    store.setDefaultExecutor { sender, _ -> (sender as? Player)?.let { MyStorefront(it, market).open() } }
+    MinecraftServer.getCommandManager().register(store)
 }
 
 // A fresh view per open: each carries its own reactive state.

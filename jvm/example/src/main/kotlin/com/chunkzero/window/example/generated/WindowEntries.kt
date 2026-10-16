@@ -4462,7 +4462,7 @@ internal object WindowEntries {
                                 ),
                                 SwitchCaseEntry(
                                     value = "maxed",
-                                    static = "\uF153\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
+                                    static = "\uF154\uDB80\uDC05\uDB80\uDC06\uDB80\uDC08\uDB80\uDC0A",
                                     slots = listOf("upgrade_name[0]~3", "upgrade_level[0]~3", "label_2"),
                                     spriteSlots = emptyList(),
                                     regions = listOf("region~0"),
@@ -4475,7 +4475,7 @@ internal object WindowEntries {
                             cases = listOf(
                                 SwitchCaseEntry(
                                     value = "new",
-                                    static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0C\uE9F4\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
+                                    static = "\uDB80\uDC10\uDB80\uDC0F\uDB80\uDC0D\uDB80\uDC0C\uE9F5\uDB80\uDC04\uDB80\uDC05\uDB80\uDC07\uDB80\uDC09\uDB80\uDC0A",
                                     slots = listOf("upgrade_name[1]", "upgrade_level[1]", "label_3", "upgrade_cost[1]"),
                                     spriteSlots = emptyList(),
                                     regions = listOf("upgrade[1]"),
@@ -4539,12 +4539,12 @@ internal object WindowEntries {
                                 name = "upgrade_progress[0]",
                                 x = 3,
                                 width = 46,
-                                levels = listOf("\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB\uECFB", "\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F", "\uE69D\uE69D\uE69D\uE69D\uE69D\uE69D", "\uE43C\uE43C\uE43C", "\uF5B3", "\uEA5C"),
+                                levels = listOf("\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC\uECFC", "\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F\uF82F", "\uE69D\uE69D\uE69D\uE69D\uE69D\uE69D", "\uE43C\uE43C\uE43C", "\uF5B3", "\uEA5C"),
                                 advances = mapOf(
                                     "\uE43C" to 9,
                                     "\uE69D" to 5,
                                     "\uEA5C" to 33,
-                                    "\uECFB" to 2,
+                                    "\uECFC" to 2,
                                     "\uF5B3" to 17,
                                     "\uF82F" to 3,
                                 ),

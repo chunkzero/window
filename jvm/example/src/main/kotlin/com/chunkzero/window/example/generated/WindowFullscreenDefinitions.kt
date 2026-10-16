@@ -7,4 +7,5 @@ import com.chunkzero.window.FullscreenDefinition
 public object WindowFullscreenDefinitions {
     public val lobby: FullscreenDefinition = FullscreenDefinition(WindowPackData.manifest, "lobby")
     public val lookout: FullscreenDefinition = FullscreenDefinition(WindowPackData.manifest, "lookout")
+    public val storefront: FullscreenDefinition = FullscreenDefinition(WindowPackData.manifest, "storefront")
 }

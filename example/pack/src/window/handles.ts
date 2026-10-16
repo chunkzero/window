@@ -88,3 +88,107 @@ export const play = action("play");
 /** How far the lookout's signal has charged. */
 export const signal = fraction("signal");
 export const charge = action("charge");
+
+// Storefront, a full-screen window; `tone` is shared
+/** The product art a card or the detail pane shows; `none` shows nothing. */
+export const STORE_ICONS = [
+    "none",
+    "diamond",
+    "emerald",
+    "gold",
+    "iron",
+    "copper",
+    "redstone",
+    "lapis",
+    "coal",
+    "quartz",
+    "amethyst",
+    "ender_pearl",
+    "blaze_rod",
+    "ghast_tear",
+    "prismarine",
+    "heart",
+    "nether_star",
+    "totem",
+    "trident",
+    "elytra",
+    "rocket",
+    "golden_apple",
+    "experience",
+    "book",
+    "spyglass",
+    "compass",
+    "clock",
+    "name_tag",
+    "saddle",
+    "shell",
+    "echo",
+] as const;
+
+export const storeCategory = selection("store_category", ["all", "gear", "magic", "deals"]);
+export const storePane = selection("store_pane", ["details", "cart"]);
+export const storeSearch = text("store_search");
+export const storeHasSearch = flag("store_has_search");
+export const storeFind = action("store_find");
+export const storeClearSearch = action("store_clear_search");
+export const storeCartCount = text("store_cart_count");
+
+export const STORE_CARDS = 9;
+const storeCards = { shape: [STORE_CARDS] } as const;
+export const cardName = text("card_name", storeCards);
+export const cardPrice = text("card_price", storeCards);
+export const cardIcon = value("card_icon", STORE_ICONS, storeCards);
+export const cardFeatured = flag("card_featured", storeCards);
+export const cardSelected = flag("card_selected", storeCards);
+export const pickCard = action("pick_card", storeCards);
+export const storeResults = text("store_results");
+export const storeSortLabel = text("store_sort_label");
+export const storeSort = action("store_sort");
+/** Which pane the scroll wheel moves. */
+export const catalogFocused = flag("catalog_focused");
+
+/** Segments of a scrollbar track; each is lit while its stretch of the list is in view. */
+export const CATALOG_TRACK = 8;
+export const catalogThumb = flag("catalog_thumb", { shape: [CATALOG_TRACK] });
+export const catalogUp = action("catalog_up");
+export const catalogDown = action("catalog_down");
+
+export const detailIcon = value("detail_icon", STORE_ICONS);
+export const detailName = text("detail_name");
+export const detailTier = tint("detail_tier", {
+    common: "#ffffff",
+    rare: "#55ffff",
+    epic: "#ff77ff",
+    legendary: "#ffb20b",
+});
+export const detailKind = text("detail_kind");
+export const detailPrice = text("detail_price");
+export const detailBlurb = text("detail_blurb");
+export const detailInCart = text("detail_in_cart");
+export const quantity = text("quantity");
+export const canLess = flag("can_less");
+export const canMore = flag("can_more");
+export const less = action("less");
+export const more = action("more");
+export const addToCart = action("add_to_cart");
+export const buyNow = action("buy_now");
+export const canBuyNow = flag("can_buy_now");
+export const buyNowLabel = text("buy_now_label");
+
+export const CART_ROWS = 5;
+const cartRows = { shape: [CART_ROWS] } as const;
+export const cartName = text("cart_name", cartRows);
+export const cartQuantity = text("cart_quantity", cartRows);
+export const cartPrice = text("cart_price", cartRows);
+export const removeLine = action("remove_line", cartRows);
+export const cartThumb = flag("cart_thumb", { shape: [CART_ROWS] });
+export const cartUp = action("cart_up");
+export const cartDown = action("cart_down");
+export const cartEmpty = flag("cart_empty");
+export const cartTotal = text("cart_total");
+export const checkout = action("checkout");
+export const canCheckout = flag("can_checkout");
+export const clearCart = action("clear_cart");
+
+export const storeBalance = text("store_balance");
+export const storeToast = text("store_toast");

@@ -85,3 +85,16 @@ export const icons = {
     clear: texture("window/icons/clear.png"),
     check: texture("window/icons/check.png"),
 };
+
+/** White translucent glass, nine-sliced over its box; a `tint` colors it and the world shows through. */
+export const glass = texture("window/icons/store/glass.png", { insets: 2 });
+
+/** A storefront product's 16x16 art by `STORE_ICONS` id; as a frame, it stretches over its box. */
+export const productIcon = (id: string) => texture(`window/icons/store/products/${id}.png`, { insets: 0 });
+
+export const storeIcons = {
+    arrowUp: texture("window/icons/store/arrow_up.png"),
+    arrowDown: texture("window/icons/store/arrow_down.png"),
+    magnifier: texture("window/icons/store/magnifier.png"),
+    cart: texture("window/icons/store/cart.png"),
+};
