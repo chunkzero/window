@@ -75,7 +75,8 @@ import net.minestom.server.world.clock.WorldClock
  *
  * The HUD is hidden: the hotbar holds blank items, which also hide the hand, and the client's world age is held
  * negative, which the pack's GUI shader reads as "clip the bottom-centre HUD strip". So the hearts fit that strip, the
- * client is told its max health is at most the canvas's `hudMaxHealth` and its absorption is 0. While the server has a
+ * client is told its max health is at most the canvas's `hudMaxHealth` and its absorption is 0. The client is also told
+ * its attack speed is 1024, so the cooldown indicator never draws. While the server has a
  * container open, the client gets the real world age back and its real hotbar so the strip and slots show. The text
  * prompt's dialog is a client screen rather than a server container, so it keeps the HUD hidden and the hotbar blank.
  * The keyboard prompt's anvil is a server container, but not one the player sees: while it is open the client gets the
@@ -97,7 +98,8 @@ import net.minestom.server.world.clock.WorldClock
  * not teleported back. A window opened by a spawn listener is in the spawn's instance and stays open.
  *
  * In horse mode, [MinestomFullscreenHorse] also locks the view. The client then draws no hearts, since its camera is
- * not a player, so their max health and absorption are left alone.
+ * not a player, so their max health and absorption are left alone. The crosshair's cooldown indicator still draws, so
+ * attack speed is hidden in both modes.
  *
  * A prompt's callback runs on the player's thread after the state it reports has changed, never under [lock]: a server
  * container opening over the dialog or replacing the anvil cancels it on the next tick, and a window ending cancels it
@@ -300,6 +302,7 @@ internal class MinestomFullscreen private constructor(
     private fun hideHud() {
         if (!containerOpen) hideTime(realTime().clocks())
         capMaxHealth()
+        hideAttackSpeed()
         if (horse == null) player.sendPacket(EntityMetaDataPacket(player.entityId, mapOf(ABSORPTION to ZERO)))
     }
 
@@ -327,6 +330,10 @@ internal class MinestomFullscreen private constructor(
         val cap = canvas.hudMaxHealth.toDouble()
         if (horse != null || player.getAttribute(Attribute.MAX_HEALTH).value <= cap) return null
         return EntityAttributesPacket.Property(Attribute.MAX_HEALTH, cap, emptyList())
+    }
+
+    private fun hideAttackSpeed() {
+        player.sendPacket(EntityAttributesPacket(player.entityId, listOf(HIDDEN_ATTACK_SPEED)))
     }
 
     private fun listen() {
@@ -417,9 +424,19 @@ internal class MinestomFullscreen private constructor(
                 }
 
                 is EntityAttributesPacket -> {
-                    val capped = cappedMaxHealth() ?: return
-                    val uncapped = packet.properties().any { it.attribute() == Attribute.MAX_HEALTH && it != capped }
-                    if (packet.entityId() == player.entityId && uncapped) capMaxHealth()
+                    if (packet.entityId() != player.entityId) return
+                    val capped = cappedMaxHealth()
+                    if (capped != null &&
+                        packet.properties().any { it.attribute() == Attribute.MAX_HEALTH && it != capped }
+                    ) {
+                        capMaxHealth()
+                    }
+                    if (packet.properties().any {
+                            it.attribute() == Attribute.ATTACK_SPEED && it != HIDDEN_ATTACK_SPEED
+                        }
+                    ) {
+                        hideAttackSpeed()
+                    }
                 }
 
                 is EntityMetaDataPacket -> {
@@ -598,7 +615,10 @@ internal class MinestomFullscreen private constructor(
         player.sendPacket(realTime())
         val maxHealth = player.getAttribute(Attribute.MAX_HEALTH)
         val property = EntityAttributesPacket.Property(Attribute.MAX_HEALTH, maxHealth.baseValue, maxHealth.modifiers())
-        player.sendPacket(EntityAttributesPacket(player.entityId, listOf(property)))
+        val attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED)
+        val attackSpeedProperty =
+            EntityAttributesPacket.Property(Attribute.ATTACK_SPEED, attackSpeed.baseValue, attackSpeed.modifiers())
+        player.sendPacket(EntityAttributesPacket(player.entityId, listOf(property, attackSpeedProperty)))
         player.sendPacket(player.metadataPacket)
         player.sendPacket(UpdateHealthPacket(player.health, player.food, player.foodSaturation))
         player.setHeldItemSlot(heldSlot)
@@ -606,6 +626,7 @@ internal class MinestomFullscreen private constructor(
     }
 
     companion object {
+        private val HIDDEN_ATTACK_SPEED = EntityAttributesPacket.Property(Attribute.ATTACK_SPEED, 1024.0, emptyList())
         private val ACTIVE = Tag.Transient<Boolean>("window:fullscreen")
         private val ABSORPTION = MetadataDef.Player.ADDITIONAL_HEARTS.index()
         private val ZERO = Metadata.Float(0f)

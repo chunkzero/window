@@ -119,10 +119,9 @@ class MinestomFullscreenTest :
             fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
             fixture
                 .sent<EntityAttributesPacket>()
-                .single()
-                .properties()
-                .single()
-                .value() shouldBe 20.0
+                .flatMap { it.properties() }
+                .associate { it.attribute() to it.value() } shouldBe
+                mapOf(Attribute.MAX_HEALTH to 20.0, Attribute.ATTACK_SPEED to 1024.0)
             fixture.sent<ChangeGameStatePacket>().map { it.value() } shouldBe
                 listOf(GameMode.SPECTATOR.ordinal.toFloat(), 0f)
 
@@ -155,8 +154,8 @@ class MinestomFullscreenTest :
                 .sent<EntityAttributesPacket>()
                 .single()
                 .properties()
-                .single()
-                .value() shouldBe 40.0
+                .associate { it.attribute() to it.value() } shouldBe
+                mapOf(Attribute.MAX_HEALTH to 40.0, Attribute.ATTACK_SPEED to 4.0)
         }
 
         "a click is hit-tested at the end of the player's tick, after the rotation the client sent with it" {
@@ -592,6 +591,12 @@ class MinestomFullscreenTest :
                 .sent<EntityAttributesPacket>()
                 .map { it.properties().single().value() } shouldContainExactly listOf(40.0, 20.0)
             fixture.clear()
+            val attackSpeed = EntityAttributesPacket.Property(Attribute.ATTACK_SPEED, 2.0, emptyList())
+            fixture.send(EntityAttributesPacket(player.entityId, listOf(attackSpeed)))
+            fixture
+                .sent<EntityAttributesPacket>()
+                .map { it.properties().single().value() } shouldContainExactly listOf(2.0, 1024.0)
+            fixture.clear()
             val absorption = MetadataDef.Player.ADDITIONAL_HEARTS.index()
             fixture.send(EntityMetaDataPacket(player.entityId, mapOf(absorption to Metadata.Float(4f))))
             fixture
@@ -722,7 +727,10 @@ class MinestomFullscreenTest :
 
             fixture.sent<SpawnEntityPacket>().map { it.type() } shouldContainExactly
                 listOf(EntityType.TEXT_DISPLAY, EntityType.INTERACTION)
-            fixture.sent<EntityAttributesPacket>() shouldBe emptyList()
+            fixture
+                .sent<EntityAttributesPacket>()
+                .flatMap { it.properties() }
+                .map { it.attribute() } shouldContainExactly listOf(Attribute.ATTACK_SPEED)
             fixture.clear()
             fixture.tick()
 
