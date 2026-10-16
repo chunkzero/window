@@ -71,6 +71,7 @@ import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.common.ClearDialogPacket
 import net.minestom.server.network.packet.server.common.PingPacket
 import net.minestom.server.network.packet.server.common.ShowDialogPacket
+import net.minestom.server.network.packet.server.play.AcknowledgeBlockChangePacket
 import net.minestom.server.network.packet.server.play.CameraPacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
@@ -197,10 +198,12 @@ class MinestomFullscreenTest :
 
             fixture.receive(ClientInteractEntityPacket(0, PlayerHand.MAIN, Vec.ZERO, false)).isCancelled shouldBe true
             fixture.receive(ClientInteractEntityPacket(0, PlayerHand.OFF, Vec.ZERO, false))
-            fixture.receive(ClientUseItemPacket(PlayerHand.MAIN, 0, 0f, 0f)).isCancelled shouldBe true
+            fixture.receive(ClientUseItemPacket(PlayerHand.MAIN, 7, 0f, 0f)).isCancelled shouldBe true
             val placement =
-                ClientPlayerBlockPlacementPacket(PlayerHand.MAIN, Vec.ZERO, BlockFace.TOP, 0f, 0f, 0f, false, false, 0)
+                ClientPlayerBlockPlacementPacket(PlayerHand.OFF, Vec.ZERO, BlockFace.TOP, 0f, 0f, 0f, false, false, 8)
             fixture.receive(placement).isCancelled shouldBe true
+            fixture.sent<AcknowledgeBlockChangePacket>().map { it.sequence() } shouldContainExactly listOf(7, 8)
+            fixture.hotbar() shouldBe List(9) { Material.PAPER }
             fixture.receive(ClientPlayerRotationPacket(-44f, -24.375f, 0.toByte()))
             fixture.player.scheduler().processTickEnd()
 

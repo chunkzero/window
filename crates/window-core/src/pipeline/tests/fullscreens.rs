@@ -100,6 +100,7 @@ fn a_dimming_backdrop_needs_an_alpha_the_text_shader_draws() {
     let error = backdrop("#00000019").unwrap_err().to_string();
     assert!(error.contains("below the lowest alpha"), "{error}");
     assert!(backdrop("#0000").is_err());
+    assert!(backdrop("#00000\u{e9}0").is_err());
 }
 
 #[test]

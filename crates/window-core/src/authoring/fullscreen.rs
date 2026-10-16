@@ -52,6 +52,9 @@ impl FullscreenDto {
 fn parse_backdrop(color: &str, owner: &str) -> Result<Backdrop> {
     let invalid =
         || Error::Validation(format!("{owner} has invalid backdrop `{color}`; expected #rrggbb or #rrggbbaa"));
+    if !color.is_ascii() {
+        return Err(invalid());
+    }
     let (rgb, alpha) = match color.len() {
         7 => (color, 0xff),
         9 => (&color[..7], u8::from_str_radix(&color[7..], 16).map_err(|_| invalid())?),

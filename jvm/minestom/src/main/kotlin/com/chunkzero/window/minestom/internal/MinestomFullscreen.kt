@@ -46,6 +46,7 @@ import net.minestom.server.network.packet.client.play.ClientUseItemPacket
 import net.minestom.server.network.packet.server.ServerPacket
 import net.minestom.server.network.packet.server.common.ClearDialogPacket
 import net.minestom.server.network.packet.server.common.ShowDialogPacket
+import net.minestom.server.network.packet.server.play.AcknowledgeBlockChangePacket
 import net.minestom.server.network.packet.server.play.ChangeGameStatePacket
 import net.minestom.server.network.packet.server.play.CloseWindowPacket
 import net.minestom.server.network.packet.server.play.DestroyEntitiesPacket
@@ -384,8 +385,14 @@ internal class MinestomFullscreen private constructor(
             }
 
             // A right click that misses the interaction entity would use the item the server's player really holds.
-            is ClientUseItemPacket, is ClientPlayerBlockPlacementPacket -> {
+            is ClientUseItemPacket -> {
                 event.isCancelled = true
+                rejectUse(packet.sequence())
+            }
+
+            is ClientPlayerBlockPlacementPacket -> {
+                event.isCancelled = true
+                rejectUse(packet.sequence())
             }
 
             is ClientCloseWindowPacket -> {
@@ -401,6 +408,15 @@ internal class MinestomFullscreen private constructor(
                 Unit
             }
         }
+    }
+
+    /**
+     * Undoes what the client predicted for a cancelled use: acknowledging [sequence] restores the blocks it placed, and
+     * the inventory resync restores the off-hand item it spent, while the hotbar stays blank.
+     */
+    private fun rejectUse(sequence: Int) {
+        player.sendPacket(AcknowledgeBlockChangePacket(sequence))
+        player.inventory.update(player)
     }
 
     /** Reports the client selecting [slot] as steps the shortest way around the hotbar from the slot it had. */
