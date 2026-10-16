@@ -842,5 +842,17 @@ internal object WindowFonts {
             "window:small_caps/y88" to fontMetrics0,
             "window:small_caps/y96" to fontMetrics0,
             "window:small_caps/ym1" to fontMetrics0,
+            "window:y113" to vanillaMetrics,
+            "window:y116" to vanillaMetrics,
+            "window:y136" to vanillaMetrics,
+            "window:y144" to vanillaMetrics,
+            "window:y154" to vanillaMetrics,
+            "window:y156" to vanillaMetrics,
+            "window:y162" to vanillaMetrics,
+            "window:y176" to vanillaMetrics,
+            "window:y195" to vanillaMetrics,
+            "window:y207" to vanillaMetrics,
+            "window:y80" to vanillaMetrics,
+            "window:y98" to vanillaMetrics,
         )
 }

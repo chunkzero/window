@@ -7,7 +7,8 @@ through the inventory title and HUD, and generates a typed Kotlin view for each 
 server. If you rename a button in the UI, the server code stops compiling instead of breaking at runtime.
 
 Inventory UIs support real items, scrolling collections, paging, toggles, choices, tooltips, and native anvil text
-input. HUDs are positioned with core shaders and rendered by the server whenever it wants to update them.
+input. HUDs are positioned with core shaders and rendered by the server whenever it wants to update them. Full-screen
+windows are drawn over the whole screen with no screen open, and the player aims a cursor by turning.
 
 > [!WARNING]
 >
@@ -190,6 +191,63 @@ You own the rest:
 - Creating the boss bar or sidebar, showing it to players, and hiding it again.
 - Per-player state and cleanup, such as stopping the resend task when the player leaves.
 - Threading: a `HudView` or `HudStack` is not thread-safe, so render it from one thread at a time.
+
+## Full-screen windows
+
+A full-screen window is authored with [`<Fullscreen>`](docs/AUTHORING.md#full-screen-windows) and generates a typed
+view, such as `LobbyFullscreen`, that extends `FullscreenView`. With the `minestom` target it takes a `Player`; with
+other targets it takes a `FullscreenHost`, which only `window-minestom` implements (`MinestomFullscreenHost`). The
+player aims by turning, clicks with the attack key, and leaves by sneaking. An excerpt of the example's
+[`MyLobby`](jvm/example/src/main/kotlin/com/chunkzero/window/example/MyLobby.kt):
+
+```kotlin
+class MyLobby(player: Player) : LobbyFullscreen(player) {
+    private var name by state("${player.username}'s Foundry")
+    private val worlds = list(cells = 3, key = { it: String -> it }, step = 1) { WORLDS }
+
+    override fun foundryName(): Component = Component.text(name)
+
+    override fun worldName(index: Int): Component = Component.text(worlds.at(index).orEmpty())
+
+    // A click opens a native dialog; the canvas is back once the player confirms or cancels.
+    override fun onRename(click: FullscreenClick) {
+        promptText(Component.text("Name your foundry"), name) { text -> text?.let { name = it } }
+    }
+
+    override fun onScroll(steps: Int) = repeat(abs(steps)) { if (steps > 0) worlds.next() else worlds.previous() }
+
+    // The other generated bindings and handlers are omitted.
+}
+
+MyLobby(player).open()
+```
+
+- Handlers receive a `FullscreenClick` with the cursor's canvas position. `onScroll(steps)` gets the scroll wheel as
+  signed steps, and `onRightClick(click)` gets right clicks anywhere on the canvas.
+- `list(...)` pages a list through a `<Repeater fixed>`'s cells, like `WindowView.list(...)`.
+- `promptText(title, initial) { text -> }` shows a native dialog with a text field and Confirm and Cancel buttons. The
+  callback gets the text, or `null` on Cancel or when the window closes. Escape does not dismiss it.
+- Views are single-use, as with windows, and a player has at most one full-screen window open.
+
+While the window is open, the Minestom host:
+
+- keeps the player in spectator mode on the server and tells only their client it is in survival, so clicks, the scroll
+  wheel, and number keys reach the server. Game mode, ability, hotbar, time, and max health updates the server sends
+  meanwhile still reach the client, followed by packets that hide them again. Closing restores the player's game mode
+  (or the one the server set meanwhile), abilities, position, and held slot.
+- hides the HUD by holding the client's world age negative, which the pack's shaders read. The hidden strip at the
+  bottom of the screen can clip the player's own inventory (E) at small GUI heights, since the server is not told it
+  opened.
+- closes the window when the player dies or spawns into another instance. Opening one while the player is dead or
+  respawning throws, so a respawn listener should open it on the next tick.
+
+Limitations:
+
+- First person only: third person (F5) mirrors the camera, so the drawn cursor and the server's hit-test disagree.
+- Shader packs that replace world rendering, such as Iris, are not supported.
+- The client sends at most one held-slot change per tick, so `onScroll` gets one update per tick of at most 4 steps
+  either way, more than 4 notches in one tick read as a scroll the other way, and number keys look like scrolling.
+- Chat and other GUI overlays draw over the canvas, and there are no real items.
 
 ## Supported versions
 

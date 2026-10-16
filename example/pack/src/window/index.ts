@@ -5,6 +5,8 @@ import { art } from "plugin:window/theme/industrial";
 import { ranks } from "./art.ts";
 import clock, { runtime } from "./clock_hud.ts";
 import * as handles from "./handles.ts";
+import lobby from "./lobby.tsx";
+import lookout from "./lookout.tsx";
 import search from "./search.tsx";
 import shop from "./shop.tsx";
 import statusHuds, { bottomCenter, coins, hint, power, rate, topLeft, waveBar, waveCharge } from "./status_hud.tsx";
@@ -33,6 +35,7 @@ export default defineWindows({
     sprites: { searchField: art.inputField, ...ranks },
     windows: [shop, search, upgrades],
     huds: statusHuds,
+    fullscreens: [lobby, lookout],
     // `rpp build` writes these to build/previews/, one PNG per preview.
     previews: [
         preview(shop, [
@@ -76,5 +79,11 @@ export default defineWindows({
             { name: "status_bottom_center_danger", scale: 3 },
         ),
         preview(waveBar, [[waveCharge, 0.6]], { scale: 3 }),
+        preview(lobby, [
+            [handles.foundryName, "Steve's Foundry"],
+            [handles.lobbyStatus, "Ready for Emberly"],
+            [handles.worldName, ["Ironvale", "Emberly", "Ashmoor"]],
+            [handles.ready, true],
+        ]),
     ],
 });

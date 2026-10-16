@@ -564,10 +564,11 @@ const raised = (fill: Token<Color>) =>
 
 ### Roots
 
-| root                                                 | `raw` equivalent | notes                                                            |
-| ---------------------------------------------------- | ---------------- | ---------------------------------------------------------------- |
-| `<Window name container frame? bleed? text?>`        | `ui(...)`        | `frame` is drawn first over the GUI grown by `bleed`             |
-| `<Hud name channel? width? height? anchor? offset?>` | `hud(...)`       | children lay out as a column; without a size it fits its content |
+| root                                                 | `raw` equivalent  | notes                                                            |
+| ---------------------------------------------------- | ----------------- | ---------------------------------------------------------------- |
+| `<Window name container frame? bleed? text?>`        | `ui(...)`         | `frame` is drawn first over the GUI grown by `bleed`             |
+| `<Hud name channel? width? height? anchor? offset?>` | `hud(...)`        | children lay out as a column; without a size it fits its content |
+| `<Fullscreen name mode? backdrop?>`                  | `fullscreen(...)` | see [Full-screen windows](#full-screen-windows)                  |
 
 `text={{ ... }}` on a window, HUD, section, box, or switch sets default text style (`color`, `shadow`, `bold`, `italic`,
 `underlined`, `strikethrough`, `obfuscated`, `font`, `smallCaps`, `align`) for the text inside it; the nearest setting
@@ -612,8 +613,25 @@ which the client still draws once the shader has moved them.
 
 ### Full-screen windows
 
-`<Fullscreen name mode? backdrop?>` lays its children out on a 480x270 canvas drawn over the whole screen with no screen
-open; the player aims a cursor by turning. It takes the same elements as a window, except those that need a container:
+`<Fullscreen name mode? backdrop?>` (`raw.fullscreen(...)`) lays its children out on a 480x270 canvas drawn over the
+whole screen with no screen open; the player aims a cursor by turning. List it in `defineWindows({ fullscreens })`. The
+canvas is letterboxed or pillarboxed to the screen and does not move with FOV. Its children lay out as a column in a
+root box that takes box props such as `align`, `justify`, `text`, and `theme`. A pack with a full-screen window emits
+the core shaders that draw it, with no `coreShaders` option, and needs pack format 85 through 88.
+
+```tsx
+<Fullscreen name="lobby" backdrop="#140b08" align="center" justify="center">
+  <Button onClick={action("play")} width={60} height={18} tooltip="Joins the round">
+    Play
+  </Button>
+</Fullscreen>
+```
+
+- `mode`: `"unlocked"`, the default, keeps the camera on the player, so the world turns behind the canvas as they aim.
+  `"horse"` locks the view in place and draws the cursor about a tick behind the mouse.
+- `backdrop`: a hex color filling the screen behind the canvas, letterbox included. Omit it to show the world.
+
+It takes the same elements as a window, except those that need a container:
 
 - **Supported**: art, static and bound text, switches and conditions, tints, bars, regions and the industrial controls
   built on them (with hover outlines), `toggle` and `selection` state, and indexed handles. A `<Repeater>`'s cells are
@@ -629,6 +647,10 @@ open; the player aims a cursor by turning. It takes the same elements as a windo
   region's `itemModel`, and text `shadow` are also rejected.
 - `span` and `at` count grid tracks, which are slots only in a section. A `<Repeater fixed>` sizes its `cell`s at 18px
   per slot; give other industrial controls a size or a grid to fill on a full-screen window.
+- Text costs a [text-row font](#what-things-cost) per distinct row, as in windows, and full-screen rows rarely line up
+  with container rows. Each tooltip line counts as a row.
+
+The server side is in the README's [Full-screen windows](../README.md#full-screen-windows).
 
 ## Industrial
 

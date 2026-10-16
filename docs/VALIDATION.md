@@ -60,6 +60,10 @@ sprites, container/hotbar item sync, cards that render a real item in one of the
 routes clicks to the card's region, left/right/shift/hotbar clicks, reactive title invalidation, anvil input, HUD
 diagnostics, GUI scale 2, and clean disconnect.
 
+It does not cover full-screen windows. Their compiler output, cursor mapping, session, and host behavior are covered by
+the deterministic checks and the `fullscreen` golden case; check how they draw and take input in a real client with the
+example's `/lobby` and `/lookout`, in first person, at a few window sizes and GUI scales.
+
 The `just mc-validation` recipe defaults to the sibling `../mc-validation` checkout and passes its absolute path to both
 Gradle builds. Override it with:
 
