@@ -71,3 +71,20 @@ export const amount = selection("amount", ["one", "five", "max"]);
 export const rank = sprite("rank", { only: ["rank_1", "rank_2", "rank_3"] });
 export const rankName = text("rank_name");
 export const openShop = action("open_shop");
+
+// Lobby and lookout, the full-screen windows; `tone` is shared
+export const WORLDS = 3;
+const worlds = { shape: [WORLDS] } as const;
+export const worldName = text("world_name", worlds);
+export const pickWorld = action("pick_world", worlds);
+export const previousWorld = action("previous_world");
+export const nextWorld = action("next_world");
+export const foundryName = text("foundry_name");
+export const rename = action("rename");
+export const lobbyStatus = text("lobby_status");
+export const ready = flag("ready");
+export const play = action("play");
+
+/** How far the lookout's signal has charged. */
+export const signal = fraction("signal");
+export const charge = action("charge");

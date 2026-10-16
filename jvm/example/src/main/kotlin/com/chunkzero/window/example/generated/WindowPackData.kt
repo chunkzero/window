@@ -17,5 +17,7 @@ internal object WindowPackData {
             sprites = WindowSprites.all,
             windows = WindowEntries.all,
             huds = WindowHudEntries.all,
+            fullscreens = WindowFullscreenEntries.all,
+            fullscreenCanvas = WindowFullscreenEntries.canvas,
         )
 }
