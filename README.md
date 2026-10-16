@@ -264,10 +264,9 @@ Limitations:
   either way, more than 4 notches in one tick read as a scroll the other way, and number keys look like scrolling.
 - Chat and other GUI overlays draw over the canvas, and there are no real items.
 - The keyboard prompt is experimental. The server never sees the caret, so draw it at the end of the text. The anvil
-  holds 50 characters, so longer text continues in a fresh field: text in earlier fields can no longer be edited, and
-  keys typed just as the fresh field opens can be lost. While it is open, GUI text and fills in the anvil's rename field
-  and label bands, such as chat lines crossing them, are hidden, and the system mouse pointer shows. Each edit takes a
-  round trip to reach `onEdit`. Without the pack's shaders, the player sees a plain vanilla anvil.
+  holds at most 50 characters. While it is open, GUI text and fills in the anvil's rename field and label bands, such as
+  chat lines crossing them, are hidden, and the system mouse pointer shows. Each edit takes a round trip to reach
+  `onEdit`. Without the pack's shaders, the player sees a plain vanilla anvil.
 
 ## Supported versions
 

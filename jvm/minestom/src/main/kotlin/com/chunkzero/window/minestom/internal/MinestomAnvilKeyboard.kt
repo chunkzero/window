@@ -130,7 +130,11 @@ internal class MinestomAnvilKeyboard(
             }
 
             is ClientClickWindowPacket -> {
-                if (packet.windowId() != window) return
+                // Minestom routes any nonzero window id to the open inventory, so a stale id would act on the anvil.
+                if (packet.windowId() != window) {
+                    if (packet.windowId() != 0) event.isCancelled = true
+                    return
+                }
                 event.isCancelled = true
                 finish(current, closing = true)
             }

@@ -19,6 +19,7 @@ import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.nbt.CompoundBinaryTag
 import net.kyori.adventure.text.Component
@@ -386,6 +387,19 @@ class MinestomFullscreenTest :
             fixture.player.openInventory shouldBe null
             fixture.sent<CloseWindowPacket>().single().windowId() shouldBe window
             fixture.sent<SetTimePacket>().single().gameTime() shouldBe HIDDEN_AGE
+        }
+
+        "a click carrying a stale window id is cancelled and leaves the prompt open" {
+            val fixture = FullscreenFixture()
+            val menu = Menu(fixture.player)
+            menu.open()
+            menu.type("hi")
+            val window = fixture.window()
+
+            fixture.clickWindow(window + 1, 3).isCancelled shouldBe true
+
+            menu.prompts shouldBe emptyList()
+            fixture.player.openInventory shouldNotBe null
         }
 
         "a prompt replacing one of the other kind takes it off the client first; a keyboard keeps its anvil" {
